@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SillyTavern GPT-SoVITS 管理面板</title>
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+
+<body>
+    <div class="container">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h1>🎙️ TTS 管理</h1>
+                <p class="version">v1.0.0</p>
+            </div>
+
+            <nav class="nav">
+                <a href="#dashboard" class="nav-item active" data-page="dashboard">
+                    <span class="icon">📊</span>
+                    <span>仪表盘</span>
+                    <span class="update-badge" id="nav-update-badge" style="display: none;"></span>
+                </a>
+                <a href="#models" class="nav-item" data-page="models">
+                    <span class="icon">🤖</span>
+                    <span>模型管理</span>
+                </a>
+                <a href="#audios" class="nav-item" data-page="audios">
+                    <span class="icon">🎵</span>
+                    <span>音频管理</span>
+                </a>
+                <a href="#settings" class="nav-item" data-page="settings">
+                    <span class="icon">⚙️</span>
+                    <span>系统配置</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <!-- 仪表盘页面 -->
+            <section id="dashboard" class="page active">
+                <header class="page-header">
+                    <h2>系统仪表盘</h2>
+                    <button class="btn btn-primary" onclick="refreshStatus()">🔄 刷新状态</button>
+                </header>
+
+                <div class="cards-grid">
+                    <!-- GPT-SoVITS 服务 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>🎙️ GPT-SoVITS 服务</h3>
+                            <span class="status-badge" id="sovits-status">检测中...</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="info-item">
+                                <span class="label">地址:</span>
+                                <span class="value" id="sovits-url">http://127.0.0.1:9880</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">状态:</span>
+                                <span class="value" id="sovits-state">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 后端服务 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>⚡ 后端服务</h3>
+                            <span class="status-badge status-success">运行中</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="info-item">
+                                <span class="label">端口:</span>
+                                <span class="value">3000</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">API:</span>
+                                <span class="value">/api/admin</span>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <!-- 版本更新卡片 -->
+                    <div class="card" id="version-card">
+                        <div class="card-header">
+                            <h3>
+                                🔄 版本更新
+                                <span class="update-badge" id="update-badge" style="display: none;"></span>
+                            </h3>
+                            <span class="status-badge" id="version-status">检测中...</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="info-item">
+                                <span class="label">当前版本:</span>
+                                <span class="value" id="current-version">-</span>
+                            </div>
+                            <div class="info-item" id="latest-version-info" style="display: none;">
+                                <span class="label">最新版本:</span>
+                                <span class="value" id="latest-version">-</span>
+                            </div>
+                            <div id="git-repo-notice"
+                                style="display: none; margin-top: 0.5rem; color: #f59e0b; font-size: 0.875rem;">
+                                ⚠️ 检测到 Git 仓库,请使用 git pull 更新
+                            </div>
+                            <div id="update-actions" style="display: none; margin-top: 1rem;">
+                                <button class="btn btn-primary" onclick="performUpdate()" id="update-btn">⬇️
+                                    立即更新</button>
+                            </div>
+                            <div id="update-progress" style="display: none; margin-top: 1rem;">
+                                <div class="progress-bar">
+                                    <div id="version-progress-bar" class="progress-fill"></div>
+                                </div>
+                                <div class="progress-text">
+                                    <span id="version-progress-text">更新中...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- 模型管理页面 -->
+            <section id="models" class="page">
+                <header class="page-header">
+                    <h2>模型管理</h2>
+                    <button class="btn btn-primary" onclick="showCreateModelDialog()">➕ 创建新模型</button>
+                </header>
+
+                <div class="models-container" id="models-list">
+                    <p class="loading">加载中...</p>
+                </div>
+            </section>
+
+            <!-- 音频管理页面 -->
+            <section id="audios" class="page">
+                <header class="page-header">
+                    <h2>参考音频管理</h2>
+                    <div class="controls">
+                        <select id="audio-model-select" class="select" onchange="loadAudios()">
+                            <option value="">选择模型...</option>
+                        </select>
+                        <button class="btn btn-secondary" onclick="showBatchEmotionDialogFromAudios()"
+                            id="batch-emotion-btn" disabled>🏷️ 批量修改情感</button>
+                        <button class="btn btn-primary" onclick="showUploadDialog()" id="upload-btn" disabled>⬆️
+                            上传音频</button>
+                    </div>
+                </header>
+
+                <div class="audios-container" id="audios-list">
+                    <p class="placeholder">请先选择一个模型</p>
+                </div>
+            </section>
+
+            <!-- 系统配置页面 -->
+            <section id="settings" class="page">
+                <header class="page-header">
+                    <h2>系统配置</h2>
+                    <button class="btn btn-success" onclick="saveSettings()">💾 保存配置</button>
+                </header>
+
+                <div class="settings-form">
+                    <div class="form-group">
+                        <label>模型目录路径</label>
+                        <input type="text" id="setting-base-dir" class="input" placeholder="例: G:\Models\MyCharacters">
+                        <small>存放 GPT-SoVITS 模型的根目录</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>缓存目录路径</label>
+                        <input type="text" id="setting-cache-dir" class="input" placeholder="例: G:\Cache">
+                        <small>存放生成音频缓存的目录</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>GPT-SoVITS API 地址</label>
+                        <input type="text" id="setting-sovits-host" class="input" value="http://127.0.0.1:9880">
+                        <small>GPT-SoVITS 推理服务的 API 地址</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>默认语言</label>
+                        <select id="setting-default-lang" class="select">
+                            <option value="Chinese">中文</option>
+                            <option value="Japanese">日语</option>
+                            <option value="English">英语</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+
+        </main>
+    </div>
+
+    <!-- 创建模型对话框 -->
+    <div id="create-model-dialog" class="dialog-overlay" style="display: none;">
+        <div class="dialog">
+            <div class="dialog-header">
+                <h3>创建新模型</h3>
+                <button class="close-btn" onclick="closeDialog('create-model-dialog')">✕</button>
+            </div>
+            <div class="dialog-body">
+                <div class="form-group">
+                    <label>模型名称</label>
+                    <input type="text" id="new-model-name" class="input" placeholder="例: 阿米娅">
+                    <small>将自动创建标准目录结构</small>
+                </div>
+
+                <div class="form-group">
+                    <label>GPT 模型文件 (可选)</label>
+                    <input type="file" id="gpt-model-file" class="input" accept=".ckpt"
+                        onchange="previewModelFile('gpt')">
+                    <small>选择 .ckpt 文件,将自动复制到模型文件夹</small>
+                    <div id="gpt-file-preview" class="file-preview" style="display: none;">
+                        <span class="file-info"></span>
+                        <button type="button" class="btn-clear" onclick="clearModelFile('gpt')">✕</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>SoVITS 模型文件 (可选)</label>
+                    <input type="file" id="sovits-model-file" class="input" accept=".pth"
+                        onchange="previewModelFile('sovits')">
+                    <small>选择 .pth 文件,将自动复制到模型文件夹</small>
+                    <div id="sovits-file-preview" class="file-preview" style="display: none;">
+                        <span class="file-info"></span>
+                        <button type="button" class="btn-clear" onclick="clearModelFile('sovits')">✕</button>
+                    </div>
+                </div>
+
+                <!-- 上传进度条 -->
+                <div id="upload-progress-container" class="progress-container" style="display: none;">
+                    <div class="progress-bar">
+                        <div id="upload-progress-bar" class="progress-fill"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span id="upload-progress-text">上传中...</span>
+                        <span id="upload-progress-percent">0%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="dialog-footer">
+                <button class="btn btn-secondary" onclick="closeDialog('create-model-dialog')">取消</button>
+                <button class="btn btn-primary" id="create-model-btn" onclick="createModel()">创建</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 上传音频对话框 -->
+    <div id="upload-dialog" class="dialog-overlay" style="display: none;">
+        <div class="dialog">
+            <div class="dialog-header">
+                <h3>上传参考音频</h3>
+                <button class="close-btn" onclick="closeDialog('upload-dialog')">✕</button>
+            </div>
+            <div class="dialog-body">
+                <div class="form-group">
+                    <label>语言</label>
+                    <select id="upload-language" class="select">
+                        <option value="Chinese">中文</option>
+                        <option value="Japanese">日语</option>
+                        <option value="English">英语</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>情感标签</label>
+                    <input type="text" id="upload-emotion" class="input" placeholder="例: happy, sad, angry"
+                        value="default">
+                </div>
+                <div class="form-group">
+                    <label>音频文件</label>
+                    <input type="file" id="upload-file" class="input" accept=".wav,.mp3,.ogg,.flac">
+                </div>
+            </div>
+            <div class="dialog-footer">
+                <button class="btn btn-secondary" onclick="closeDialog('upload-dialog')">取消</button>
+                <button class="btn btn-primary" onclick="uploadAudio()">上传</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 重命名音频对话框 -->
+    <div id="rename-audio-dialog" class="dialog-overlay" style="display: none;">
+        <div class="dialog">
+            <div class="dialog-header">
+                <h3>重命名音频</h3>
+                <button class="close-btn" onclick="closeDialog('rename-audio-dialog')">✕</button>
+            </div>
+            <div class="dialog-body">
+                <div class="form-group">
+                    <label>新文件名</label>
+                    <input type="text" id="rename-new-filename" class="input" placeholder="例: happy_你好.wav">
+                    <small>可以包含正常标点符号,文件名即为音频字幕内容</small>
+                </div>
+            </div>
+            <div class="dialog-footer">
+                <button class="btn btn-secondary" onclick="closeDialog('rename-audio-dialog')">取消</button>
+                <button class="btn btn-primary" onclick="confirmRename()">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量修改情感对话框 -->
+    <div id="batch-emotion-dialog" class="dialog-overlay" style="display: none;">
+        <div class="dialog">
+            <div class="dialog-header">
+                <h3>批量修改情感前缀</h3>
+                <button class="close-btn" onclick="closeDialog('batch-emotion-dialog')">✕</button>
+            </div>
+            <div class="dialog-body">
+                <div class="form-group">
+                    <label>旧情感标签</label>
+                    <input type="text" id="batch-old-emotion" class="input" placeholder="例: happy">
+                    <small>将匹配所有以 "旧情感_" 开头的文件</small>
+                </div>
+                <div class="form-group">
+                    <label>新情感标签</label>
+                    <input type="text" id="batch-new-emotion" class="input" placeholder="例: joyful">
+                    <small>将替换为 "新情感_" 前缀</small>
+                </div>
+            </div>
+            <div class="dialog-footer">
+                <button class="btn btn-secondary" onclick="closeDialog('batch-emotion-dialog')">取消</button>
+                <button class="btn btn-primary" onclick="confirmBatchEmotion()">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/admin.js"></script>
+</body>
+
+</html>

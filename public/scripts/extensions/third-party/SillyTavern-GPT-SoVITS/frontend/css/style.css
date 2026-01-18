@@ -1,0 +1,1249 @@
+/* ==========================================================================
+   PART 1: 皮肤配置区 (Theme Configuration)
+   说明：仅在此处修改颜色/尺寸，下方逻辑会自动应用。
+   ========================================================================== */
+
+/* --- 1. 默认风格 (Default / Modern) --- */
+:root,
+body:not([data-bubble-style]),
+body[data-bubble-style="default"] {
+    /* 📏 尺寸构造 */
+    --bubble-height: 24px;
+    --bubble-radius: 12px;
+    --bubble-padding: 0 10px;
+    --bubble-margin: 0 0 0 4px;
+    --bubble-gap: 6px;
+    --bubble-font-size: 12px;
+    --bubble-font-weight: normal;
+    --bubble-font-family: inherit;
+    --bubble-backdrop: blur(2px);
+
+    /* 基础阴影 */
+    --bubble-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+
+    /* 🎨 状态: Waiting (静止) */
+    --s-wait-bg: #e0e0e0;
+    --s-wait-color: #616161;
+    --s-wait-border: 1px solid #bdbdbd;
+
+    /* 🎨 状态: Loading (加载) */
+    --s-load-bg: #fff8e1;
+    --s-load-color: inherit;
+    --s-load-border: 1px solid #ffe0b2;
+
+    /* 🎨 状态: Ready (就绪) */
+    --s-ready-bg: #dcedc8;
+    --s-ready-color: #33691e;
+    --s-ready-border: 1px solid #aed581;
+    --s-ready-shadow: none;
+    /* 默认无特殊阴影 */
+
+    /* 🎨 状态: Playing (播放) */
+    /* 修改：背景由极淡绿加深为清新的浅绿，边框同步加深，增强对比度 */
+    --s-play-bg: linear-gradient(180deg, #dcedc8 0%, #c5e1a5 100%);
+    --s-play-color: #1b5e20;
+    --s-play-border: 1px solid #7cb342;
+    --s-play-shadow: 0 2px 8px rgba(51, 105, 30, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    --s-play-font-weight: 600;
+    --s-play-scale: scale(1.01);
+    /* 严格还原：原代码是 1.01 */
+
+    /* 🌊 律动条颜色 */
+    --wave-bar-color: #333;
+    --wave-bar-playing: #1b5e20;
+}
+
+/* --- 2. 经典怀旧 (Classic) --- */
+body[data-bubble-style="classic"] {
+    --bubble-height: 22px;
+    --bubble-radius: 4px;
+    /* 方角 */
+    --bubble-padding: 0 6px;
+    --bubble-margin: 0 2px;
+    --bubble-backdrop: none;
+    --bubble-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+
+    /* Waiting */
+    --s-wait-bg: #c6e2b8;
+    --s-wait-color: #333;
+    /* 原代码未指定，继承body，这里给个深色防看不见 */
+    --s-wait-border: 1px solid transparent;
+
+    /* Ready & Playing (严格还原：原代码Classic没有定义播放变色，所以强制等于Waiting颜色) */
+    --s-ready-bg: #c6e2b8;
+    --s-ready-border: 1px solid transparent;
+
+    --s-play-bg: #c6e2b8;
+    --s-play-color: #333;
+    --s-play-border: 1px solid transparent;
+    --s-play-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.3);
+    /* 保持微立体感 */
+    --s-play-scale: none;
+    /* 经典款不放大 */
+
+    /* 律动条 */
+    --wave-bar-color: #333;
+    --wave-bar-playing: #333;
+    /* 经典款律动条不变色 */
+}
+
+/* --- 3. 轻氧·微珠宝 (Kawaii) --- */
+body[data-bubble-style="kawaii"] {
+    --bubble-height: 22px;
+    --bubble-radius: 11px;
+    --bubble-padding: 0 8px;
+    --bubble-margin: 0 2px;
+    --bubble-font-family: "Segoe UI", sans-serif;
+    --bubble-backdrop: blur(4px);
+
+    /* Waiting: 月光银 */
+    --s-wait-bg: linear-gradient(180deg, #fbfbfb 0%, #e8eaed 100%);
+    --s-wait-color: #8890a0;
+    --s-wait-border: 1px solid #e0e4e8;
+
+    /* Loading: 流沙金 */
+    --s-load-bg: #fffdf0;
+    --s-load-color: #fbc02d;
+    --s-load-border: 1px solid #ffe082;
+
+    /* Ready: 薄荷青 */
+    --s-ready-bg: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%);
+    --s-ready-color: #006064;
+    --s-ready-border: 1px solid #80deea;
+    /* 严格还原：原代码 Ready 状态有特殊青色阴影 */
+    --s-ready-shadow: 0 1px 3px rgba(0, 150, 136, 0.15);
+
+    /* Playing: 幻彩紫 */
+    --s-play-bg: linear-gradient(90deg, #b39ddb 0%, #f48fb1 100%);
+    --s-play-color: #fff;
+    --s-play-border: 1px solid rgba(255, 255, 255, 0.4);
+    --s-play-shadow: 0 2px 6px rgba(179, 157, 219, 0.4);
+    --s-play-scale: none;
+    /* 原代码 Kawaii 没有 scale 放大 */
+
+    --wave-bar-playing: rgba(255, 255, 255, 0.95);
+}
+
+/* --- 4. 花信·初绽 (Bloom) --- */
+body[data-bubble-style="bloom"] {
+    --bubble-height: 24px;
+    --bubble-radius: 12px;
+    --bubble-font-family: "Nunito", sans-serif;
+    --bubble-shadow: 0 1px 2px rgba(255, 182, 193, 0.15);
+
+    /* Waiting: 仙气半透 */
+    --s-wait-bg: rgba(255, 255, 255, 0.6);
+    --s-wait-color: #886a77;
+    --s-wait-border: 1px solid rgba(255, 228, 235, 0.8);
+
+    /* Ready: 甜桃粉 */
+    --s-ready-bg: #ffebee;
+    --s-ready-color: #d81b60;
+    --s-ready-border: 1px solid #f48fb1;
+    --s-ready-shadow: 0 2px 5px rgba(233, 30, 99, 0.1);
+
+    /* Playing: 渐变樱花 */
+    /* 严格还原：原代码包含 99% 的节点 */
+    --s-play-bg: linear-gradient(120deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%);
+    --s-play-color: #fff;
+    --s-play-border: 1px solid rgba(255, 255, 255, 0.4);
+    --s-play-shadow: 0 4px 10px rgba(255, 154, 158, 0.35);
+    --s-play-scale: none;
+
+    --wave-bar-playing: rgba(255, 255, 255, 0.9);
+}
+
+/* --- 5. 黑曜石 · 极夜 (Obsidian) --- */
+body[data-bubble-style="obsidian"] {
+    --bubble-height: 24px;
+    --bubble-radius: 6px;
+    /* 较小的圆角，显得干练硬朗 */
+    --bubble-padding: 0 10px;
+    --bubble-margin: 0 3px;
+    --bubble-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --bubble-backdrop: blur(10px) saturate(180%);
+    /* 强磨砂玻璃感 */
+
+    /* Waiting: 磨砂深灰 */
+    --s-wait-bg: rgba(30, 30, 35, 0.7);
+    --s-wait-color: #a0a0a0;
+    --s-wait-border: 1px solid rgba(255, 255, 255, 0.08);
+    --s-wait-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+
+    /* Loading: 铂金流光 */
+    --s-load-bg: #2b2b2b;
+    --s-load-color: #e0e0e0;
+    --s-load-border: 1px solid #555;
+
+    /* Ready: 祖母绿 (深邃暗调) */
+    --s-ready-bg: linear-gradient(145deg, #0f2e20 0%, #051b11 100%);
+    --s-ready-color: #4ade80;
+    /* 荧光绿文字，形成反差 */
+    --s-ready-border: 1px solid #166534;
+    --s-ready-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+
+    /* Playing: 极夜黑金 */
+    /* 核心：使用很深的渐变 + 顶部高光(inset shadow)模拟宝石切面 */
+    --s-play-bg: linear-gradient(180deg, #3a3a3a 0%, #111111 100%);
+    --s-play-color: #fff;
+    --s-play-border: 1px solid rgba(255, 255, 255, 0.15);
+    --s-play-shadow:
+        0 4px 12px rgba(0, 0, 0, 0.5),
+        /* 外部投影 */
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    /* 顶部高光棱镜效果 */
+    --s-play-scale: scale(1.02);
+    --s-play-font-weight: 500;
+
+    /* 律动条：纯银色 */
+    --wave-bar-color: #666;
+    --wave-bar-playing: #e0e0e0;
+}
+
+/* --- 6. 赛博朋克 · 霓虹 (Cyberpunk) --- */
+
+body[data-bubble-style="cyberpunk"] {
+    --bubble-height: 24px;
+    --bubble-radius: 2px;
+    /* 极简切角，几乎为直角 */
+    --bubble-padding: 0 12px;
+    --bubble-margin: 0 4px;
+    --bubble-font-family: "Courier New", "Consolas", monospace;
+    /* 等宽代码字体 */
+    --bubble-backdrop: blur(4px);
+
+    /* Waiting: 矩阵灰 */
+    --s-wait-bg: rgba(10, 10, 16, 0.85);
+    --s-wait-color: #555;
+    --s-wait-border: 1px solid #333;
+    --s-wait-shadow: none;
+
+    /* Loading: 警告黄 (故障风) */
+    --s-load-bg: #1a1a00;
+    --s-load-color: #ffeb3b;
+    --s-load-border: 1px solid #ffeb3b;
+
+    /* Ready: 信号青 */
+    --s-ready-bg: #001a1a;
+    --s-ready-color: #00ffff;
+    --s-ready-border: 1px solid #00aaaa;
+    --s-ready-shadow: 0 0 5px rgba(0, 255, 255, 0.2);
+
+    /* Playing: 霓虹幻夜 (蓝紫渐变 + 强烈辉光) */
+    --s-play-bg: linear-gradient(90deg, #240b36 0%, #c31432 100%);
+    /* 经典的 Midnight City 配色 */
+    /* 或者用更纯粹的黑色底 + 霓虹边框，这里选择渐变以体现"贵气" */
+    --s-play-bg: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    --s-play-color: #00ffff;
+    /* 赛博青文字 */
+    --s-play-border: 1px solid rgba(0, 255, 255, 0.5);
+    /* 青色边框 */
+
+    /* 核心：双重发光 (Box Shadow Glow) */
+    --s-play-shadow:
+        0 0 10px rgba(0, 255, 255, 0.3),
+        /* 青色光晕 */
+        inset 0 0 20px rgba(123, 31, 162, 0.2);
+    /* 内部紫色氛围 */
+
+    --s-play-scale: scale(1.03);
+    --s-play-font-weight: 700;
+
+    /* 律动条：电光青 */
+    --wave-bar-color: #333;
+    --wave-bar-playing: #00ffff;
+}
+
+/* --- 7. 水墨 · 烟雨 (Ink & Mist) --- */
+/* 设计理念：仙侠飘渺、古风写意。
+   使用楷体/宋体，模拟宣纸的透气感与墨汁晕染的层级。
+   配色灵感：青花、水墨、丹砂。
+*/
+body[data-bubble-style="ink"] {
+    --bubble-height: 26px;
+    /* 略高，留出呼吸感 */
+    --bubble-radius: 14px;
+    /* 柔和圆润 */
+    --bubble-padding: 0 12px;
+    --bubble-margin: 0 4px;
+    /* 核心：优先使用楷体或宋体，营造古韵 */
+    --bubble-font-family: "Kaiti", "STKaiti", "KaiTi", "SimKai", "Songti SC", "Noto Serif SC", serif;
+    --bubble-backdrop: blur(6px);
+    /* 烟雨朦胧感 */
+
+    /* Waiting: 宣纸白 */
+    --s-wait-bg: rgba(245, 245, 245, 0.85);
+    --s-wait-color: #595959;
+    /* 淡墨色 */
+    --s-wait-border: 1px solid rgba(0, 0, 0, 0.1);
+    --s-wait-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+
+    /* Loading: 丹砂红 (点睛之笔) */
+    --s-load-bg: #fffbfb;
+    --s-load-color: #c0392b;
+    /* 朱砂色 */
+    --s-load-border: 1px solid #e6b0aa;
+
+    /* Ready: 天青色 (雨过天青云破处) */
+    --s-ready-bg: rgba(224, 247, 250, 0.9);
+    --s-ready-color: #455a64;
+    --s-ready-border: 1px solid #b2ebf2;
+    --s-ready-shadow: 0 2px 6px rgba(69, 90, 100, 0.1);
+
+    /* Playing: 墨韵流淌 */
+    /* 渐变模拟墨汁在水中化开的深浅变化 */
+    --s-play-bg: linear-gradient(110deg, #2c3e50 0%, #4ca1af 100%);
+    /* 或者纯正水墨风：linear-gradient(180deg, #000000 0%, #434343 100%); */
+
+    --s-play-color: #fff;
+    --s-play-border: 1px solid rgba(255, 255, 255, 0.2);
+    /* 阴影带有青色辉光，体现"仙气" */
+    --s-play-shadow: 0 4px 15px rgba(76, 161, 175, 0.35);
+
+    --s-play-scale: scale(1.02);
+    --s-play-font-weight: 600;
+
+    /* 律动条：如烟似雾的白色 */
+    --wave-bar-color: #999;
+    --wave-bar-playing: rgba(255, 255, 255, 0.9);
+}
+
+/* --- 8. 羊皮卷 · 史诗 (Royal Scroll) --- */
+/* 适用场景：西幻、D&D、中世纪贵族、魔法学院
+   设计理念：泛黄的羊皮纸纹理，衬托深褐色的古文，边缘使用双线框模拟地图边界。
+*/
+body[data-bubble-style="scroll"] {
+    --bubble-height: 24px;
+    --bubble-radius: 4px;
+    /* 略带圆角的方框 */
+    --bubble-padding: 0 10px;
+    --bubble-margin: 0 4px;
+    /* 衬线体，带来历史厚重感 */
+    --bubble-font-family: "Georgia", "Times New Roman", "Songti SC", serif;
+    --bubble-backdrop: none;
+
+    /* Waiting: 未展开的卷轴色 */
+    --s-wait-bg: #eaddcf;
+    --s-wait-color: #5d4037;
+    --s-wait-border: 1px solid #d7ccc8;
+    --s-wait-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+
+    /* Loading: 烛火黄 */
+    --s-load-bg: #fff8e1;
+    --s-load-color: #f57f17;
+    --s-load-border: 1px solid #ffca28;
+
+    /* Ready: 墨水蓝 (羽毛笔书写色) */
+    --s-ready-bg: #f5f5dc;
+    /* 米色 */
+    --s-ready-color: #1a237e;
+    /* 皇家蓝文字 */
+    --s-ready-border: 1px solid #9fa8da;
+    --s-ready-shadow: inset 0 0 10px rgba(161, 136, 127, 0.2);
+    /* 纸张陈旧感 */
+
+    /* Playing: 荣耀金 (火漆与魔法) */
+    --s-play-bg: linear-gradient(180deg, #fff3e0 0%, #ffe0b2 100%);
+    --s-play-color: #3e2723;
+    /* 深褐文字 */
+    /* 核心：双线边框，模拟古地图边框 */
+    --s-play-border: 3px double #8d6e63;
+    --s-play-shadow: 0 4px 8px rgba(62, 39, 35, 0.2);
+    --s-play-scale: scale(1.02);
+    --s-play-font-weight: 600;
+
+    /* 律动条：深褐墨水色 */
+    --wave-bar-color: #8d6e63;
+    --wave-bar-playing: #3e2723;
+}
+
+/* --- 9. 蒸汽 · 机械 (Steampunk) --- */
+/* 适用场景：维多利亚、工业革命、飞艇、机械师
+   设计理念：黄铜、紫铜、齿轮。强调金属光泽和硬朗的线条。
+*/
+body[data-bubble-style="steampunk"] {
+    --bubble-height: 24px;
+    --bubble-radius: 8px;
+    --bubble-padding: 0 12px;
+    --bubble-margin: 0 4px;
+    --bubble-font-family: "Courier New", "Rockwell", serif;
+    /* 打字机风格 */
+    --bubble-backdrop: blur(2px);
+
+    /* Waiting: 锈蚀铜 */
+    --s-wait-bg: #d7ccc8;
+    --s-wait-color: #4e342e;
+    --s-wait-border: 1px solid #a1887f;
+
+    /* Loading: 蒸汽白 */
+    --s-load-bg: #eceff1;
+    --s-load-color: #607d8b;
+    --s-load-border: 1px dashed #78909c;
+    /* 虚线模拟铆接 */
+
+    /* Ready: 抛光铜 */
+    --s-ready-bg: linear-gradient(145deg, #d7ccc8 0%, #efebe9 100%);
+    --s-ready-color: #5d4037;
+    --s-ready-border: 1px solid #8d6e63;
+    --s-ready-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.5);
+
+    /* Playing: 熔炉之心 (黄铜金渐变) */
+    --s-play-bg: linear-gradient(180deg, #fff9c4 0%, #fbc02d 100%);
+    --s-play-color: #37474f;
+    /* 铁灰色文字 */
+    --s-play-border: 1px solid #f57f17;
+    /* 金属浮雕感阴影 */
+    --s-play-shadow:
+        0 2px 5px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8),
+        inset 0 -1px 0 rgba(166, 109, 5, 0.5);
+    --s-play-scale: scale(1.02);
+    --s-play-font-weight: 700;
+
+    /* 律动条：炉火红 */
+    --wave-bar-color: #5d4037;
+    --wave-bar-playing: #bf360c;
+}
+
+/* --- 10. 魅影 · 微醺 (Velvet Rouge) --- */
+/* 适用场景：深夜情感、吸血鬼、成年人的恋爱、诱惑、豪门
+   设计理念：红酒、天鹅绒、玫瑰。强调“危险的迷人感”。
+   暗红底色配合金色光泽，营造低调奢华的暧昧氛围。
+*/
+body[data-bubble-style="rouge"] {
+    --bubble-height: 24px;
+    --bubble-radius: 8px;
+    /* 适中的弧度 */
+    --bubble-padding: 0 12px;
+    --bubble-margin: 0 4px;
+    --bubble-font-family: "Georgia", serif;
+    /* 优雅衬线体 */
+    --bubble-backdrop: blur(5px);
+
+    /* Waiting: 丝绸灰 */
+    --s-wait-bg: #2d2d2d;
+    --s-wait-color: #9e9e9e;
+    --s-wait-border: 1px solid #444;
+
+    /* Loading: 玫瑰金 */
+    --s-load-bg: #2a1a1a;
+    --s-load-color: #e57373;
+    --s-load-border: 1px solid #d32f2f;
+
+    /* Ready: 勃艮第红 (深邃) */
+    --s-ready-bg: linear-gradient(135deg, #4a0000 0%, #210000 100%);
+    --s-ready-color: #ffcdd2;
+    /* 浅粉红字 */
+    --s-ready-border: 1px solid #880e4f;
+    --s-ready-shadow: 0 2px 4px rgba(66, 0, 0, 0.5);
+
+    /* Playing: 醉人酒红 (Velvet Texture) */
+    --s-play-bg: linear-gradient(135deg, #880e4f 0%, #b71c1c 100%);
+    --s-play-color: #fff;
+    --s-play-border: 1px solid rgba(255, 215, 0, 0.4);
+    /* 淡金边框，提升贵气 */
+    /* 核心：柔光晕染，模拟灯红酒绿下的暧昧 */
+    --s-play-shadow:
+        0 4px 12px rgba(136, 14, 79, 0.4),
+        inset 0 0 10px rgba(255, 0, 0, 0.1);
+
+    --s-play-scale: scale(1.02);
+    --s-play-font-weight: 500;
+
+    /* 律动条：香槟金 */
+    --wave-bar-color: #555;
+    --wave-bar-playing: #ffe082;
+}
+
+/* --- 11. 战术 · 指令 (Tactical Command) --- */
+/* 适用场景：现代战争、特工行动、危机时刻、废土生存
+   设计理念：军用HUD、雷达绿、高对比度、硬朗线条。
+   去除了所有柔和的装饰，只保留“高效”和“冷酷”。
+*/
+body[data-bubble-style="tactical"] {
+    --bubble-height: 22px;
+    /* 紧凑，更像状态栏 */
+    --bubble-radius: 0px;
+    /* 纯直角，军用风格 */
+    --bubble-padding: 0 8px;
+    --bubble-margin: 0 5px;
+    --bubble-font-family: "Consolas", "Roboto Mono", monospace;
+    /* 等宽字体 */
+    --bubble-backdrop: none;
+
+    /* Waiting: 迷彩灰 */
+    --s-wait-bg: #263238;
+    --s-wait-color: #607d8b;
+    --s-wait-border: 1px solid #37474f;
+
+    /* Loading: 警戒橙 */
+    --s-load-bg: #212121;
+    --s-load-color: #ff9800;
+    --s-load-border: 1px solid #ff9800;
+
+    /* Ready: 待命绿 */
+    --s-ready-bg: #1b5e20;
+    --s-ready-color: #a5d6a7;
+    --s-ready-border: 1px solid #2e7d32;
+    --s-ready-shadow: none;
+
+    /* Playing: 锁定目标 (高亮绿) */
+    --s-play-bg: #000;
+    /* 纯黑底 */
+    --s-play-color: #00e676;
+    /* 荧光毒液绿 */
+    --s-play-border: 1px solid #00e676;
+    /* 扫描线风格阴影 */
+    --s-play-shadow: 0 0 4px rgba(0, 230, 118, 0.5);
+
+    --s-play-scale: none;
+    /* 战术风格不放大 */
+    --s-play-font-weight: 700;
+
+    /* 律动条：雷达波 */
+    --wave-bar-color: #37474f;
+    --wave-bar-playing: #00e676;
+}
+
+/* --- 12. 星舰 · 光环 (Starship Halo) --- */
+/* 适用场景：太空歌剧、高度发达的未来、AI 伴侣
+   设计理念：区别于赛博朋克的“脏乱霓虹”，这是“洁净未来”。
+   通透的玻璃、全息投影、纯白与冰蓝。类似 Star Trek 或 苹果风未来感。
+*/
+body[data-bubble-style="holo"] {
+    --bubble-height: 24px;
+    --bubble-radius: 12px;
+    --bubble-padding: 0 10px;
+    --bubble-margin: 0 4px;
+    --bubble-font-family: "Segoe UI", "Roboto", sans-serif;
+    --bubble-backdrop: blur(8px);
+    /* 磨砂玻璃 */
+
+    /* Waiting: 幽灵白 */
+    --s-wait-bg: rgba(255, 255, 255, 0.1);
+    --s-wait-color: #b0bec5;
+    --s-wait-border: 1px solid rgba(255, 255, 255, 0.1);
+
+    /* Loading: 量子态 */
+    --s-load-bg: rgba(3, 169, 244, 0.1);
+    --s-load-color: #03a9f4;
+    --s-load-border: 1px solid rgba(3, 169, 244, 0.3);
+
+    /* Ready: 护盾充能 */
+    --s-ready-bg: rgba(225, 245, 254, 0.8);
+    --s-ready-color: #0277bd;
+    --s-ready-border: 1px solid #81d4fa;
+    --s-ready-shadow: 0 0 10px rgba(129, 212, 250, 0.3);
+
+    /* Playing: 核心驱动 (冰蓝光辉) */
+    --s-play-bg: rgba(255, 255, 255, 0.95);
+    --s-play-color: #01579b;
+    --s-play-border: 1px solid #fff;
+    /* 核心：极其纯净的蓝色辉光 */
+    --s-play-shadow:
+        0 0 15px rgba(3, 169, 244, 0.6),
+        0 0 30px rgba(3, 169, 244, 0.2);
+
+    --s-play-scale: scale(1.02);
+    --s-play-font-weight: 600;
+
+    /* 律动条：激光蓝 */
+    --wave-bar-color: #b0bec5;
+    --wave-bar-playing: #039be5;
+}
+
+/* ==========================================================================
+   PART 2: 核心组件逻辑 (Core Logic)
+   ========================================================================== */
+
+/* --- 主气泡容器 --- */
+.voice-bubble {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    vertical-align: middle;
+    box-sizing: border-box;
+
+    /* 应用变量 */
+    height: var(--bubble-height);
+    padding: var(--bubble-padding);
+    margin: var(--bubble-margin);
+    border-radius: var(--bubble-radius);
+    gap: var(--bubble-gap);
+
+    font-size: var(--bubble-font-size);
+    font-weight: var(--bubble-font-weight);
+    font-family: var(--bubble-font-family);
+
+    backdrop-filter: var(--bubble-backdrop);
+    box-shadow: var(--bubble-shadow);
+
+    /* 默认颜色 (Waiting) */
+    background: var(--s-wait-bg);
+    color: var(--s-wait-color);
+    border: var(--s-wait-border);
+
+    min-width: 40px;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* 交互：鼠标悬停 */
+.voice-bubble:hover {
+    filter: brightness(0.97);
+    transform: translateY(-1px);
+}
+
+/* 状态：Loading (通用加载) */
+.voice-bubble.loading {
+    background: var(--s-load-bg) !important;
+    color: var(--s-load-color) !important;
+    border: var(--s-load-border) !important;
+    /* 统一使用 Pulse 动画，这比原版 Classic 的 grayscale 更符合逻辑，且颜色已通过变量控制 */
+    animation: tts-pulse 1.5s infinite;
+}
+
+/* Kawaii 专属加载动画 (保留) */
+body[data-bubble-style="kawaii"] .voice-bubble.loading {
+    animation: tts-shimmer 1.5s infinite alternate;
+}
+
+/* 状态：Ready (就绪) */
+.voice-bubble[data-status="ready"] {
+    background: var(--s-ready-bg) !important;
+    color: var(--s-ready-color) !important;
+    border: var(--s-ready-border) !important;
+    box-shadow: var(--s-ready-shadow, var(--bubble-shadow)) !important;
+}
+
+/* 状态：Playing (播放中) */
+.voice-bubble.playing {
+    background: var(--s-play-bg) !important;
+    color: var(--s-play-color) !important;
+    border: var(--s-play-border) !important;
+    box-shadow: var(--s-play-shadow) !important;
+    font-weight: var(--s-play-font-weight, 600);
+    transform: var(--s-play-scale, scale(1));
+    /* 变量控制是否放大 */
+}
+
+/* 状态：Error (通用错误红 - 未改动) */
+.voice-bubble.error {
+    background: #ffebee !important;
+    border: 1px solid #ef9a9a !important;
+    color: #c62828 !important;
+    box-shadow: none !important;
+    cursor: not-allowed;
+}
+
+/* --- 律动条动画 (Wave Animation) --- */
+.sovits-voice-waves {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 2px;
+    width: 14px;
+    height: 70%;
+    flex-shrink: 0;
+}
+
+.sovits-voice-bar {
+    width: 3px;
+    border-radius: 2px;
+    height: 7px;
+    background: var(--wave-bar-color);
+    transition: background 0.3s, height 0.2s;
+    opacity: 0.7;
+}
+
+/* 播放时的律动 */
+.voice-bubble.playing .sovits-voice-bar {
+    background: var(--wave-bar-playing);
+    animation: sovits-wave-anim 1s infinite ease-in-out;
+}
+
+.voice-bubble.playing .sovits-voice-bar:nth-child(1) {
+    animation-delay: 0.0s;
+}
+
+.voice-bubble.playing .sovits-voice-bar:nth-child(2) {
+    animation-delay: 0.15s;
+}
+
+.voice-bubble.playing .sovits-voice-bar:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+/* 关键帧 */
+@keyframes sovits-wave-anim {
+
+    0%,
+    100% {
+        height: 7px;
+        opacity: 0.6;
+    }
+
+    50% {
+        height: 12px;
+        opacity: 1;
+    }
+}
+
+@keyframes tts-pulse {
+    0% {
+        opacity: 0.7;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0.7;
+    }
+}
+
+@keyframes tts-shimmer {
+    0% {
+        box-shadow: 0 0 0 rgba(255, 213, 79, 0);
+        border-color: #ffe082;
+    }
+
+    100% {
+        box-shadow: 0 0 6px rgba(255, 213, 79, 0.4);
+        border-color: #ffca28;
+    }
+}
+
+
+/* ==========================================================================
+   PART 3: 终极修复版面板 (Fix & Chameleon)
+   说明：修复了菜单点不开的问题，并强制背景变色！
+   ========================================================================== */
+
+/* --- 悬浮球 --- */
+#tts-manager-btn {
+    position: fixed;
+    top: 10px;
+    right: 100px;
+    z-index: 20000;
+    /* 🔥 使用播放高亮色,更醒目 */
+    background: var(--s-play-bg, #667eea) !important;
+    color: var(--s-play-color, #fff) !important;
+    border: 2px solid var(--s-play-color, #fff) !important;
+    font-family: var(--bubble-font-family, sans-serif);
+    padding: 6px 12px;
+    border-radius: var(--bubble-radius, 4px);
+    cursor: pointer;
+    font-size: 13px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s;
+}
+
+#tts-manager-btn:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+}
+
+/* --- 通知条 --- */
+#tts-notification-bar {
+    position: fixed;
+    top: -50px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20005;
+    background: linear-gradient(135deg, #ef5350 0%, #c62828 100%);
+    color: white;
+    padding: 8px 20px;
+    border-radius: 20px;
+    box-shadow: 0 4px 15px rgba(198, 40, 40, 0.4);
+    font-size: 14px;
+    transition: top 0.5s;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#tts-notification-bar.show {
+    top: 20px;
+}
+
+/* --- 现代面板 (Dashboard) --- */
+.tts-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(3px);
+    z-index: 20001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ⚠️ 重点修改：这里用了 ID 选择器，优先级最高！ */
+#tts-dashboard {
+    /* 🔥 外壳背景：使用 Load 背景 (通常是深色/主色) */
+    background: var(--s-load-bg, #1a1a1a) !important;
+    color: var(--s-load-color, #e0e0e0) !important;
+    /* 边框：使用播放色，像流光溢彩 */
+    border: 2px solid var(--s-play-color, #444) !important;
+    border-radius: 20px !important;
+    box-shadow: 0 10px 50px rgba(0, 0, 0, 0.8) !important;
+
+    font-family: var(--bubble-font-family, sans-serif);
+    width: 90%;
+    max-width: 450px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* 标题栏 */
+.tts-header {
+    /* 🔥 状态栏：半透明背景 + 播放色文字 */
+    background: rgba(0, 0, 0, 0.2) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 20px 20px 0 0;
+}
+
+.tts-header h3 {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0;
+    /* 🔥 标题使用播放色高亮 */
+    color: var(--s-play-color, #fff) !important;
+}
+
+.tts-close {
+    color: var(--s-play-color, #fff) !important;
+    opacity: 0.9;
+    cursor: pointer;
+    font-size: 24px;
+}
+
+/* 内容区域 */
+.tts-content {
+    background: transparent;
+    padding: 20px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+/* --- 🟢 字体颜色大改造 --- */
+
+/* 普通正文：使用加载色 (保证阅读舒适) */
+.tts-content,
+.tts-input-label,
+.tts-switch-label {
+    color: var(--s-load-color, #ccc) !important;
+}
+
+/* 标题、加粗、选中项：使用播放色 (高亮！) */
+.tts-content strong,
+.tts-content b,
+.tts-card-title {
+    color: var(--s-play-color, #ff0000) !important;
+    opacity: 1 !important;
+    font-weight: bold !important;
+}
+
+/* 卡片 */
+.tts-card {
+    /* 🔥 重点：使用 Wait 背景 (气泡色)，这个颜色和文字对比度通常是调教最好的 */
+    background: linear-gradient(var(--s-wait-bg), var(--s-wait-bg)), #202020 !important;
+    /* 边框稍微淡一点 */
+    border: 1px solid var(--s-wait-border, #333) !important;
+    /* 阴影去掉，扁平化 */
+    box-shadow: none !important;
+    border-radius: 12px !important;
+    padding: 16px;
+    margin-bottom: 10px !important;
+}
+
+/* 输入框 & 按钮 */
+.tts-modern-input,
+.select-trigger {
+    /* 输入框：加深底色，文字用标准色 */
+    background: rgba(30, 30, 30, 0.8) !important;
+    border: 1px solid var(--s-wait-border, #444) !important;
+    color: var(--s-load-color, #fff) !important;
+    border-radius: var(--bubble-radius, 6px);
+}
+
+.btn-primary {
+    /* 按钮：背景用播放色，文字反色 */
+    background: var(--s-play-bg, #2563eb) !important;
+    color: var(--s-play-color, #fff) !important;
+    border: none !important;
+    font-weight: bold !important;
+    border-radius: var(--bubble-radius, 6px);
+}
+
+/* --- 下拉菜单修复 (关键区域) --- */
+.tts-custom-select {
+    position: relative;
+    width: 100%;
+}
+
+.select-trigger {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    cursor: pointer;
+    height: 36px;
+}
+
+.select-options {
+    /* ⚠️ 修复大法：不再悬浮，改成直接显示在下方 */
+    /* 这样就不会被任何东西遮挡了！ */
+    position: relative;
+    top: 5px;
+    left: 0;
+    width: 100%;
+
+    background: var(--s-load-bg, #2b2b2b) !important;
+    border: var(--s-ready-border, 1px solid #444) !important;
+    color: var(--s-load-color, #eee) !important;
+
+    border-radius: var(--bubble-radius, 8px);
+    z-index: 100;
+
+    /* 动画处理 */
+    display: none;
+    /* 默认隐藏 */
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.2s;
+}
+
+/* 当菜单打开时 */
+.tts-custom-select.open .select-options {
+    display: block;
+    /* 撑开布局 */
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.option-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(128, 128, 128, 0.1);
+}
+
+.option-item:hover {
+    background: var(--s-play-bg, rgba(255, 255, 255, 0.1));
+    color: var(--s-play-color, #fff);
+}
+
+/* 开关样式保持不变，太长省略，原样保留即可，或者直接用下面的简写 */
+.tts-switch-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+}
+
+.tts-toggle {
+    appearance: none;
+    width: 40px;
+    height: 22px;
+    background: rgba(128, 128, 128, 0.3);
+    border-radius: 20px;
+    position: relative;
+    transition: 0.3s;
+}
+
+.tts-toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    background: #fff;
+    border-radius: 50%;
+    transition: 0.3s;
+}
+
+.tts-toggle:checked {
+    background: var(--s-play-bg, #10b981) !important;
+}
+
+.tts-toggle:checked::after {
+    transform: translateX(18px);
+}
+
+/* ==========================================================================
+   PART 4: 智能变色菜单 (Chameleon Menu)
+   说明：完全使用当前皮肤的变量，实现 100% 风格统一
+   ========================================================================== */
+
+#tts-bubble-menu {
+    position: fixed;
+    z-index: 20002;
+    /* 保证在所有层级之上 */
+
+    /* 🎨 背景：跟随 Loading 状态 (通常是该主题最中性的颜色) */
+    background: var(--s-load-bg);
+    border: var(--s-load-border);
+    color: var(--s-load-color);
+
+    /* 💍 质感：跟随主题定义的圆角和磨砂感 */
+    backdrop-filter: var(--bubble-backdrop, blur(10px));
+    border-radius: var(--bubble-radius);
+    font-family: var(--bubble-font-family);
+    /* 连字体都统一！ */
+
+    /* 阴影：加重一点，保证菜单浮起来的感觉 */
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+
+    padding: 8px;
+    min-width: 150px;
+    font-size: 13px;
+
+    /* 进场动画 */
+    animation: tts-menu-pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transform-origin: top left;
+}
+
+/* 列表项 - 默认状态 */
+#tts-bubble-menu .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    margin-bottom: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: calc(var(--bubble-radius) - 4px);
+    /* 让内部圆角稍微小一点点，协调 */
+
+    /* 🎨 默认样子：跟随 Ready (就绪) 状态 */
+    /* 这样菜单里的选项看起来就像是一个个准备好的气泡 */
+    background: var(--s-ready-bg);
+    color: var(--s-ready-color);
+    border: var(--s-ready-border);
+    /* Ready 状态可能有阴影，这里为了菜单整洁，建议去掉内部阴影，或者你可以保留 */
+    box-shadow: none;
+}
+
+/* 列表项 - 鼠标悬停 */
+#tts-bubble-menu .menu-item:hover {
+    /* 🎨 悬停样子：跟随 Playing (播放/高亮) 状态 */
+    background: var(--s-play-bg);
+    color: var(--s-play-color);
+    border: var(--s-play-border);
+
+    /* 这里我们要那个酷炫的阴影！ */
+    box-shadow: var(--s-play-shadow);
+
+    /* 稍微放大一点点，像气泡被按下去 */
+    transform: scale(1.02);
+    font-weight: var(--s-play-font-weight, 600);
+}
+
+/* 列表项中的图标 */
+#tts-bubble-menu .menu-item .icon {
+    font-size: 16px;
+    opacity: 0.8;
+}
+
+#tts-bubble-menu .menu-item:hover .icon {
+    opacity: 1;
+    /* 悬停时图标更亮 */
+}
+
+/* 分割线：用边框颜色做分割，保持低调 */
+#tts-bubble-menu .divider {
+    height: 1px;
+    background: currentColor;
+    /* 使用当前文字颜色 */
+    opacity: 0.2;
+    margin: 6px 4px;
+}
+
+/* 进场动画关键帧 */
+@keyframes tts-menu-pop {
+    from {
+        opacity: 0;
+        transform: scale(0.8) translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* ==========================================================================
+   PART 5: 下拉菜单风格预览 (Style Preview in Menu)
+   说明：让选项列表里的每一项都显示出该风格独特的配色和字体！
+   ========================================================================== */
+
+/* 1. 基础修正：让选项稍微高一点，方便预览字体 */
+.option-item {
+    transition: all 0.2s;
+    border-left: 3px solid transparent;
+    /*以此来做选中指示*/
+}
+
+/* --- 🌿 Default 森野 --- */
+.option-item[data-value="default"] {
+    background: #f1f8e9 !important;
+    color: #33691e !important;
+    font-family: sans-serif;
+}
+
+.option-item[data-value="default"]:hover {
+    background: #dcedc8 !important;
+}
+
+/* --- 📼 Classic 怀旧 --- */
+.option-item[data-value="classic"] {
+    background: #c6e2b8 !important;
+    color: #333 !important;
+    font-family: "Courier New", monospace;
+    /* 复古字体 */
+}
+
+.option-item[data-value="classic"]:hover {
+    background: #aed581 !important;
+}
+
+/* --- 💎 Kawaii 幻彩 --- */
+.option-item[data-value="kawaii"] {
+    background: linear-gradient(90deg, #f3e5f5 0%, #e1f5fe 100%) !important;
+    color: #880e4f !important;
+    font-family: "Segoe UI", sans-serif;
+}
+
+.option-item[data-value="kawaii"]:hover {
+    background: linear-gradient(90deg, #e1bee7 0%, #b3e5fc 100%) !important;
+    font-weight: bold;
+}
+
+/* --- 🌸 Bloom 花信 --- */
+.option-item[data-value="bloom"] {
+    background: #fff0f5 !important;
+    color: #d81b60 !important;
+    font-family: "Nunito", sans-serif;
+}
+
+.option-item[data-value="bloom"]:hover {
+    background: #fce4ec !important;
+    border-left-color: #ec407a;
+}
+
+/* --- 🖤 Obsidian 黑曜石 --- */
+.option-item[data-value="obsidian"] {
+    background: #1e1e1e !important;
+    color: #4ade80 !important;
+    /* 黑底绿字 */
+    font-family: sans-serif;
+    border-bottom: 1px solid #333;
+}
+
+.option-item[data-value="obsidian"]:hover {
+    background: #000 !important;
+    box-shadow: inset 0 0 10px rgba(74, 222, 128, 0.2);
+}
+
+/* --- ⚡ Cyberpunk 赛博 --- */
+.option-item[data-value="cyberpunk"] {
+    background: #050505 !important;
+    color: #00ffff !important;
+    font-family: "Consolas", monospace;
+    /* 代码字体 */
+    text-shadow: 0 0 2px rgba(0, 255, 255, 0.5);
+}
+
+.option-item[data-value="cyberpunk"]:hover {
+    background: #001a1a !important;
+    border-left-color: #00ffff;
+}
+
+/* --- ✒️ Ink 水墨 --- */
+.option-item[data-value="ink"] {
+    background: #fdfbf7 !important;
+    color: #2c3e50 !important;
+    font-family: "Kaiti", "STKaiti", serif;
+    /* 楷体 */
+}
+
+.option-item[data-value="ink"]:hover {
+    background: #eceff1 !important;
+    border-left-color: #c0392b;
+    /* 朱砂红 */
+}
+
+/* --- 📜 Scroll 羊皮卷 --- */
+.option-item[data-value="scroll"] {
+    background: #fdf5e6 !important;
+    color: #5d4037 !important;
+    font-family: "Georgia", serif;
+    /* 衬线体 */
+}
+
+.option-item[data-value="scroll"]:hover {
+    background: #ffe0b2 !important;
+    border-left-color: #8d6e63;
+}
+
+/* --- ⚙️ Steampunk 蒸汽 --- */
+.option-item[data-value="steampunk"] {
+    background: #d7ccc8 !important;
+    color: #3e2723 !important;
+    font-family: "Courier New", monospace;
+    border: 1px dashed #8d6e63;
+    /* 铆接感 */
+}
+
+.option-item[data-value="steampunk"]:hover {
+    background: #ffca28 !important;
+    color: #000 !important;
+}
+
+/* --- 💋 Rouge 魅影 --- */
+.option-item[data-value="rouge"] {
+    background: #2a1a1a !important;
+    color: #ffcdd2 !important;
+    font-family: serif;
+}
+
+.option-item[data-value="rouge"]:hover {
+    background: linear-gradient(90deg, #4a0000 0%, #880e4f 100%) !important;
+    color: #fff !important;
+}
+
+/* --- 🔫 Tactical 战术 --- */
+.option-item[data-value="tactical"] {
+    background: #000 !important;
+    color: #00e676 !important;
+    font-family: monospace;
+    letter-spacing: 1px;
+}
+
+.option-item[data-value="tactical"]:hover {
+    background: #1b5e20 !important;
+    border-left-color: #00e676;
+}
+
+/* --- 🛸 Holo 星舰 --- */
+.option-item[data-value="holo"] {
+    background: #e1f5fe !important;
+    color: #0277bd !important;
+    font-family: sans-serif;
+}
+
+.option-item[data-value="holo"]:hover {
+    background: #fff !important;
+    box-shadow: 0 0 10px rgba(3, 169, 244, 0.4);
+}
