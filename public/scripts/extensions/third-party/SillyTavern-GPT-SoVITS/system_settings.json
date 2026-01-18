@@ -1,0 +1,9 @@
+{
+  "enabled": true,
+  "auto_generate": true,
+  "base_dir": "D:\\副业\\酒馆\\客户调试酒馆\\STv2\\ST\\SillyTavern\\public\\scripts\\extensions\\third-party\\SillyTavern-GPT-SoVITS\\MyCharacters",
+  "cache_dir": "D:\\副业\\酒馆\\客户调试酒馆\\STv2\\ST\\SillyTavern\\public\\scripts\\extensions\\third-party\\SillyTavern-GPT-SoVITS\\Cache",
+  "default_lang": "default",
+  "iframe_mode": false,
+  "bubble_style": "obsidian"
+}
