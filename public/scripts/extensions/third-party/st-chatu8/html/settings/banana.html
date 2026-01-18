@@ -1,0 +1,134 @@
+<div id="st-chatu8-tab-banana" class="st-chatu8-settings-banana">
+    <!-- 1. 基础设置 -->
+    <div class="st-chatu8-settings-section">
+        <h3>基础设置</h3>
+        <div class="st-chatu8-field-col">
+            <label for="st-chatu8-banana-api-url">API 连接地址</label>
+            <input type="text" id="st-chatu8-banana-api-url" class="st-chatu8-text-input" placeholder="http://localhost:7860">
+        </div>
+        <div class="st-chatu8-field-col">
+            <label for="st-chatu8-banana-api-key">API Key</label>
+            <input type="text" id="st-chatu8-banana-api-key" class="st-chatu8-text-input" placeholder="在此输入您的 API Key">
+        </div>
+        <div class="st-chatu8-grid-2">
+            <div class="st-chatu8-field">
+                <label for="st-chatu8-banana-model-select">模型选择</label>
+                <select id="st-chatu8-banana-model-select" class="st-chatu8-select">
+                    <option value="gemini-2.5-flash-image">gemini-2.5-flash-image</option>
+                    <option value="imagen-4.0-generate-001">imagen-4.0-generate-001</option>
+                    <option value="imagen-4.0-ultra-generate-001">imagen-4.0-ultra-generate-001</option>
+                </select>
+            </div>
+            <div class="st-chatu8-field">
+                <label for="st-chatu8-banana-aspect-ratio">长宽比</label>
+                <select id="st-chatu8-banana-aspect-ratio" class="st-chatu8-select">
+                    <option value="1:1">1:1</option>
+                    <option value="9:16">9:16</option>
+                    <option value="16:9">16:9</option>
+                    <option value="4:3">4:3</option>
+                    <option value="3:4">3:4</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 多轮对话 -->
+    <div id="st-chatu8-banana-multimodal-section" class="st-chatu8-settings-section">
+        <h3>多轮对话 (Gemini)</h3>
+        <div class="st-chatu8-field-col">
+            <label for="st-chatu8-banana-fixed-prompt">固定正面提示词</label>
+            <textarea id="st-chatu8-banana-fixed-prompt" class="st-chatu8-textarea" rows="2"></textarea>
+        </div>
+        <div class="st-chatu8-field-col">
+            <label for="st-chatu8-banana-postfix-prompt">后置固定正面提示词</label>
+            <textarea id="st-chatu8-banana-postfix-prompt" class="st-chatu8-textarea" rows="2"></textarea>
+        </div>
+        <div class="st-chatu8-field">
+            <label for="st-chatu8-banana-conversation-preset-id">对话预设</label>
+            <div class="st-chatu8-profile-controls">
+                <select id="st-chatu8-banana-conversation-preset-id" class="st-chatu8-select"></select>
+                <button class="st-chatu8-icon-btn" id="st-chatu8-banana-conversation-save" title="保存"><i class="fa-solid fa-save"></i></button>
+                <button class="st-chatu8-icon-btn" id="st-chatu8-banana-conversation-save-as" title="另存为"><i class="fa-solid fa-file-export"></i></button>
+                <button class="st-chatu8-icon-btn" id="st-chatu8-banana-conversation-import" title="导入"><i class="fa-solid fa-download"></i></button>
+                <button class="st-chatu8-icon-btn" id="st-chatu8-banana-conversation-export" title="导出"><i class="fa-solid fa-upload"></i></button>
+                <button class="st-chatu8-icon-btn danger" id="st-chatu8-banana-conversation-delete" title="删除"><i class="fa-solid fa-trash"></i></button>
+            </div>
+        </div>
+        
+        <div class="st-chatu8-banana-conversation-group">
+            <h4>第 1 轮</h4>
+            <div class="st-chatu8-banana-conversation-turn">
+                <div class="st-chatu8-banana-turn-user">
+                    <h5>User</h5>
+                    <textarea id="st-chatu8-banana-user-text-1" class="st-chatu8-textarea" rows="3" placeholder="用户文本..."></textarea>
+                    <div class="st-chatu8-image-preview-container small" id="st-chatu8-banana-user-image-container-1">
+                        <img id="st-chatu8-banana-user-image-1" src="" style="display:none;">
+                        <div class="st-chatu8-image-placeholder"><i class="fa-solid fa-image"></i></div>
+                        <button class="st-chatu8-icon-btn danger top-right" id="st-chatu8-banana-user-image-remove-1" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
+                        <input type="file" id="st-chatu8-banana-user-image-input-1" accept="image/*" style="display:none;">
+                    </div>
+                </div>
+                <div class="st-chatu8-banana-turn-model">
+                    <h5>Model</h5>
+                    <textarea id="st-chatu8-banana-model-text-1" class="st-chatu8-textarea" rows="3" placeholder="模型文本..."></textarea>
+                    <div class="st-chatu8-image-preview-container small" id="st-chatu8-banana-model-image-container-1">
+                        <img id="st-chatu8-banana-model-image-1" src="" style="display:none;">
+                        <div class="st-chatu8-image-placeholder"><i class="fa-solid fa-image"></i></div>
+                        <button class="st-chatu8-icon-btn danger top-right" id="st-chatu8-banana-model-image-remove-1" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
+                        <input type="file" id="st-chatu8-banana-model-image-input-1" accept="image/*" style="display:none;">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="st-chatu8-banana-conversation-group">
+            <h4>第 2 轮</h4>
+            <div class="st-chatu8-banana-conversation-turn">
+                <div class="st-chatu8-banana-turn-user">
+                    <h5>User</h5>
+                    <textarea id="st-chatu8-banana-user-text-2" class="st-chatu8-textarea" rows="3" placeholder="用户文本..."></textarea>
+                    <div class="st-chatu8-image-preview-container small" id="st-chatu8-banana-user-image-container-2">
+                        <img id="st-chatu8-banana-user-image-2" src="" style="display:none;">
+                        <div class="st-chatu8-image-placeholder"><i class="fa-solid fa-image"></i></div>
+                        <button class="st-chatu8-icon-btn danger top-right" id="st-chatu8-banana-user-image-remove-2" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
+                        <input type="file" id="st-chatu8-banana-user-image-input-2" accept="image/*" style="display:none;">
+                    </div>
+                </div>
+                <div class="st-chatu8-banana-turn-model">
+                    <h5>Model</h5>
+                    <textarea id="st-chatu8-banana-model-text-2" class="st-chatu8-textarea" rows="3" placeholder="模型文本..."></textarea>
+                    <div class="st-chatu8-image-preview-container small" id="st-chatu8-banana-model-image-container-2">
+                        <img id="st-chatu8-banana-model-image-2" src="" style="display:none;">
+                        <div class="st-chatu8-image-placeholder"><i class="fa-solid fa-image"></i></div>
+                        <button class="st-chatu8-icon-btn danger top-right" id="st-chatu8-banana-model-image-remove-2" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
+                        <input type="file" id="st-chatu8-banana-model-image-input-2" accept="image/*" style="display:none;">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="st-chatu8-banana-conversation-group">
+            <h4>第 3 轮</h4>
+            <div class="st-chatu8-banana-conversation-turn">
+                <div class="st-chatu8-banana-turn-user">
+                    <h5>User</h5>
+                    <textarea id="st-chatu8-banana-user-text-3" class="st-chatu8-textarea" rows="3" placeholder="用户文本..."></textarea>
+                    <div class="st-chatu8-image-preview-container small" id="st-chatu8-banana-user-image-container-3">
+                        <img id="st-chatu8-banana-user-image-3" src="" style="display:none;">
+                        <div class="st-chatu8-image-placeholder"><i class="fa-solid fa-image"></i></div>
+                        <button class="st-chatu8-icon-btn danger top-right" id="st-chatu8-banana-user-image-remove-3" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
+                        <input type="file" id="st-chatu8-banana-user-image-input-3" accept="image/*" style="display:none;">
+                    </div>
+                </div>
+                <div class="st-chatu8-banana-turn-model">
+                    <h5>Model</h5>
+                    <textarea id="st-chatu8-banana-model-text-3" class="st-chatu8-textarea" rows="3" placeholder="模型文本..."></textarea>
+                    <div class="st-chatu8-image-preview-container small" id="st-chatu8-banana-model-image-container-3">
+                        <img id="st-chatu8-banana-model-image-3" src="" style="display:none;">
+                        <div class="st-chatu8-image-placeholder"><i class="fa-solid fa-image"></i></div>
+                        <button class="st-chatu8-icon-btn danger top-right" id="st-chatu8-banana-model-image-remove-3" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
+                        <input type="file" id="st-chatu8-banana-model-image-input-3" accept="image/*" style="display:none;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

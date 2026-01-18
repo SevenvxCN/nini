@@ -1,0 +1,59 @@
+/* About Tab Specifics */
+#st-chatu8-settings .st-chatu8-about-links {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin: 20px auto;
+    max-width: 400px;
+}
+
+#st-chatu8-settings .st-chatu8-about-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    border-radius: var(--st-chatu8-border-radius);
+    text-decoration: none;
+    color: white;
+    text-align: center;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    position: relative;
+    overflow: hidden;
+}
+
+#st-chatu8-settings .st-chatu8-about-link:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+#st-chatu8-settings .st-chatu8-about-link.support {
+    background: linear-gradient(135deg, #ff69b4, #ff8c00);
+}
+
+#st-chatu8-settings .st-chatu8-about-link.help {
+    background: linear-gradient(135deg, #1e90ff, #32cd32);
+}
+
+#st-chatu8-settings .st-chatu8-about-link .fa-solid {
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+}
+
+#st-chatu8-settings .st-chatu8-about-link span {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+#st-chatu8-settings .st-chatu8-cute-emoji {
+    position: absolute;
+    font-size: 4rem;
+    opacity: 0.1;
+    right: -10px;
+    bottom: -10px;
+    transition: transform 0.3s ease;
+}
+
+#st-chatu8-settings .st-chatu8-about-link:hover .st-chatu8-cute-emoji {
+    transform: scale(1.2) rotate(15deg);
+}

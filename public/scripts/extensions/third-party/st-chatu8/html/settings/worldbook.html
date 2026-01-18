@@ -1,0 +1,31 @@
+<div id="ch-tab-worldbook">
+    <div class="st-chatu8-settings-section">
+        <h3>世界书设置</h3>
+        <div class="st-chatu8-field">
+            <label for="worldBookEnabled">启用世界书</label>
+            <div class="st-chatu8-toggle">
+                <input id="worldBookEnabled" type="checkbox"/>
+                <span class="st-chatu8-slider"></span>
+            </div>
+        </div>
+    </div>
+    <div class="st-chatu8-settings-section">
+        <h3>世界书预设</h3>
+        <div class="st-chatu8-field">
+            <label for="worldBookList_id">预设</label>
+            <div class="st-chatu8-profile-controls">
+                <select id="worldBookList_id" class="st-chatu8-select"></select>
+                <button class="st-chatu8-icon-btn" id="worldbook_update_style" title="保存"><i class="fa-solid fa-save"></i></button>
+                <button class="st-chatu8-icon-btn" id="worldbook_save_style" title="另存为"><i class="fa-solid fa-file-export"></i></button>
+                <button class="st-chatu8-icon-btn" id="worldbook_export_current" title="导出当前"><i class="fa-solid fa-upload"></i></button>
+                <button class="st-chatu8-icon-btn" id="worldbook_export_all" title="导出全部"><i class="fa-solid fa-file-export"></i></button>
+                <button class="st-chatu8-icon-btn" id="worldbook_import" title="导入"><i class="fa-solid fa-download"></i></button>
+                <button class="st-chatu8-icon-btn danger" id="worldbook_delete_style" title="删除"><i class="fa-solid fa-trash"></i></button>
+            </div>
+        </div>
+        <div class="st-chatu8-field-col">
+            <label for="worldbook_content">世界书内容 <span class="st-chatu8-unsaved-warning" title="设置尚未保存" style="display: none;"><i class="fa-solid fa-triangle-exclamation"></i></span></label>
+            <textarea id="worldbook_content" class="st-chatu8-textarea" rows="10"></textarea>
+        </div>
+    </div>
+</div>

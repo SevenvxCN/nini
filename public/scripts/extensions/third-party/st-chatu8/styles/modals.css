@@ -1,0 +1,298 @@
+/* Confirmation Modal Styles */
+#st-chatu8-settings .st-chatu8-confirm-backdrop, .st-chatu8-confirm-backdrop {
+    position: absolute; /* Changed from fixed to absolute */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: grid;
+    place-items: center;
+    z-index: 1100; /* Higher than modal */
+    font-family: var(--st-chatu8-font-family);
+}
+
+#st-chatu8-settings .st-chatu8-confirm-box, .st-chatu8-confirm-box {
+    background-color: var(--st-chatu8-bg-primary);
+    color: var(--st-chatu8-text-primary);
+    padding: 24px;
+    border-radius: var(--st-chatu8-border-radius);
+    box-shadow: var(--st-chatu8-box-shadow);
+    width: 90vw;
+    max-width: 450px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+#st-chatu8-settings .st-chatu8-confirm-message, .st-chatu8-confirm-message {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+#st-chatu8-settings .st-chatu8-confirm-buttons, .st-chatu8-confirm-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+/* Ensure the input inside the confirm box is also styled */
+#st-chatu8-settings .st-chatu8-confirm-box .st-chatu8-text-input, .st-chatu8-confirm-box .st-chatu8-text-input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Styles for the image tag edit dialog */
+.st-chatu8-edit-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: grid;
+    place-items: center;
+    z-index: 10000;
+    font-family: var(--st-chatu8-font-family, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
+}
+
+.st-chatu8-edit-dialog {
+    background-color: #2c2c2c;
+    color: #f0f0f0;
+    border: 1px solid #444;
+    border-radius: 12px;
+    padding: 20px;
+    z-index: 10001; /* Ensure it's on top of the backdrop */
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 600px;
+    max-width: 90vw;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+    /* No position/transform needed as backdrop handles centering */
+}
+
+.st-chatu8-edit-title {
+    font-size: 1.2em;
+    font-weight: 600;
+    margin-bottom: 5px;
+    text-align: center;
+    color: #e0e0e0;
+}
+
+.st-chatu8-edit-input {
+    width: 100%;
+    min-height: 200px;
+    background-color: #3a3a3a;
+    color: #f0f0f0;
+    border: 1px solid #555;
+    border-radius: 8px;
+    padding: 10px;
+    box-sizing: border-box;
+    font-size: 1em;
+    resize: vertical;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.st-chatu8-edit-input:focus {
+    outline: none;
+    border-color: #4a90e2;
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.3);
+}
+
+.st-chatu8-edit-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.st-chatu8-edit-button {
+    border: none;
+    border-radius: 6px;
+    padding: 10px 20px;
+    font-size: 1em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.st-chatu8-edit-button:active {
+    transform: scale(0.98);
+}
+
+.st-chatu8-edit-button.send {
+    background-color: #4a90e2;
+    color: white;
+}
+
+.st-chatu8-edit-button.send:hover {
+    background-color: #357abd;
+}
+
+.st-chatu8-edit-button.cancel {
+    background-color: #555;
+    color: #f0f0f0;
+}
+
+.st-chatu8-edit-button.cancel:hover {
+    background-color: #666;
+}
+
+/* Image Preview Modal */
+.st-chatu8-preview-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    display: grid;
+    place-items: center;
+    z-index: 10000;
+    font-family: var(--st-chatu8-font-family, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
+}
+
+.st-chatu8-preview-dialog {
+    background-color: #2c2c2c;
+    color: #f0f0f0;
+    border-radius: 12px;
+    padding: 16px;
+    z-index: 10001;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 90vw;
+    height: 90vh;
+    max-width: 1200px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+    position: relative;
+}
+
+.st-chatu8-preview-close {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 2.5rem;
+    color: #aaa;
+    cursor: pointer;
+    transition: color 0.2s;
+    z-index: 10;
+}
+
+.st-chatu8-preview-close:hover {
+    color: white;
+}
+
+.st-chatu8-preview-thumbnail-container {
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+    overflow-x: auto;
+    background-color: #222;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.st-chatu8-preview-thumbnail {
+    height: 80px;
+    width: auto;
+    cursor: pointer;
+    border-radius: 4px;
+    border: 2px solid transparent;
+    transition: border-color 0.2s, transform 0.2s;
+}
+
+.st-chatu8-preview-thumbnail:hover {
+    transform: scale(1.05);
+}
+
+.st-chatu8-preview-thumbnail.active {
+    border-color: #4a90e2;
+}
+
+.st-chatu8-preview-image-container {
+    flex-grow: 1;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+.st-chatu8-preview-large-image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 8px;
+}
+
+.st-chatu8-preview-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: rgba(34, 34, 34, 0.3);
+    color: white;
+    font-size: 1.5rem;
+    padding: 15px 10px;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.st-chatu8-preview-nav:hover {
+    background-color: rgba(34, 34, 34, 0.6);
+}
+
+.st-chatu8-preview-nav.prev {
+    left: 15px;
+}
+
+.st-chatu8-preview-nav.next {
+    right: 15px;
+}
+
+.st-chatu8-preview-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    flex-shrink: 0; /* Prevent shrinking */
+}
+
+.st-chatu8-preview-action-button {
+    border: 1px solid #555;
+    border-radius: 6px;
+    padding: 10px 20px;
+    font-size: 1em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    background-color: #4a90e2;
+    color: white;
+    width: 80%;
+    max-width: 250px;
+    box-sizing: border-box;
+}
+
+.st-chatu8-preview-action-button:hover {
+    background-color: #357abd;
+}
+
+.st-chatu8-preview-action-button:active {
+    transform: scale(0.98);
+}
+
+.st-chatu8-preview-action-button.danger {
+    background-color: #d9534f;
+    border-color: #d43f3a;
+}
+
+.st-chatu8-preview-action-button.danger:hover {
+    background-color: #c9302c;
+    border-color: #ac2925;
+}

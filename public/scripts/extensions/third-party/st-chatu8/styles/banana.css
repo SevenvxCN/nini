@@ -1,0 +1,33 @@
+/* styles/banana.css */
+.st-chatu8-banana-conversation-group {
+    border: 1px solid var(--st-chatu8-border-color);
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 15px;
+}
+
+.st-chatu8-banana-conversation-turn {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.st-chatu8-banana-turn-user, .st-chatu8-banana-turn-model {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+/* Ensure the container is a positioning context for the button */
+.st-chatu8-image-preview-container.small {
+    position: relative;
+}
+
+/* Style the top-right delete button */
+.st-chatu8-image-preview-container.small .st-chatu8-icon-btn.top-right {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    z-index: 10;
+    /* The 'danger' class should already make it red */
+}

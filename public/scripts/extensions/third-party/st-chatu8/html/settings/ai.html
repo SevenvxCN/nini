@@ -1,0 +1,86 @@
+<div id="ch-tab-ai">
+    <div class="st-chatu8-sub-nav">
+        <a href="#" class="st-chatu8-sub-nav-link active" data-sub-tab="ch-sub-tab-ai-core">AI 核心设置</a>
+        <a href="#" class="st-chatu8-sub-nav-link" data-sub-tab="ch-sub-tab-translate">翻译设置</a>
+    </div>
+
+    <div id="ch-sub-tab-ai-core" class="st-chatu8-sub-tab-content active">
+        <div class="st-chatu8-settings-section ch-prompts-section">
+            <h3>模型选择</h3>
+    <div class="st-chatu8-field">
+        <label for="ai_model">选择模型</label>
+        <div class="st-chatu8-profile-controls">
+            <select id="ai_model" name="ai_model" class="st-chatu8-select"></select>
+            <button id="refresh-ai-models" class="st-chatu8-icon-btn" title="刷新模型列表"><i class="fa-solid fa-sync"></i></button>
+        </div>
+    </div>
+</div>
+<div class="st-chatu8-settings-section">
+    <h3>API 设置</h3>
+    <div class="st-chatu8-field">
+        <label for="ai_token">API Token</label>
+        <input type="password" id="ai_token" name="ai_token" class="st-chatu8-text-input">
+    </div>
+    <div class="st-chatu8-field">
+        <label for="ai_private">私有模式</label>
+        <div class="st-chatu8-toggle">
+            <input type="checkbox" id="ai_private" name="ai_private">
+            <span class="st-chatu8-slider"></span>
+        </div>
+    </div>
+</div>
+<div class="st-chatu8-settings-section">
+    <h3>生成参数</h3>
+    <div class="st-chatu8-grid">
+        <div class="st-chatu8-field">
+            <label for="ai_temperature">Temperature</label>
+            <input type="range" id="ai_temperature" name="ai_temperature" min="0" max="2" step="0.1">
+            <span class="st-chatu8-range-value"></span>
+        </div>
+        <div class="st-chatu8-field">
+            <label for="ai_top_p">Top P</label>
+            <input type="range" id="ai_top_p" name="ai_top_p" min="0" max="1" step="0.01">
+            <span class="st-chatu8-range-value"></span>
+        </div>
+        <div class="st-chatu8-field">
+            <label for="ai_presence_penalty">Presence Penalty</label>
+            <input type="range" id="ai_presence_penalty" name="ai_presence_penalty" min="-2" max="2" step="0.1">
+            <span class="st-chatu8-range-value"></span>
+        </div>
+        <div class="st-chatu8-field">
+            <label for="ai_frequency_penalty">Frequency Penalty</label>
+            <input type="range" id="ai_frequency_penalty" name="ai_frequency_penalty" min="-2" max="2" step="0.1">
+            <span class="st-chatu8-range-value"></span>
+        </div>
+        <div class="st-chatu8-field">
+            <label for="ai_stream">流式传输</label>
+            <div class="st-chatu8-toggle">
+                <input type="checkbox" id="ai_stream" name="ai_stream">
+                <span class="st-chatu8-slider"></span>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="st-chatu8-settings-section">
+    <h3>API 测试</h3>
+    <div class="st-chatu8-field-col">
+        <label for="ai_test_system">系统提示</label>
+        <textarea id="ai_test_system" name="ai_test_system" rows="3" class="st-chatu8-textarea"></textarea>
+    </div>
+    <div class="st-chatu8-field-col">
+        <label for="ai_test_user">用户输入</label>
+        <textarea id="ai_test_user" name="ai_test_user" rows="3" class="st-chatu8-textarea"></textarea>
+    </div>
+    <div class="st-chatu8-field">
+        <button id="ai-test-connection" class="st-chatu8-btn">测试连接</button>
+    </div>
+    <div class="st-chatu8-field-col">
+        <label for="ai_test_output">测试输出</label>
+        <textarea id="ai_test_output" name="ai_test_output" rows="5" readonly class="st-chatu8-textarea"></textarea>
+    </div>
+</div>
+    </div>
+    <div id="ch-sub-tab-translate" class="st-chatu8-sub-tab-content" style="display: none;">
+        <!-- Translation settings will be loaded here by ui.js -->
+    </div>
+</div>

@@ -1,0 +1,96 @@
+/**
+ * 拖拽辅助插件样式
+ * 为拖拽元素添加视觉反馈
+ */
+
+/* 基础拖拽样式 */
+.dragging {
+  opacity: 0.8;
+  transform: scale(1.05);
+  transition: transform 0.1s ease-out;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  z-index: 9999 !important;
+}
+
+/* 手机触发按钮的拖拽样式 */
+.mobile-phone-trigger {
+  transition: all 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.mobile-phone-trigger:hover {
+  transform: scale(1.1);
+}
+
+.mobile-phone-trigger-dragging {
+  opacity: 0.9;
+  transform: scale(1.15) rotate(5deg);
+  transition: none !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  z-index: 10000 !important;
+  cursor: grabbing !important;
+  cursor: -webkit-grabbing !important;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+  .mobile-phone-trigger-dragging {
+    transform: scale(1.2) rotate(3deg);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* 手机框架拖拽样式 */
+.mobile-phone-frame {
+  transition: all 0.2s ease;
+}
+
+.mobile-phone-frame-dragging {
+  opacity: 0.9;
+  transform: scale(1.02);
+  transition: none !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  z-index: 10001 !important;
+}
+
+/* 状态栏作为拖拽手柄的样式 */
+.mobile-status-bar {
+  cursor: move;
+  cursor: grab;
+  cursor: -webkit-grab;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.mobile-phone-frame-dragging .mobile-status-bar {
+  cursor: grabbing;
+  cursor: -webkit-grabbing;
+}
+
+/* 触摸设备优化 */
+@media (hover: none) and (pointer: coarse) {
+  .mobile-phone-trigger {
+    cursor: grab;
+    cursor: -webkit-grab;
+  }
+
+  .mobile-phone-trigger:active {
+    cursor: grabbing;
+    cursor: -webkit-grabbing;
+  }
+
+  .mobile-status-bar {
+    cursor: grab;
+    cursor: -webkit-grab;
+  }
+
+  .mobile-phone-frame-dragging .mobile-status-bar {
+    cursor: grabbing;
+    cursor: -webkit-grabbing;
+  }
+}
