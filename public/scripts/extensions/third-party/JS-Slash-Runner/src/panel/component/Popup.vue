@@ -5,6 +5,7 @@
     :teleport-to="'body'"
     :z-index-fn="() => 10000"
     :hide-overlay="true"
+    :focus-trap="focusTrap"
     @closed="emit('closed')"
   >
     <div
@@ -64,6 +65,7 @@ withDefaults(
       class?: string;
     }[];
     width?: string | 'normal' | 'wide' | 'full' | 'fit';
+    focusTrap?: false;
   }>(),
   {
     buttons: () => [{ name: '取消' }],
@@ -71,7 +73,6 @@ withDefaults(
   },
 );
 
-const dialog_ref = useTemplateRef<HTMLDivElement>('dialog_ref');
 
 function close() {
   visible.value = false;

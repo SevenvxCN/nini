@@ -2,14 +2,13 @@ import { CustomApiConfig } from '@/function/generate/types';
 import {
   clearInjectionPrompts,
   extractMessageFromData,
+  normalizeBaseURL,
   setupImageArrayProcessing,
-  unblockGeneration,
 } from '@/function/generate/utils';
 import { saveChatConditionalDebounced } from '@/util/tavern';
 import {
   cleanUpMessage,
   countOccurrences,
-  deactivateSendButtons,
   eventSource,
   event_types,
   isOdd,
@@ -74,7 +73,6 @@ class StreamingProcessor {
       this.abortController.abort();
     }
     this.isStopped = true;
-    unblockGeneration();
     saveChatConditionalDebounced();
   }
 
@@ -161,12 +159,10 @@ export async function generateResponse(
   let customApiEventHandler: ((data: any) => void) | null = null;
 
   try {
-    deactivateSendButtons();
-
     // 如果有自定义API配置，设置单次事件拦截
     if (customApi?.apiurl) {
       customApiEventHandler = (data: any) => {
-        data.reverse_proxy = customApi.apiurl;
+        data.reverse_proxy = normalizeBaseURL(customApi.apiurl!);
         data.chat_completion_source = customApi.source || 'openai';
         data.proxy_password = customApi.key || '';
         data.model = customApi.model;
@@ -206,7 +202,6 @@ export async function generateResponse(
     }
     eventSource.emit('js_generation_started', generationId);
 
-    const original_stream = oai_settings.stream_openai;
     try {
       if (useStream) {
         oai_settings.stream_openai = true;
@@ -220,7 +215,7 @@ export async function generateResponse(
         result = await handleResponse(response, generationId);
       }
     } finally {
-      oai_settings.stream_openai = original_stream;
+      oai_settings.stream_openai = $('#stream_toggle').is(':checked');
     }
   } catch (error) {
     // 如果有图片处理设置但生成失败，确保拒绝Promise

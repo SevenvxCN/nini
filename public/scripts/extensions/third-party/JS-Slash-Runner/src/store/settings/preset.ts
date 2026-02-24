@@ -20,24 +20,26 @@ function saveSettingsToMemoryDebounced(id: string, name: string, settings: Prese
   }
 }
 
-async function saveSettingsToFile(id: string, name: string, settings: PresetSettings) {
+async function saveSettingsToFile(_id: string, name: string, settings: PresetSettings) {
   const preset_list = preset_manager.getPresetList();
-  const preset = preset_list.presets[Number(id)];
-  const preset_name = Object.keys(preset_list.preset_names)[Number(id)];
-  if (name === preset_name) {
-    _.set(preset, `extensions.${setting_field}`, settings);
-    await preset_manager.savePreset(preset_name, preset, { skipUpdate: true });
+  const index = _.get(preset_list.preset_names, name, -1);
+  if (index === -1) {
+    return;
   }
+
+  const preset = preset_list.presets[index];
+  _.set(preset, `extensions.${setting_field}`, settings);
+  await preset_manager.savePreset(name, preset, { skipUpdate: true });
 }
 const saveSettingsToFileDebounced = _.debounce(saveSettingsToFile, 1000);
 
 export const usePresetSettingsStore = defineStore('preset_settings', () => {
   const id = ref<string>(preset_manager.getSelectedPreset());
-  const name = ref<string>(Object.keys(preset_manager.getPresetList().preset_names)[Number(id.value)]);
+  const name = ref<string>(preset_manager.getSelectedPresetName());
   // 切换预设时刷新 id 和 settings
   eventSource.makeFirst(event_types.OAI_PRESET_CHANGED_AFTER, () => {
-    const new_id = preset_manager.getSelectedPreset();
-    const new_name = Object.keys(preset_manager.getPresetList().preset_names)[Number(new_id)];
+    const new_id = String(preset_manager.getSelectedPreset());
+    const new_name = String(preset_manager.getSelectedPresetName());
     if (name.value !== new_name) {
       id.value = new_id;
       name.value = new_name;

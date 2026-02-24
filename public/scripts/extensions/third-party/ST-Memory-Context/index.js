@@ -1,5 +1,5 @@
 // ========================================================================
-// 记忆表格 v1.6.3
+// 记忆表格 v2.1.5
 // SillyTavern 记忆管理系统 - 提供表格化记忆、自动总结、批量填表等功能
 // ========================================================================
 (function () {
@@ -15,7 +15,7 @@
     }
     window.GaigaiLoaded = true;
 
-    console.log('🚀 记忆表格 v1.6.3 启动');
+    console.log('🚀 记忆表格 v2.1.5 启动');
 
     // ===== 防止配置被后台同步覆盖的标志 =====
     window.isEditingConfig = false;
@@ -23,8 +23,11 @@
     // ===== 防止配置恢复期间触发保存的标志 (修复移动端竞态条件) =====
     let isRestoringSettings = false;
 
+    // ===== Swipe操作标志 (用于区分用户主动Swipe和普通消息处理) =====
+    window.Gaigai.isSwiping = false;
+
     // ==================== 全局常量定义 ====================
-    const V = 'v1.6.3';
+    const V = 'v2.1.5';
     const SK = 'gg_data';              // 数据存储键
     const UK = 'gg_ui';                // UI配置存储键
     const AK = 'gg_api';               // API配置存储键
@@ -38,6 +41,7 @@
 
     // ==================== 用户配置对象 ====================
     const C = {
+        masterSwitch: true,     // 🔴 全局主开关（长按图标切换）
         enabled: true,          // ✅ 默认开启实时填表
         filterTags: '',         // 黑名单标签（去除）
         filterTagsWhite: '',    // 白名单标签（仅留）
@@ -52,6 +56,7 @@
         autoSummaryPrompt: true,       // ✅ 默认静默发起（不弹窗确认）
         autoSummarySilent: true,       // ✅ 默认静默保存（不弹窗编辑）
         autoSummaryTargetTables: [],   // 🆕 自动总结的目标表格索引（空数组表示全部）
+        manualSummaryTargetTables: [], // 🆕 手动总结控制台的目标表格索引（空数组表示全部）
         autoSummaryDelay: true,        // ✅ 开启延迟
         autoSummaryDelayCount: 4,      // ✅ 延迟4楼
         autoBackfill: false,           // ❌ 默认关闭批量填表（避免与实时填表冲突）
@@ -65,8 +70,7 @@
         hideTag: true,
         filterHistory: true,
         cloudSync: true,
-        syncWorldInfo: true,           // ✅ 默认开启世界书同步
-        autoBindWI: true,              // ✅ 默认开启自动绑定世界书
+        syncWorldInfo: false,          // ❌ 默认关闭世界书同步
         worldInfoVectorized: false,    // ❌ 默认关闭世界书自带向量化（已移除UI选项）
         // ==================== 独立向量检索配置 ====================
         vectorEnabled: false,          // ❌ 默认关闭独立向量检索
@@ -113,30 +117,31 @@
     // ----- 表格结构定义（默认9个表格，支持动态扩展） -----
     // ==================== 默认表格定义（出厂设置模板） ====================
     // 最后一个表永远是"总结表"，前面的都是"数据表"
+    // 🔄 列名前缀规则：# = 覆盖模式（Overwrite），无前缀 = 追加模式（Append）
     const DEFAULT_TABLES = [
-        { n: '主线剧情', c: ['日期', '开始时间', '完结时间', '事件概要', '状态'] },
-        { n: '支线追踪', c: ['状态', '支线名', '开始时间', '完结时间', '事件追踪', '关键NPC'] },
-        { n: '角色状态', c: ['角色名', '状态变化', '时间', '原因', '当前位置'] },
-        { n: '人物档案', c: ['姓名', '年龄', '身份', '地点', '性格', '备注'] },
-        { n: '人物关系', c: ['角色A', '角色B', '关系描述', '情感态度'] },
-        { n: '世界设定', c: ['设定名', '类型', '详细说明', '影响范围'] },
-        { n: '物品追踪', c: ['物品名称', '物品描述', '当前位置', '持有者', '状态', '重要程度', '备注'] },
-        { n: '约定', c: ['约定时间', '约定内容', '核心角色'] },
-        { n: '记忆总结', c: ['表格类型', '总结内容'] }
+        { n: '主线剧情', c: ['#日期', '#开始时间', '#完结时间', '事件概要', '#状态'] },
+        { n: '支线追踪', c: ['#状态', '#支线名', '#开始时间', '#完结时间', '事件追踪', '#关键NPC'] },
+        { n: '角色状态', c: ['#角色名', '#状态变化', '#时间', '#原因', '#当前位置'] },
+        { n: '人物档案', c: ['#姓名', '#年龄', '#身份', '#地点', '#性格', '#备注'] },
+        { n: '人物关系', c: ['#角色A', '#角色B', '#关系描述', '#情感态度'] },
+        { n: '世界设定', c: ['#设定名', '#类型', '#详细说明', '#影响范围'] },
+        { n: '物品追踪', c: ['#物品名称', '物品描述', '#当前位置', '#持有者', '#状态', '#重要程度', '#备注'] },
+        { n: '约定', c: ['#约定时间', '约定内容', '#核心角色'] },
+        { n: '记忆总结', c: ['#表格类型', '总结内容'] }
     ];
 
     // ----- 默认列宽配置（单位：像素） -----
     const DEFAULT_COL_WIDTHS = {
         // 0号表：主线
-        0: { '日期': 90, '开始时间': 80, '完结时间': 80, '状态': 60 },
+        0: { '#日期': 90, '#开始时间': 80, '#完结时间': 80, '#状态': 60 },
         // 1号表：支线 (你觉得太宽的就是这里)
-        1: { '状态': 60, '支线名': 100, '开始时间': 80, '完结时间': 80, '事件追踪': 150, '关键NPC': 80 },
+        1: { '#状态': 60, '#支线名': 100, '#开始时间': 80, '#完结时间': 80, '事件追踪': 150, '#关键NPC': 80 },
         // 其他表默认改小
-        2: { '时间': 100 },
-        3: { '年龄': 40 },
-        6: { '状态': 60, '重要程度': 60 },
-        7: { '约定时间': 100 },
-        8: { '表格类型': 100 }
+        2: { '#时间': 100 },
+        3: { '#年龄': 40 },
+        6: { '#状态': 60, '#重要程度': 60 },
+        7: { '#约定时间': 100 },
+        8: { '#表格类型': 100 }
     };
 
     // ========================================================================
@@ -160,6 +165,7 @@
     let isSummarizing = false;
     let isInitCooling = true; // ✨ 初始化冷却：防止刚加载页面时自动触发任务
     let saveChatDebounceTimer = null; // 🧹 性能优化：saveChat 防抖计时器
+    let hideTagDebounceTimer = null; // 🧹 性能优化：hideMemoryTags 防抖计时器，防止 Regex 脚本冲突
     let isChatSwitching = false; // 🔒 性能优化：会话切换锁，防止卡顿期间误操作
 
     // 🛡️ [辅助函数] 更新 lastManualEditTime 并同步到 window
@@ -199,11 +205,11 @@
                 css: {
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
                     width: '100vw', height: '100vh',
-                    background: 'rgba(0,0,0,0.6)', zIndex: 20000005,
+                    background: 'rgba(0,0,0,0.6)', zIndex: 2147483647,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     padding: '20px', margin: 0
                 }
-            });
+            }).attr('style', function(i, s) { return s + 'z-index: 2147483647 !important;'; });
 
             const $dialog = $('<div>', {
                 css: {
@@ -485,7 +491,7 @@
         }
 
         try {
-            const response = await fetch('/csrf-token');
+            const response = await fetch('/csrf-token', { credentials: 'include' });
             if (!response.ok) throw new Error('CSRF fetch failed');
             const data = await response.json();
             cachedCsrfToken = data.token;
@@ -523,11 +529,11 @@
                 css: {
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
                     width: '100vw', height: '100vh',
-                    background: 'rgba(0,0,0,0.6)', zIndex: 20000005,
+                    background: 'rgba(0,0,0,0.6)', zIndex: 2147483647,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     padding: '20px', margin: 0
                 }
-            });
+            }).attr('style', function(i, s) { return s + 'z-index: 2147483647 !important;'; });
 
             const $dialog = $('<div>', {
                 css: {
@@ -620,11 +626,11 @@
                 css: {
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
                     width: '100vw', height: '100vh',
-                    background: 'rgba(0,0,0,0.6)', zIndex: 20000005,
+                    background: 'rgba(0,0,0,0.6)', zIndex: 2147483647,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     padding: '20px', margin: 0
                 }
-            });
+            }).attr('style', function(i, s) { return s + 'z-index: 2147483647 !important;'; });
 
             const $dialog = $('<div>', {
                 css: {
@@ -748,11 +754,11 @@
                 css: {
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
                     width: '100vw', height: '100vh',
-                    background: 'rgba(0,0,0,0.6)', zIndex: 20000005,
+                    background: 'rgba(0,0,0,0.6)', zIndex: 2147483647,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     padding: '20px', margin: 0
                 }
-            });
+            }).attr('style', function(i, s) { return s + 'z-index: 2147483647 !important;'; });
 
             const $dialog = $('<div>', {
                 css: {
@@ -889,20 +895,30 @@
             else if (i > this.r.length) { return; }
 
             Object.entries(d).forEach(([k, v]) => {
-                // 🔥 修复：对于需要追加的列（主线剧情列3、支线追踪列4），增强去重逻辑
-                if ((this.n === '主线剧情' && k == '3') || (this.n === '支线追踪' && k == '4')) {
-                    if (this.r[i][k] && v) {
-                        // 检查是否已包含相同内容
-                        if (!this.r[i][k].includes(v.trim())) {
-                            // 不包含 → 追加
-                            this.r[i][k] += '；' + v.trim();
-                        }
-                        // 已包含或已追加 → 直接返回，不执行后面的覆盖逻辑
-                        return;
+                // Get column definition safely
+                const colDef = (this.c[k] || '').trim();
+
+                // 1. Check for Overwrite Mode (# prefix)
+                // 🔄 前缀规则：# = 覆盖模式（Overwrite），无前缀 = 追加模式（Append）
+                const isOverwrite = colDef.startsWith('#');
+                const val = v ? String(v).trim() : '';
+
+                if (isOverwrite) {
+                    // 🔥 OVERWRITE MODE: Direct assignment
+                    // Even if val is empty, we overwrite (clear) the cell as requested.
+                    this.r[i][k] = val;
+                } else {
+                    // ➕ APPEND MODE: Unconditional append
+                    let currentVal = this.r[i][k] ? String(this.r[i][k]) : '';
+
+                    if (!currentVal) {
+                        // Cell is empty -> just assign
+                        this.r[i][k] = val;
+                    } else if (val) {
+                        // Cell has data -> Always append, even if duplicate
+                        this.r[i][k] += '；' + val;
                     }
                 }
-                // 对于非追加列，或追加列的首次赋值，直接覆盖
-                this.r[i][k] = v;
             });
         }
         ins(d, insertAfterIndex = null) {
@@ -954,7 +970,9 @@
                 t += `  [${ri}] `;
                 this.c.forEach((cl, ci) => {
                     const v = rw[ci] || '';
-                    if (v) t += `${cl}:${v} | `;
+                    // 🧹 Clean Display: 移除 # 前缀，AI 只看到干净的列名
+                    const colName = cl.replace(/^#/, '');
+                    if (v) t += `${colName}:${v} | `;
                 });
                 t += '\n';
             });
@@ -1049,7 +1067,7 @@
             // 4. 插入新行
             sumSheet.ins(rowData);
 
-            this.m.save();
+            this.m.save(false, true); // 总结数据立即保存
 
             // ⚡ 自动化流：如果开启了"总结后自动向量化"，且未开启"同步到世界书"，则直接触发向量化
             // （如果开启了世界书同步，向量化会在世界书同步完成后触发，避免重复）
@@ -1133,7 +1151,7 @@
                 return { type, content: content.trim() };
             }).filter(item => item !== null); // 过滤掉被隐藏的行
         }
-        clear() { this.m.get(this.m.s.length - 1).clear(); this.m.save(); }
+        clear() { this.m.get(this.m.s.length - 1).clear(); this.m.save(true, true); } // 清空总结表立即保存
         has() { const s = this.m.get(this.m.s.length - 1); return s.r.length > 0 && s.r[0][1]; }
     }
 
@@ -1168,7 +1186,11 @@
                     this.s.forEach((sheet, index) => {
                         if (sheet && sheet.r && Array.isArray(sheet.r)) {
                             // 深拷贝行数据（使用 JSON 方式确保完全独立）
-                            backupData[index] = JSON.parse(JSON.stringify(sheet.r));
+                            // 修改：同时备份名字和数据
+                            backupData.push({
+                                n: sheet.n,
+                                r: JSON.parse(JSON.stringify(sheet.r))
+                            });
                             console.log(`💾 [数据备份] 表${index} "${sheet.n}" 备份了 ${sheet.r.length} 行数据`);
                         }
                     });
@@ -1185,15 +1207,32 @@
                 }
             });
 
-            // ✅ 4. 恢复数据（仅在需要保留数据时）
+            // ✅ 4. 恢复数据（智能锚定版：修复新增表格导致总结错位的问题）
             if (preserveData && backupData.length > 0) {
-                this.s.forEach((newSheet, index) => {
-                    if (backupData[index] && Array.isArray(backupData[index]) && backupData[index].length > 0) {
-                        // 直接恢复行数据
-                        newSheet.r = backupData[index];
-                        console.log(`♻️ [数据恢复] 表${index} "${newSheet.n}" 恢复了 ${newSheet.r.length} 行数据`);
+                // 4.1 分离：取出旧的总结数据（永远是备份数组的最后一个）
+                const oldSummaryObj = backupData.pop();
+                const oldSummaryData = oldSummaryObj ? oldSummaryObj.r : [];
+
+                // 4.2 恢复详情表：按名字匹配
+                for (let i = 0; i < this.s.length - 1; i++) {
+                    const currentTable = this.s[i];
+                    // 在备份中查找名字相同的表
+                    const match = backupData.find(b => b.n === currentTable.n);
+
+                    if (match) {
+                        currentTable.r = match.r; // 名字匹配，恢复数据
+                    } else {
+                        currentTable.r = []; // 没找到（说明是新表或改名了），置空
                     }
-                });
+                }
+
+                // 4.3 归位：将旧的总结数据，强制放入新的最后一个表格中
+                const newSummaryIndex = this.s.length - 1;
+                if (this.s[newSummaryIndex]) {
+                    this.s[newSummaryIndex].r = oldSummaryData;
+                }
+
+                console.log(`♻️ [数据恢复] 已按表名智能匹配数据`);
             }
 
             // ✅ 5. 重新初始化总结管理器
@@ -1206,7 +1245,7 @@
         all() { return this.s; }
 
         // ✨✨✨ 核心修复：增强版熔断保护 (防止空数据覆盖)
-        save(force = false) {
+        save(force = false, immediate = false) {
             const id = this.gid();
             if (!id) return;
             const ctx = this.ctx();
@@ -1214,9 +1253,10 @@
             // 计算当前内存中的总行数
             const totalRows = this.s.reduce((acc, sheet) => acc + (sheet.r ? sheet.r.length : 0), 0);
 
-            // 🛑 [毁灭级熔断保护] 
-            // 场景：用户打开酒馆，插件加载失败(内存为0)，但本地存档其实是有货的。
-            // 此时如果触发自动保存，本地存档就会被清空。必须拦截！
+            // 🛑 [毁灭级熔断保护]
+            // 场景1：用户打开酒馆，插件加载失败(内存为0)，但本地存档其实是有货的。
+            // 场景2：加载延迟导致内存中只有1行新数据，但本地存档有100行。
+            // 此时如果触发自动保存，本地存档就会被覆盖。必须拦截！
             if (!force) {
                 try {
                     const rawLocalData = localStorage.getItem(`${SK}_${id}`);
@@ -1226,15 +1266,16 @@
                         // 计算本地存档的行数
                         const localRows = localData.d ? localData.d.reduce((sum, sheet) => sum + (sheet.r ? sheet.r.length : 0), 0) : 0;
 
-                        // ⚡️ 判定：如果本地有大量数据(>5行)，而当前内存几乎为空(<2行)
-                        // 判定为“加载失败”，禁止覆盖保存！
-                        if (localRows > 5 && totalRows < 2) {
-                            console.error(`🛑 [严重熔断] 拦截了一次毁灭性保存！`);
-                            console.error(`   原因：内存数据(${totalRows}行) 远少于 本地存档(${localRows}行)。可能因加载失败导致。`);
+                        // 🛡️ 第二道防线：行数暴跌保护 (Drastic Drop Protection)
+                        // 如果本地数据量较大 (>5行)，而当前数据量暴跌至不到原来的 50%，且不是用户手动强制操作(!force)，则拦截保存。
+                        // 这能完美防御"加载失败导致 100 行变 1 行"的惨剧。
+                        if (localRows > 5 && totalRows < (localRows * 0.5)) {
+                            console.error(`🛑 [严重熔断] 拦截了一次异常保存！`);
+                            console.error(`   原因：本地存档有 ${localRows} 行，当前内存仅 ${totalRows} 行。行数骤减超过 50%，判定为异常覆盖。`);
 
-                            // 仅提示一次，防止刷屏
+                            // 防止刷屏，只弹一次提示
                             if (!window.hasShownSaveWarning) {
-                                if (typeof toastr !== 'undefined') toastr.error('⚠️ 数据加载异常，已阻止自动保存以保护存档！\n请尝试刷新页面。', '熔断保护');
+                                if (typeof toastr !== 'undefined') toastr.error(`⚠️ 严重警告：检测到数据可能丢失（${localRows} -> ${totalRows}行）\n已阻止自动保存以保护存档！\n请刷新页面重试。`, '熔断保护');
                                 window.hasShownSaveWarning = true;
                             }
                             return; // ⛔️ 终止保存
@@ -1282,13 +1323,15 @@
                     autoSummaryDelayCount: C.autoSummaryDelayCount,
                     autoSummaryPrompt: C.autoSummaryPrompt,
                     autoSummarySilent: C.autoSummarySilent,
+                    autoSummaryTargetTables: C.autoSummaryTargetTables,
+                    manualSummaryTargetTables: C.manualSummaryTargetTables,
                     // ✅ 其他功能
+                    masterSwitch: C.masterSwitch,
                     contextLimit: C.contextLimit,
                     contextLimitCount: C.contextLimitCount,
                     filterTags: C.filterTags,
                     filterTagsWhite: C.filterTagsWhite,
                     syncWorldInfo: C.syncWorldInfo,
-                    autoBindWI: C.autoBindWI,
                     worldInfoVectorized: C.worldInfoVectorized,
                     // ✅ 向量检索配置
                     vectorEnabled: C.vectorEnabled,
@@ -1302,26 +1345,163 @@
                 }
             };
 
-            try { localStorage.setItem(`${SK}_${id}`, JSON.stringify(data)); } catch (e) { }
+            // ✅ 标记浏览器缓存保存是否成功
+            let saveToBrowserSuccess = false;
 
-            // 云端同步逻辑 (保持不变)
+            try {
+                localStorage.setItem(`${SK}_${id}`, JSON.stringify(data));
+                saveToBrowserSuccess = true; // 主数据保存成功
+
+                // 🔥 [优化版] 自动备份机制：创建时间戳备份供"恢复数据"功能使用
+                const backupKey = `gg_data_${id}_${now}`;
+
+                // ⚡ 去重检查：获取最新的备份
+                const allBackupKeys = Object.keys(localStorage).filter(k => k.startsWith(`gg_data_${id}_`));
+                if (allBackupKeys.length > 0) {
+                    // 找到时间戳最大的 key
+                    const latestKey = allBackupKeys.sort().pop();
+                    const latestData = localStorage.getItem(latestKey);
+                    const newDataStr = JSON.stringify(data);
+
+                    if (latestData === newDataStr) {
+                        console.log('⚡ [备份去重] 数据未变动，跳过创建冗余备份');
+                        // 跳过备份，直接进入云端同步
+                    } else {
+                        // 数据有变化，执行备份
+                        performBackup();
+                    }
+                } else {
+                    // 没有旧备份，执行首次备份
+                    performBackup();
+                }
+
+                // 备份执行函数
+                function performBackup() {
+
+                // 智能保存函数：自动处理空间不足问题
+                const performSave = () => {
+                    try {
+                        localStorage.setItem(backupKey, JSON.stringify(data));
+                    } catch (e) {
+                        // 检测是否为存储空间已满错误
+                        if (e.name === 'QuotaExceededError' || e.code === 22) {
+                            console.warn('⚠️ [存储空间已满] 触发紧急清理，删除所有旧备份...');
+                            // 紧急清理：删除所有本插件的旧备份
+                            let cleanedCount = 0;
+                            Object.keys(localStorage).forEach(key => {
+                                if (key.startsWith('gg_data_')) {
+                                    localStorage.removeItem(key);
+                                    cleanedCount++;
+                                }
+                            });
+                            console.log(`🧹 [紧急清理] 已删除 ${cleanedCount} 个旧备份，释放存储空间`);
+
+                            // 清理后再试一次
+                            try {
+                                localStorage.setItem(backupKey, JSON.stringify(data));
+                                console.log('✅ [紧急清理] 清理后保存成功');
+                            } catch (e2) {
+                                console.error('❌ [紧急清理] 清理后仍无法保存备份:', e2);
+                                // 即使备份失败，也不要抛出错误，因为主数据已经保存成功
+                            }
+                        } else {
+                            // 其他类型的错误，记录但不中断
+                            console.warn('⚠️ [备份保存] 保存备份时出错:', e);
+                        }
+                    }
+                };
+
+                performSave();
+
+                // 🧹 [常规清理] 只保留最近 15 个备份
+                try {
+                    const allKeys = Object.keys(localStorage);
+                    const backups = allKeys
+                        .filter(k => k.startsWith(`gg_data_${id}_`))
+                        .map(k => {
+                            const ts = parseInt(k.split('_').pop());
+                            return { key: k, ts: ts };
+                        })
+                        .sort((a, b) => b.ts - a.ts); // 按时间戳降序排列
+
+                    // 删除超过15个的旧备份
+                    if (backups.length > 15) {
+                        backups.slice(15).forEach(backup => {
+                            localStorage.removeItem(backup.key);
+                        });
+                        console.log(`🧹 [备份清理] 已清理 ${backups.length - 15} 个旧备份，保留最近15个`);
+                    }
+                } catch (cleanupError) {
+                    console.warn('⚠️ [备份清理] 清理失败:', cleanupError);
+                }
+                } // 结束 performBackup 函数
+
+            } catch (e) {
+                console.error('❌ [保存失败] localStorage写入失败:', e);
+
+                // 🔥 [关键修复] 主数据保存失败时，尝试清理后重试
+                if (e.name === 'QuotaExceededError' || e.code === 22) {
+                    console.warn('⚠️ [主数据保存失败] 触发紧急清理...');
+
+                    // 紧急清理：删除所有旧备份
+                    let cleanedCount = 0;
+                    try {
+                        Object.keys(localStorage).forEach(key => {
+                            if (key.startsWith('gg_data_')) {
+                                localStorage.removeItem(key);
+                                cleanedCount++;
+                            }
+                        });
+                        console.log(`🧹 [紧急清理] 已删除 ${cleanedCount} 个旧备份`);
+
+                        // 清理后重试主数据保存
+                        try {
+                            localStorage.setItem(`${SK}_${id}`, JSON.stringify(data));
+                            saveToBrowserSuccess = true;
+                            console.log('✅ [紧急清理] 清理后主数据保存成功');
+                        } catch (e2) {
+                            console.error('❌ [紧急清理] 清理后仍无法保存主数据:', e2);
+                            // 保存失败，显示警告并强制云端同步
+                            if (typeof toastr !== 'undefined') {
+                                toastr.warning('浏览器缓存已满，正在强制同步到酒馆文件...', '缓存警告', { timeOut: 3000 });
+                            }
+                        }
+                    } catch (cleanupError) {
+                        console.error('❌ [紧急清理] 清理过程出错:', cleanupError);
+                        if (typeof toastr !== 'undefined') {
+                            toastr.warning('浏览器缓存已满，正在强制同步到酒馆文件...', '缓存警告', { timeOut: 3000 });
+                        }
+                    }
+                }
+            }
+
+            // 云端同步逻辑
             if (C.cloudSync) {
                 try {
                     if (ctx && ctx.chatMetadata) {
                         ctx.chatMetadata.gaigai = data;
-                        // 🧹 性能优化：使用 2 秒防抖
+                        // 🧹 性能优化：使用防抖，immediate 模式立即执行
                         if (typeof ctx.saveChat === 'function') {
                             if (saveChatDebounceTimer) {
                                 clearTimeout(saveChatDebounceTimer);
                             }
+                            // 🔥 [关键修复] 如果浏览器缓存保存失败，强制立即同步到酒馆文件（绕过防抖）
+                            // 否则使用正常的防抖逻辑（immediate 为 true 时 10ms，否则 500ms）
+                            const effectiveImmediate = immediate || !saveToBrowserSuccess;
+                            const delay = effectiveImmediate ? 10 : 500;
+
                             saveChatDebounceTimer = setTimeout(() => {
                                 try {
                                     ctx.saveChat();
+                                    // 如果是因为缓存失败而强制同步，显示成功提示
+                                    if (!saveToBrowserSuccess && typeof toastr !== 'undefined') {
+                                        toastr.success('数据已成功保存到酒馆文件', '云端同步', { timeOut: 2000 });
+                                    }
                                     // console.log('💾 [防抖保存] saveChat 已执行');
                                 } catch (err) {
                                     console.error('❌ saveChat 执行失败:', err);
                                 }
-                            }, 2000);
+                            }, delay);
                         }
                     }
                 } catch (e) { }
@@ -1331,10 +1511,14 @@
         // ✨✨✨ 核心修复：从角色存档恢复进度指针 (含分支继承补丁)
         load() {
             const id = this.gid();
-            if (!id) return;
+            if (!id) {
+                console.warn('⚠️ [M.load] 无法获取有效的会话 ID，跳过加载');
+                return;
+            }
 
             if (this.id !== id) {
                 // 🔄 检测到会话切换
+                console.log(`🔄 [M.load] 检测到会话切换: ${this.id || 'null'} → ${id}`);
                 this.id = id;
                 const tableDef = (C.customTables && Array.isArray(C.customTables) && C.customTables.length > 0)
                     ? C.customTables
@@ -1353,34 +1537,90 @@
 
             let cloudData = null;
             let localData = null;
+            let needMigrationSave = false; // 标记是否需要迁移保存
+
             if (C.cloudSync) { try { const ctx = this.ctx(); if (ctx && ctx.chatMetadata && ctx.chatMetadata.gaigai) cloudData = ctx.chatMetadata.gaigai; } catch (e) { } }
 
-            // 🛡️ [数据迁移修复] 检查云端数据 (支持重命名、分支迁移)
+            // 🛡️♻️ [智能数据迁移] 检查云端数据 ID
             if (cloudData) {
-                // 只要数据存在于当前 chatMetadata 中，我们就认为是合法的，允许迁移
-                if (cloudData.id !== id) {
-                    console.log(`🔄 [数据迁移] 检测到 ID 变更 (可能是重命名或分支)，自动迁移数据。 (原ID: ${cloudData.id} -> 新ID: ${id})`);
-                    // 强制更新内存对象中的 ID，确保后续保存时使用新 ID
+                if (!cloudData.id) {
+                    console.warn(`🛑 [数据校验] 云端数据缺少 ID 字段，已忽略`);
+                    cloudData = null;
+                } else if (cloudData.id !== id) {
+                    // ♻️ 关键修复：不丢弃数据，而是执行智能迁移
+                    // 由于 ochat 已经清空了内存，此时的 cloudData 一定来自当前文件
+                    // 如果 ID 不匹配，说明是改名/分支操作，应该继承数据而非丢弃
+                    console.log(`♻️ [数据迁移] 检测到会话改名或分支操作`);
+                    console.log(`   - 原始 ID: ${cloudData.id}`);
+                    console.log(`   - 当前 ID: ${id}`);
+                    console.log(`   - 处理方式: 自动迁移数据到新 ID`);
+
+                    // 更新数据中的 ID 为当前 ID
                     cloudData.id = id;
+                    needMigrationSave = true; // 标记需要保存
+
+                    console.log(`✅ [数据迁移] ID 已更新，将在加载完成后持久化`);
                 } else {
-                    console.log(`✅ [数据验证] ID 匹配: ${id}`);
+                    console.log(`✅ [数据校验] 云端数据 ID 校验通过: ${id}`);
                 }
             }
 
             try { const sv = localStorage.getItem(`${SK}_${id}`); if (sv) localData = JSON.parse(sv); } catch (e) { }
 
-            // 🛡️ [防串味修复] 检查本地数据
+            // 🛡️♻️ [智能数据迁移] 检查本地数据 ID
             if (localData) {
-                if (localData.id !== id) {
-                    console.warn(`🔴 [数据隔离] 本地数据 ID 不匹配，已忽略。`);
+                if (!localData.id) {
+                    console.warn(`🛑 [数据校验] 本地数据缺少 ID 字段，已忽略`);
                     localData = null;
+                } else if (localData.id !== id) {
+                    // ♻️ 本地数据也可能需要迁移（例如从旧版本升级）
+                    console.log(`♻️ [数据迁移] 本地数据 ID 不匹配，执行迁移`);
+                    console.log(`   - 原始 ID: ${localData.id}`);
+                    console.log(`   - 当前 ID: ${id}`);
+
+                    localData.id = id;
+                    needMigrationSave = true;
+
+                    console.log(`✅ [数据迁移] 本地数据 ID 已更新`);
+                } else {
+                    console.log(`✅ [数据校验] 本地数据 ID 校验通过: ${id}`);
                 }
             }
 
+            // 🛡️ [严重失血保护] 计算数据行数，防止云端空数据覆盖本地有效数据
+            const countRows = (data) => {
+                if (!data || !data.d || !Array.isArray(data.d)) return 0;
+                return data.d.reduce((total, sheet) => {
+                    if (!sheet || !sheet.r || !Array.isArray(sheet.r)) return total;
+                    return total + sheet.r.length;
+                }, 0);
+            };
+
             let finalData = null;
-            if (cloudData && localData) finalData = (cloudData.ts > localData.ts) ? cloudData : localData;
-            else if (cloudData) finalData = cloudData;
-            else if (localData) finalData = localData;
+            if (cloudData && localData) {
+                // ✅ 双重存在检查：云端和本地数据都存在时才进行防暴跌校验
+                const localRowCount = countRows(localData);
+                const cloudRowCount = countRows(cloudData);
+
+                // 🚨 严重失血检测：必须同时满足以下所有条件
+                // 1. localData 存在且有效（已在外层 if 检查）
+                // 2. cloudData 存在且有效（已在外层 if 检查）
+                // 3. 本地有实质数据 (>5行)
+                // 4. 云端数据暴跌超过50%
+                if (localRowCount > 5 && cloudRowCount < (localRowCount * 0.5)) {
+                    console.warn(`⚠️ [严重失血保护] 检测到云端数据异常丢失，强制回退本地。本地行数: ${localRowCount}, 云端行数: ${cloudRowCount}`);
+                    finalData = localData;
+                } else {
+                    // 正常情况：标准时间戳对比
+                    finalData = (cloudData.ts > localData.ts) ? cloudData : localData;
+                }
+            } else if (cloudData) {
+                // 仅云端数据存在（本地数据不存在或无效）
+                finalData = cloudData;
+            } else if (localData) {
+                // 仅本地数据存在（云端数据不存在或无效）
+                finalData = localData;
+            }
 
             // ✅ 时间戳检查 (提前到重置逻辑之前!)
             if (finalData && finalData.ts <= lastInternalSaveTime) return;
@@ -1413,8 +1653,7 @@
                 C.contextLimitCount = globalConfig.contextLimitCount !== undefined ? globalConfig.contextLimitCount : 30;
                 C.filterTags = globalConfig.filterTags !== undefined ? globalConfig.filterTags : '';
                 C.filterTagsWhite = globalConfig.filterTagsWhite !== undefined ? globalConfig.filterTagsWhite : '';
-                C.syncWorldInfo = globalConfig.syncWorldInfo !== undefined ? globalConfig.syncWorldInfo : true;
-                C.autoBindWI = globalConfig.autoBindWI !== undefined ? globalConfig.autoBindWI : true;
+                C.syncWorldInfo = globalConfig.syncWorldInfo !== undefined ? globalConfig.syncWorldInfo : false;
                 C.worldInfoVectorized = globalConfig.worldInfoVectorized !== undefined ? globalConfig.worldInfoVectorized : false;
                 // ✅ 向量检索配置
                 C.vectorEnabled = globalConfig.vectorEnabled !== undefined ? globalConfig.vectorEnabled : false;
@@ -1463,43 +1702,71 @@
 
                 // 恢复配置
                 if (finalData.config) {
+                    // ✅ 直接应用会话存档的所有配置（包括 enabled 和 autoBackfill）
                     Object.assign(C, finalData.config);
+                    console.log('✅ [每聊配置] 已恢复所有设置（包括功能开关）');
+
                     // 恢复特殊配置
                     if (finalData.config.summarySource !== undefined) API_CONFIG.summarySource = finalData.config.summarySource;
-                    console.log('✅ [每聊配置] 已恢复');
                 }
 
                 lastInternalSaveTime = finalData.ts;
+            }
+
+            // ♻️ [数据迁移] 如果执行了 ID 迁移，立即保存以持久化新 ID
+            if (needMigrationSave) {
+                console.log('💾 [数据迁移] 正在持久化迁移后的数据...');
+                setTimeout(() => {
+                    this.save(true); // 强制保存
+                    console.log('✅ [数据迁移] 迁移完成，新 ID 已写入存储');
+                }, 100); // 短暂延迟，确保数据加载完成
             }
         }
 
         gid() {
             try {
                 const x = this.ctx();
-                if (!x) return null;
+                if (!x) {
+                    console.log('🔍 [gid] 无法获取上下文，返回 null');
+                    return null;
+                }
 
                 // 1. 获取聊天文件 ID (时间线标识)
                 // 诊断显示 file_name 为 undefined，但 chatId 有值，所以必须做兼容
                 const chatId = x.chatMetadata?.file_name || x.chatId;
-                if (!chatId) return null;
+                if (!chatId) {
+                    console.log('🔍 [gid] chatId 不存在，返回 null');
+                    return null;
+                }
 
                 // 2. ✅【群聊模式核心修复】
                 // 诊断显示 groupName 为 undefined，但 groupId (如 1767964998110) 存在。
                 // 只要存在 groupId，就强制锁定为群聊存档，忽略当前发言角色。
                 if (x.groupId) {
-                    return `Group_${x.groupId}_${chatId}`;
+                    const generatedId = `Group_${x.groupId}_${chatId}`;
+                    console.log(`🔍 [gid] 群聊模式 - 生成 ID: ${generatedId}`);
+                    return generatedId;
                 }
 
                 // 3. 单人角色模式 (保持原逻辑)
                 if (C.pc) {
                     const charId = x.characterId || x.name2;
-                    if (!charId) return null;
-                    return `${charId}_${chatId}`;
+                    if (!charId) {
+                        console.log('🔍 [gid] 单人模式但 charId 不存在，返回 null');
+                        return null;
+                    }
+                    const generatedId = `${charId}_${chatId}`;
+                    console.log(`🔍 [gid] 单人角色模式 - 生成 ID: ${generatedId}`);
+                    return generatedId;
                 }
 
                 // 4. 纯聊天文件模式 (兜底)
+                console.log(`🔍 [gid] 纯聊天文件模式 - 生成 ID: ${chatId}`);
                 return chatId;
-            } catch (e) { return null; }
+            } catch (e) {
+                console.error('❌ [gid] 生成 ID 时发生错误:', e);
+                return null;
+            }
         }
 
         ctx() { return (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) ? SillyTavern.getContext() : null; }
@@ -1523,7 +1790,7 @@
             // ✨✨✨ 核心修改：精简状态栏，只告诉 AI 下一个索引 ✨✨✨
             result += '\n[后台索引状态]\n';
             this.s.slice(0, -1).forEach((s, i) => {
-                const displayName = i === 1 ? '支线追踪' : s.n;
+                const displayName = s.n;
                 const nextIndex = s.r.length; // 下一个空位的索引
                 result += `表${i} ${displayName}: ⏭️新增请用索引 ${nextIndex}\n`;
             });
@@ -1534,20 +1801,133 @@
     }
 
     // ✅✅ 快照管理系统（在类外面）
+
+    /**
+     * 计算表格内容的哈希值（用于深度内容比较）
+     * @param {Array} sheets - 表格数组
+     * @returns {number} - 32位整数哈希值
+     */
+    function calculateTableHash(sheets) {
+        // 只对数据行(r)进行哈希，忽略UI状态如宽度/高度
+        const dataString = JSON.stringify(sheets.map(s => s.r || []));
+        let hash = 0, i, chr;
+        if (dataString.length === 0) return hash;
+        for (i = 0; i < dataString.length; i++) {
+            chr = dataString.charCodeAt(i);
+            hash = ((hash << 5) - hash) + chr;
+            hash |= 0; // 转换为32位整数
+        }
+        return hash;
+    }
+
     function saveSnapshot(msgIndex) {
         try {
             const snapshot = {
-                data: m.all().slice(0, -1).map(sh => JSON.parse(JSON.stringify(sh.json()))), // ✅ 只保存数据表，不保存总结表
-                summarized: JSON.parse(JSON.stringify(summarizedRows)),
+                data: m.all().slice(0, -1).map(sh => structuredClone(sh.json())), // ✅ 只保存数据表，不保存总结表
+                summarized: structuredClone(summarizedRows),
                 timestamp: Date.now()
             };
+
+            // 🧹 [新增] 主动清理过期备份，防止 localStorage 配额超限
+            try {
+                const allKeys = Object.keys(localStorage);
+                const backupKeys = allKeys.filter(k => k.startsWith('gg_data_') || k.startsWith('backup_pre_'));
+
+                if (backupKeys.length > 15) {
+                    // 按时间戳排序，删除最旧的备份
+                    const sortedBackups = backupKeys
+                        .map(key => {
+                            try {
+                                const data = JSON.parse(localStorage.getItem(key) || '{}');
+                                return { key, ts: data.ts || 0 };
+                            } catch {
+                                return { key, ts: 0 };
+                            }
+                        })
+                        .sort((a, b) => a.ts - b.ts); // 升序，最旧的在前
+
+                    const toDelete = sortedBackups.slice(0, sortedBackups.length - 15);
+                    toDelete.forEach(item => {
+                        try {
+                            localStorage.removeItem(item.key);
+                        } catch (e) {
+                            console.warn(`⚠️ 删除备份失败: ${item.key}`, e);
+                        }
+                    });
+
+                    if (toDelete.length > 0) {
+                        console.log(`🧹 [快照清理] 已删除 ${toDelete.length} 个过期备份，保留最近15个`);
+                    }
+                }
+            } catch (cleanupError) {
+                console.warn('⚠️ [备份清理] 预清理失败:', cleanupError);
+            }
+
             snapshotHistory[msgIndex] = snapshot;
 
             const totalRecords = snapshot.data.reduce((sum, s) => sum + s.r.length, 0);
             const details = snapshot.data.filter(s => s.r.length > 0).map(s => `${s.n}:${s.r.length}行`).join(', ');
             console.log(`📸 快照${msgIndex}已保存 - 共${totalRecords}条记录 ${details ? `[${details}]` : '[空]'}`);
+
+            // 🧹 [优化] 限制快照深度：只保留最近10个消息索引的快照
+            try {
+                // 获取所有数字索引的快照键（排除 before_/after_ 前缀的）
+                const numericKeys = Object.keys(snapshotHistory)
+                    .filter(k => !k.startsWith('before_') && !k.startsWith('after_'))
+                    .map(k => parseInt(k))
+                    .filter(n => !isNaN(n))
+                    .sort((a, b) => b - a); // 降序排列
+
+                // 只保留最近10个
+                if (numericKeys.length > 10) {
+                    const toDelete = numericKeys.slice(10);
+                    toDelete.forEach(key => delete snapshotHistory[key.toString()]);
+                    console.log(`🧹 [快照深度限制] 已清理 ${toDelete.length} 个过旧快照，保留最近10个`);
+                }
+            } catch (trimError) {
+                console.warn('⚠️ [快照精简] 清理失败:', trimError);
+            }
         } catch (e) {
-            console.error('❌ 快照保存失败:', e);
+            // 🛡️ [新增] 检测 QuotaExceededError，触发紧急清理
+            if (e.name === 'QuotaExceededError' || e.code === 22) {
+                console.error('❌ [快照保存] localStorage 配额已满，触发紧急清理...');
+
+                try {
+                    // 紧急清理：删除所有临时备份
+                    const allKeys = Object.keys(localStorage);
+                    let cleanedCount = 0;
+
+                    allKeys.forEach(key => {
+                        if (key.startsWith('gg_data_') || key.startsWith('backup_pre_')) {
+                            try {
+                                localStorage.removeItem(key);
+                                cleanedCount++;
+                            } catch (removeError) {
+                                console.warn(`⚠️ 删除失败: ${key}`, removeError);
+                            }
+                        }
+                    });
+
+                    console.log(`🧹 [紧急清理] 已删除 ${cleanedCount} 个临时备份`);
+
+                    // 清理后重试保存快照
+                    try {
+                        const snapshot = {
+                            data: m.all().slice(0, -1).map(sh => JSON.parse(JSON.stringify(sh.json()))),
+                            summarized: JSON.parse(JSON.stringify(summarizedRows)),
+                            timestamp: Date.now()
+                        };
+                        snapshotHistory[msgIndex] = snapshot;
+                        console.log('✅ [紧急清理后] 快照保存成功');
+                    } catch (retryError) {
+                        console.error('❌ [紧急清理后] 快照仍然保存失败:', retryError);
+                    }
+                } catch (emergencyError) {
+                    console.error('❌ [紧急清理] 清理过程失败:', emergencyError);
+                }
+            } else {
+                console.error('❌ 快照保存失败:', e);
+            }
         }
     }
 
@@ -1582,13 +1962,14 @@
             }
 
             // 🛡️ [过期保护 - 核心逻辑]
-            // 只有在非强制模式(force=false)下才检查时间戳
-            if (!force) { // <--- 2. 这里加了判断
+            // 只有在非强制模式(force=false)下才检查时间戳和Hash
+            if (!force) {
                 const currentManualEditTime = window.lastManualEditTime || lastManualEditTime;
                 if (snapshot.timestamp < currentManualEditTime) {
-                    console.log(`🛡️ [保护] 检测到手动修改，跳过回滚。`);
+                    console.log(`🛡️ [保护] 检测到手动修改(时间戳)，跳过回滚。`);
                     return false;
                 }
+                // (Hash check logic is handled in the caller omsg/opmt, but internal timestamp check stays here)
             }
 
             // 2. 先彻底清空当前表格
@@ -1615,12 +1996,12 @@
             // 既然回档成功了，就重置编辑时间，防止死循环
             lastManualEditTime = 0;
 
-            // ✨✨✨ 修复：传入 true，强制绕过熔断保护 ✨✨✨
+            // ✨✨✨ 修复：传入 true, true，强制绕过熔断保护并立即保存 ✨✨✨
             // 因为回档是把数据恢复到旧状态（可能是空的），这是有意为之，不是BUG
-            m.save(true);
+            m.save(true, true); // 快照恢复立即保存
 
             const totalRecords = m.s.reduce((sum, s) => sum + s.r.length, 0);
-            console.log(`✅ [完美回档] 快照${key}已恢复 - 当前行数:${totalRecords}`);
+            console.log(`✅ [完美回档] 快照${key}已恢复 (Force:${force}) - 当前行数:${totalRecords}`);
 
             return true;
         } catch (e) {
@@ -1636,8 +2017,8 @@
         const beforeKeys = allKeys.filter(k => k.startsWith('before_')).sort();
         const afterKeys = allKeys.filter(k => k.startsWith('after_')).sort();
 
-        // 保留最近30对快照
-        const maxPairs = 30;
+        // 🧹 [优化] 保留最近10对快照（从30降至10）
+        const maxPairs = 10;
 
         if (beforeKeys.length > maxPairs) {
             const toDeleteBefore = beforeKeys.slice(0, beforeKeys.length - maxPairs);
@@ -1650,6 +2031,14 @@
             toDeleteAfter.forEach(key => delete snapshotHistory[key]);
             console.log(`🧹 已清理 ${toDeleteAfter.length} 个旧after快照`);
         }
+    }
+
+    // 🔥 [已禁用] 加载持久化的快照（已移除localStorage持久化，快照仅保留在内存中）
+    function loadSnapshots() {
+        // ⚠️ [优化] 快照不再从localStorage加载，仅在运行时生成
+        // 这样可以减少localStorage开销，页面刷新后快照会重新构建
+        console.log('ℹ️ [快照系统] 快照仅保留在内存中，不从localStorage加载');
+        snapshotHistory = {}; // 初始化为空对象
     }
 
     function parseOpenAIModelsResponse(data) {
@@ -2053,7 +2442,7 @@
             text: '📏 重置行高',
             css: Object.assign({}, btnStyle, {
                 background: themeColor,
-                color: '#fff'
+                color: 'var(--g-tc)'
             })
         });
 
@@ -2165,7 +2554,7 @@
         const tableTextRaw = m.getTableText();
         let statusStr = '\n=== 📋 表格状态 ===\n';
         m.s.slice(0, -1).forEach((s, i) => {
-            const displayName = i === 1 ? '支线追踪' : s.n;
+            const displayName = s.n;
             const nextIndex = s.r.length;
             statusStr += `表${i} ${displayName}: ⏭️新增请用索引 ${nextIndex}\n`;
         });
@@ -2203,7 +2592,39 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 请忽略所有思考过程，直接输出 <Memory> 标签内容：`;
     }
 
-    function cleanMemoryTags(text) { if (!text) return text; return text.replace(MEMORY_TAG_REGEX, '').trim(); }
+    function cleanMemoryTags(text) {
+        if (!text) return text;
+
+        // Step 1: Remove standard complete pairs <think>...</think>
+        // (Global, case-insensitive)
+        text = text.replace(/<think>[\s\S]*?<\/think>/gi, '');
+
+        // Step 2: "Anchor" Strategy (User's Idea)
+        // If we find a closing tag like </Content> or </Memory> followed by </think>,
+        // we assume everything in between is garbage thought process.
+        // We keep the closing tag ($1) and delete the rest up to </think>.
+        // Supported anchors: Content, Memory, GaigaiMemory, Timeformat, summary
+        text = text.replace(/(<\/(?:Content|Memory|GaigaiMemory|Timeformat|summary)>)([\s\S]*?)<\/think>/gi, '$1');
+
+        // Step 3: "Start-of-String" Strategy (Fallback)
+        // If there are NO anchors (e.g. the text starts directly with thoughts),
+        // we delete from the very beginning (^) up to </think>, BUT only if it looks safe.
+        const brokenMatch = text.match(/^[\s\S]*?<\/think>/i);
+        if (brokenMatch) {
+            const contentToDelete = brokenMatch[0];
+            // Safety: Only delete if the part to be deleted DOES NOT contain vital opening tags.
+            // This prevents deleting "<Content>... </think>" if Step 2 missed it.
+            if (!/<(?:Content|Memory|GaigaiMemory|Timeformat)/i.test(contentToDelete)) {
+                text = text.replace(contentToDelete, '');
+            } else {
+                // If it contains vital tags but wasn't caught by Step 2, just remove the </think> tag to be safe.
+                text = text.replace(/<\/think>/gi, '');
+            }
+        }
+
+        // 4. Standard cleanup
+        return text.replace(MEMORY_TAG_REGEX, '').trim();
+    }
 
     /**
      * 核心过滤函数：串行双重过滤（先黑名单去除，再白名单提取）
@@ -2224,9 +2645,20 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     re = new RegExp('<' + t + '[\\s\\S]*?-->', 'gi');
                 } else {
                     // 匹配成对标签 <tag>...</tag>
-                    re = new RegExp(`<${t}(?:\\s+[^>]*)?>[\\s\\S]*?<\\/${t}>`, 'gi');
+                    // 允许闭合标签中有空格 (e.g., </ details>)
+                    re = new RegExp('<' + t + '(?:\\s+[^>]*)?>[\\s\\S]*?<\\/' + t + '\\s*>', 'gi');
                 }
-                result = result.replace(re, '');
+
+                // 使用循环重复替换,直到没有更多匹配(处理嵌套标签)
+                let prevResult;
+                let loopCount = 0;
+                const maxLoops = 50; // 安全计数器,防止无限循环
+
+                do {
+                    prevResult = result;
+                    result = result.replace(re, '');
+                    loopCount++;
+                } while (result !== prevResult && loopCount < maxLoops);
             });
         }
 
@@ -2277,7 +2709,8 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         const commentEnd = new RegExp('--\\x3e', 'g');
         let cleanTx = tx.replace(commentStart, ' ').replace(commentEnd, ' ');
         // 压缩空白，规范化函数名 (针对脚本格式)
-        cleanTx = cleanTx.replace(/\s+/g, ' ').replace(/Row\s+\(/g, 'Row(').trim();
+        // ✅ 先将字面量换行符 \\n 替换为空格，防止 JSON 解析时被误处理
+        cleanTx = cleanTx.replace(/\\n/g, ' ').replace(/\s+/g, ' ').replace(/Row\s+\(/g, 'Row(').trim();
 
         const cs = [];
 
@@ -2417,33 +2850,44 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         return null;
     }
 
-    // ⚡️ 核心重写：分情况处理单双引号，绝不遗漏
+    // ✅✅✅ [Robust Version] Object Parser: Tries JSON first, falls back to Regex
     function pob(s) {
         const d = {};
-        s = s.trim().replace(/^\{|\}$/g, '').trim();
+        s = s.trim();
 
-        // 匹配模式：
-        // 1. 键：可以是数字，也可以带引号 "0" 或 '0'
-        // 2. 值：双引号包围 "..." 或 单引号包围 '...'
+        // 1. Try JSON parsing (Most reliable for nested quotes)
+        // Wrap in braces if missing
+        if (!s.startsWith('{')) s = '{' + s;
+        if (!s.endsWith('}')) s = s + '}';
 
-        // 方案 A：双引号值 (例如 0: "abc")
-        const rDouble = /(?:['"]?(\d+)['"]?)\s*:\s*"([^"]*)"/g;
+        try {
+            // Attempt to fix lazy formatting (e.g. 0: "val" -> "0": "val")
+            const jsonStr = s.replace(/([{,]\s*)(\d+)(\s*:)/g, '$1"$2"$3')
+                             .replace(/'/g, '"'); // Try replacing single quotes (risky but helpful)
 
-        // 方案 B：单引号值 (例如 0: 'abc')
-        const rSingle = /(?:['"]?(\d+)['"]?)\s*:\s*'([^']*)'/g;
-
-        let mt;
-
-        // 先扫一遍双引号的
-        while ((mt = rDouble.exec(s)) !== null) {
-            d[mt[1]] = mt[2];
+            const parsed = JSON.parse(jsonStr);
+            Object.assign(d, parsed);
+            return d;
+        } catch (e) {
+            // JSON failed, fall back to Regex
         }
 
-        // 再扫一遍单引号的
+        // 2. Regex Fallback (Improved to handle escaped quotes)
+        s = s.replace(/^\{|\}$/g, '').trim();
+
+        // Match double quotes (handles \" inside)
+        const rDouble = /(?:['"]?(\d+)['"]?)\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+
+        // Match single quotes (handles \' inside)
+        const rSingle = /(?:['"]?(\d+)['"]?)\s*:\s*'((?:[^'\\]|\\.)*)'/g;
+
+        let mt;
+        while ((mt = rDouble.exec(s)) !== null) {
+            d[mt[1]] = mt[2].replace(/\\"/g, '"'); // Unescape quotes
+        }
         while ((mt = rSingle.exec(s)) !== null) {
-            // 如果键已经存在（被双引号逻辑抓到了），就跳过，防止冲突
             if (!d[mt[1]]) {
-                d[mt[1]] = mt[2];
+                d[mt[1]] = mt[2].replace(/\\'/g, "'");
             }
         }
 
@@ -2454,18 +2898,37 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         // ✅ Strict Sequential Execution: Respects AI's intended order
         // If AI outputs "insertRow → updateRow", it means "insert THEN update the new row"
         // If AI outputs "updateRow → insertRow", it means "update old row THEN insert new row"
+
+        // 收集被修改的表格索引
+        const modifiedTables = new Set();
+
         cs.forEach(cm => {
             const sh = m.get(cm.ti);
             if (!sh) return;
             if (cm.t === 'update' && cm.ri !== null) sh.upd(cm.ri, cm.d);
             if (cm.t === 'insert') sh.ins(cm.d);
             if (cm.t === 'delete' && cm.ri !== null) sh.del(cm.ri);
+
+            // 记录被修改的表格
+            modifiedTables.add(cm.ti);
         });
+
         // AI自动执行的指令,最后统一保存
-        m.save();
+        m.save(false, true); // AI 指令执行后立即保存
+
+        // ✅ [修复] 刷新被修改的表格 UI，确保新增行立即显示
+        modifiedTables.forEach(ti => {
+            if (typeof refreshTable === 'function') {
+                refreshTable(ti);
+                console.log(`🔄 [exe] 已刷新表${ti}的UI`);
+            }
+        });
     }
 
     function inj(ev) {
+        // 🔴 全局主开关守卫
+        if (!C.masterSwitch) return;
+
         // ✨✨✨ 1. [核心修复] 仅拦截总结/追溯生成的请求 (防止 Prompt 污染) ✨✨✨
         // 注意：批量填表 (autoBackfill) 期间用户在正常聊天，必须允许注入！
         if (window.isSummarizing) {
@@ -2532,46 +2995,45 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         // 1. 旧逻辑：合并字符串（用于兼容旧的文本变量替换）
         const tableContent = m.s.slice(0, -1).map((s, i) => s.txt(i)).filter(t => t).join('\n');
 
-        strTable += '【⚠️ 系统只读数据库：已归档的历史剧情 (Past Events)】\n';
-        strTable += '【指令：以下内容为绝对客观的过去事实，仅供你查阅以保持剧情连贯。❌ 严禁复述！❌ 严禁重演！】\n\n';
-
+        // ✅ [优化] 只有当表格有内容时才构建 strTable，支持"只总结，不填表"的模式
         if (tableContent) {
+            strTable += '【⚠️ 记忆只读数据库：已归档的历史剧情 (Past Events)】\n';
+            strTable += '【指令：以下内容为绝对客观的过去事实，仅供你查阅以保持剧情连贯。❌ 严禁复述！❌ 严禁重演！】\n\n';
             strTable += tableContent;
-        } else {
-            strTable += '（暂无详细记录，请根据当前剧情建立新记录）\n';
+            strTable += '\n【记忆档案结束】\n';
         }
-        strTable += '【记忆档案结束】\n';
+        // 如果 tableContent 为空，strTable 保持为空字符串，不发送任何内容
 
         // 2. 新逻辑：按表拆分 (SYSTEM 完整单词 + 强力防重演)
-        if (C.tableInj) {
-            m.s.slice(0, -1).forEach((sheet, i) => {
-                if (sheet.r.length > 0) {
-                    const sheetName = sheet.n || `表${i}`;
-                    const sheetContent = sheet.txt(i);
+        // ✅ [修复] 无条件构建 tableMessages，确保变量锚点始终有数据可注入
+        m.s.slice(0, -1).forEach((sheet, i) => {
+            if (sheet.r.length > 0) {
+                const sheetName = sheet.n || `表${i}`;
+                const sheetContent = sheet.txt(i);
 
-                    tableMessages.push({
-                        role: 'system',
-                        // 1. 名字：保持你要求的 SYSTEM (表名)
-                        name: `SYSTEM (${sheetName})`,
-
-                        // 2. 内容：标题改为“已归档”，并加上防重演指令
-                        content: `【系统只读数据库：已归档历史 - ${sheetName}】\n(⚠️已归档内容，仅供参考，严禁重演)\n${sheetContent}`,
-
-                        isGaigaiData: true
-                    });
-                }
-            });
-
-            // 兜底 (全空时)
-            if (tableMessages.length === 0) {
                 tableMessages.push({
                     role: 'system',
-                    name: 'SYSTEM (系统提示)',
-                    content: '【系统只读数据库】\n（暂无详细记录）',
+                    // 1. 名字：保持你要求的 SYSTEM (表名)
+                    name: `SYSTEM (${sheetName})`,
+
+                    // 2. 内容：标题改为"已归档"，并加上防重演指令
+                    content: `【记忆只读数据库 - ${sheetName}】\n(历史存档 (已完结剧情)，仅作背景参考)\n${sheetContent}`,
+
                     isGaigaiData: true
                 });
             }
-        }
+        });
+
+        // ✅ [优化] 移除兜底逻辑：当所有表格都为空时，不发送任何内容
+        // 这样可以支持"只总结，不填表"的模式，保持聊天更干净
+        // if (tableMessages.length === 0) {
+        //     tableMessages.push({
+        //         role: 'system',
+        //         name: 'SYSTEM (系统提示)',
+        //         content: '【记忆只读数据库】\n（暂无详细记录）',
+        //         isGaigaiData: true
+        //     });
+        // }
 
         // C. 准备提示词 (仅当开关开启时，才准备提示词，因为关了就不应该填表)
         // 逻辑：如果开启了批量填表(autoBackfill)，强制屏蔽实时填表提示词，无论 C.enabled 是什么状态！
@@ -2605,6 +3067,8 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
         let replacedSmart = false;
         let replacedPrompt = false;
+        let replacedSummary = false;  // ✅ 新增：标记 Summary 是否已通过变量替换
+        let replacedTable = false;    // ✅ 新增：标记 Table 是否已通过变量替换
         let foundAnchor = false;
         let anchorIndex = -1;
 
@@ -2621,9 +3085,10 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         }
 
         // ✅ 2. 判定是否启用锚点模式
-        // 只要 [提示词管理开启]，就允许使用变量作为锚点
-        // 即使开启批量填表(autoBackfill)，也可以通过 {{MEMORY}} 变量控制插入位置
-        const allowAnchorMode = isPromptManagerOn;
+        // 【最终修复】强制设为 true。
+        // 这确保了只要预设中写了 {{MEMORY}}，插件就一定会把表格插在这个位置。
+        // 这不会影响 {{MEMORY_PROMPT}} 的清洗逻辑（它由 strPrompt 变量独立控制）。
+        const allowAnchorMode = true;
 
         // 记录被删除的消息数量，用于修正锚点索引
         let deletedCountBeforeAnchor = 0;
@@ -2633,47 +3098,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             let msgContent = ev.chat[i].content || ev.chat[i].mes || '';
             let modified = false;
 
-            // 处理 {{MEMORY}} (智能变量)
-            if (msgContent.includes(varSmart)) {
-                // 记录第一次出现的位置
-                if (idxSmartVar === -1) {
-                    idxSmartVar = i;
-                    console.log(`🎯 [变量扫描] 发现 ${varSmart} | 位置: #${i}`);
-                }
-                // 无论是否启用锚点，都要先把这个变量文本洗掉
-                msgContent = msgContent.replace(varSmart, '');
-
-                if (allowAnchorMode) {
-                    // 只有允许锚点模式时，才记录这个位置用于后续判断
-                    if (anchorIndex === -1) anchorIndex = i;
-                    foundAnchor = true;
-                } else {
-                    console.log(`🧹 [变量扫描] 清洗变量 ${varSmart} | 忽略位置 (开关关或批量模式)`);
-                }
-                modified = true;
-            }
-
-            // 处理 {{MEMORY_SUMMARY}} (总结专属变量)
-            if (msgContent.includes(varSum)) {
-                if (idxSummaryVar === -1) {
-                    idxSummaryVar = i;
-                    console.log(`🎯 [变量扫描] 发现 ${varSum} | 位置: #${i}`);
-                }
-                msgContent = msgContent.replace(varSum, '');
-                modified = true;
-            }
-
-            // 处理 {{MEMORY_TABLE}} (表格专属变量)
-            if (msgContent.includes(varTable)) {
-                if (idxTableVar === -1) {
-                    idxTableVar = i;
-                    console.log(`🎯 [变量扫描] 发现 ${varTable} | 位置: #${i}`);
-                }
-                msgContent = msgContent.replace(varTable, '');
-                modified = true;
-            }
-
-            // 处理 {{MEMORY_PROMPT}} (特殊逻辑：根据条件决定锚点替换或清洗)
+            // 1️⃣ 优先处理长变量：{{MEMORY_PROMPT}} (特殊逻辑：根据条件决定锚点替换或清洗)
             if (msgContent.includes(varPrompt)) {
                 // 检查是否满足锚点替换条件：提示词存在 且 提示词管理开关已开启
                 if (strPrompt && isPromptManagerOn) {
@@ -2695,12 +3120,219 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 modified = true;
             }
 
+            // 2️⃣ 处理：{{MEMORY_SUMMARY}} (总结专属变量) - 原地拆分注入
+            if (msgContent.includes(varSum)) {
+                if (idxSummaryVar === -1) {
+                    idxSummaryVar = i;
+                    console.log(`🎯 [变量扫描] 发现 ${varSum} | 位置: #${i}`);
+                }
+
+                // ✅ 安全检查：只有当有数据时才执行拆分注入
+                if (summaryMessages.length > 0) {
+                    // ✨ 原地拆分注入逻辑
+                    const varIndex = msgContent.indexOf(varSum);
+                    const preText = msgContent.substring(0, varIndex).trim();
+                    const postText = msgContent.substring(varIndex + varSum.length).trim();
+
+                    // 构建新消息队列
+                    const newMessages = [];
+                    const originalMsg = ev.chat[i];
+
+                    // 如果变量前有内容，创建前半段消息
+                    if (preText) {
+                        newMessages.push({
+                            role: originalMsg.role,
+                            content: preText,
+                            name: originalMsg.name
+                        });
+                    }
+
+                    // 插入预构建的总结消息数组（带有 isGaigaiData 和自定义 name）
+                    newMessages.push(...summaryMessages);
+
+                    // 如果变量后有内容，创建后半段消息
+                    if (postText) {
+                        newMessages.push({
+                            role: originalMsg.role,
+                            content: postText,
+                            name: originalMsg.name
+                        });
+                    }
+
+                    // 原地替换：将 1 条消息替换为多条消息
+                    ev.chat.splice(i, 1, ...newMessages);
+
+                    // 更新循环索引：跳过刚插入的消息
+                    i += newMessages.length - 1;
+
+                    // 标记已替换，防止后续重复注入
+                    replacedSummary = true;
+
+                    console.log(`✨ [原地拆分注入] ${varSum} 已拆分为 ${newMessages.length} 条消息 (前:${preText?'有':'无'}, 数据:${summaryMessages.length}条, 后:${postText?'有':'无'})`);
+
+                    // 跳过后续的 modified 处理，因为已经完成替换
+                    continue;
+                } else {
+                    // 没有数据时，仅清除变量标签
+                    msgContent = msgContent.replace(varSum, '');
+                    replacedSummary = true;
+                    console.log(`🧹 [变量清洗] ${varSum} 已清除（无数据可注入）`);
+                    modified = true;
+                }
+            }
+
+            // 3️⃣ 处理：{{MEMORY_TABLE}} (表格专属变量) - 原地拆分注入
+            if (msgContent.includes(varTable)) {
+                if (idxTableVar === -1) {
+                    idxTableVar = i;
+                    console.log(`🎯 [变量扫描] 发现 ${varTable} | 位置: #${i}`);
+                }
+
+                // ✅ 安全检查：只有当有数据时才执行拆分注入
+                if (tableMessages.length > 0) {
+                    // ✨ 原地拆分注入逻辑
+                    const varIndex = msgContent.indexOf(varTable);
+                    const preText = msgContent.substring(0, varIndex).trim();
+                    const postText = msgContent.substring(varIndex + varTable.length).trim();
+
+                    // 构建新消息队列
+                    const newMessages = [];
+                    const originalMsg = ev.chat[i];
+
+                    // 如果变量前有内容，创建前半段消息
+                    if (preText) {
+                        newMessages.push({
+                            role: originalMsg.role,
+                            content: preText,
+                            name: originalMsg.name
+                        });
+                    }
+
+                    // 插入预构建的表格消息数组（带有 isGaigaiData 和自定义 name）
+                    newMessages.push(...tableMessages);
+
+                    // 如果变量后有内容，创建后半段消息
+                    if (postText) {
+                        newMessages.push({
+                            role: originalMsg.role,
+                            content: postText,
+                            name: originalMsg.name
+                        });
+                    }
+
+                    // 原地替换：将 1 条消息替换为多条消息
+                    ev.chat.splice(i, 1, ...newMessages);
+
+                    // 更新循环索引：跳过刚插入的消息
+                    i += newMessages.length - 1;
+
+                    // 标记已替换，防止后续重复注入
+                    replacedTable = true;
+
+                    console.log(`✨ [原地拆分注入] ${varTable} 已拆分为 ${newMessages.length} 条消息 (前:${preText?'有':'无'}, 数据:${tableMessages.length}条, 后:${postText?'有':'无'})`);
+
+                    // 跳过后续的 modified 处理，因为已经完成替换
+                    continue;
+                } else {
+                    // 没有数据时，仅清除变量标签
+                    msgContent = msgContent.replace(varTable, '');
+                    replacedTable = true;
+                    console.log(`🧹 [变量清洗] ${varTable} 已清除（无数据可注入）`);
+                    modified = true;
+                }
+            }
+
+            // 4️⃣ 最后处理短变量：{{MEMORY}} (智能变量) - 原地拆分注入
+            // 必须放最后，防止误伤上面的变量
+            if (msgContent.includes(varSmart)) {
+                // 记录第一次出现的位置
+                if (idxSmartVar === -1) {
+                    idxSmartVar = i;
+                    console.log(`🎯 [变量扫描] 发现 ${varSmart} | 位置: #${i}`);
+                }
+
+                // ✅ 安全检查：只有当有数据时才执行拆分注入
+                const hasData = (summaryMessages.length > 0) || (C.tableInj && tableMessages.length > 0);
+
+                if (hasData) {
+                    // ✨ 原地拆分注入逻辑
+                    const varIndex = msgContent.indexOf(varSmart);
+                    const preText = msgContent.substring(0, varIndex).trim();
+                    const postText = msgContent.substring(varIndex + varSmart.length).trim();
+
+                    // 构建新消息队列
+                    const newMessages = [];
+                    const originalMsg = ev.chat[i];
+
+                    // 如果变量前有内容，创建前半段消息
+                    if (preText) {
+                        newMessages.push({
+                            role: originalMsg.role,
+                            content: preText,
+                            name: originalMsg.name
+                        });
+                    }
+
+                    // 插入预构建的总结和表格消息数组（带有 isGaigaiData 和自定义 name）
+                    // 根据 C.tableInj 开关决定是否注入表格
+                    if (summaryMessages.length > 0) {
+                        newMessages.push(...summaryMessages);
+                    }
+                    if (C.tableInj && tableMessages.length > 0) {
+                        newMessages.push(...tableMessages);
+                    }
+
+                    // 如果变量后有内容，创建后半段消息
+                    if (postText) {
+                        newMessages.push({
+                            role: originalMsg.role,
+                            content: postText,
+                            name: originalMsg.name
+                        });
+                    }
+
+                    // 原地替换：将 1 条消息替换为多条消息
+                    ev.chat.splice(i, 1, ...newMessages);
+
+                    // 更新循环索引：跳过刚插入的消息
+                    i += newMessages.length - 1;
+
+                    // 标记已替换，防止后续重复注入
+                    replacedSummary = true;
+                    replacedTable = true;
+
+                    // 记录锚点位置（用于兼容旧逻辑）
+                    if (anchorIndex === -1) anchorIndex = i;
+                    foundAnchor = true;
+
+                    console.log(`✨ [原地拆分注入] ${varSmart} 已拆分为 ${newMessages.length} 条消息 (前:${preText?'有':'无'}, 总结:${summaryMessages.length}条, 表格:${tableMessages.length}条, 后:${postText?'有':'无'})`);
+
+                    // 跳过后续的 modified 处理，因为已经完成替换
+                    continue;
+                } else {
+                    // 没有数据时，仅清除变量标签
+                    msgContent = msgContent.replace(varSmart, '');
+                    replacedSummary = true;
+                    replacedTable = true;
+                    console.log(`🧹 [变量清洗] ${varSmart} 已清除（无数据可注入）`);
+                    modified = true;
+                }
+            }
+
             // 更新消息内容 & 标记幽灵气泡
             if (modified) {
                 ev.chat[i].content = msgContent;
-                // 👻 幽灵气泡判定：如果替换后内容为空，标记为待删除
-                if (msgContent.trim() === '') {
+
+                // ✅ [修复] 判定当前消息是否为锚点 (刚刚是否发现了变量)
+                // 只要该消息触发了任意一个变量索引记录，就视为锚点，必须保留
+                const isAnchor = (i === idxTableVar) || (i === idxSmartVar) || (i === idxSummaryVar) || (i === anchorIndex);
+
+                // 👻 幽灵气泡判定：只有当内容为空 且 不是锚点消息时，才删除
+                if (msgContent.trim() === '' && !isAnchor) {
                     ev.chat[i]._toDelete = true;
+                } else if (msgContent.trim() === '' && isAnchor) {
+                    // 调试日志
+                    console.log(`🛡️ [锚点保护] 第 ${i} 楼是变量锚点，虽然内容为空但予以保留，等待注入。`);
                 }
             }
         }
@@ -2746,7 +3378,8 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         const insertionOps = [];
 
         // ✨ A. 处理总结消息 (summaryMessages)
-        if (summaryMessages.length > 0) {
+        // ✅ 检查是否已通过变量替换：只有未替换时才执行默认插入
+        if (summaryMessages.length > 0 && !replacedSummary) {
             let summaryPos = -1;
             let summaryStrategy = '';
 
@@ -2760,8 +3393,8 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 summaryPos = idxSmartVar;
                 summaryStrategy = `⚓ 智能变量 {{MEMORY}} (位置 #${idxSmartVar})`;
             }
-            // Priority 3: 默认位置
-            else {
+            // Priority 3: 默认位置 (✅ [修复] 仅当 C.tableInj 开启时)
+            else if (C.tableInj) {
                 summaryPos = getDefaultPosition();
                 summaryStrategy = `📍 默认位置 (Start a new Chat 前，#${summaryPos})`;
             }
@@ -2775,32 +3408,40 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         }
 
         // ✨ B. 处理表格消息 (tableMessages)
-        if (tableMessages.length > 0) {
+        // ✅ 检查是否已通过变量替换：只有未替换时才执行默认插入
+        if (tableMessages.length > 0 && !replacedTable) {
             let tablePos = -1;
             let tableStrategy = '';
+            let shouldInject = false; // ✅ [修复] 是否应该注入的标志
 
             // Priority 1: {{MEMORY_TABLE}} 专属变量
             if (idxTableVar !== -1) {
                 tablePos = idxTableVar;
                 tableStrategy = `⚓ 专属变量 {{MEMORY_TABLE}} (位置 #${idxTableVar})`;
+                shouldInject = true; // 有变量锚点，强制注入
             }
             // Priority 2: {{MEMORY}} 智能变量 (仅当 Prompt Manager 开启且允许锚点模式)
             else if (allowAnchorMode && idxSmartVar !== -1) {
                 tablePos = idxSmartVar;
                 tableStrategy = `⚓ 智能变量 {{MEMORY}} (位置 #${idxSmartVar})`;
+                shouldInject = true; // 有变量锚点，强制注入
             }
-            // Priority 3: 默认位置
-            else {
+            // Priority 3: 默认位置 (✅ [修复] 仅当 C.tableInj 开启时)
+            else if (C.tableInj) {
                 tablePos = getDefaultPosition();
                 tableStrategy = `📍 默认位置 (Start a new Chat 前，#${tablePos})`;
+                shouldInject = true;
             }
 
-            insertionOps.push({
-                index: tablePos,
-                messages: tableMessages,
-                type: 'Table',
-                strategy: tableStrategy
-            });
+            // ✅ [修复] 只有当 shouldInject 为 true 时才添加到插入队列
+            if (shouldInject) {
+                insertionOps.push({
+                    index: tablePos,
+                    messages: tableMessages,
+                    type: 'Table',
+                    strategy: tableStrategy
+                });
+            }
         }
 
         // ✨ C. 处理提示词 (strPrompt) - 整合进插入队列
@@ -2827,8 +3468,19 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         }
 
         // 🚀 D. 排序并执行插入 (关键：从高到低，防止索引错位)
-        // 排序规则：索引从大到小 (Descending)，这样先插后面的，再插前面的，不会影响索引
-        insertionOps.sort((a, b) => b.index - a.index);
+        // 排序规则：索引从大到小 (Descending)
+        // ⚡ Tie-breaker: 如果索引相同 (同个锚点)，优先执行 Table，后执行 Summary
+        // 这样 Summary 会被插入到 Table 的上方 (后插者在顶端)
+        insertionOps.sort((a, b) => {
+            if (b.index !== a.index) {
+                return b.index - a.index;
+            }
+            // 索引相同，控制执行顺序：Table 先 -> Summary 后
+            // 数组排序：return -1 代表 a 排在 b 前面
+            if (a.type === 'Table' && b.type === 'Summary') return -1;
+            if (a.type === 'Summary' && b.type === 'Table') return 1;
+            return 0;
+        });
 
         insertionOps.forEach(op => {
             ev.chat.splice(op.index, 0, ...op.messages);
@@ -2901,72 +3553,113 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
     }
 
     function getInjectionPosition(pos, posType, depth, chat) {
-        // ✅ 优化逻辑：优先插入到 "[Start a new Chat]" 分隔符之前，作为背景设定铺垫
         if (!chat || chat.length === 0) return 0;
 
+        // 🎯 新逻辑：如果 depth 为 0（默认），智能注入到最后一条 User 消息之前
+        // 这样可以将记忆表格放在当前上下文附近（帮助 Gemini 回忆），但不会破坏顶部的越狱设置
+        if (depth === 0) {
+            // 从末尾向前查找最后一条 User 消息
+            for (let i = chat.length - 1; i >= 0; i--) {
+                const msg = chat[i];
+                if (!msg) continue;
+
+                // 找到最后一条 User 消息
+                if (msg.role === 'user') {
+                    console.log(`💡 [注入位置] 智能模式：在最后一条 User 消息之前注入 (索引: ${i})`);
+                    return i;
+                }
+            }
+        }
+
+        // 🔄 兜底逻辑：保持原有行为
+        // 1. 优先：插入到 "[Start a new Chat]" 分隔符之前
         for (let i = 0; i < chat.length; i++) {
             const msg = chat[i];
             if (!msg) continue;
 
-            // 1. 优先：插入到 "[Start a new Chat]" 分隔符之前
-            // 注意：要判断 content 是否存在，防止报错
             if (msg.role === 'system' && msg.content && msg.content.includes('[Start a new Chat]')) {
+                console.log(`💡 [注入位置] 找到分隔符，在其之前注入 (索引: ${i})`);
                 return i;
             }
 
-            // 2. 兜底：插入到第一条用户/AI消息之前 (保持原有逻辑)
+            // 2. 兜底：插入到第一条用户/AI消息之前
             if (msg.role === 'user' || msg.role === 'assistant') {
+                console.log(`💡 [注入位置] 兜底模式：在第一条对话之前注入 (索引: ${i})`);
                 return i;
             }
         }
 
-        // 全是 System 且没找到特定标记，插到最后
+        // 全是 System 且没找到特定标记，插到最后（但避免在 Prefill 之后）
+        // 🛡️ 检查最后一条是否是 Assistant prefill，避免破坏它
+        if (chat.length > 0) {
+            const lastMsg = chat[chat.length - 1];
+            if (lastMsg && lastMsg.role === 'assistant') {
+                console.log(`💡 [注入位置] 避免破坏 Prefill，在倒数第二个位置注入`);
+                return Math.max(0, chat.length - 1);
+            }
+        }
+
         return chat.length;
     }
 
     // 终极修复：使用 TreeWalker 精准替换文本节点，绝对不触碰图片/DOM结构
+    // ⚡ [性能优化] 智能渲染清洗：使用 requestIdleCallback 在 CPU 空闲时执行，避免阻塞 UI
     function hideMemoryTags() {
+        // 🔴 全局主开关守卫
+        if (!C.masterSwitch) return;
         if (!C.hideTag) return;
 
-        // 1. 注入一次性 CSS 规则，这是最安全的隐藏方式
+        // 1. 注入 CSS 依然保留 (最高效的隐藏方式)
         if (!document.getElementById('gaigai-hide-style')) {
             $('<style id="gaigai-hide-style">memory, gaigaimemory, tableedit { display: none !important; }</style>').appendTo('head');
         }
 
-        // ✅ 性能优化：只查找没有打过标记的元素，极大减少遍历数量
-        $('.mes_text:not([data-gaigai-processed="true"])').each(function () {
-            const root = this;
-            // 标记已处理，防止重复扫描
-            root.dataset.gaigaiProcessed = 'true';
+        // 2. 性能策略：如果是"批量填表"模式且没开启"实时填表"，
+        // 说明聊天记录里基本没有标签，不需要频繁扫描，直接返回（除非强制刷新）
+        // 注意：这里要确保不是在初始化阶段
+        if (C.autoBackfill && !C.enabled && !window.Gaigai.isInitializing) {
+            // 偶尔执行一次即可，不用每次消息都扫
+            if (Math.random() > 0.1) return;
+        }
 
-            // 策略 A: 如果 <Memory> 被浏览器识别为标签，直接用 CSS 隐藏 (不通过 JS 修改)
-            $(root).find('memory, gaigaimemory, tableedit').hide();
+        // 3. 清除旧定时器
+        if (hideTagDebounceTimer) clearTimeout(hideTagDebounceTimer);
 
-            // 策略 B: 如果 <Memory> 是纯文本，使用 TreeWalker 精准查找
-            // 这种方式只会修改文字节点，旁边的 <img src="..."> 绝对不会被重置！
-            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
-            let node;
-            const nodesToReplace = [];
+        // 4. 使用 requestIdleCallback (兼容性写法)
+        const runTask = window.requestIdleCallback || function(cb) { setTimeout(cb, 500); };
 
-            while (node = walker.nextNode()) {
-                if (MEMORY_TAG_REGEX.test(node.nodeValue)) {
-                    nodesToReplace.push(node);
-                }
-            }
+        hideTagDebounceTimer = setTimeout(() => {
+            runTask(() => {
+                // ✅ 关键优化：只处理未被标记为 'processed' 的气泡
+                $('.mes_text:not([data-gaigai-processed="true"])').each(function () {
+                    const root = this;
 
-            if (nodesToReplace.length > 0) {
-                nodesToReplace.forEach(textNode => {
-                    const span = document.createElement('span');
-                    // 只替换文字内容，不触碰父级 innerHTML
-                    const newHtml = textNode.nodeValue.replace(MEMORY_TAG_REGEX,
-                        '<span class="g-hidden-tag" style="display:none!important;visibility:hidden!important;height:0!important;overflow:hidden!important;">$&</span>');
+                    // 标记已处理
+                    root.dataset.gaigaiProcessed = 'true';
 
-                    span.innerHTML = newHtml;
-                    // 原地替换文本节点
-                    textNode.parentNode.replaceChild(span, textNode);
+                    // 快速检查：如果 innerHTML 里根本没有 Memory 关键字，直接跳过 TreeWalker
+                    if (root.innerHTML.indexOf('Memory') === -1 && root.innerHTML.indexOf('tableEdit') === -1) {
+                        return;
+                    }
+
+                    // 只有确实包含关键字时，才动用昂贵的 TreeWalker
+                    $(root).find('memory, gaigaimemory, tableedit').hide();
+
+                    try {
+                        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+                        let node;
+                        while (node = walker.nextNode()) {
+                            // 只有匹配正则才修改 DOM
+                            if (MEMORY_TAG_REGEX.test(node.nodeValue)) {
+                                node.nodeValue = node.nodeValue.replace(MEMORY_TAG_REGEX, '');
+                            }
+                        }
+                    } catch (e) {
+                        // 忽略 DOM 变动导致的错误
+                    }
                 });
-            }
-        });
+            }, { timeout: 2000 }); // 2秒超时强制执行
+        }, 1000); // 1秒防抖
     }
 
     // ========================================================================
@@ -3103,6 +3796,26 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             background: ${bg_window} !important;
         }
 
+        /* ✅ 通用自定义弹窗样式 (复用主窗口变量) */
+        .gg-custom-modal {
+            background: ${bg_window} !important; /* 跟随主窗口的毛玻璃背景 */
+            color: ${color_text} !important;     /* 跟随字体颜色 */
+            border: 1px solid ${color_border} !important;
+            backdrop-filter: blur(20px) saturate(180%) !important;
+            -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+            border-radius: 12px !important;
+            padding: 20px !important;
+            max-width: 600px;
+            width: 90%;
+            max-height: 85vh !important;
+            margin: auto !important;
+            display: flex !important;
+            flex-direction: column !important;
+            position: relative;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5) !important;
+            overflow: auto;
+        }
+
         /* 3. 表格核心布局 */
         .g-tbc { width: 100% !important; height: 100% !important; overflow: hidden !important; display: flex; flex-direction: column !important; }
         
@@ -3209,10 +3922,30 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             transform: translate3d(0, 0, 0);
             will-change: background-color;
         }
-        .g-row.g-summarized { background-color: ${bg_summarized} !important; }
-        .g-row.g-summarized .g-e,
-        .g-row.g-summarized .g-n {
+
+        /* ✅ 修复：已总结行的绿色背景完全重写，防止污染操作列 */
+        /* 1. 移除行本身的背景，防止透过透明的操作列显示出来 */
+        .g-row.g-summarized {
+            background-color: transparent !important;
+        }
+
+        /* 2. 只给"非操作列"的单元格添加绿色背景 */
+        /* 稍微加深一点颜色(0.12)，以弥补之前叠加的效果 */
+        .g-row.g-summarized td:not(.g-col-ops) {
+            background-color: rgba(40, 167, 69, 0.12) !important;
             opacity: 0.5 !important;
+        }
+
+        /* 3. 确保操作列完全透明且不透明度正常 */
+        .g-row.g-summarized .g-col-ops {
+            background-color: transparent !important;
+            opacity: 1 !important;
+            box-shadow: none !important;
+        }
+
+        /* 4. 确保操作列内的按钮不半透明 */
+        .g-row.g-summarized .g-col-ops button {
+            opacity: 1 !important;
         }
 
         .g-hd { background: ${bg_header} !important; opacity: 0.98; border-bottom: 1px solid ${color_border} !important; padding: 0 16px !important; height: 50px !important; display: flex !important; align-items: center !important; justify-content: space-between !important; flex-shrink: 0 !important; border-radius: 12px 12px 0 0 !important; }
@@ -3319,6 +4052,31 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             opacity: 1 !important;
         }
 
+        /* 2.5. 🔥 强制覆盖浏览器自动填充样式 (解决手机端自动填充背景色问题) */
+        #gai-main-pop input:-webkit-autofill,
+        #gai-main-pop input:-webkit-autofill:hover,
+        #gai-main-pop input:-webkit-autofill:focus,
+        #gai-main-pop input:-webkit-autofill:active,
+        #gai-main-pop textarea:-webkit-autofill,
+        #gai-main-pop textarea:-webkit-autofill:hover,
+        #gai-main-pop textarea:-webkit-autofill:focus,
+        #gai-main-pop textarea:-webkit-autofill:active,
+        .g-p input:-webkit-autofill,
+        .g-p input:-webkit-autofill:hover,
+        .g-p input:-webkit-autofill:focus,
+        .g-p input:-webkit-autofill:active,
+        .g-p textarea:-webkit-autofill,
+        .g-p textarea:-webkit-autofill:hover,
+        .g-p textarea:-webkit-autofill:focus,
+        .g-p textarea:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 1000px ${bg_input} inset !important;
+            -webkit-text-fill-color: ${color_text} !important;
+            box-shadow: 0 0 0 1000px ${bg_input} inset !important;
+            background-color: ${bg_input} !important;
+            background-clip: content-box !important;
+            transition: background-color 5000s ease-in-out 0s !important;
+        }
+
         /* 3. 辅助权重增强 */
         .g-p input[type="number"], .g-p input[type="text"], .g-p select, .g-p textarea { 
             color: ${color_text} !important; 
@@ -3328,8 +4086,9 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         .g-col-num { position: sticky !important; left: 0 !important; z-index: 11 !important; background: ${bg_header} !important; border-right: 1px solid ${color_border} !important; }
         tbody .g-col-num { background: ${bg_row_num} !important; /* 🌙 动态背景 */ z-index: 9 !important; }
         
-        .g-tl button, .g-p button { background: ${bg_header} !important; color: ${color_text} !important; border: 1px solid ${color_border} !important; border-radius: 6px !important; padding: 6px 12px !important; font-size: var(--g-fs, 12px) !important; font-weight: 600 !important; cursor: pointer !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; white-space: nowrap !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; }
-        
+        .g-tl button, .g-p button { background: ${bg_header} !important; color: ${color_text} !important; border: 1px solid ${color_border} !important; border-radius: 6px !important; padding: 6px 12px !important; font-size: var(--g-fs, 12px) !important; font-weight: 600 !important; cursor: pointer !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; white-space: nowrap !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; transition: none !important; }
+        .g-tl button:active, .g-p button:active { transform: none !important; }
+
         #gai-main-pop ::-webkit-scrollbar { width: 8px !important; height: 8px !important; }
         #gai-main-pop ::-webkit-scrollbar-thumb { background: ${bg_header} !important; border-radius: 10px !important; }
         #gai-main-pop ::-webkit-scrollbar-thumb:hover { background: ${bg_header} !important; filter: brightness(0.8); }
@@ -3580,8 +4339,91 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
             /* ✅ 修复：下拉框选项强制深色背景 (必须是实色，不能透明) */
             option {
-                background-color: #080808ff !important; 
+                background-color: #080808ff !important;
                 color: ${color_text} !important;
+            }
+
+            /* ✅ 修复：表格选择弹窗内的卡片元素（跟随主题表头颜色） */
+            .gg-choice-card {
+                background-color: ${bg_header} !important;
+                border-color: ${color_border} !important;
+                color: ${color_text} !important;
+                cursor: pointer !important; /* ✅ 苹果设备必需，触发点击事件 */
+            }
+
+            /* 核心修复：让卡片内部元素不响应鼠标/触摸，点击事件直接穿透给卡片DIV */
+            .gg-choice-card > * {
+                pointer-events: none !important;
+            }
+
+            .gg-choice-card:hover {
+                filter: brightness(1.1) !important;
+            }
+
+            .gg-choice-name,
+            .gg-choice-badge {
+                color: ${color_text} !important;
+            }
+
+            /* ✅ 修复：表格选择弹窗内的按钮（跟随主题表头颜色） */
+            #gg_modal_select_all, #gg_modal_deselect_all, #gg_modal_cancel,
+            #gg_sum_modal_select_all, #gg_sum_modal_deselect_all, #gg_sum_modal_cancel {
+                background-color: ${bg_header} !important;
+                color: ${color_text} !important;
+                border-color: ${color_border} !important;
+            }
+
+            #gg_modal_select_all:hover, #gg_modal_deselect_all:hover, #gg_modal_cancel:hover,
+            #gg_sum_modal_select_all:hover, #gg_sum_modal_deselect_all:hover, #gg_sum_modal_cancel:hover {
+                filter: brightness(1.1) !important;
+            }
+
+            /* 确定保存按钮使用主题色，确保文字可见 */
+            #gg_modal_save, #gg_sum_modal_save {
+                background-color: ${bg_header} !important;
+                color: ${color_text} !important;
+                border-color: ${color_border} !important;
+            }
+
+            #gg_modal_save:hover, #gg_sum_modal_save:hover {
+                filter: brightness(1.1) !important;
+            }
+
+            /* ✅ 修复：配置页面的表格选择按钮（跟随主题表头颜色） */
+            #gg_open_table_selector, #gg_sum_open_table_selector {
+                background-color: ${bg_header} !important;
+                color: ${color_text} !important;
+                border-color: ${color_border} !important;
+                touch-action: manipulation !important; /* 📱 手机端：确保触摸操作被识别为点击 */
+                -webkit-tap-highlight-color: rgba(0,0,0,0.1); /* 📱 提供触摸反馈 */
+
+                /* ✅ CRITICAL FIXES START */
+                position: relative !important;  /* Required for z-index to work! */
+                z-index: 2147483647 !important; /* Max safe integer */
+                min-height: 44px !important;    /* iOS/Android minimum tap area */
+                pointer-events: auto !important; /* Force clickable */
+                cursor: pointer !important;
+                user-select: none !important;
+                /* ✅ CRITICAL FIXES END */
+            }
+
+            /* 📱 确保按钮内部元素不阻止事件传播 */
+            #gg_open_table_selector *, #gg_sum_open_table_selector * {
+                pointer-events: none !important;
+            }
+
+            #gg_open_table_selector:hover, #gg_sum_open_table_selector:hover {
+                filter: brightness(1.1) !important;
+            }
+
+            /* ✅ 修复：弹窗关闭按钮（跟随主题文字颜色） */
+            #gg_modal_close_btn, #gg_sum_modal_close_btn {
+                color: ${color_text} !important;
+                opacity: 0.7 !important;
+            }
+
+            #gg_modal_close_btn:hover, #gg_sum_modal_close_btn:hover {
+                opacity: 1 !important;
             }
 
             /* ========== 2. 强制弹窗容器毛玻璃化 ========== */
@@ -3894,7 +4736,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 }
 
                 lastManualEditTime = Date.now();
-                m.save(true);
+                m.save(true, true); // 单元格编辑立即保存
 
                 updateCurrentSnapshot();
 
@@ -3940,20 +4782,33 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             return `<button class="g-t${isActive}" data-i="${i}">${displayName} (${count})</button>`;
         }).join('');
 
+        // 读取工具栏折叠状态
+        const toolbarCollapsed = localStorage.getItem('gg_toolbar_collapsed') === 'true';
+        const chevronIcon = toolbarCollapsed ? 'fa-chevron-down' : 'fa-chevron-up';
+        const panelStyle = toolbarCollapsed ? ' style="display:none;"' : '';
+
         const tls = `
-        <div class="g-btn-group">
-            <button id="gai-btn-add" title="新增一行">➕ 新增</button>
-            <button id="gai-btn-del" title="删除选中行">🗑️ 删除</button>
-            <button id="gai-btn-toggle" title="切换选中行的已总结状态">👻 显/隐</button>
-            <button id="gai-btn-sum" title="AI智能总结">📝 总结</button>
-            <button id="gai-btn-back" title="追溯历史剧情填表">⚡ 追溯</button>
-            <button id="gai-btn-export" title="导出JSON备份">📥 导出</button>
-            <button id="gai-btn-import" title="从JSON恢复数据">📤 导入</button>
-            <button id="gai-btn-view" title="视图设置">📏 视图</button>
-            <button id="gai-btn-clean" title="保留总结，清空详情">🧹 清表</button>
-            <button id="gai-btn-clear" title="清空所有数据">💥 全清</button>
-            <button id="gai-btn-theme" title="设置外观">🎨 主题</button>
-            <button id="gai-btn-config" title="插件设置">⚙️ 配置</button>
+        <div class="g-tl-header">
+            <input type="text" id="gai-search-input" class="g-search-input" placeholder="🔍 搜索..." />
+            <button id="gai-collapse-toggle" class="g-collapse-btn" title="折叠/展开工具栏">
+                <i class="fa-solid ${chevronIcon}"></i>
+            </button>
+        </div>
+        <div class="g-toolbar-panel" id="gai-toolbar-panel"${panelStyle}>
+            <div class="g-btn-group">
+                <button id="gai-btn-add" title="新增一行">➕ 新增</button>
+                <button id="gai-btn-del" title="删除选中行">🗑️ 删除</button>
+                <button id="gai-btn-toggle" title="切换选中行的已总结状态">👻 显/隐</button>
+                <button id="gai-btn-sum" title="AI智能总结">📝 总结</button>
+                <button id="gai-btn-back" title="追溯历史剧情填表">⚡ 追溯</button>
+                <button id="gai-btn-move" title="移动选中行到其他表格">🚀 移动</button>
+                <button id="gai-btn-export" title="导出JSON备份">📤 导出</button>
+                <button id="gai-btn-import" title="从JSON恢复数据">📥 导入</button>
+                <button id="gai-btn-view" title="视图设置">📏 视图</button>
+                <button id="gai-btn-cleanup" title="清理数据选项">🧹 清表</button>
+                <button id="gai-btn-theme" title="设置外观">🎨 主题</button>
+                <button id="gai-btn-config" title="插件设置">⚙️ 配置</button>
+            </div>
         </div>
     `;
 
@@ -3971,8 +4826,8 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
     `;
 
         const h = `<div class="g-vw">
-        <div class="g-ts">${tbs}</div>
         <div class="g-tl">${tls}</div>
+        <div class="g-ts">${tbs}</div>
         <div class="g-tb">${tbls}</div>
     </div>`;
 
@@ -4127,7 +4982,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 <div style="display: flex; align-items: center; gap: 5px;">
                     <input type="number" class="g-book-page-input" id="gai-book-page-jump"
                            value="${currentBookPage + 1}" min="1" max="${totalPages}"
-                           data-ti="${tableIndex}">
+                           data-ti="${tableIndex}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                     <span>/ ${totalPages}</span>
                 </div>
 
@@ -4178,10 +5033,15 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         h += '</th>';
 
         // ✅✅✅ 把这段补回来！这是生成列标题的！
+        // 🔄 前缀规则：# = 覆盖模式（Overwrite），无前缀 = 追加模式（Append）
         s.c.forEach((c, ci) => {
             const width = getColWidth(ti, c) || 100;
-            h += `<th style="width:${width}px;" data-ti="${ti}" data-col="${ci}" data-col-name="${esc(c)}">
-            ${esc(c)}
+            const isOverwrite = c.trim().startsWith('#');
+            const displayName = isOverwrite ? c.replace('#', '') : c;
+            const modeTitle = isOverwrite ? '[🔄 覆盖模式] Overwrite Mode' : '[➕ 追加模式] Append Mode';
+
+            h += `<th style="width:${width}px;" data-ti="${ti}" data-col="${ci}" data-col-name="${esc(c)}" title="${modeTitle}">
+            ${esc(displayName)}
             <div class="g-col-resizer" data-ti="${ti}" data-ci="${ci}" data-col-name="${esc(c)}" title="拖拽调整列宽"></div>
         </th>`;
         });
@@ -4283,6 +5143,57 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             $('.g-row').removeClass('g-selected');
             $('.g-row-select').prop('checked', false);
             $('.g-select-all').prop('checked', false);
+
+            // 保持搜索词并应用到新表格
+            // 触发 input 事件，复用搜索逻辑
+            $('#gai-search-input').trigger('input');
+        });
+
+        // =========================================================
+        // 🔍 搜索功能
+        // =========================================================
+        $('#gai-search-input').off('input').on('input', function () {
+            const searchTerm = $(this).val().toLowerCase().trim();
+
+            // 获取当前激活的表格
+            const activeIndex = parseInt($('.g-t.act').data('i'));
+            const $activeTable = $(`.g-tbc[data-i="${activeIndex}"]`);
+
+            if (!searchTerm) {
+                // 如果搜索框为空，显示所有行
+                $activeTable.find('.g-row').show();
+                return;
+            }
+
+            // 遍历所有行进行过滤
+            $activeTable.find('.g-row').each(function () {
+                const rowText = $(this).text().toLowerCase();
+                if (rowText.includes(searchTerm)) {
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                }
+            });
+        });
+
+        // =========================================================
+        // 🔽 折叠/展开工具栏
+        // =========================================================
+        $('#gai-collapse-toggle').off('click').on('click', function () {
+            const $panel = $('#gai-toolbar-panel');
+            const $icon = $(this).find('i');
+
+            if ($panel.is(':visible')) {
+                // 折叠
+                $panel.slideUp(200);
+                $icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
+                localStorage.setItem('gg_toolbar_collapsed', 'true');
+            } else {
+                // 展开
+                $panel.slideDown(200);
+                $icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
+                localStorage.setItem('gg_toolbar_collapsed', 'false');
+            }
         });
 
         // =========================================================
@@ -4319,7 +5230,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 const sh = m.get(ti);
                 if (sh && sh.r[r]) {
                     sh.r[r][c] = newVal;
-                    m.save(true);
+                    m.save(true, true); // 笔记本视图编辑立即保存
                 }
             });
 
@@ -4500,7 +5411,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
             function finish() {
                 saveSummarizedRows();
-                m.save();
+                m.save(false, true); // 手动总结完成后立即保存
                 refreshTable(ti);
                 $overlay.remove();
             }
@@ -4761,7 +5672,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 sh.r[ri][ci] = v;
 
                 lastManualEditTime = Date.now();
-                m.save(true); // 强制保存，无视熔断保护
+                m.save(true, true); // 强制立即保存，无视熔断保护（用户手动编辑必须立即写入）
                 updateTabCount(ti);
 
                 // ✅ 同步快照，防止回档
@@ -4873,7 +5784,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
                     // 保存并刷新视图
                     lastManualEditTime = Date.now();
-                    m.save(true);
+                    m.save(true, true); // 用户删除操作立即保存
                     updateCurrentSnapshot();
                     refreshBookView(ti);
                     updateTabCount(ti);
@@ -4924,7 +5835,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 }
 
                 lastManualEditTime = Date.now();
-                m.save(true);
+                m.save(true, true); // 用户删除操作立即保存
 
                 updateCurrentSnapshot();
 
@@ -4953,7 +5864,16 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             const $btn = $(this);
             const ti = parseInt($btn.data('ti'));
             const ri = parseInt($btn.data('r'));
-            const direction = $btn.hasClass('up') ? -1 : 1;
+
+            // ✨✨✨ 修复开始：根据倒序视图调整移动方向 ✨✨✨
+            let direction = $btn.hasClass('up') ? -1 : 1;
+
+            // 如果开启了倒序显示,视觉上的"上"其实是索引增加的方向,"下"是索引减小的方向
+            // 所以需要反转方向
+            if (C.reverseView) {
+                direction = -direction;
+            }
+            // ✨✨✨ 修复结束 ✨✨✨
 
             const sh = m.get(ti);
             if (!sh) return;
@@ -4972,7 +5892,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             lastManualEditTime = Date.now();
 
             // 保存数据
-            m.save(true);
+            m.save(true, true); // 行移动操作立即保存
 
             // 刷新表格
             refreshTable(ti);
@@ -5023,7 +5943,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
                 // 保存并刷新视图
                 lastManualEditTime = Date.now();
-                m.save(true);
+                m.save(true, true); // 笔记本视图删除立即保存
                 updateCurrentSnapshot();
                 refreshBookView(ti);
                 updateTabCount(ti);
@@ -5057,7 +5977,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             }
 
             lastManualEditTime = Date.now();
-            m.save(true);
+            m.save(true, true); // 新增行操作立即保存
             refreshTable(ti);
             updateTabCount(ti);
             updateCurrentSnapshot();
@@ -5124,7 +6044,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
                     if (!await customConfirm(fullConfirmMsg, '确认导入')) return;
 
-                    // 开始恢复（根据模式智能恢复）
+                    // 1. 恢复表格内容（根据模式智能恢复）
                     if (importMode === 'full') {
                         // 检查备份文件是否包含表格结构信息
                         const hasStructureInfo = sheetsData.every(sheet =>
@@ -5195,11 +6115,18 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         }
                     }
 
-                    if (data.summarized) summarizedRows = data.summarized;
+                    // 2. ✅ FIX: 恢复已总结（隐藏）状态
+                    if (data.summarized) {
+                        summarizedRows = data.summarized;
+                        console.log('✅ [导入] 已恢复行的隐藏/已总结状态');
+                    } else {
+                        // 兼容旧版备份或TXT：如果没有状态数据，保持现有状态
+                        console.log('⚠️ [导入] 备份文件中未找到状态数据');
+                    }
 
-                    // 强制保存并刷新
+                    // 3. 保存并刷新
                     lastManualEditTime = Date.now();
-                    m.save();
+                    m.save(true, true); // 导入数据后立即保存
                     shw();
 
                     let successMsg = '✅ 导入成功！\n\n';
@@ -5246,18 +6173,33 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         });
         $('#gai-btn-view').off('click').on('click', showViewSettings);
         // ✅✅✅ [升级版] 清空表格（带指针控制选项）
-        $('#gai-btn-clean').off('click').on('click', function () {
-            const hasSummary = m.sm.has();
-            const tableCount = m.all().length - 1; // 排除总结表
+        // =========================================================
+        // 🚀 移动选中行到其他表格
+        // =========================================================
+        $('#gai-btn-move').off('click').on('click', async function () {
+            // 1. 检查是否有选中行
+            if (!selectedRows || selectedRows.length === 0) {
+                await customAlert('⚠️ 请先选中要移动的行', '提示');
+                return;
+            }
 
-            // 1. 准备弹窗样式变量
+            // 2. 获取当前源表格
+            const sourceTableIndex = selectedTableIndex !== null ? selectedTableIndex : parseInt($('.g-t.act').data('i'));
+            const sourceSheet = m.get(sourceTableIndex);
+            if (!sourceSheet) {
+                await customAlert('⚠️ 无法获取源表格', '错误');
+                return;
+            }
+
+            // 3. 准备样式变量
             const isDark = UI.darkMode;
             const bgColor = isDark ? '#1e1e1e' : '#fff';
             const txtColor = isDark ? '#e0e0e0' : UI.tc;
             const borderColor = isDark ? 'rgba(255,255,255,0.15)' : '#ddd';
+            const hoverBg = isDark ? 'rgba(102, 126, 234, 0.2)' : 'rgba(102, 126, 234, 0.1)';
 
-            // 2. 创建弹窗 DOM
-            const id = 'clear-options-' + Date.now();
+            // 4. 创建弹窗 DOM
+            const id = 'move-rows-' + Date.now();
             const $overlay = $('<div>', {
                 id: id,
                 css: {
@@ -5278,72 +6220,380 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 }
             });
 
-            // 3. 提示文案
-            let tipText = `⚠️ <strong>确定要清空 ${tableCount} 个详细表格吗？</strong><br><br>`;
-            if (hasSummary) {
-                tipText += `<span style="color:#28a745">✅ 记忆总结将会保留</span><br>`;
+            // 5. 标题
+            $box.append(`<div style="font-size:16px; font-weight:bold; margin-bottom:4px;">🚀 移动选中行</div>`);
+            $box.append(`<div style="font-size:13px; opacity:0.9; line-height:1.5;">已选中 <strong>${selectedRows.length}</strong> 行，请选择目标表格：</div>`);
+
+            // 6. 列出所有表格（排除当前源表格和总结表）
+            const allSheets = m.all();
+            const $tableList = $('<div>', {
+                css: {
+                    display: 'flex', flexDirection: 'column', gap: '8px',
+                    maxHeight: '300px', overflowY: 'auto'
+                }
+            });
+
+            let hasValidTarget = false;
+            allSheets.forEach((sheet, idx) => {
+                // 排除源表格和总结表（最后一个表格）
+                if (idx === sourceTableIndex || idx === allSheets.length - 1) return;
+
+                hasValidTarget = true;
+                const $tableBtn = $('<button>', {
+                    text: `${sheet.n} (${sheet.r.length} 行)`,
+                    css: {
+                        padding: '12px', border: '1px solid ' + borderColor, borderRadius: '6px',
+                        background: 'transparent', color: txtColor, cursor: 'pointer',
+                        textAlign: 'left', transition: 'all 0.2s'
+                    }
+                }).hover(
+                    function () { $(this).css({ background: hoverBg, borderColor: '#667eea' }); },
+                    function () { $(this).css({ background: 'transparent', borderColor: borderColor }); }
+                ).click(async function () {
+                    // 执行移动操作
+                    const targetSheet = m.get(idx);
+                    if (!targetSheet) {
+                        await customAlert('⚠️ 无法获取目标表格', '错误');
+                        return;
+                    }
+
+                    // 获取选中行的数据（按行索引排序，从大到小，以便删除时不影响索引）
+                    const sortedRows = [...selectedRows].sort((a, b) => b - a);
+                    const rowsData = sortedRows.map(rowIdx => {
+                        const sourceRow = sourceSheet.r[rowIdx];
+                        if (!sourceRow) return null;
+
+                        const newRow = {}; // Use object to match internal data structure
+
+                        // 核心修复：严格按照【目标表格】的列数进行复刻
+                        // 1. 如果目标表列少：源数据多余的列会被自动丢弃 (Truncate)
+                        // 2. 如果目标表列多：源数据没有的列会自动填空 (Pad)
+                        // 3. 严格索引对齐：0对0，1对1
+                        for (let i = 0; i < targetSheet.c.length; i++) {
+                            newRow[i] = sourceRow[i] || '';
+                        }
+
+                        return newRow;
+                    }).filter(r => r !== null);
+
+                    if (rowsData.length === 0) {
+                        await customAlert('⚠️ 未能获取有效的行数据', '错误');
+                        return;
+                    }
+
+                    // 插入到目标表格
+                    rowsData.reverse().forEach(rowData => {
+                        targetSheet.ins(rowData);
+                    });
+
+                    // 从源表格删除（使用 delMultiple）
+                    if (typeof sourceSheet.delMultiple === 'function') {
+                        sourceSheet.delMultiple(sortedRows);
+                    } else {
+                        // 如果没有 delMultiple 方法，逐个删除
+                        sortedRows.forEach(rowIdx => {
+                            sourceSheet.r.splice(rowIdx, 1);
+                        });
+                    }
+
+                    // 清空选中状态
+                    selectedRows = [];
+                    selectedRow = null;
+
+                    // 保存数据
+                    m.save(true, true);
+
+                    // 关闭弹窗
+                    $overlay.remove();
+
+                    // 刷新界面 (同时刷新源表格和目标表格)
+                    if (typeof refreshTable === 'function') {
+                        // 1. 刷新源表格 (移除了行)
+                        refreshTable(sourceTableIndex);
+                        updateTabCount(sourceTableIndex);
+
+                        // 2. 刷新目标表格 (增加了行) - 这里的 idx 是 forEach 循环中的目标表格索引
+                        refreshTable(idx);
+                        updateTabCount(idx);
+                    } else {
+                        shw(); // 兜底：重绘整个界面
+                    }
+
+                    // 显示成功消息
+                    const msg = `✅ 已成功移动 ${rowsData.length} 行到「${sheet.n}」`;
+                    if (typeof toastr !== 'undefined') toastr.success(msg);
+                    else await customAlert(msg, '成功');
+                });
+
+                $tableList.append($tableBtn);
+            });
+
+            if (!hasValidTarget) {
+                $box.append(`<div style="color:#dc3545; font-size:13px; padding:12px; text-align:center;">⚠️ 没有可用的目标表格</div>`);
+            } else {
+                $box.append($tableList);
             }
-            tipText += `此操作将永久删除详情表内容。<br><br>请选择对<strong>【批量填表进度指针】</strong>的处理方式：`;
 
-            $box.append(`<div style="font-size:16px; font-weight:bold; margin-bottom:4px;">🧹 清空表格选项</div>`);
-            $box.append(`<div style="font-size:13px; opacity:0.9; line-height:1.5;">${tipText}</div>`);
+            // 7. 取消按钮
+            const $btnCancel = $('<button>', {
+                text: '取消',
+                css: {
+                    padding: '10px', border: '1px solid ' + borderColor, borderRadius: '6px',
+                    background: 'transparent', color: txtColor, cursor: 'pointer', marginTop: '8px'
+                }
+            }).click(() => $overlay.remove());
 
-            // 4. 定义执行函数
-            const executeClear = async (resetPointer) => {
-                // A. 清空数据表
+            $box.append($btnCancel);
+            $overlay.append($box);
+            $('body').append($overlay);
+        });
+
+        // =========================================================
+        // 🗑️ 清理数据（整合原来的清表和全清功能）
+        // =========================================================
+        $('#gai-btn-cleanup').off('click').on('click', async function () {
+            const hasSummary = m.sm.has();
+            const tableCount = m.all().length - 1; // 排除总结表
+
+            // 1. 准备弹窗样式变量
+            const isDark = UI.darkMode;
+            const bgColor = isDark ? '#1e1e1e' : '#fff';
+            const txtColor = isDark ? '#e0e0e0' : UI.tc;
+            const borderColor = isDark ? 'rgba(255,255,255,0.15)' : '#ddd';
+
+            // 2. 创建弹窗 DOM
+            const id = 'cleanup-options-' + Date.now();
+            const $overlay = $('<div>', {
+                id: id,
+                css: {
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    width: '100vw', height: '100vh',
+                    background: 'rgba(0,0,0,0.6)', zIndex: 10000020,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }
+            });
+
+            const $box = $('<div>', {
+                css: {
+                    background: bgColor, color: txtColor,
+                    borderRadius: '12px', padding: '12px',
+                    boxShadow: '0 10px 40px rgba(0,0,0,0.4)', width: '320px', maxWidth: '85vw',
+                    maxHeight: '80vh', overflowY: 'auto',
+                    border: '1px solid ' + borderColor,
+                    display: 'flex', flexDirection: 'column', gap: '6px'
+                }
+            });
+
+            // 3. 标题
+            $box.append(`<div style="font-size:16px; font-weight:bold; margin-bottom:4px;">🗑️ 清理数据选项</div>`);
+            $box.append(`<div style="font-size:13px; opacity:0.9; line-height:1.5;">请选择清理方式：</div>`);
+
+            // 4. 选项1：仅清空当前表（保留进度）
+            const currentTableIndex = selectedTableIndex !== null ? selectedTableIndex : parseInt($('.g-t.act').data('i'));
+            const currentSheet = m.get(currentTableIndex);
+            const isLastTable = currentTableIndex === m.all().length - 1;
+
+            const $btnOption1 = $('<button>', {
+                html: '<span style="font-size:13px;">🧹 <strong>仅清空当前表 (保留进度)</strong></span><br><span style="font-size:10px; opacity:0.8;">清空「' + (currentSheet ? currentSheet.n : '当前表') + '」的所有行，不重置追溯进度指针</span>',
+                css: {
+                    padding: '6px', border: '1px solid #4fc3f7', borderRadius: '6px',
+                    background: 'transparent', color: UI.tc, cursor: 'pointer', textAlign: 'left',
+                    transition: 'all 0.2s', lineHeight: '1.4'
+                }
+            }).hover(
+                function () { $(this).css({ borderColor: '#29b6f6', background: 'rgba(79, 195, 247, 0.1)', transform: 'translateY(-2px)' }); },
+                function () { $(this).css({ borderColor: '#4fc3f7', background: 'transparent', transform: 'translateY(0)' }); }
+            ).click(async function () {
+                if (!currentSheet) {
+                    await customAlert('⚠️ 无法获取当前表格', '错误');
+                    return;
+                }
+
+                const confirmMsg = `确定清空「${currentSheet.n}」的所有 ${currentSheet.r.length} 行数据吗？\n\n⚠️ 此操作不可恢复！`;
+                if (!await customConfirm(confirmMsg, '确认清空')) return;
+
+                // 清空当前表
+                currentSheet.clear();
+                if (currentTableIndex < m.all().length - 1) {
+                    // 不是总结表，清除已总结标记
+                    const key = `gg_summarized_${currentTableIndex}`;
+                    if (summarizedRows[key]) {
+                        delete summarizedRows[key];
+                        localStorage.setItem(SK, JSON.stringify(summarizedRows));
+                    }
+                }
+                lastManualEditTime = Date.now();
+
+                // 保存数据（不重置进度指针）
+                m.save(true, true);
+
+                // ✅ 强制更新快照，确保与实时数据同步
+                if (typeof updateCurrentSnapshot === 'function') {
+                    updateCurrentSnapshot();
+                }
+
+                // 关闭弹窗并刷新
+                $overlay.remove();
+                shw();
+
+                const msg = `✅ 已清空「${currentSheet.n}」`;
+                if (typeof toastr !== 'undefined') toastr.success(msg);
+                else await customAlert(msg, '完成');
+            });
+
+            // 5. 选项2：清空所有详细表（保留总结和进度）
+            const $btnOption2 = $('<button>', {
+                html: '<span style="font-size:13px;">📋 <strong>清空所有详细表 (保留总结)</strong></span><br><span style="font-size:10px; opacity:0.8;">清空所有 ' + tableCount + ' 个详细表格，保留总结表和追溯进度指针</span>',
+                css: {
+                    padding: '6px', border: '1px solid #66bb6a', borderRadius: '6px',
+                    background: 'transparent', color: UI.tc, cursor: 'pointer', textAlign: 'left',
+                    transition: 'all 0.2s', lineHeight: '1.4'
+                }
+            }).hover(
+                function () { $(this).css({ borderColor: '#4caf50', background: 'rgba(102, 187, 106, 0.1)', transform: 'translateY(-2px)' }); },
+                function () { $(this).css({ borderColor: '#66bb6a', background: 'transparent', transform: 'translateY(0)' }); }
+            ).click(async function () {
+                const confirmMsg = `确定清空所有 ${tableCount} 个详细表格吗？\n\n✅ 记忆总结将会保留\n✅ 所有进度指针保留\n\n⚠️ 此操作不可恢复！`;
+                if (!await customConfirm(confirmMsg, '确认清空')) return;
+
+                // 清空所有详细表（填表指针不归零+保留总结表）
                 m.all().slice(0, -1).forEach(s => s.clear());
                 clearSummarizedMarks();
                 lastManualEditTime = Date.now();
 
-                // B. 处理指针
-                let msg = '';
-                if (resetPointer) {
-                    API_CONFIG.lastBackfillIndex = 0;
-                    msg = '✅ 表格已清空，进度指针已重置为 0。';
-                } else {
-                    // 保持原样
-                    msg = `✅ 表格已清空，进度指针保留在第 ${API_CONFIG.lastBackfillIndex} 层。`;
+                // 保存数据（不重置进度指针）
+                m.save(true, true);
+
+                // ✅ 强制更新快照，确保与实时数据同步
+                if (typeof updateCurrentSnapshot === 'function') {
+                    updateCurrentSnapshot();
                 }
 
-                // C. 保存配置和数据
-                try { localStorage.setItem(AK, JSON.stringify(API_CONFIG)); } catch (e) { }
+                // 关闭弹窗并刷新
+                $overlay.remove();
+                shw();
 
-                // 同步到云端 (保存配置变更)
+                const msg = `✅ 已清空所有详细表格，总结和进度已保留`;
+                if (typeof toastr !== 'undefined') toastr.success(msg);
+                else await customAlert(msg, '完成');
+            });
+
+            // 6. 选项3：清空所有详细表（填表内容+指针进度）
+            const $btnOption3 = $('<button>', {
+                html: '<span style="font-size:13px;">🔄 <strong>重置所有详细表 (清空+归零)</strong></span><br><span style="font-size:10px; opacity:0.8;">清空所有 ' + tableCount + ' 个详细表格，保留总结表，重置填表进度指针为 0</span>',
+                css: {
+                    padding: '6px', border: '1px solid #ffa726', borderRadius: '6px',
+                    background: 'transparent', color: UI.tc, cursor: 'pointer', textAlign: 'left',
+                    transition: 'all 0.2s', lineHeight: '1.4'
+                }
+            }).hover(
+                function () { $(this).css({ borderColor: '#ff9800', background: 'rgba(255, 167, 38, 0.1)', transform: 'translateY(-2px)' }); },
+                function () { $(this).css({ borderColor: '#ffa726', background: 'transparent', transform: 'translateY(0)' }); }
+            ).click(async function () {
+                const confirmMsg = `确定重置所有 ${tableCount} 个详细表格吗？\n\n将执行：\n✓ 清空所有详细表格数据\n✓ 保留记忆总结\n✓ 重置填表进度指针为 0\n\n⚠️ 此操作不可恢复！`;
+                if (!await customConfirm(confirmMsg, '确认重置')) return;
+
+                // 清空所有详细表（除总结表）
+                m.all().slice(0, -1).forEach(s => s.clear());
+                clearSummarizedMarks();
+                lastManualEditTime = Date.now();
+
+                // 重置填表进度指针（不重置总结指针）
+                API_CONFIG.lastBackfillIndex = 0;
+                localStorage.setItem(AK, JSON.stringify(API_CONFIG));
+
+                // 同步到云端
                 if (typeof saveAllSettingsToCloud === 'function') {
                     await saveAllSettingsToCloud();
                 }
 
-                // 强制保存数据到当前会话 (支持会话隔离)
-                m.save(true);
+                // 保存数据
+                m.save(true, true);
 
-                // D. 刷新界面
+                // ✅ 强制更新快照，确保与实时数据同步
+                if (typeof updateCurrentSnapshot === 'function') {
+                    updateCurrentSnapshot();
+                }
+
+                // 关闭弹窗并刷新
                 $overlay.remove();
-                if (typeof shw === 'function') shw();
+                shw();
 
+                const msg = `✅ 已重置所有详细表格，总结已保留，填表进度指针已归零`;
                 if (typeof toastr !== 'undefined') toastr.success(msg);
-                else alert(msg);
-            };
+                else await customAlert(msg, '完成');
+            });
 
-            // 5. 按钮组
-            // 按钮A：保留指针 (推荐用于清理已总结内容)
-            const $btnKeep = $('<button>', {
-                html: '📉 <strong>保留进度 (仅清数据)</strong><br><span style="font-size:10px; opacity:0.8">适合清理旧数据，AI 将继续往后填表</span>',
+            // 7. 选项4：删除所有数据（全清）
+            const $btnOption4 = $('<button>', {
+                html: '<span style="font-size:13px;">💥 <strong>删除所有数据 (全清)</strong></span><br><span style="font-size:10px; opacity:0.8;">清空所有表格（包括总结表）并重置所有指针</span>',
                 css: {
-                    padding: '10px', border: 'none', borderRadius: '6px',
-                    background: '#17a2b8', color: '#fff', cursor: 'pointer', textAlign: 'left'
+                    padding: '6px', border: '1px solid #e53935', borderRadius: '6px',
+                    background: 'transparent', color: UI.tc, cursor: 'pointer', textAlign: 'left',
+                    transition: 'all 0.2s', lineHeight: '1.4'
                 }
-            }).click(() => executeClear(false));
+            }).hover(
+                function () { $(this).css({ borderColor: '#d32f2f', background: 'rgba(229, 57, 53, 0.1)', transform: 'translateY(-2px)' }); },
+                function () { $(this).css({ borderColor: '#e53935', background: 'transparent', transform: 'translateY(0)' }); }
+            ).click(async function () {
+                let confirmMsg = '⚠️⚠️⚠️ 危险操作 ⚠️⚠️⚠️\n\n确定清空所有数据吗？\n\n';
 
-            // 按钮B：重置指针 (完全重开)
-            const $btnReset = $('<button>', {
-                html: '🔄 <strong>完全重置 (清数据+归零)</strong><br><span style="font-size:10px; opacity:0.8">适合想要彻底重新开始追溯</span>',
-                css: {
-                    padding: '10px', border: 'none', borderRadius: '6px',
-                    background: '#dc3545', color: '#fff', cursor: 'pointer', textAlign: 'left'
+                if (hasSummary) {
+                    confirmMsg += '🗑️ 将删除所有详细表格\n';
+                    confirmMsg += '🗑️ 将删除记忆总结\n';
+                    confirmMsg += '🗑️ 将重置所有标记\n\n';
+                } else {
+                    confirmMsg += '🗑️ 将删除所有表格数据\n\n';
                 }
-            }).click(() => executeClear(true));
 
-            // 按钮C：取消
+                confirmMsg += '此操作不可恢复！强烈建议先导出备份！';
+
+                if (!await customConfirm(confirmMsg, '⚠️ 全部清空')) return;
+
+                // 1. 清空所有表格（包括总结）
+                m.all().forEach(s => s.clear());
+                clearSummarizedMarks();
+                lastManualEditTime = Date.now();
+
+                // 2. 重置总结进度
+                API_CONFIG.lastSummaryIndex = 0;
+                API_CONFIG.lastBackfillIndex = 0;
+                localStorage.setItem(AK, JSON.stringify(API_CONFIG));
+
+                // 异步触发云端同步
+                saveAllSettingsToCloud().catch(err => {
+                    console.warn('⚠️ [全清] 后台云端同步失败 (不影响本地清空):', err);
+                });
+
+                // 强制保存数据
+                m.save(true, true);
+
+                // 强制告诉酒馆保存当前状态
+                if (m.ctx() && typeof m.ctx().saveChat === 'function') {
+                    m.ctx().saveChat();
+                    console.log('💾 [全清] 已强制触发酒馆保存，防止数据复活。');
+                }
+
+                // 彻底销毁所有历史快照
+                snapshotHistory = {};
+
+                // 重建一个空白的创世快照(-1)
+                snapshotHistory['-1'] = {
+                    data: m.all().slice(0, -1).map(sh => JSON.parse(JSON.stringify(sh.json()))),
+                    summarized: {},
+                    timestamp: 0
+                };
+
+                console.log('💥 [全清执行] 所有数据已销毁，无法回档。');
+
+                // 关闭弹窗并刷新
+                $overlay.remove();
+                shw();
+
+                await customAlert('✅ 所有数据已清空（包括总结）', '完成');
+            });
+
+            // 7. 取消按钮
             const $btnCancel = $('<button>', {
                 text: '取消',
                 css: {
@@ -5352,68 +6602,12 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 }
             }).click(() => $overlay.remove());
 
-            $box.append($btnKeep, $btnReset, $btnCancel);
+            // 8. 添加按钮到弹窗
+            $box.append($btnOption1, $btnOption2, $btnOption3, $btnOption4, $btnCancel);
             $overlay.append($box);
             $('body').append($overlay);
         });
 
-        // ✅✅ 修改：全部清空（含总结）
-        $('#gai-btn-clear').off('click').on('click', async function () {
-            const hasSummary = m.sm.has();
-            let confirmMsg = '⚠️⚠️⚠️ 危险操作 ⚠️⚠️⚠️\n\n确定清空所有数据吗？\n\n';
-
-            if (hasSummary) {
-                confirmMsg += '🗑️ 将删除所有详细表格\n';
-                confirmMsg += '🗑️ 将删除记忆总结\n';
-                confirmMsg += '🗑️ 将重置所有标记\n\n';
-                confirmMsg += '💡 提示：如果想保留总结，请使用"清表格"按钮\n\n';
-            } else {
-                confirmMsg += '🗑️ 将删除所有表格数据\n\n';
-            }
-
-            confirmMsg += '此操作不可恢复！强烈建议先导出备份！';
-
-            if (!await customConfirm(confirmMsg, '⚠️ 全部清空')) return;
-
-            // 1. 清空所有表格（包括总结）
-            m.all().forEach(s => s.clear());
-            clearSummarizedMarks();
-            lastManualEditTime = Date.now();
-
-            // 2. 重置总结进度
-            API_CONFIG.lastSummaryIndex = 0;
-            API_CONFIG.lastBackfillIndex = 0;  // ✅ 修复：同时重置批量填表进度
-            localStorage.setItem(AK, JSON.stringify(API_CONFIG));
-
-            // 🌐 同步重置后的配置到云端
-            await saveAllSettingsToCloud();
-
-            // ✨✨✨ 关键修改：传入 true，强制突破熔断保护 ✨✨✨
-            m.save(true);
-
-            // ✨✨✨ 强制告诉酒馆保存当前状态 ✨✨✨
-            if (m.ctx() && typeof m.ctx().saveChat === 'function') {
-                m.ctx().saveChat();
-                console.log('💾 [全清] 已强制触发酒馆保存，防止数据复活。');
-            }
-
-            // 3. 🛑 核心修复：彻底销毁所有历史快照，防止数据复活
-            snapshotHistory = {};
-
-            // 4. 重建一个空白的创世快照(-1)，确保系统知道现在是空的
-            snapshotHistory['-1'] = {
-                data: m.all().slice(0, -1).map(sh => JSON.parse(JSON.stringify(sh.json()))), // 只保存数据表
-                summarized: {},
-                timestamp: 0
-            };
-
-            console.log('💥 [全清执行] 所有数据已销毁，无法回档。');
-
-            await customAlert('✅ 所有数据已清空（包括总结）', '完成');
-
-            $('#gai-main-pop').remove();
-            shw();
-        });
         $('#gai-btn-theme').off('click').on('click', () => navTo('主题设置', shtm));
         $('#gai-btn-back').off('click').on('click', () => navTo('⚡ 剧情追溯填表', () => window.Gaigai.BackfillManager.showUI()));
         $('#gai-btn-config').off('click').on('click', () => navTo('配置', shcf));
@@ -5591,7 +6785,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
                 function finish(msg) {
                     saveSummarizedRows();
-                    m.save(true);
+                    m.save(true, true); // 总结标记操作立即保存
                     // 刷新总结视图
                     const renderBookUI = window.Gaigai.renderBookUI || (function () { }); // 防止未引用
                     // 重新渲染当前页
@@ -5617,7 +6811,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     else summarizedRows[ti].push(ri);
                 });
                 saveSummarizedRows();
-                m.save(true);
+                m.save(true, true); // 总结标记切换立即保存
                 refreshTable(ti);
                 // await customAlert(...) // 原有弹窗可移除
             } else if (selectedRow !== null) {
@@ -5626,7 +6820,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 if (idx > -1) summarizedRows[ti].splice(idx, 1);
                 else summarizedRows[ti].push(selectedRow);
                 saveSummarizedRows();
-                m.save(true);
+                m.save(true, true); // 单行总结标记立即保存
                 refreshTable(ti);
             } else {
                 // ✅ 批量显隐操作面板（当没有选中任何行时）
@@ -5720,7 +6914,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 // 完成函数
                 function finish(msg) {
                     saveSummarizedRows();
-                    m.save(true);
+                    m.save(true, true); // 批量总结标记立即保存
                     refreshTable(ti);
                     $overlay.remove();
                     if (typeof toastr !== 'undefined') toastr.success(msg);
@@ -5745,7 +6939,10 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         bnd();
 
         // ✅ 强制浏览器重排，防止 UI 假死
-        document.getElementById('gai-main-pop').offsetHeight;
+        const mainPop = document.getElementById('gai-main-pop');
+        if (mainPop) {
+            mainPop.offsetHeight;
+        }
 
         console.log(`✅ [刷新完成] 表${ti} UI已更新`);
     }
@@ -5799,14 +6996,39 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
      * URL 清洗、IP 修正和智能补全工具函数
      * @param {string} url - 原始 URL
      * @param {string} provider - API 提供商类型
+     * @param {boolean} forModelFetch - 是否用于拉取模型列表（默认false）
      * @returns {string} - 处理后的 URL
      */
-    function processApiUrl(url, provider) {
+    function processApiUrl(url, provider, forModelFetch = false) {
         if (!url) return '';
 
-        // 如果是“独立反代”模式，直接原样返回！
+        // 🎯 [反代端口自动优化] 如果是 proxy_only 模式
         if (provider === 'proxy_only') {
-            return url.trim();
+            const cleaned = url.trim();
+
+            // 判断是否是本地地址
+            const isLocalUrl = cleaned.includes('127.0.0.1') ||
+                              cleaned.includes('localhost') ||
+                              cleaned.includes('0.0.0.0');
+
+            // 🔀 分支逻辑：
+            // 1. 本地 build 反代 → 保留 /v1（走 custom 模式）
+            // 2. 拉取模型时 → 保留 /v1（需要访问 /v1/models）
+            // 3. 远程中转站 → 保留原样，交给请求逻辑处理（三级重试）
+
+            if (isLocalUrl) {
+                // 本地 build：保留 /v1，只去掉末尾斜杠
+                console.log('🔧 [反代-本地] 检测到本地地址，保留 /v1 走 custom 模式');
+                return cleaned.replace(/\/+$/, '');
+            } else if (forModelFetch) {
+                // 拉取模型：保留 /v1
+                console.log('🔧 [反代-拉取模型] 保留 /v1 访问模型列表');
+                return cleaned.replace(/\/+$/, '');
+            }
+
+            // 远程中转站：保留原样，只去掉末尾斜杠
+            console.log('🔧 [反代-远程] 保留 URL 原样，交给请求逻辑处理');
+            return cleaned.replace(/\/+$/, '');
         }
 
 
@@ -5839,7 +7061,162 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
        智能双通道 API 请求函数 (全面防屏蔽版)
        ========================================== */
     async function callIndependentAPI(prompt) {
-        console.log('🚀 [API-独立模式] 智能路由启动...');
+        // 🔄 如果配置为使用酒馆 API，直接调用 callTavernAPI（使用酒馆的稳定接收端）
+        if (!API_CONFIG.useIndependentAPI) {
+            console.log('🔄 [API路由] 使用酒馆API模式，转发到 callTavernAPI（使用酒馆接收端）...');
+            return await callTavernAPI(prompt);
+        }
+
+        console.log('🚀 [API-独立模式] 智能路由启动（使用自定义流式解析）...');
+
+        // ========================================
+        // 🔧 Helper: Unified Stream Content Extractor
+        // ========================================
+        /**
+         * Extracts text content from SSE stream chunks across all API formats
+         * @param {Object} chunk - Parsed JSON chunk from SSE stream
+         * @returns {Object} { content: string, reasoning: string, finishReason: string, error: string|null }
+         */
+        function extractStreamContent(chunk) {
+            if (!chunk) return { content: '', reasoning: '', finishReason: '', error: null };
+
+            // 1. 优先检查显式报错 (OpenAI/Proxy 标准)
+            if (chunk.error) {
+                const errMsg = chunk.error.message || JSON.stringify(chunk.error);
+                return { content: '', reasoning: '', finishReason: 'error', error: errMsg };
+            }
+
+            // 2. 提取 finish_reason
+            const finishReason = chunk.choices?.[0]?.finish_reason ||
+                                chunk.candidates?.[0]?.finishReason ||
+                                '';
+
+            // 3. 检查 Gemini 安全拦截 (无 content 但有 finishReason)
+            if (finishReason === 'SAFETY' || finishReason === 'RECITATION' || finishReason === 'safety') {
+                return { content: '', reasoning: '', finishReason: finishReason, error: `内容被安全策略拦截 (${finishReason})` };
+            }
+
+            // 4. Extract reasoning content (DeepSeek specific)
+            const reasoning = chunk.choices?.[0]?.delta?.reasoning_content || '';
+
+            // 5. Extract main content from various formats:
+            let content = '';
+
+            // 5.1 OpenAI/DeepSeek: chunk.choices[0].delta.content
+            if (chunk.choices?.[0]?.delta?.content) {
+                content = chunk.choices[0].delta.content;
+            }
+            // 5.2 OpenAI/DeepSeek alternative: chunk.choices[0].text
+            else if (chunk.choices?.[0]?.text) {
+                content = chunk.choices[0].text;
+            }
+            // 5.3 Google Gemini: chunk.candidates[0].content.parts[0].text
+            else if (chunk.candidates?.[0]?.content?.parts?.[0]?.text) {
+                content = chunk.candidates[0].content.parts[0].text;
+            }
+            // 5.4 Claude: chunk.delta.text or chunk.content_block.text
+            else if (chunk.delta?.text) {
+                content = chunk.delta.text;
+            }
+            else if (chunk.content_block?.text) {
+                content = chunk.content_block.text;
+            }
+
+            return { content, reasoning, finishReason, error: null };
+        }
+
+
+        // ========================================
+        // 🔧 Helper: Universal Streaming Reader (Fixed Version)
+        // ========================================
+        async function readUniversalStream(body, logPrefix = '') {
+            let fullText = '';
+            let fullReasoning = '';
+            let isTruncated = false;
+
+            try {
+                const reader = body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+
+                    if (value) {
+                        buffer += decoder.decode(value, { stream: !done });
+                    } else if (done) {
+                        // ✅ FIX: Flush decoder cache when stream ends
+                        buffer += decoder.decode();
+                    }
+
+                    const lines = buffer.split('\n');
+
+                    if (!done) {
+                        // Keep the last line in buffer if stream is not done
+                        buffer = lines.pop() || '';
+                    } else {
+                        // If done, process everything
+                        buffer = '';
+                    }
+
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        if (!trimmed || trimmed.startsWith(':')) continue;
+                        if (trimmed === 'data: [DONE]' || trimmed === 'data:[DONE]') continue;
+
+                        const sseMatch = trimmed.match(/^data:\s*/);
+                        if (sseMatch) {
+                            const jsonStr = trimmed.substring(sseMatch[0].length);
+                            if (!jsonStr || jsonStr === '[DONE]') continue;
+                            try {
+                                const chunk = JSON.parse(jsonStr);
+                                const { content, reasoning, finishReason, error } = extractStreamContent(chunk);
+
+                                // 🔥 [新增] 实时阻断错误
+                                if (error) {
+                                    throw new Error(`API流式报错: ${error}`);
+                                }
+
+                                if (finishReason === 'length') isTruncated = true;
+                                if (reasoning) fullReasoning += reasoning;
+                                if (content) fullText += content;
+                            } catch (e) {
+                                // 如果是我们主动抛出的错误，继续向上传递
+                                if (e.message && e.message.startsWith('API流式报错:')) {
+                                    throw e;
+                                }
+                                // 其他解析错误静默忽略
+                            }
+                        } else if (trimmed.startsWith('{')) {
+                            try {
+                                const chunk = JSON.parse(trimmed);
+                                const { content, reasoning, finishReason, error } = extractStreamContent(chunk);
+
+                                // 🔥 [新增] 实时阻断错误
+                                if (error) {
+                                    throw new Error(`API流式报错: ${error}`);
+                                }
+
+                                if (content) fullText += content;
+                            } catch (e) {
+                                // 如果是我们主动抛出的错误，继续向上传递
+                                if (e.message && e.message.startsWith('API流式报错:')) {
+                                    throw e;
+                                }
+                                // 其他解析错误静默忽略
+                            }
+                        }
+                    }
+
+                    if (done) break;
+                }
+
+                return { fullText, fullReasoning, isTruncated };
+            } catch (streamErr) {
+                console.error(`❌ ${logPrefix} Stream reading failed:`, streamErr.message);
+                throw streamErr;
+            }
+        }
 
         // ========================================
         // 1. 准备数据
@@ -5866,14 +7243,28 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         const cleanMessages = rawMessages.map(m => {
             // 如果允许保留 system 且当前是 system，直接返回原样
             if (preserveSystem && m.role === 'system') {
-                return { role: 'system', content: m.content };
+                return { role: 'system', content: m.content || '' };
             }
             // 否则才转为 User（针对老旧本地模型）
             return {
                 role: m.role === 'system' ? 'user' : m.role,
-                content: m.role === 'system' ? ('[System]: ' + m.content) : m.content
+                content: m.role === 'system' ? ('[System]: ' + (m.content || '')) : (m.content || '')
             };
         });
+
+        // 🔍 [Prefill 探针] 显示最后发送的消息结构
+        console.log('📤 [消息探针] 准备发送的消息数量:', cleanMessages.length);
+        if (cleanMessages.length > 0) {
+            const lastMsg = cleanMessages[cleanMessages.length - 1];
+            console.log('📤 [消息探针] 最后一条消息:');
+            console.log('   - 角色 (role):', lastMsg.role);
+            console.log('   - 内容长度:', (lastMsg.content || '').length);
+            console.log('   - 内容前100字符:', (lastMsg.content || '').substring(0, 100));
+
+            if (lastMsg.role === 'assistant' || lastMsg.role === 'model') {
+                console.log('✨ [Prefill 探针] 检测到预填提示词 (Assistant Prefill)');
+            }
+        }
 
         // ========================================
         // 按需鉴权：只有当 Key 不为空时才构造 Authorization Header
@@ -5923,103 +7314,269 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         messages: cleanMessages,
                         temperature: temperature,
                         max_tokens: maxTokens,
-                        stream: false,
+                        maxOutputTokens: maxTokens, // ✅ Gemini严格要求的参数名
+                        stream: true, // ✅ 启用流式响应（Claude等提供商要求）
                         // 🛡️ 强力注入安全设置，防止空回
                         safety_settings: [
                             { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
                             { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
                             { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-                            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+                            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+                            { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
+                        ],
+                        safetySettings: [ // ✅ CamelCase版本，确保所有后端版本兼容
+                            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+                            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+                            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+                            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+                            { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
                         ]
                     };
+
+                    // 🔍 [后端代理 Prefill 探针] 显示发送给酒馆后端的 messages 最后一条
+                    if (proxyPayload.messages && proxyPayload.messages.length > 0) {
+                        const lastMsg = proxyPayload.messages[proxyPayload.messages.length - 1];
+                        console.log('📤 [后端代理-Gemini] 发送给酒馆的 messages 最后一条:');
+                        console.log('   - role:', lastMsg.role);
+                        console.log('   - content 前100字符:', (lastMsg.content || '').substring(0, 100));
+                        if (lastMsg.role === 'assistant' || lastMsg.role === 'model') {
+                            console.log('✨ [后端代理 Prefill 探针] 检测到 Prefill，酒馆后端将转为 Gemini 格式');
+                        }
+                    }
+
+                    // 🧠 [Thinking Model 支持] 如果是思考模型，启用思考并给予充足预算
+                    const isThinkingModel = model.toLowerCase().includes('thinking');
+                    if (isThinkingModel) {
+                        proxyPayload.thinkingConfig = {
+                            includeThoughts: true,
+                            thinkingBudget: 4096  // 填表需要深度思考
+                        };
+                        console.log('🧠 [Thinking Model] 已启用思考模式，预算: 4096');
+                    }
 
                     const proxyResponse = await fetch('/api/backends/chat-completions/generate', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-                        body: JSON.stringify(proxyPayload)
+                        body: JSON.stringify(proxyPayload),
+                        credentials: 'include'
                     });
 
-                    if (proxyResponse.ok) {
-                        const text = await proxyResponse.text();
-                        try {
-                            // 尝试解析各种可能的返回格式
-                            const data = JSON.parse(text);
-                            if (typeof data === 'string') return { success: true, summary: data };
-                            if (data.choices?.[0]?.message?.content) return { success: true, summary: data.choices[0].message.content };
-                            if (data.content) return { success: true, summary: data.content };
-                            // 通用解析兜底
-                            return parseApiResponse(data);
-                        } catch (e) {
-                            // 如果不是JSON，可能是纯文本，直接返回
-                            if (text && text.length > 0) return { success: true, summary: text };
+                    // ✅ [强制流式] 无论 content-type 如何，都使用流式读取（零延迟）
+                    if (proxyResponse.ok && proxyResponse.body) {
+                        console.log('🌊 [Gemini官方] 开始流式读取（强制模式）...');
+
+                        const { fullText, fullReasoning, isTruncated } = await readUniversalStream(
+                            proxyResponse.body,
+                            '[Gemini官方]'
+                        );
+
+                        // ✅ 优先返回：如果截断且有内容，直接返回（用户希望看到部分内容）
+                        if (isTruncated && fullText && fullText.length > 0) {
+                            console.warn('⚠️ [Gemini官方] Token截断但有内容，返回部分响应');
+                            return { success: true, summary: fullText };
                         }
+
+                        // 如果有正常内容或思考内容，返回
+                        if (fullText && fullText.trim()) {
+                            console.log('✅ [Gemini官方] 成功');
+                            return { success: true, summary: fullText };
+                        }
+                        if (fullReasoning && fullReasoning.trim()) {
+                            console.warn('⚠️ [Gemini官方] 正文为空，返回思考内容');
+                            return { success: true, summary: fullReasoning };
+                        }
+
+                        // 真的完全没内容，抛出简洁错误
+                        throw new Error('API返回空内容');
                     }
+
                     const errText = await proxyResponse.text();
-                    throw new Error(`酒馆后端报错: ${errText.substring(0, 100)}`);
+                    throw new Error(`酒馆后端报错: ${errText.substring(0, 1000)}`);
                 }
 
-                // 只有当：提供商是"网页反代" (proxy_only) 且 模型名含"gemini"时，才走 Makersuite 修复路
+                // 只有当：提供商是"网页反代" (proxy_only) 且 模型名含"gemini"时，才走 Makersuite 修复路径
                 // ✨ 修复：排除本地地址 (127.0.0.1/localhost)。
                 // 如果用户用 gcli 等本地转接工具，应该走下面的通用 OpenAI/Custom 协议，那里有完善的安全注入。
-                const isProxyGemini = (provider === 'proxy_only') &&
+                let isProxyGemini = (provider === 'proxy_only') &&
                     model.toLowerCase().includes('gemini') &&
                     !apiUrl.includes('127.0.0.1') &&
                     !apiUrl.includes('localhost');
 
                 if (isProxyGemini) {
-                    // === 分支 1: 针对网页端 Gemini 反代 (MakerSuite 修复逻辑) ===
-                    console.log('🔧 [智能修正] 命中网页端 Gemini 反代，使用 Makersuite 协议...');
+                    // === 分支 1: 针对网页端 Gemini 反代 (MakerSuite 三级重试逻辑) ===
+                    console.log('🔧 [智能修正] 命中网页端 Gemini 反代，启动三级重试机制...');
 
-                    // 1. URL 清洗：只留 Base URL
-                    let cleanBaseUrl = apiUrl.replace(/\/v1(\/|$)/, '').replace(/\/chat\/completions(\/|$)/, '').replace(/\/+$/, '');
+                    // 封装 MakerSuite 请求函数（支持流式/非流式切换）
+                    const tryMakersuiteRequest = async (targetUrl, isStreaming) => {
+                        const proxyPayload = {
+                            chat_completion_source: "makersuite",
+                            reverse_proxy: targetUrl,
+                            proxy_password: apiKey,
+                            model: model,
+                            messages: cleanMessages,
+                            temperature: temperature,
+                            max_tokens: maxTokens,
+                            stream: isStreaming,
+                            custom_prompt_post_processing: "strict",
+                            use_makersuite_sysprompt: true,
+                            // ✅ 标准 Gemini 格式
+                            safetySettings: [
+                                { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+                                { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+                                { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+                                { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+                                { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
+                            ]
+                        };
 
-                    // 2. 构造 Makersuite Payload (你验证通过的满分答案)
-                    const proxyPayload = {
-                        chat_completion_source: "makersuite",
-                        reverse_proxy: cleanBaseUrl,
-                        proxy_password: apiKey,
-                        model: model,
-                        messages: cleanMessages,
-                        temperature: temperature,
-                        max_tokens: maxTokens,
-                        stream: false,
-                        custom_prompt_post_processing: "strict",
-                        use_makersuite_sysprompt: true,
-                        // ✅ 标准 Gemini 格式
-                        safetySettings: [
-                            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-                            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-                            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-                            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-                        ]
+                        // 🧠 [Thinking Model 支持] 如果是思考模型，启用思考并给予充足预算
+                        const isThinkingModel = model.toLowerCase().includes('thinking');
+                        if (isThinkingModel) {
+                            proxyPayload.thinkingConfig = {
+                                includeThoughts: true,
+                                thinkingBudget: 4096
+                            };
+                            console.log('🧠 [Thinking Model] 已启用思考模式，预算: 4096');
+                        }
+
+                        // ✨ [双重保险] 同时注入 OpenAI 格式的安全设置
+                        proxyPayload.safety_settings = proxyPayload.safetySettings;
+                        proxyPayload.gemini_safety_settings = proxyPayload.safetySettings;
+
+                        const proxyResponse = await fetch('/api/backends/chat-completions/generate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+                            body: JSON.stringify(proxyPayload),
+                            credentials: 'include'
+                        });
+
+                        if (!proxyResponse.ok) {
+                            const errText = await proxyResponse.text();
+                            throw new Error(`反代修复模式报错 (HTTP ${proxyResponse.status}): ${errText.substring(0, 1000)}`);
+                        }
+
+                        if (isStreaming) {
+                            // 流式处理
+                            if (proxyResponse.body) {
+                                console.log('🌊 [Gemini反代] 开始流式读取...');
+                                const { fullText, fullReasoning, isTruncated } = await readUniversalStream(
+                                    proxyResponse.body,
+                                    '[Gemini反代]'
+                                );
+
+                                // ✅ 优先返回：如果截断且有内容，直接返回（用户希望看到部分内容）
+                                if (isTruncated && fullText && fullText.length > 0) {
+                                    console.warn('⚠️ [Gemini反代] Token截断但有内容，返回部分响应');
+                                    return { success: true, summary: fullText };
+                                }
+
+                                // 如果有正常内容或思考内容，返回
+                                if (fullText && fullText.trim()) {
+                                    console.log('✅ [Gemini反代-流式] 成功');
+                                    return { success: true, summary: fullText };
+                                }
+                                if (fullReasoning && fullReasoning.trim()) {
+                                    console.warn('⚠️ [Gemini反代] 正文为空，返回思考内容');
+                                    return { success: true, summary: fullReasoning };
+                                }
+
+                                // 真的完全没内容，抛出简洁错误
+                                throw new Error('API返回空内容');
+                            }
+                            throw new Error('流式响应缺少 body');
+                        } else {
+                            // 非流式处理
+                            console.log('📦 [Gemini反代] 使用非流式模式，解析 JSON...');
+
+                            // ✅ 1. 获取原始文本 (防止 JSON.parse 报错)
+                            const rawText = await proxyResponse.text();
+                            let data;
+                            try {
+                                data = JSON.parse(rawText);
+                            } catch (e) {
+                                console.warn('⚠️ [Gemini反代] JSON解析失败，尝试作为纯文本处理');
+                                data = { candidates: [], text: rawText }; // 构造伪对象
+                            }
+
+                            // 🔍 优先检查安全阻断 (Gemini 2.0 特性)
+                            if (data.candidates && data.candidates[0] && data.candidates[0].finishReason) {
+                                const reason = data.candidates[0].finishReason;
+                                if (['SAFETY', 'safety', 'RECITATION', 'OTHER'].includes(reason) && !data.candidates[0].content) {
+                                    throw new Error(`Google 安全策略拦截 (finishReason: ${reason})。\n\n💡 建议：更换模型或修改"优化建议"。`);
+                                }
+                            }
+
+                            // ✅ 2. 强力双重解析 (不使用 else if，而是谁有值取谁)
+                            let text = '';
+
+                            // 尝试 A: Google 原生格式 (使用 Optional Chaining 防止报错)
+                            const googleText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                            if (googleText) text = googleText;
+
+                            // 尝试 B: OpenAI 兼容格式 (如果 Google 格式没取到，或者虽然有 candidates 但内容为空，就尝试 OpenAI)
+                            if (!text) {
+                                const openAIText = data.choices?.[0]?.message?.content;
+                                if (openAIText) {
+                                    console.log('🔧 [兼容模式] 检测到 OpenAI 格式响应，已自动适配');
+                                    text = openAIText;
+                                }
+                            }
+
+                            // 尝试 C: 兜底纯文本
+                            if (!text && typeof data === 'string') {
+                                text = data;
+                            }
+
+                            if (!text || !text.trim()) {
+                                console.error('❌ [反代响应内容] ', rawText.substring(0, 500));
+                                throw new Error('非流式响应返回内容为空 (已尝试 Google 和 OpenAI 格式)');
+                            }
+
+                            console.log('✅ [Gemini反代-非流式] 成功');
+                            return { success: true, summary: text };
+                        }
                     };
 
-                    // ✨ [双重保险] 同时注入 OpenAI 格式的安全设置
-                    // 防止某些魔改的 Makersuite 反代其实底层是 OpenAI 接口
-                    proxyPayload.safety_settings = proxyPayload.safetySettings;
-                    proxyPayload.gemini_safety_settings = proxyPayload.safetySettings;
+                    // 三级重试逻辑
+                    try {
+                        // 🟢 阶段 1: 尝试干净的 URL (无 /v1)
+                        let cleanUrl = apiUrl.replace(/\/v1\/?$/, '').replace(/\/chat\/completions\/?$/, '').replace(/\/+$/, '');
+                        console.log(`📡 [尝试 1] MakerSuite 协议 + 纯净 URL: ${cleanUrl}`);
 
-                    const proxyResponse = await fetch('/api/backends/chat-completions/generate', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-                        body: JSON.stringify(proxyPayload)
-                    });
-
-                    if (proxyResponse.ok) {
-                        const text = await proxyResponse.text();
                         try {
-                            const data = JSON.parse(text);
-                            // 兼容 Makersuite 的各种返回
-                            if (typeof data === 'string') return { success: true, summary: data };
-                            if (data.choices?.[0]?.message?.content) return { success: true, summary: data.choices[0].message.content };
-                            if (data.content) return { success: true, summary: data.content };
-                            return { success: true, summary: text };
-                        } catch (e) { return { success: true, summary: text }; }
-                    }
-                    const errText = await proxyResponse.text();
-                    throw new Error(`反代修复模式报错: ${errText}`);
+                            return await tryMakersuiteRequest(cleanUrl, true);
+                        } catch (streamError) {
+                            console.warn('⚠️ [尝试 1-流式] 失败，尝试非流式...', streamError.message);
+                            return await tryMakersuiteRequest(cleanUrl, false);
+                        }
 
-                } else {
+                    } catch (e1) {
+                        console.warn(`⚠️ [尝试 1 失败] ${e1.message} -> 尝试追加 /v1 重试...`);
+
+                        try {
+                            // 🟡 阶段 2: 尝试带 /v1 的 URL
+                            let v1Url = apiUrl.replace(/\/v1\/?$/, '').replace(/\/chat\/completions\/?$/, '').replace(/\/+$/, '') + '/v1';
+                            console.log(`📡 [尝试 2] MakerSuite 协议 + V1 URL: ${v1Url}`);
+
+                            try {
+                                return await tryMakersuiteRequest(v1Url, true);
+                            } catch (streamError) {
+                                console.warn('⚠️ [尝试 2-流式] 失败，尝试非流式...', streamError.message);
+                                return await tryMakersuiteRequest(v1Url, false);
+                            }
+
+                        } catch (e2) {
+                            console.error(`❌ [Gemini反代] 三级重试全部失败`);
+                            console.error(`   尝试1错误: ${e1.message}`);
+                            console.error(`   尝试2错误: ${e2.message}`);
+
+                            // 🔴 阶段 3: 三级重试都失败，直接抛出错误让上层处理
+                            throw new Error(`Gemini反代三级重试失败\n\n【尝试1 - 纯净URL】\n${e1.message}\n\n【尝试2 - 带/v1】\n${e2.message}`);
+                        }
+                    }
+                }
+
+                if (!isProxyGemini) {
 
                     // === 智能分流修复 (V1.3.9 核心修正) ===
 
@@ -6063,7 +7620,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         messages: cleanMessages,
                         temperature: temperature,
                         max_tokens: maxTokens,
-                        stream: false,
+                        stream: true, // ✅ 启用流式响应（Claude等提供商要求）
 
                         // 兼容性参数
                         mode: 'chat',
@@ -6110,37 +7667,61 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                             'Content-Type': 'application/json',
                             'X-CSRF-Token': csrfToken
                         },
-                        body: JSON.stringify(proxyPayload)
+                        body: JSON.stringify(proxyPayload),
+                        credentials: 'include'
                     });
 
-                    // 1. 检查成功状态
-                    if (proxyResponse.ok) {
-                        const data = await proxyResponse.json();
-                        const result = parseApiResponse(data);
-                        if (result.success) {
-                            // ✨✨✨ Fallback 保护：如果清洗后内容为空，检查原始数据
-                            if (result.summary && result.summary.trim()) {
-                                const rawSummary = result.summary;
-                                let cleaned = result.summary.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+                    // ✅ [强制流式] 无论 content-type 如何，都使用流式读取（零延迟）
+                    if (proxyResponse.ok && proxyResponse.body) {
+                        console.log('🌊 [后端代理] 开始流式读取（强制模式）...');
 
-                                // 针对截断情况的额外清洗（如果思考没闭合）
-                                cleaned = cleaned.replace(/<think>[\s\S]*/gi, '').trim();
+                        const { fullText: rawText, fullReasoning, isTruncated } = await readUniversalStream(
+                            proxyResponse.body,
+                            '[后端代理]'
+                        );
 
-                                // 如果清洗后为空，但原始内容不为空，则保留原始内容
-                                if (!cleaned && rawSummary.trim().length > 0) {
-                                    console.warn('⚠️ [后端代理清洗] 清洗后内容为空（AI仅输出了思考内容），触发回退保护，保留原文');
-                                    result.summary = rawSummary;
-                                } else {
-                                    result.summary = cleaned;
-                                    if (rawSummary.length !== cleaned.length) {
-                                        console.log(`🧹 [后端代理清洗] 已移除 <think> 标签，清洗前: ${rawSummary.length} 字符，清洗后: ${cleaned.length} 字符`);
-                                    }
+                        let fullText = rawText;
+
+                        // ✅ 优先返回：如果截断且有内容，直接返回（用户希望看到部分内容）
+                        if (isTruncated && fullText && fullText.length > 0) {
+                            console.warn('⚠️ [后端代理] Token截断但有内容，返回部分响应');
+                            fullText += '\n\n[⚠️ 内容已因达到最大Token限制而截断]';
+                            return { success: true, summary: fullText };
+                        }
+
+                        // 清洗 <think> 标签
+                        if (fullText) {
+                            const beforeClean = fullText;
+                            let cleaned = fullText
+                                .replace(/<think>[\s\S]*?<\/think>/gi, '')
+                                .replace(/^[\s\S]*?<\/think>/i, '')
+                                .trim();
+
+                            cleaned = cleaned.replace(/<think>[\s\S]*/gi, '').trim();
+
+                            if (!cleaned && beforeClean.trim().length > 0) {
+                                console.warn('⚠️ [后端代理清洗] 清洗后内容为空，触发回退保护');
+                                fullText = beforeClean;
+                            } else {
+                                fullText = cleaned;
+                                if (beforeClean.length !== cleaned.length) {
+                                    console.log(`🧹 [后端代理清洗] 已移除 <think> 标签`);
                                 }
                             }
-                            console.log('✅ [后端代理] 成功');
-                            return result;
                         }
-                        throw new Error('后端返回数据无法解析');
+
+                        // 如果有正常内容或思考内容，返回
+                        if (fullText && fullText.trim()) {
+                            console.log('✅ [后端代理] 成功');
+                            return { success: true, summary: fullText };
+                        }
+                        if (fullReasoning && fullReasoning.trim()) {
+                            console.warn('⚠️ [后端代理] 正文为空，返回思考内容');
+                            return { success: true, summary: fullReasoning };
+                        }
+
+                        // 真的完全没内容，抛出简洁错误
+                        throw new Error('API返回空内容');
                     }
 
                     // 2. 处理错误
@@ -6159,16 +7740,114 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     else statusTip = ' (未知网络错误)';
 
                     // 注意引号是反引号 ` `
-                    console.warn(`⚠️ [后端代理失败] ${s}${statusTip}: ${errText.substring(0, 200)}`);
+                    console.warn(`⚠️ [后端代理失败] ${s}${statusTip}: ${errText.substring(0, 1000)}`);
 
-                    throw new Error(`酒馆后端请求失败 ${s}${statusTip}: ${errText.substring(0, 100)}`);
+                    throw new Error(`酒馆后端请求失败 ${s}${statusTip}: ${errText.substring(0, 1000)}`);
 
                 }
 
             } catch (e) {
                 console.error(`❌ [后端代理] 失败: ${e.message}`);
 
-                // 自动降级逻辑
+                // 🔄 [协议降级重试] 针对 proxy_only/compatible，尝试从 custom 模式降级到 openai 模式
+                if ((provider === 'proxy_only' || provider === 'compatible') && !e.message.includes('[已降级]')) {
+                    console.warn('⚠️ [自动降级] 后端 Custom/Proxy 协议失败，正在尝试降级为标准 OpenAI 协议重试...');
+
+                    try {
+                        // 1. 修正 URL，确保有 /v1
+                        let v1Url = apiUrl;
+                        if (!v1Url.includes('/v1') && !v1Url.includes('/chat')) {
+                            v1Url = v1Url.replace(/\/+$/, '') + '/v1';
+                        }
+
+                        // 2. 构建标准 OpenAI Payload
+                        const retryPayload = {
+                            chat_completion_source: 'openai', // 关键：强制走 openai 协议
+                            reverse_proxy: v1Url,
+                            proxy_password: apiKey,
+                            model: model,
+                            messages: cleanMessages,
+                            temperature: temperature,
+                            max_tokens: maxTokens,
+                            stream: true
+                        };
+
+                        console.log(`🌐 [后端代理-降级] 目标: ${v1Url} | 模式: openai | 模型: ${model}`);
+
+                        // 3. 再次请求酒馆后端
+                        const retryResponse = await fetch('/api/backends/chat-completions/generate', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-Token': await getCsrfToken()
+                            },
+                            body: JSON.stringify(retryPayload),
+                            credentials: 'include'
+                        });
+
+                        // 4. 处理流式响应
+                        if (retryResponse.ok && retryResponse.body) {
+                            console.log('🌊 [后端代理-降级OpenAI] 重试成功，开始流式读取...');
+
+                            const { fullText: rawText, fullReasoning, isTruncated } = await readUniversalStream(
+                                retryResponse.body,
+                                '[降级重试]'
+                            );
+
+                            let fullText = rawText;
+
+                            // ✅ 优先返回：如果截断且有内容，直接返回
+                            if (isTruncated && fullText && fullText.length > 0) {
+                                console.warn('⚠️ [降级重试] Token截断但有内容，返回部分响应');
+                                fullText += '\n\n[⚠️ 内容已因达到最大Token限制而截断]';
+                                return { success: true, summary: fullText };
+                            }
+
+                            // 清洗 <think> 标签
+                            if (fullText) {
+                                const beforeClean = fullText;
+                                let cleaned = fullText
+                                    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+                                    .replace(/^[\s\S]*?<\/think>/i, '')
+                                    .trim();
+
+                                cleaned = cleaned.replace(/<think>[\s\S]*/gi, '').trim();
+
+                                if (!cleaned && beforeClean.trim().length > 0) {
+                                    console.warn('⚠️ [降级重试清洗] 清洗后内容为空，触发回退保护');
+                                    fullText = beforeClean;
+                                } else {
+                                    fullText = cleaned;
+                                    if (beforeClean.length !== cleaned.length) {
+                                        console.log(`🧹 [降级重试清洗] 已移除 <think> 标签`);
+                                    }
+                                }
+                            }
+
+                            // 如果有正常内容或思考内容，返回
+                            if (fullText && fullText.trim()) {
+                                console.log('✅ [后端代理-降级OpenAI] 成功');
+                                return { success: true, summary: fullText };
+                            }
+                            if (fullReasoning && fullReasoning.trim()) {
+                                console.warn('⚠️ [降级重试] 正文为空，返回思考内容');
+                                return { success: true, summary: fullReasoning };
+                            }
+
+                            throw new Error('API返回空内容');
+                        }
+
+                        // 处理降级重试的错误响应
+                        const retryErrText = await retryResponse.text();
+                        throw new Error(`[已降级] OpenAI协议重试失败 (${retryResponse.status}): ${retryErrText.substring(0, 500)}`);
+
+                    } catch (retryErr) {
+                        console.warn('⚠️ [自动降级] 标准 OpenAI 协议重试也失败了:', retryErr.message);
+                        // 继续向下执行原有的降级逻辑
+                    }
+                }
+
+                // 自动降级逻辑（浏览器直连）
                 if (provider === 'compatible' || provider === 'openai' || provider === 'gemini') {
                     console.warn('⚠️ [自动降级] 后端代理失败，正在尝试浏览器直连...');
                     useDirect = true;
@@ -6185,8 +7864,9 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         // 通道 B: 浏览器直连 (compatible, deepseek, gemini)
         // ==========================================
         if (useDirect) {
-            try {
-                console.log('🌍 [浏览器直连模式] 直接请求目标 API...');
+            // ♻️ [自动降级] 封装请求逻辑，支持流式/非流式切换
+            async function attemptDirectRequest(enableStream) {
+                console.log(`🌍 [浏览器直连模式] ${enableStream ? '流式' : '非流式'}请求...`);
 
                 // 构造直连 URL（智能拼接 endpoint）
                 let directUrl = apiUrl;
@@ -6220,7 +7900,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     model: model,
                     messages: cleanMessages,
                     temperature: temperature,
-                    stream: true,  // ✅ 启用流式响应
+                    stream: enableStream,  // ♻️ 根据参数动态设置
                     stop: []  // ✅ 清空停止符
                 };
 
@@ -6237,8 +7917,57 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         }
                     };
 
-                    // ✅ 仅当模型名包含 'gemini' 时才添加安全设置
+                    // 🔍 [Gemini Prefill 探针] 显示转换后的 contents 最后一条
+                    if (requestBody.contents && requestBody.contents.length > 0) {
+                        const lastContent = requestBody.contents[requestBody.contents.length - 1];
+                        console.log('📤 [Gemini 探针] 转换后 contents 最后一条:');
+                        console.log('   - role:', lastContent.role);
+                        console.log('   - parts:', JSON.stringify(lastContent.parts).substring(0, 150));
+                        if (lastContent.role === 'model') {
+                            console.log('✨ [Gemini Prefill 探针] 已将 assistant 转为 model (Gemini Prefill)');
+                        }
+                    }
+
+                    // 🧠 [Thinking Model 支持] 如果是思考模型，启用思考并给予充足预算
+                    const isThinkingModel = modelLower.includes('thinking');
+                    if (isThinkingModel) {
+                        requestBody.generationConfig.thinkingConfig = {
+                            includeThoughts: true,
+                            thinkingBudget: 4096  // 填表需要深度思考
+                        };
+                        console.log('🧠 [Thinking Model] 已启用思考模式，预算: 4096');
+                    }
+
+                    // 🛡️ [强制注入] 无论模型名是否包含 gemini，都注入安全设置（防止中转商改名）
+                    requestBody.safetySettings = [
+                        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+                        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+                        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+                        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+                        { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
+                    ];
+
+                    // Gemini 不支持标准流式，强制改回非流式
+                    delete requestBody.stream;
+                } else {
+                    // 其他 Provider 添加 max_tokens
+                    requestBody.max_tokens = maxTokens;
+
+                    // 🛡️🛡️🛡️ [Critical Fix] 强制注入 Gemini 安全设置
+                    // 只要模型名包含 gemini（不区分大小写），就注入双格式安全设置
                     if (modelLower.includes('gemini')) {
+                        console.log('🔧 [Gemini 安全补丁] 检测到模型名包含 gemini，强制注入双格式安全设置');
+
+                        // OpenAI 格式（蛇形命名）- 部分中转商支持
+                        requestBody.safety_settings = [
+                            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+                            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+                            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+                            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+                            { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
+                        ];
+
+                        // Gemini 原生格式（驼峰命名）- Google 官方格式
                         requestBody.safetySettings = [
                             { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
                             { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
@@ -6246,34 +7975,9 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                             { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
                             { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
                         ];
+
+                        console.log('✅ [Gemini 安全补丁] 已同时注入 safety_settings 和 safetySettings');
                     }
-
-                    // Gemini 不支持标准流式，强制改回非流式
-                    delete requestBody.stream;
-                } else {
-                    // 其他 Provider 添加 max_tokens
-                    requestBody.max_tokens = maxTokens;
-                }
-
-                // ✅ 针对 Gemini 代理/兼容模式的特殊处理
-                if (provider !== 'gemini' && modelLower.includes('gemini')) {
-                    console.log('🔧 [Gemini 代理模式] 检测到模型名包含 gemini，强制注入安全设置');
-
-                    // OpenAI 格式的安全设置（部分代理可能支持）
-                    requestBody.safety_settings = [
-                        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-                        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-                        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-                        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-                    ];
-
-                    // Gemini 原生格式的安全设置（备用）
-                    requestBody.safetySettings = [
-                        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-                        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-                        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-                        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-                    ];
                 }
 
                 // 🔧 [Gemini 官方直连修复] 如果是官方域名，将 API Key 添加到 URL 参数
@@ -6316,12 +8020,13 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     else if (directResponse.status === 429) statusTip = ' (请求太快被限流)';
 
                     // 👇 这一行也必须用反引号 ` `，不要改动！
-                    throw new Error(`直连请求失败 ${directResponse.status}${statusTip}: ${errText.substring(0, 200)}`);
+                    throw new Error(`直连请求失败 ${directResponse.status}${statusTip}: ${errText.substring(0, 1000)}`);
                 }
 
                 // ✅ [伪流式响应处理] 实现健壮的 SSE 流式解析
                 let fullText = '';  // 累积完整文本
                 let fullReasoning = '';  // 累积思考内容（DeepSeek reasoning_content）
+                let isTruncated = false;  // 标记是否因长度限制被截断
 
                 // 判断是否为流式响应（仅根据服务器实际返回的 Content-Type 判断）
                 // ✅ 修复：移除 requestBody.stream 判断，防止"假流"模型（请求 stream:true 但返回 json）解析失败
@@ -6335,7 +8040,6 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         const reader = directResponse.body.getReader();
                         const decoder = new TextDecoder('utf-8');
                         let buffer = '';  // 缓冲区，处理分片数据
-                        let isTruncated = false;  // 标记是否因长度限制被截断
 
                         while (true) {
                             const { done, value } = await reader.read();
@@ -6381,8 +8085,9 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                                     try {
                                         const chunk = JSON.parse(jsonStr);
 
-                                        // 检测 finish_reason
-                                        const finishReason = chunk.choices?.[0]?.finish_reason;
+                                        // Use unified extractor
+                                        const { content, reasoning, finishReason } = extractStreamContent(chunk);
+
                                         if (finishReason) {
                                             if (finishReason === 'length') {
                                                 isTruncated = true;
@@ -6392,22 +8097,13 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                                             }
                                         }
 
-                                        // DeepSeek 兼容 - 提取 reasoning_content
-                                        const reasoningContent = chunk.choices?.[0]?.delta?.reasoning_content;
-                                        if (reasoningContent) {
-                                            fullReasoning += reasoningContent;  // ✅ 累积思考内容
-                                            console.log('💠 [DeepSeek] 检测到 reasoning_content，长度:', reasoningContent.length);
+                                        if (reasoning) {
+                                            fullReasoning += reasoning;
+                                            console.log('💠 [DeepSeek] 检测到 reasoning_content，长度:', reasoning.length);
                                         }
 
-                                        // 提取内容（OpenAI 标准格式）
-                                        const delta = chunk.choices?.[0]?.delta?.content;
-                                        if (delta) {
-                                            fullText += delta;
-                                        }
-
-                                        // 兼容其他可能的格式
-                                        if (!delta && chunk.choices?.[0]?.text) {
-                                            fullText += chunk.choices[0].text;
+                                        if (content) {
+                                            fullText += content;
                                         }
 
                                     } catch (parseErr) {
@@ -6437,6 +8133,13 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         console.log(`✅ [流式模式] 累积文本长度: ${fullText.length} 字符`);
                         console.log(`💠 [流式模式] 累积思考长度: ${fullReasoning.length} 字符`);
 
+                        // 🔍 [调试] 如果内容为空，输出原始数据用于诊断
+                        if (fullText.length === 0 && fullReasoning.length === 0) {
+                            console.error('❌ [流式调试] 未接收到任何有效内容！');
+                            console.error('   Content-Type:', contentType);
+                            console.error('   Buffer 最终状态 (前500字符):', buffer.substring(0, 500));
+                        }
+
                         // ========================================
                         // 循环结束后处理：检测异常 + 清洗
                         // ========================================
@@ -6459,7 +8162,10 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         // 防止 DeepSeek/Gemini 在 content 里混合输出了思考标签
                         if (fullText) {
                             const rawText = fullText; // 备份一份原始数据
-                            let cleaned = fullText.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+                            let cleaned = fullText
+                                .replace(/<think>[\s\S]*?<\/think>/gi, '')  // 移除标准成对
+                                .replace(/^[\s\S]*?<\/think>/i, '')         // 移除残缺开头
+                                .trim();
 
                             // 针对截断情况的额外清洗（如果思考没闭合）
                             cleaned = cleaned.replace(/<think>[\s\S]*/gi, '').trim();
@@ -6488,7 +8194,19 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 } else {
                     // 降级：非流式响应，使用传统方式
                     console.log('📄 [非流式模式] 使用传统 JSON 解析...');
-                    const data = await directResponse.json();
+
+                    // ✅ [Bug Fix] 先获取原始文本，避免 JSON 解析崩溃
+                    const text = await directResponse.text();
+
+                    let data;
+                    try {
+                        data = JSON.parse(text);
+                    } catch (e) {
+                        console.error('❌ [浏览器直连] JSON 解析失败:', e.message);
+                        console.error('   原始响应 (前300字符):', text.substring(0, 300));
+                        throw new Error(`浏览器直连返回非JSON格式\n\n${text.substring(0, 500)}`);
+                    }
+
                     const result = parseApiResponse(data);
 
                     if (result.success) {
@@ -6502,8 +8220,17 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 // ========================================
                 // 3️⃣ 最终校验与返回 (防空回增强版)
                 // ========================================
-                
-                // 1. 优先返回正常的正文
+
+                // 1. ✅ 优先返回：如果截断且有内容，直接返回（用户希望看到部分内容）
+                if (isTruncated && fullText && fullText.length > 0) {
+                    console.warn('⚠️ [浏览器直连] Token截断但有内容，返回部分响应');
+                    return {
+                        success: true,
+                        summary: fullText
+                    };
+                }
+
+                // 2. 如果有正常内容，返回
                 if (fullText && fullText.trim()) {
                     console.log('✅ [浏览器直连] 成功（流式）！长度:', fullText.length);
                     return {
@@ -6512,7 +8239,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     };
                 }
 
-                // 2. ✨✨✨ 核心修复：如果正文为空，但有思考内容，拿思考内容救急！✨✨✨
+                // 3. 如果正文为空但有思考内容，返回思考内容
                 // (针对 DeepSeek R1 或 Gemini 2.0 Flash Thinking 等推理模型)
                 if (typeof fullReasoning !== 'undefined' && fullReasoning && fullReasoning.trim()) {
                     console.warn('⚠️ [流式兼容] 正文为空，降级返回思考内容 (Reasoning Content)');
@@ -6522,19 +8249,49 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     };
                 }
 
-                // 3. 💀 真·空回 (抛出原始错误供弹窗显示)
-                console.error('❌ [流式失败] 接收到的完整包体:', fullText);
-                throw new Error(`Error: Stream response content is empty.\n\nContent Length: ${fullText.length}\nReasoning Length: ${typeof fullReasoning !== 'undefined' ? fullReasoning.length : 0}`);
+                // 4. 真的完全没内容，抛出简洁错误
+                throw new Error('API返回空内容');
+            } // attemptDirectRequest 函数结束
 
+            // ♻️♻️♻️ [自动降级核心逻辑] ♻️♻️♻️
+            try {
+                // 第一次尝试：流式请求
+                console.log('🚀 [自动降级] 第 1 次尝试：流式请求');
+                return await attemptDirectRequest(true);
+            } catch (firstError) {
+                console.error('❌ [自动降级] 流式请求失败:', firstError.message);
 
-            } catch (e) {
-                console.error('❌ [浏览器直连] 失败:', e);
+                // 判断是否应该降级重试
+                const shouldRetry =
+                    firstError.message.includes('Stream response content is empty') ||
+                    firstError.message.includes('JSON parsing failed') ||
+                    firstError.message.includes('流式读取失败') ||
+                    firstError.message.includes('流式解析失败');
 
-                // 返回原始错误信息
-                return {
-                    success: false,
-                    error: e.message // 原始错误信息
-                };
+                if (shouldRetry) {
+                    console.warn('⚠️ [自动降级] 检测到流式请求问题，正在自动降级为非流式 (Non-Stream) 重试...');
+
+                    try {
+                        // 第二次尝试：非流式请求
+                        console.log('🔄 [自动降级] 第 2 次尝试：非流式请求');
+                        return await attemptDirectRequest(false);
+                    } catch (secondError) {
+                        console.error('❌ [自动降级] 非流式请求也失败:', secondError.message);
+
+                        // 两次都失败，返回最后一次的错误
+                        return {
+                            success: false,
+                            error: `流式和非流式请求均失败\n\n第1次(流式): ${firstError.message}\n\n第2次(非流式): ${secondError.message}`
+                        };
+                    }
+                } else {
+                    // 不是流式问题，直接返回错误
+                    console.error('❌ [浏览器直连] 失败（非流式问题，不重试）:', firstError.message);
+                    return {
+                        success: false,
+                        error: firstError.message
+                    };
+                }
             }
         }
 
@@ -6638,6 +8395,20 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 finalPrompt = [{ role: 'user', content: String(prompt) }];
             }
 
+            // 🔍 [Tavern API Prefill 探针] 显示发送给酒馆的消息
+            console.log('📤 [酒馆API探针] 准备发送的消息数量:', finalPrompt.length);
+            if (finalPrompt.length > 0) {
+                const lastMsg = finalPrompt[finalPrompt.length - 1];
+                console.log('📤 [酒馆API探针] 最后一条消息:');
+                console.log('   - 角色 (role):', lastMsg.role);
+                console.log('   - 内容长度:', (lastMsg.content || '').length);
+                console.log('   - 内容前100字符:', (lastMsg.content || '').substring(0, 100));
+
+                if (lastMsg.role === 'assistant' || lastMsg.role === 'model') {
+                    console.log('✨ [酒馆API Prefill 探针] 检测到预填提示词 (Assistant Prefill)');
+                }
+            }
+
             if (isGemini) {
                 console.log('🛡️ 检测到 Gemini 模型，使用标准 messages 数组格式');
             }
@@ -6646,6 +8417,12 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             if (typeof context.generateRaw === 'function') {
                 let result;
                 try {
+                    // 🆕 调用前的环境检查
+                    console.log('🔍 [酒馆API] 环境检查:');
+                    console.log('   - context.generateRaw 存在:', typeof context.generateRaw);
+                    console.log('   - 消息数量:', finalPrompt.length);
+                    console.log('   - 最大回复长度:', context.max_response_length);
+
                     // 构建生成参数
                     const generateParams = {
                         prompt: finalPrompt, // 👈 这里的格式已经根据模型自动适配了
@@ -6653,6 +8430,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         quiet: true,
                         dryRun: false,
                         skip_save: true,
+                        stream: false, // 🔴 关键修改：强制关闭流式，确保拿到完整 JSON
 
                         // 🛡️ 纯净模式：关闭所有干扰项
                         include_world_info: false,
@@ -6660,9 +8438,9 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         include_character_card: false,
                         include_names: false,
 
-                        // ✅ 使用用户配置的 max_tokens，避免挤爆上下文窗口
-                        max_tokens: API_CONFIG.maxTokens || 8192,
-                        length: API_CONFIG.maxTokens || 8192,
+                        // ✅ 使用酒馆界面设置的回复长度，完全尊重用户在 SillyTavern 的配置
+                        max_tokens: context.max_response_length,
+                        length: context.max_response_length,
 
                         // ✅✅✅ 清空停止符，防止遇到人名就截断
                         stop: [],
@@ -6680,36 +8458,139 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         ];
                     }
 
+                    // 🆕 调用前打印参数（不打印完整prompt避免日志过长）
+                    console.log('📤 [酒馆API] 准备调用 generateRaw，参数:');
+                    console.log('   - quiet:', generateParams.quiet);
+                    console.log('   - stream:', generateParams.stream);
+                    console.log('   - max_tokens:', generateParams.max_tokens);
+                    console.log('   - stop数组长度:', generateParams.stop?.length || 0);
+
                     result = await context.generateRaw(generateParams);
-                    console.log('✅ [直连] 调用成功');
+                    console.log('✅ [酒馆API] generateRaw 调用完成');
+                    console.log('[酒馆API调试] 原始返回:', result);
+                    console.log('[酒馆API调试] 返回类型:', typeof result);
+                    if (typeof result === 'object' && result !== null) {
+                        console.log('[酒馆API调试] 返回结构字段:', Object.keys(result));
+                    }
                 } catch (err) {
                     console.error('❌ 酒馆API调用失败:', err);
-                    return { success: false, error: err.message };
+                    // 🆕 增强错误处理：提取有意义的错误信息
+                    let errorMsg = '酒馆API调用失败';
+                    if (err) {
+                        if (err.message) {
+                            errorMsg = err.message;
+                        } else if (typeof err === 'string') {
+                            errorMsg = err;
+                        } else if (err.error) {
+                            errorMsg = typeof err.error === 'string' ? err.error : JSON.stringify(err.error);
+                        } else if (Object.keys(err).length > 0) {
+                            errorMsg = `酒馆API调用失败: ${JSON.stringify(err)}`;
+                        }
+                    }
+                    console.error('❌ [酒馆API] 错误详情:', errorMsg);
+                    return { success: false, error: errorMsg };
                 }
 
-                // 4. 解析结果
+                // 4. 🔴 关键修改：增强解析逻辑
                 let summary = '';
-                if (typeof result === 'string') summary = result;
-                else if (result && result.text) summary = result.text;
-                else if (result && result.content) summary = result.content;
-                else if (result && result.body && result.body.text) summary = result.body.text;
+                let parseMethod = '未知';
+
+                if (typeof result === 'string') {
+                    summary = result;
+                    parseMethod = '直接字符串';
+                    console.log('✅ [酒馆API] 解析成功 (直接字符串)');
+                } else if (typeof result === 'object' && result !== null) {
+                    // 🆕 优先检查是否有错误字段
+                    if (result.error) {
+                        const errorMsg = typeof result.error === 'string' ? result.error : JSON.stringify(result.error);
+                        console.error('❌ [酒馆API] 后端返回错误:', errorMsg);
+                        return { success: false, error: errorMsg };
+                    }
+
+                    // 优先检查标准 OpenAI 结构 (Gemini/Claude 经酒馆中转后通常是这个)
+                    if (result.choices && result.choices[0] && result.choices[0].message && result.choices[0].message.content) {
+                        summary = result.choices[0].message.content;
+                        parseMethod = 'OpenAI格式 (choices[0].message.content)';
+                    }
+                    // 检查 TextGen / Ooba 结构
+                    else if (result.results && result.results[0] && result.results[0].text) {
+                        summary = result.results[0].text;
+                        parseMethod = 'TextGen格式 (results[0].text)';
+                    }
+                    // 检查直接属性
+                    else if (result.text) {
+                        summary = result.text;
+                        parseMethod = '直接属性 (text)';
+                    }
+                    else if (result.content) {
+                        summary = result.content;
+                        parseMethod = '直接属性 (content)';
+                    }
+                    else if (result.body && result.body.text) {
+                        summary = result.body.text;
+                        parseMethod = 'Body格式 (body.text)';
+                    }
+                    // 🆕 检查 message 字段（某些API可能直接返回这个）
+                    else if (result.message) {
+                        summary = result.message;
+                        parseMethod = '直接属性 (message)';
+                    }
+
+                    if (summary) {
+                        console.log(`✅ [酒馆API] 解析成功 (${parseMethod})`);
+                    }
+                }
 
                 // 移除思考过程 (带回退保护)
-                if (summary && summary.includes('<think>')) {
+                if (summary && summary.includes('</think>')) {
                     const raw = summary;
-                    const cleaned = summary.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+                    const cleaned = summary
+                        .replace(/<think>[\s\S]*?<\/think>/gi, '')  // 移除标准成对
+                        .replace(/^[\s\S]*?<\/think>/i, '')         // 移除残缺开头
+                        .trim();
                     // 如果清洗后为空，保留原文
                     summary = cleaned || raw;
+                    console.log('🧹 [酒馆API] 已清理思考标签');
                 }
 
-                if (summary && summary.trim()) return { success: true, summary };
+                if (summary && summary.trim()) {
+                    console.log(`✅ [酒馆API] 最终内容长度: ${summary.trim().length} 字符`);
+                    return { success: true, summary };
+                }
+
+                // 🆕 详细的错误报告
+                console.error('❌ [酒馆API] 解析失败！');
+                console.error('   - 返回类型:', typeof result);
+                if (typeof result === 'object' && result !== null) {
+                    console.error('   - 可用字段:', Object.keys(result));
+                    console.error('   - 完整JSON:', JSON.stringify(result, null, 2));
+                } else {
+                    console.error('   - 返回值:', result);
+                }
             }
 
-            return { success: false, error: '酒馆API未返回有效文本或版本不支持数组调用' };
+            // 🆕 如果 generateRaw 不存在，提供详细的错误信息
+            console.error('❌ [酒馆API] context.generateRaw 不存在或不是函数');
+            console.error('   - context 存在:', !!context);
+            console.error('   - generateRaw 类型:', typeof context.generateRaw);
+            return { success: false, error: '您的 SillyTavern 版本可能过旧，不支持 generateRaw API。请更新到最新版本。' };
 
         } catch (err) {
             console.error('❌ [酒馆API] 致命错误:', err);
-            return { success: false, error: `API报错: ${err.message}` };
+            // 🆕 增强最外层错误处理
+            let errorMsg = 'API调用过程中发生未知错误';
+            if (err) {
+                if (err.message) {
+                    errorMsg = err.message;
+                } else if (typeof err === 'string') {
+                    errorMsg = err;
+                } else if (err.error) {
+                    errorMsg = typeof err.error === 'string' ? err.error : JSON.stringify(err.error);
+                } else if (Object.keys(err).length > 0) {
+                    errorMsg = `API报错: ${JSON.stringify(err)}`;
+                }
+            }
+            return { success: false, error: errorMsg };
         }
     }
 
@@ -6754,7 +8635,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             </div>
 
             <div style="display: flex; gap: 5px;">
-                <input type="text" id="gg_bg_url" placeholder="输入图片 URL..." style="flex: 1; padding: 5px; border: 1px solid #ddd; border-radius: 4px; font-size: 11px;">
+                <input type="text" id="gg_bg_url" placeholder="输入图片 URL..." style="flex: 1; padding: 5px; border: 1px solid #ddd; border-radius: 4px; font-size: 11px;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                 <button id="gg_btn_clear_bg" style="padding: 5px 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">🗑️</button>
             </div>
 
@@ -6991,10 +8872,10 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             <label>API提供商：</label>
             <select id="gg_api_provider" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; margin-bottom:10px;">
                 <optgroup label="━━━ 后端代理 ━━━">
-                    <option value="openai" ${API_CONFIG.provider === 'openai' ? 'selected' : ''}>OpenAI 兼容模式/OpenAI 官方</option>
+                    <option value="proxy_only" ${API_CONFIG.provider === 'proxy_only' ? 'selected' : ''}>OpenAI 兼容模式/反代(如build)</option>
+                    <option value="openai" ${API_CONFIG.provider === 'openai' ? 'selected' : ''}>OpenAI 官方</option>
                     <option value="compatible" ${API_CONFIG.provider === 'compatible' ? 'selected' : ''}>兼容中转/代理</option>
                     <option value="local" ${API_CONFIG.provider === 'local' ? 'selected' : ''}>本地/内网（本地反代）</option>
-                    <option value="proxy_only" ${API_CONFIG.provider === 'proxy_only' ? 'selected' : ''}>反代(如build)</option>
                     <option value="claude" ${API_CONFIG.provider === 'claude' ? 'selected' : ''}>Claude 官方</option>
                     <option value="deepseek" ${API_CONFIG.provider === 'deepseek' ? 'selected' : ''}>DeepSeek 官方</option>
                     <option value="siliconflow" ${API_CONFIG.provider === 'siliconflow' ? 'selected' : ''}>硅基流动 (SiliconFlow)</option>
@@ -7023,11 +8904,11 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 <span id="gg_fetch_models_btn" style="cursor:pointer; font-size:10px; color:${UI.tc}; border:1px solid ${UI.c}; padding:1px 6px; border-radius:3px; background:rgba(127,127,127,0.1);">🔄 拉取模型列表</span>
             </div>
 
-            <input type="text" id="gg_api_model" name="gg_api_model_history" autocomplete="on" value="${API_CONFIG.model}" placeholder="gpt-3.5-turbo" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;">
+            <input type="text" id="gg_api_model" name="gg_api_model_history" autocomplete="off" value="${API_CONFIG.model}" placeholder="gpt-3.5-turbo" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;" autocorrect="off" autocapitalize="off" spellcheck="false">
             <select id="gg_api_model_select" style="display:none; width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;"></select>
 
             <label>最大输出长度 (Max Tokens)：</label>
-            <input type="number" id="gg_api_max_tokens" value="${API_CONFIG.maxTokens || 8192}" placeholder="DeepSeek填8192，Gemini填65536" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;">
+            <input type="number" id="gg_api_max_tokens" value="${API_CONFIG.maxTokens || 8192}" placeholder="DeepSeek填8192，Gemini填65536" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
 
         </fieldset>
 
@@ -7137,7 +9018,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
                 // 🔧 URL 智能补全
                 if (typeof processApiUrl === 'function') {
-                    apiUrl = processApiUrl(apiUrl, provider);
+                    apiUrl = processApiUrl(apiUrl, provider, true); // ✅ 拉取模型时传入 true
                 } else {
                     apiUrl = apiUrl.replace(/\/+$/, '');
                     if (provider !== 'gemini' && !apiUrl.includes('/v1') && !apiUrl.includes('/chat')) apiUrl += '/v1';
@@ -7192,33 +9073,120 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         custom_include_headers: customHeaders
                     };
 
-                    const response = await fetch('/api/backends/chat-completions/status', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-                        body: JSON.stringify(proxyPayload)
-                    });
+                    try {
+                        const response = await fetch('/api/backends/chat-completions/status', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+                            body: JSON.stringify(proxyPayload),
+                            credentials: 'include'
+                        });
 
-                    if (response.ok) {
-                        const rawData = await response.json();
-                        // 尝试解析
-                        try { models = parseOpenAIModelsResponse(rawData); } catch (e) { }
+                        if (response.ok) {
+                            // ✅ [Bug Fix] 先获取原始文本，避免 JSON 解析崩溃
+                            const text = await response.text();
 
-                        // 兜底解析
-                        if (models.length === 0) {
-                            if (rawData?.data && Array.isArray(rawData.data)) models = rawData.data;
-                            else if (rawData?.models && Array.isArray(rawData.models)) models = rawData.models;
-                            else if (Array.isArray(rawData)) models = rawData;
+                            let rawData;
+                            try {
+                                rawData = JSON.parse(text);
+                            } catch (e) {
+                                console.error('❌ [模型列表] JSON 解析失败:', e.message);
+                                console.error('   原始响应 (前200字符):', text.substring(0, 200));
+                                throw new Error(`后端返回非JSON格式\n\n原始响应: ${text.substring(0, 100)}`);
+                            }
+
+                            // 尝试解析
+                            try { models = parseOpenAIModelsResponse(rawData); } catch (e) { }
+
+                            // 兜底解析
+                            if (models.length === 0) {
+                                if (rawData?.data && Array.isArray(rawData.data)) models = rawData.data;
+                                else if (rawData?.models && Array.isArray(rawData.models)) models = rawData.models;
+                                else if (Array.isArray(rawData)) models = rawData;
+                            }
+
+                            models = models.map(m => ({ id: m.id || m.model || m.name, name: m.name || m.id || m.model }));
+
+                            if (models.length > 0) {
+                                console.log(`✅ [后端代理] 成功获取 ${models.length} 个模型`);
+                                finish(models);
+                                return true;
+                            }
                         }
 
-                        models = models.map(m => ({ id: m.id || m.model || m.name, name: m.name || m.id || m.model }));
+                        // 请求失败，抛出错误触发降级
+                        throw new Error(`后端代理请求失败: ${response.status}`);
 
-                        if (models.length > 0) {
-                            console.log(`✅ [后端代理] 成功获取 ${models.length} 个模型`);
-                            finish(models);
-                            return true;
+                    } catch (firstError) {
+                        // 🔄 [协议降级重试] 针对 proxy_only/compatible，尝试从 custom 模式降级到 openai 模式
+                        if ((provider === 'proxy_only' || provider === 'compatible') && targetSource === 'custom') {
+                            console.warn('⚠️ [模型列表-自动降级] Custom 协议失败，正在尝试降级为标准 OpenAI 协议重试...');
+
+                            try {
+                                // 1. 修正 URL，确保有 /v1
+                                let v1Url = apiUrl;
+                                if (!v1Url.includes('/v1') && !v1Url.includes('/models')) {
+                                    v1Url = v1Url.replace(/\/+$/, '') + '/v1';
+                                }
+
+                                // 2. 构建标准 OpenAI Payload
+                                const retryPayload = {
+                                    chat_completion_source: 'openai', // 关键：强制走 openai 协议
+                                    reverse_proxy: v1Url,
+                                    proxy_password: apiKey
+                                };
+
+                                console.log(`🌐 [模型列表-降级] 目标: ${v1Url} | 模式: openai`);
+
+                                // 3. 再次请求酒馆后端
+                                const retryResponse = await fetch('/api/backends/chat-completions/status', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+                                    body: JSON.stringify(retryPayload),
+                                    credentials: 'include'
+                                });
+
+                                if (retryResponse.ok) {
+                                    const text = await retryResponse.text();
+                                    let rawData;
+
+                                    try {
+                                        rawData = JSON.parse(text);
+                                    } catch (e) {
+                                        console.error('❌ [模型列表-降级] JSON 解析失败:', e.message);
+                                        throw new Error(`降级重试返回非JSON格式: ${text.substring(0, 100)}`);
+                                    }
+
+                                    // 尝试解析
+                                    try { models = parseOpenAIModelsResponse(rawData); } catch (e) { }
+
+                                    // 兜底解析
+                                    if (models.length === 0) {
+                                        if (rawData?.data && Array.isArray(rawData.data)) models = rawData.data;
+                                        else if (rawData?.models && Array.isArray(rawData.models)) models = rawData.models;
+                                        else if (Array.isArray(rawData)) models = rawData;
+                                    }
+
+                                    models = models.map(m => ({ id: m.id || m.model || m.name, name: m.name || m.id || m.model }));
+
+                                    if (models.length > 0) {
+                                        console.log(`✅ [模型列表-降级OpenAI] 成功获取 ${models.length} 个模型`);
+                                        finish(models);
+                                        return true;
+                                    }
+                                }
+
+                                throw new Error(`降级重试失败: ${retryResponse.status}`);
+
+                            } catch (retryError) {
+                                console.warn('⚠️ [模型列表-自动降级] OpenAI 协议重试也失败了:', retryError.message);
+                                // 抛出原始错误
+                                throw firstError;
+                            }
                         }
+
+                        // 不符合降级条件，直接抛出原始错误
+                        throw firstError;
                     }
-                    throw new Error(`后端代理请求失败: ${response.status}`);
                 };
 
                 // ========================================
@@ -7266,7 +9234,17 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     // 如果直连也失败，抛出错误进入 catch
                     if (!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
 
-                    const data = await resp.json();
+                    // ✅ [Bug Fix] 先获取原始文本，避免 JSON 解析崩溃
+                    const text = await resp.text();
+
+                    let data;
+                    try {
+                        data = JSON.parse(text);
+                    } catch (e) {
+                        console.error('❌ [模型列表-直连] JSON 解析失败:', e.message);
+                        console.error('   原始响应 (前200字符):', text.substring(0, 200));
+                        throw new Error(`API返回非JSON格式\n\n原始响应: ${text.substring(0, 100)}`);
+                    }
 
                     if (provider === 'gemini' && data.models) {
                         models = data.models.map(m => ({ id: m.name.replace('models/', ''), name: m.displayName || m.name }));
@@ -7325,11 +9303,22 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     $select.empty().append('<option value="__manual__">-- 手动输入 --</option>');
                     if (models.length > 0) {
                         models.forEach(m => $select.append(`<option value="${m.id}">${m.name || m.id}</option>`));
-                        if (models.map(m => m.id).includes($input.val())) $select.val($input.val());
+                        // 如果当前输入框的值在模型列表中，自动选中
+                        const currentVal = $input.val();
+                        if (models.map(m => m.id).includes(currentVal)) {
+                            $select.val(currentVal);
+                        } else {
+                            $select.val('__manual__');
+                        }
                         $input.hide(); $select.show();
                         $select.off('change').on('change', function () {
                             const val = $(this).val();
-                            if (val === '__manual__') { $select.hide(); $input.show().focus(); } else { $input.val(val); }
+                            if (val === '__manual__') {
+                                $select.hide();
+                                $input.show().focus();
+                            } else {
+                                $input.val(val);
+                            }
                         });
                     } else {
                         $select.hide(); $input.show().focus();
@@ -7362,7 +9351,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 await saveAllSettingsToCloud();
 
                 // ✅✅✅ [双重备份] 将 API_CONFIG 同步到角色卡元数据
-                m.save();
+                m.save(false, true); // API配置更改立即保存
                 console.log('✅ [API配置保存] 已同步到角色卡元数据');
 
                 await customAlert('✅ API配置已保存\n\n输出长度将根据模型自动优化', '成功');
@@ -7507,7 +9496,8 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             const res = await fetch('/api/settings/get?t=' + Date.now(), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
-                body: JSON.stringify({})
+                body: JSON.stringify({}),
+                credentials: 'include'
             });
 
             if (res.ok) {
@@ -7583,6 +9573,20 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 window.Gaigai.PromptManager.saveProfilesData(serverData.profiles);
             }
 
+            // ✅ 同步表格结构预设
+            if (serverData.tablePresets) {
+                let syncedPresets = serverData.tablePresets;
+
+                // 🛡️ 安全检查：确保至少有"默认结构"预设
+                if (!syncedPresets['默认结构'] && window.Gaigai.DEFAULT_TABLES) {
+                    console.log('⚠️ [配置同步] 云端数据缺少默认预设，正在补充...');
+                    syncedPresets['默认结构'] = JSON.parse(JSON.stringify(window.Gaigai.DEFAULT_TABLES));
+                }
+
+                localStorage.setItem('gg_table_presets', JSON.stringify(syncedPresets));
+                console.log('✅ [配置同步] 表格结构预设已恢复');
+            }
+
             // 写入本地缓存
             localStorage.setItem('gg_config', JSON.stringify(C));
             localStorage.setItem('gg_api', JSON.stringify(API_CONFIG));
@@ -7622,97 +9626,244 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         return rawData;
     }
 
-    // ✅✅✅ [新增] 统一的全量配置保存函数（使用 SillyTavern 原生方式）
+    // ✅✅✅ [稳妥版] 全量配置保存函数 (兼容所有版本)
     async function saveAllSettingsToCloud() {
-        if (!C || Object.keys(C).length < 5) { // 简单校验 C 对象是否包含足够多的键
-            console.error('🛑 [严重拦截] 检测到本地配置异常(为空或不完整)，已阻止上传，防止覆盖云端存档！');
-            if (typeof toastr !== 'undefined') toastr.error('本地配置异常，已阻止云端同步以保护存档', '安全拦截');
+        // 1. 防止重复点击
+        if (window.isSavingToCloud) return;
+
+        // 2. 基础校验
+        if (!C || Object.keys(C).length < 5) {
+            if (typeof toastr !== 'undefined') toastr.error('配置异常，拦截上传', '错误');
             return;
         }
-        try {
-            console.log('💾 [API] 开始保存配置到服务器...');
 
-            // 1. Gather Data
+        window.isSavingToCloud = true;
+
+        try {
+            // 3. 准备要保存的数据
             const cleanedApiConfig = JSON.parse(JSON.stringify(API_CONFIG));
             delete cleanedApiConfig.lastSummaryIndex;
             delete cleanedApiConfig.lastBackfillIndex;
+            const currentLibrary = {}; // 向量库已独立存储，此处设空
 
-            // 🛡️ [数据保护] 向量库数据已迁移到世界书存储，不再保存到 settings.json
-            // 强制设为空对象，防止旧数据污染配置文件
-            const currentLibrary = {};
+            // ✅ 读取表格结构预设
+            let tablePresets = {};
+            try {
+                const tp = localStorage.getItem('gg_table_presets');
+                if (tp) tablePresets = JSON.parse(tp);
+            } catch (e) {}
+
+            // 🛡️ 安全检查：确保至少有"默认结构"预设再上传
+            if (!tablePresets['默认结构'] && window.Gaigai.DEFAULT_TABLES) {
+                console.log('⚠️ [配置上传] 本地缺少默认预设，正在补充...');
+                tablePresets['默认结构'] = JSON.parse(JSON.stringify(window.Gaigai.DEFAULT_TABLES));
+                // 同时写回本地，避免下次再触发
+                try {
+                    localStorage.setItem('gg_table_presets', JSON.stringify(tablePresets));
+                } catch (e) {}
+            }
 
             const allSettings = {
                 config: C,
                 api: cleanedApiConfig,
                 ui: UI,
-                profiles: window.Gaigai.PromptManager.getProfilesData(),  // ✅ 保存预设数据
-                vectorLibrary: currentLibrary,  // ✅ 强制为空，向量数据已使用世界书存储
-                lastModified: Date.now()  // ✅ 添加时间戳用于防止冲突
+                profiles: window.Gaigai.PromptManager.getProfilesData(),
+                tablePresets: tablePresets, // ✅ 新增：表格结构预设
+                vectorLibrary: currentLibrary,
+                lastModified: Date.now()
             };
 
-            console.log('🔒 [进度隔离] 已移除角色专属进度，仅保存通用配置');
-            console.log(`⏰ [时间戳] 保存时间: ${new Date(allSettings.lastModified).toLocaleString()}`);
-            console.log(`📚 [向量库] 保存书架数据: ${Object.keys(currentLibrary).length} 本书`);
-
-            // ✅✅✅ 乐观保存策略：立即更新本地状态，不等待网络请求
-            // 这样用户点击保存瞬间，本地数据即刻更新，防止网络延迟期间切换会话导致读取旧数据
+            // 4. 乐观更新本地状态 (让浏览器立即生效)
+            localStorage.setItem('gg_timestamp', allSettings.lastModified.toString());
             if (!window.extension_settings) window.extension_settings = {};
             window.extension_settings.st_memory_table = allSettings;
-            localStorage.setItem(CK, JSON.stringify(C));
-            localStorage.setItem(AK, JSON.stringify(API_CONFIG));
-            localStorage.setItem(UK, JSON.stringify(UI));
-            // ❌ 已删除：localStorage.setItem(PK, JSON.stringify(PROMPTS));
-            // ✅ 预设数据现在由 PromptManager 管理，通过 profiles 保存
-
-            // ✅ 关键修复：更新 serverData.lastModified，防止后续 loadConfig 误判回滚
             if (!window.serverData) window.serverData = {};
             window.serverData.lastModified = allSettings.lastModified;
-            console.log(`✅ [乐观保存] 本地状态已立即更新，时间戳: ${new Date(allSettings.lastModified).toLocaleString()}`);
 
-            // 2. Get CSRF
+            try {
+                localStorage.setItem(CK, JSON.stringify(C));
+                localStorage.setItem(AK, JSON.stringify(API_CONFIG));
+                localStorage.setItem(UK, JSON.stringify(UI));
+            } catch (e) {}
+
+            // 5. 获取通行证
             let csrfToken = '';
             try { csrfToken = await getCsrfToken(); } catch (e) { }
 
-            // 3. READ: Get current server settings strictly
+            // ============================================================
+            // 🐢 [全量保存流程] 读取 -> 合并 -> 写入
+            // 虽然慢一点，但这是兼容性最好的方案，绝对不会 404
+            // ============================================================
+            console.log('🐢 [全量保存] 开始读取 settings.json ...');
+
+            // A. 读取
             const getResponse = await fetch('/api/settings/get', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-                body: JSON.stringify({})
+                body: JSON.stringify({}),
+                credentials: 'include'
             });
 
             if (!getResponse.ok) throw new Error('无法读取服务器配置');
-            const rawResponse = await getResponse.json();
-            const currentSettings = parseServerSettings(rawResponse);
+            const text = await getResponse.text();
+            let rawResponse = JSON.parse(text);
 
-            // 4. MODIFY: Inject plugin data safely
-            if (!currentSettings.extension_settings) {
-                currentSettings.extension_settings = {};
+            // 解析 (处理 settings 字符串包裹的情况)
+            if (rawResponse && typeof rawResponse.settings === 'string') {
+                rawResponse = JSON.parse(rawResponse.settings);
             }
-            currentSettings.extension_settings.st_memory_table = allSettings;
 
-            // 5. WRITE: Force save to disk immediately
-            const saveResponse = await fetch('/api/settings/save', {
+            // B. 合并
+            if (!rawResponse.extension_settings) rawResponse.extension_settings = {};
+            rawResponse.extension_settings.st_memory_table = allSettings;
+
+            // C. 写入
+            const finalSaveResponse = await fetch('/api/settings/save', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-                body: JSON.stringify(currentSettings)
+                body: JSON.stringify(rawResponse),
+                credentials: 'include'
             });
 
-            if (!saveResponse.ok) throw new Error('无法写入服务器配置');
+            if (!finalSaveResponse.ok) throw new Error('无法写入服务器配置');
 
-            console.log('✅ [API] 配置已强制写入 settings.json (Size:', JSON.stringify(allSettings).length, ')');
-            // ✅ UX Improvement: Silent background sync (no toastr popup)
-            // User gets feedback from manual button clicks, not from auto-save
+            console.log('✅ [保存成功] 配置已更新');
 
         } catch (error) {
-            console.error('❌ [API] 保存失败:', error);
+            console.error('❌ [保存失败]', error);
             if (typeof toastr !== 'undefined') toastr.error(`保存失败: ${error.message}`, '错误');
+        } finally {
+            // 解锁
+            window.isSavingToCloud = false;
         }
     }
+
+    // 【全局单例】配置页表格选择按钮监听器（防止重复绑定）
+    (function() {
+        if (window._gg_config_table_selector_bound) return;
+        window._gg_config_table_selector_bound = true;
+
+        let isOpening = false; // 防抖标志
+        let lastClickTime = 0; // 记录上次点击时间
+
+        // 暴露到全局，供内联事件调用
+        window._gg_openTableSelector = function(event) {
+            // ✅ 修复1: 阻止事件冒泡和默认行为
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+
+            // ✅ 修复2: 时间防抖(300ms内的重复点击直接忽略)
+            const now = Date.now();
+            if (now - lastClickTime < 300) {
+                console.log('⚠️ [配置页-表格选择] 时间防抖拦截: 300ms内重复点击');
+                return;
+            }
+            lastClickTime = now;
+
+            // 防抖：如果正在打开，直接返回
+            if (isOpening) {
+                console.log('⚠️ [配置页-表格选择] 防抖拦截：弹窗正在打开中');
+                return;
+            }
+            isOpening = true;
+
+            try {
+                const m = window.Gaigai.m;
+                const C = window.Gaigai.config_obj;
+
+                console.log('✅ [配置页-表格选择] 按钮被点击');
+
+                const dataTables = m.s.slice(0, -1);
+                const UI = window.Gaigai.ui;
+
+                // 🔥 关键修复：强制挂载到 body，避免被父容器的 transform/filter 影响
+                const overlay = $('<div>').attr('id', 'gg-table-selector-overlay');
+
+                // ✅ 使用原生 DOM API 直接挂载到 body（不走 jQuery），确保最高层级
+                document.body.appendChild(overlay[0]);
+
+                // 🔥 使用 setAttribute 添加内联样式，!important 强制覆盖所有样式
+                overlay[0].setAttribute('style', `
+                    position: fixed !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    right: 0 !important;
+                    bottom: 0 !important;
+                    width: 100vw !important;
+                    height: 100vh !important;
+                    background: rgba(0,0,0,0.5) !important;
+                    z-index: 2147483647 !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    overflow-y: auto !important;
+                    padding: 10px !important;
+                    margin: 0 !important;
+                    border: none !important;
+                    transform: none !important;
+                `.replace(/\s+/g, ' ').trim());
+
+                const modal = $('<div>').addClass('gg-custom-modal');
+                let checkboxesHtml = '';
+                const savedSelection = C.autoSummaryTargetTables;
+                dataTables.forEach((sheet, i) => {
+                    const rowCount = sheet.r ? sheet.r.length : 0;
+                    const tableName = sheet.n || `表${i}`;
+                    const isChecked = (savedSelection === null || savedSelection === undefined) ? true : savedSelection.includes(i);
+                    checkboxesHtml += `<div class="gg-choice-card" title="${tableName}"><input type="checkbox" class="gg-auto-sum-table-select-modal" value="${i}" ${isChecked ? 'checked' : ''}><span class="gg-choice-name">${tableName}</span><span class="gg-choice-badge" style="opacity: 0.7;">${rowCount}行</span></div>`;
+                });
+                // ✅ 修复：使用50vh代替固定400px，适配小屏幕
+                const modalContent = `<span id="gg_modal_close_btn" style="position: absolute; right: 20px; top: 20px; cursor: pointer; font-size: 24px; line-height: 1; opacity: 0.7;">&times;</span><h3 style="margin: 0 0 15px 0;">🎯 选择表格</h3><div style="margin-bottom: 15px;"><div style="display: flex; gap: 8px; margin-bottom: 10px;"><button type="button" id="gg_modal_select_all" style="flex: 1; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">全选</button><button type="button" id="gg_modal_deselect_all" style="flex: 1; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">全不选</button></div><div class="gg-choice-grid" style="max-height: min(400px, 50vh); overflow-y: auto;">${checkboxesHtml}</div></div><div style="display: flex; gap: 10px;"><button type="button" id="gg_modal_cancel" style="flex: 1; padding: 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">取消</button><button type="button" id="gg_modal_save" style="flex: 1; padding: 10px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">确定保存</button></div>`;
+                modal.html(modalContent);
+                overlay.append(modal);
+                setTimeout(() => {
+                    $('#gg_modal_close_btn').on('click', function () { overlay.remove(); $(document).off('keydown.gg_modal'); $(document).off('click.gg_card'); isOpening = false; });
+                    $('#gg_modal_select_all').on('click', function () { $('.gg-auto-sum-table-select-modal').prop('checked', true); });
+                    $('#gg_modal_deselect_all').on('click', function () { $('.gg-auto-sum-table-select-modal').prop('checked', false); });
+                    $('#gg_modal_cancel').on('click', function () { overlay.remove(); $(document).off('keydown.gg_modal'); $(document).off('click.gg_card'); isOpening = false; });
+                    overlay.on('click', function (e) { if (e.target === overlay[0]) { overlay.remove(); $(document).off('keydown.gg_modal'); $(document).off('click.gg_card'); isOpening = false; } });
+                    $(document).on('keydown.gg_modal', function (e) { if (e.key === 'Escape') { overlay.remove(); $(document).off('keydown.gg_modal'); $(document).off('click.gg_card'); isOpening = false; } });
+                    $(document).off('click.gg_card').on('click.gg_card', '.gg-choice-card', function(e) {
+                        // ✅ Fix: If the input itself is clicked, let the browser handle it natively
+                        if ($(e.target).is('input')) return;
+
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const $cb = $(this).find('input');
+                        $cb.prop('checked', !$cb.prop('checked'));
+                    });
+                    $('#gg_modal_save').on('click', function () {
+                        const selected = [];
+                        $('.gg-auto-sum-table-select-modal:checked').each(function () { selected.push(parseInt($(this).val())); });
+                        C.autoSummaryTargetTables = selected;
+                        localStorage.setItem('gg_config', JSON.stringify(C));
+                        console.log(`💾 [自动总结-表格选择] 已保存选择: ${selected.length === 0 ? '全不选' : selected.join(', ')}`);
+                        window.Gaigai.m.save(false, true); // 配置更改立即保存
+                        let buttonText = selected.length === 0 ? '⚠️ 未选择表格 (点击修改)' : `🎯 已选择 ${selected.length} 个表格 (点击修改)`;
+                        $('#gg_table_selector_text').text(buttonText);
+                        if (typeof saveAllSettingsToCloud === 'function') { saveAllSettingsToCloud().catch(err => console.warn('⚠️ [表格选择] 云端同步失败:', err)); }
+                        if (typeof toastr !== 'undefined') { toastr.success(selected.length === 0 ? '未选择表格' : `已选择 ${selected.length} 个表格`, '保存成功', { timeOut: 2000 }); }
+                        overlay.remove();
+                        $(document).off('keydown.gg_modal');
+                        $(document).off('click.gg_card');
+                        isOpening = false;
+                    });
+                }, 100);
+            } catch (error) {
+                alert("执行报错: " + error.message);
+                console.error("❌ [表格选择按钮] 错误详情:", error);
+                isOpening = false; // 出错时也要重置
+            }
+        };
+    })();
 
     async function shcf() {
         //  🛡️ 设置恢复标志，防止在配置面板打开过程中触发保存
         isRestoringSettings = true;
         console.log('🔒 [配置面板] 已设置 isRestoringSettings = true，阻止自动保存');
+        console.log(`🔍 [配置面板] 当前 masterSwitch 状态: ${C.masterSwitch}`);
 
         // ⚡ [优化] 移除 loadConfig，使用 ochat 中预加载的数据，实现秒开
         const ctx = m.ctx();
@@ -7734,9 +9885,15 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         const lastIndex = API_CONFIG.lastSummaryIndex;
         const lastBf = API_CONFIG.lastBackfillIndex;
 
+        // ✅ 休眠警告横幅
+        const hibernateBanner = !C.masterSwitch
+            ? `<div style="background:#dc3545; color:white; padding:10px; text-align:center; margin-bottom:10px; border-radius:6px; font-weight:bold;">⚠️ 插件处于休眠状态 (请长按顶部图标开启)</div>`
+            : '';
+
         const h = `<div class="g-p" style="display: flex; flex-direction: column; gap: 12px;">
         <h4 style="margin:0 0 4px 0;">⚙️ 插件配置</h4>
-        
+
+        ${hibernateBanner}
         <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; border: 1px solid rgba(255,255,255,0.2);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <div>
@@ -7759,7 +9916,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             <div id="gg_auto_bf_settings" style="font-size: 11px; background: rgba(0,0,0,0.03); padding: 8px; border-radius: 4px; margin-bottom: 5px; ${C.autoBackfill ? '' : 'display:none;'}">
                 <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
                     <span>每</span>
-                    <input type="number" id="gg_c_auto_bf_floor" value="${C.autoBackfillFloor || 10}" min="2" style="width:70px; text-align:center; padding:2px; border-radius:4px; border:1px solid rgba(0,0,0,0.2);">
+                    <input type="number" id="gg_c_auto_bf_floor" value="${C.autoBackfillFloor || 10}" min="2" style="width:70px; text-align:center; padding:2px; border-radius:4px; border:1px solid rgba(0,0,0,0.2);" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                     <span>层触发一次</span>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; padding-left:8px; border-left:2px solid rgba(255,152,0,0.3);">
@@ -7769,7 +9926,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     </label>
                     <span style="opacity:0.7;">|</span>
                     <span style="opacity:0.8;">滞后</span>
-                    <input type="number" id="gg_c_auto_bf_delay_count" value="${C.autoBackfillDelayCount || 5}" min="1" style="width:70px; text-align:center; padding:2px; border-radius:4px; border:1px solid rgba(0,0,0,0.2);">
+                    <input type="number" id="gg_c_auto_bf_delay_count" value="${C.autoBackfillDelayCount || 5}" min="1" style="width:70px; text-align:center; padding:2px; border-radius:4px; border:1px solid rgba(0,0,0,0.2);" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                     <span style="opacity:0.8;">层再执行</span>
                 </div>
                 <div style="background: rgba(33, 150, 243, 0.08); border: 1px solid rgba(33, 150, 243, 0.2); border-radius: 4px; padding: 8px; margin-bottom: 6px;">
@@ -7796,7 +9953,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 <label style="font-weight: 600;">✂️ 隐藏楼层</label>
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 11px;">留</span>
-                    <input type="number" id="gg_c_limit_count" value="${C.contextLimitCount}" min="5" style="width: 70px; text-align: center; border-radius: 4px; border:1px solid rgba(0,0,0,0.2);">
+                    <input type="number" id="gg_c_limit_count" value="${C.contextLimitCount}" min="5" style="width: 70px; text-align: center; border-radius: 4px; border:1px solid rgba(0,0,0,0.2);" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                     <input type="checkbox" id="gg_c_limit_on" ${C.contextLimit ? 'checked' : ''}>
                 </div>
             </div>
@@ -7811,13 +9968,12 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 <input type="checkbox" id="gg_c_table_inj" ${C.tableInj ? 'checked' : ''} style="transform: scale(1.2);">
             </div>
 
-            <div style="font-size: 11px; opacity: 0.8; margin-bottom: 4px;">👇 默认策略 (当未找到 {{MEMORY}} 变量时)：</div>
+            <div style="font-size: 11px; opacity: 0.8; margin-bottom: 4px;">👇 注入策略 (表格+总结)：</div>
 
-            <div style="background: rgba(0,0,0,0.03); padding: 10px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.1); font-size: 11px; color: ${UI.tc}; opacity: 0.8; line-height: 1.6;">
-                <i class="fa-solid fa-circle-info" style="color: #17a2b8;"></i>
-                表格内容将作为 <strong>系统 (System)</strong> 消息，自动插入到 <strong>聊天记录 (Chat History)</strong> 的最上方（紧挨在 [Start a new Chat] 之前）。
-                <br><br>
-                💡 如需改变位置（例如移动到世界书下方），请在酒馆的【预设/世界书】中手动插入 <code>{{MEMORY}}</code> 变量。
+            <div style="background: rgba(0,0,0,0.03); padding: 6px 10px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.1); font-size: 11px; color: ${UI.tc}; opacity: 0.8; line-height: 1.5;">
+                插件中的所有内容将作为 <strong>系统 (System)</strong> 消息，自动插入到 <strong>聊天记录 (Chat History)</strong> 的上方。
+                <br>
+                💡 如需改变位置请点击上方i图标查看说明。
             </div>
         </div>
 
@@ -7826,7 +9982,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 <label style="font-weight: 600;">🤖 自动总结</label>
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 11px;">每</span>
-                    <input type="number" id="gg_c_auto_floor" value="${C.autoSummaryFloor}" min="10" style="width: 70px; text-align: center; border-radius: 4px; border:1px solid rgba(0,0,0,0.2);">
+                    <input type="number" id="gg_c_auto_floor" value="${C.autoSummaryFloor}" min="10" style="width: 70px; text-align: center; border-radius: 4px; border:1px solid rgba(0,0,0,0.2);" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                     <span style="font-size: 11px;">层</span>
                     <input type="checkbox" id="gg_c_auto_sum" ${C.autoSummary ? 'checked' : ''} style="transform: scale(1.2);">
                 </div>
@@ -7846,35 +10002,26 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
                 <!-- 🆕 表格选择区域（仅在"仅表格"模式下显示） -->
                 <div id="gg_auto_sum_table_selector" style="background: rgba(76, 175, 80, 0.08); border: 1px solid rgba(76, 175, 80, 0.2); border-radius: 6px; padding: 10px; margin-bottom: 8px; ${API_CONFIG.summarySource === 'table' ? '' : 'display:none;'}">
-                    <div style="font-weight: 600; margin-bottom: 6px; color: #388e3c; font-size: 11px; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-weight: 600; margin-bottom: 6px; color: #388e3c; font-size: 11px;">
                         <span>🎯 选择要总结的表格：</span>
-                        <div style="display: flex; gap: 6px;">
-                            <button type="button" id="gg_auto_sum_select_all" style="padding: 2px 8px; background: rgba(76, 175, 80, 0.2); color: #388e3c; border: 1px solid rgba(76, 175, 80, 0.4); border-radius: 3px; cursor: pointer; font-size: 10px;">全选</button>
-                            <button type="button" id="gg_auto_sum_deselect_all" style="padding: 2px 8px; background: rgba(0, 0, 0, 0.05); color: #666; border: 1px solid rgba(0, 0, 0, 0.2); border-radius: 3px; cursor: pointer; font-size: 10px;">全不选</button>
-                        </div>
                     </div>
 
-                    <!-- ✨ 使用新的 CSS 类名 gg-choice-grid -->
-                    <div class="gg-choice-grid">
-                        ${(() => {
+                    <!-- 🆕 表格选择按钮 -->
+                    <button type="button" id="gg_open_table_selector" onclick="window._gg_openTableSelector(event)" style="width: 100%; padding: 12px; background: ${UI.c}; color: ${UI.tc}; border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; text-align: center; transition: all 0.2s; touch-action: manipulation;">
+                        <span style="pointer-events: none;" id="gg_table_selector_text">${(() => {
                             const dataTables = m.s.slice(0, -1);
-                            const selectedTables = C.autoSummaryTargetTables || [];
-                            return dataTables.map((sheet, i) => {
-                                const rowCount = sheet.r ? sheet.r.length : 0;
-                                const tableName = sheet.n || `表${i}`;
-                                const isChecked = selectedTables.length === 0 || selectedTables.includes(i);
+                            const selectedTables = C.autoSummaryTargetTables;
 
-                                // ✨ 使用新的卡片结构
-                                return `
-                                    <label class="gg-choice-card" title="${tableName}">
-                                        <input type="checkbox" class="gg-auto-sum-table-select" value="${i}" ${isChecked ? 'checked' : ''}>
-                                        <span class="gg-choice-name">${tableName}</span>
-                                        <span class="gg-choice-badge">${rowCount}行</span>
-                                    </label>
-                                `;
-                            }).join('');
-                        })()}
-                    </div>
+                            // ✅ 修正显示逻辑：undefined/null=默认全选, []=未选择, [1,2]=已选择X个
+                            if (selectedTables === undefined || selectedTables === null) {
+                                return `🎯 默认全选 ${dataTables.length} 个表格 (点击修改)`;
+                            } else if (Array.isArray(selectedTables) && selectedTables.length === 0) {
+                                return `⚠️ 未选择表格 (点击修改)`;
+                            } else {
+                                return `🎯 已选择 ${selectedTables.length} 个表格 (点击修改)`;
+                            }
+                        })()}</span>
+                    </button>
 
                     <div style="font-size: 10px; color: ${UI.tc}; opacity: 0.6; margin-top: 8px; padding-left: 2px;">
                         💡 默认全选，可手动勾选参与自动总结的表格
@@ -7888,7 +10035,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     </label>
                     <span style="opacity:0.7;">|</span>
                     <span style="opacity:0.8;">滞后</span>
-                    <input type="number" id="gg_c_auto_sum_delay_count" value="${C.autoSummaryDelayCount || 5}" min="1" style="width:70px; text-align:center; padding:2px; border-radius:4px; border:1px solid rgba(0,0,0,0.2);">
+                    <input type="number" id="gg_c_auto_sum_delay_count" value="${C.autoSummaryDelayCount || 5}" min="1" style="width:70px; text-align:center; padding:2px; border-radius:4px; border:1px solid rgba(0,0,0,0.2);" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                     <span style="opacity:0.8;">层再执行</span>
                 </div>
 
@@ -7901,13 +10048,23 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     <div style="font-size: 9px; color: #666; margin-left: 20px;">未勾选时弹窗确认</div>
                 </div>
 
-                <div style="background: rgba(76, 175, 80, 0.08); border: 1px solid rgba(76, 175, 80, 0.2); border-radius: 4px; padding: 8px;">
+                <div style="background: rgba(76, 175, 80, 0.08); border: 1px solid rgba(76, 175, 80, 0.2); border-radius: 4px; padding: 8px; margin-bottom: 6px;">
                     <div style="font-weight: 600; margin-bottom: 4px; color: #388e3c; font-size: 10px;">✅ 完成模式</div>
                     <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin-bottom: 2px;">
                         <input type="checkbox" id="gg_c_auto_sum_silent" ${C.autoSummarySilent ? 'checked' : ''}>
                         <span>🤫 完成后静默保存 (不弹结果窗)</span>
                     </label>
                     <div style="font-size: 9px; color: #666; margin-left: 20px;">未勾选时弹窗显示总结结果</div>
+                </div>
+
+                <div style="background: rgba(255, 152, 0, 0.08); border: 1px solid rgba(255, 152, 0, 0.2); border-radius: 4px; padding: 8px;">
+                    <div style="font-weight: 600; margin-bottom: 4px; color: #f57c00; font-size: 10px;">🙈 上下文管理</div>
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin-bottom: 2px;">
+                        <input type="checkbox" id="gg_c_auto_sum_hide" ${C.autoSummaryHideContext ? 'checked' : ''}>
+                        <span>🙈 总结后隐藏原楼层</span>
+                    </label>
+                    <div style="font-size: 9px; color: #666; margin-left: 20px;">触发总结后，发送请求时将自动剔除已总结的历史消息 (0 ~ 指针位置)</div>
+                    <div style="font-size: 9px; color: #d32f2f; margin-left: 20px; margin-top: 4px;">⚠️ 与"隐藏楼层"功能互斥，开启其中一个会自动关闭另一个</div>
                 </div>
             </div>
         </div>
@@ -7918,13 +10075,31 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
             <div style="margin-bottom: 8px;">
                 <label style="font-size:11px; color:var(--g-tc); font-weight: 500; display: block; margin-bottom: 4px;">🚫 黑名单标签 (去除)</label>
-                <input type="text" id="gg_c_filter_tags" value="${esc(C.filterTags || '')}" placeholder="例: thinking, system" style="width:100%; padding:5px; border:1px solid rgba(0,0,0,0.1); border-radius:4px; font-size:11px; font-family:monospace; color:var(--g-tc);">
+                <input type="text" id="gg_c_filter_tags" value="${esc(C.filterTags || '')}" placeholder="例: thinking, system" style="width:100%; padding:5px; border:1px solid rgba(0,0,0,0.1); border-radius:4px; font-size:11px; font-family:monospace; color:var(--g-tc);" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+
+                <!-- 快速添加区域 -->
+                <div style="margin-top: 6px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
+                    <span style="font-size:10px; font-weight:bold; color:var(--g-tc); opacity:0.8;">🔥 常用：</span>
+                    <span class="gg-quick-tag" data-tag="think" style="background: rgba(0,0,0,0.08); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-family: monospace; color:var(--g-tc); transition: background 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.15)'" onmouseout="this.style.background='rgba(0,0,0,0.08)'">think</span>
+                    <span class="gg-quick-tag" data-tag="thinking" style="background: rgba(0,0,0,0.08); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-family: monospace; color:var(--g-tc); transition: background 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.15)'" onmouseout="this.style.background='rgba(0,0,0,0.08)'">thinking</span>
+                    <span class="gg-quick-tag" data-tag="details" style="background: rgba(0,0,0,0.08); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-family: monospace; color:var(--g-tc); transition: background 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.15)'" onmouseout="this.style.background='rgba(0,0,0,0.08)'">details</span>
+                    <span class="gg-quick-tag" data-tag="summary" style="background: rgba(0,0,0,0.08); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-family: monospace; color:var(--g-tc); transition: background 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.15)'" onmouseout="this.style.background='rgba(0,0,0,0.08)'">summary</span>
+                    <span class="gg-quick-tag" data-tag="!--" style="background: rgba(0,0,0,0.08); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-family: monospace; color:var(--g-tc); transition: background 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.15)'" onmouseout="this.style.background='rgba(0,0,0,0.08)'">!--</span>
+                    <span id="gg_clear_filter_tags" style="background: rgba(211,47,47,0.1); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; color:#d32f2f; transition: background 0.2s;" onmouseover="this.style.background='rgba(211,47,47,0.2)'" onmouseout="this.style.background='rgba(211,47,47,0.1)'" title="清空">🗑️</span>
+                </div>
+
                 <div style="font-size:9px; color:#d63031; margin-top:2px;">删除这些标签及其内部的所有文字</div>
             </div>
 
             <div>
                 <label style="font-size:11px; color:var(--g-tc); font-weight: 500; display: block; margin-bottom: 4px;">✅ 白名单标签 (仅留)</label>
-                <input type="text" id="gg_c_filter_tags_white" value="${esc(C.filterTagsWhite || '')}" placeholder="例: content, message" style="width:100%; padding:5px; border:1px solid rgba(0,0,0,0.1); border-radius:4px; font-size:11px; font-family:monospace; color:var(--g-tc);">
+                <input type="text" id="gg_c_filter_tags_white" value="${esc(C.filterTagsWhite || '')}" placeholder="例: content, message" style="width:100%; padding:5px; border:1px solid rgba(0,0,0,0.1); border-radius:4px; font-size:11px; font-family:monospace; color:var(--g-tc);" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                <div style="margin-top: 6px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
+                    <span style="font-size:10px; font-weight:bold; color:var(--g-tc); opacity:0.8;">🔥 常用：</span>
+                    <span class="gg-quick-tag-white" data-tag="content" style="background: rgba(0,0,0,0.08); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-family: monospace; color:var(--g-tc); transition: background 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.15)'" onmouseout="this.style.background='rgba(0,0,0,0.08)'">content</span>
+                    <span class="gg-quick-tag-white" data-tag="statusbar" style="background: rgba(0,0,0,0.08); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-family: monospace; color:var(--g-tc); transition: background 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.15)'" onmouseout="this.style.background='rgba(0,0,0,0.08)'">statusbar</span>
+                    <span id="gg_clear_filter_tags_white" style="background: rgba(211,47,47,0.1); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; color:#d32f2f; transition: background 0.2s;" onmouseover="this.style.background='rgba(211,47,47,0.2)'" onmouseout="this.style.background='rgba(211,47,47,0.1)'" title="清空">🗑️</span>
+                </div>
                 <div style="font-size:9px; color:#27ae60; margin-top:2px;">仅提取这些标签内的文字（若未找到则保留黑名单处理后的结果）</div>
             </div>
         </div>
@@ -7965,32 +10140,58 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             </div>
         </div>
 
-        <div style="display: flex; gap: 8px; margin-top: 4px;">
-            <button id="gg_open_api" style="flex:1; font-size:11px; padding:8px;">🤖 API配置</button>
-            <button id="gg_open_pmt" style="flex:1; font-size:11px; padding:8px;">📝 提示词</button>
-            <button id="gg_open_vector" style="flex:1; font-size:11px; padding:8px;">💠 向量化</button>
-        </div>
-        <button id="gg_save_cfg" style="width: 100%; padding: 8px; margin-top: 4px; font-weight: bold;">💾 保存配置</button>
+        <!-- New Bottom Layout -->
+        <div style="margin-top: 15px; border-top: 1px dashed rgba(0,0,0,0.1); padding-top: 15px;">
 
-        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0,0,0,0.1); text-align: center;">
-            <button id="gg_open_probe" style="width: 100%; padding: 8px; margin-bottom: 10px; background: #17a2b8; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                🔍 最后发送内容
+            <!-- 1. Navigation Group (3 Columns) -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                <button id="gg_open_api" style="padding: 10px 0; font-size:11px; background: rgba(0,0,0,0.05); color: ${UI.tc}; border: 1px solid rgba(0,0,0,0.15); border-radius: 4px; cursor: pointer;">🤖 API配置</button>
+                <button id="gg_open_pmt" style="padding: 10px 0; font-size:11px; background: rgba(0,0,0,0.05); color: ${UI.tc}; border: 1px solid rgba(0,0,0,0.15); border-radius: 4px; cursor: pointer;">📝 提示词</button>
+                <button id="gg_open_vector" style="padding: 10px 0; font-size:11px; background: rgba(0,0,0,0.05); color: ${UI.tc}; border: 1px solid rgba(0,0,0,0.15); border-radius: 4px; cursor: pointer;">💠 向量化</button>
+            </div>
+
+            <!-- 2. Main Action -->
+            <button id="gg_save_cfg" style="width: 100%; padding: 16px; margin-bottom: 15px; font-weight: bold; font-size: 14px; letter-spacing: 2px; background: ${UI.c}; color: ${UI.tc}; border: none; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.15); cursor: pointer;">
+                💾 保存配置
             </button>
 
-            <button id="gg_force_cloud_load" title="强制从服务器拉取最新的 chatMetadata，解决手机/电脑数据不一致问题" style="width: 100%; padding: 8px; margin-bottom: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                ☁️/🖥️ 强制多端同步
-            </button>
-            <p style="font-size: 10px; color: #999; margin: -5px 0 10px 0;">解决多端同步问题（PC修改后移动端未更新）</p>
+            <!-- 3. Maintenance Tools (1 + 2x2 Grid) -->
+            <div style="background: rgba(0,0,0,0.03); border-radius: 8px; padding: 10px; border: 1px solid rgba(0,0,0,0.05);">
+                <div style="font-size: 11px; font-weight: bold; color: ${UI.tc}; margin-bottom: 8px; opacity: 0.8; text-align: center;">🛠️ 调试与维护工具</div>
 
-            <button id="gg_rescue_btn" style="background: transparent; color: #dc3545; border: 1px dashed #dc3545; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; width: 100%;">
-                🚑 扫描并恢复丢失的旧数据
-            </button>
-            <p style="font-size: 10px; color: #999; margin: 5px 0 10px 0;">如果更新后表格变空，点此按钮尝试找回。</p>
+                <!-- 第一行：独立按钮 - 最后发送 -->
+                <button id="gg_open_probe" style="width: 100%; padding: 8px; background: #17a2b8; color: #fff; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; height: auto; margin-bottom: 10px;">
+                    <span style="font-weight:bold; font-size:12px;">🔍 最后发送</span>
+                    <span style="font-size:10px; opacity:0.8; font-weight:normal;">查看上下文内容</span>
+                </button>
 
-            <button id="gai-btn-clear-cache" style="background: transparent; color: #ff9800; border: 1px dashed #ff9800; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; width: 100%;">
-                🧹 清除本地缓存 (解决卡顿/配置错乱)
-            </button>
-            <p style="font-size: 10px; color: #999; margin: 5px 0 0 0;">清除所有本地配置和缓存，服务器数据不受影响。</p>
+                <!-- 下方：2x2 网格 -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <!-- 按钮 1: 强制同步 -->
+                    <button id="gg_force_cloud_load" style="width: 100%; padding: 8px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; height: auto;" title="解决多端同步问题">
+                        <span style="font-weight:bold; font-size:12px;">☁️ 强制同步</span>
+                        <span style="font-size:10px; opacity:0.8; font-weight:normal;">多端同步专用</span>
+                    </button>
+
+                    <!-- 按钮 2: 恢复数据 -->
+                    <button id="gg_rescue_btn" style="width: 100%; padding: 8px; background: transparent; color: #dc3545; border: 1px dashed #dc3545; border-radius: 4px; font-size: 11px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; height: auto;" title="尝试找回丢失的数据">
+                        <span style="font-weight:bold; font-size:12px;">🚑 恢复数据</span>
+                        <span style="font-size:10px; opacity:0.8; font-weight:normal;">数据丢失专用</span>
+                    </button>
+
+                    <!-- 按钮 3: 清除缓存 -->
+                    <button id="gai-btn-clear-cache" style="width: 100%; padding: 8px; background: transparent; color: #ff9800; border: 1px dashed #ff9800; border-radius: 4px; font-size: 11px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; height: auto;" title="清除本地缓存解决卡顿">
+                        <span style="font-weight:bold; font-size:12px;">🧹 清除缓存</span>
+                        <span style="font-size:10px; opacity:0.8; font-weight:normal;">插件更新/卡顿专用</span>
+                    </button>
+
+                    <!-- 按钮 4: 查看日志 -->
+                    <button id="gg_show_logs" style="width: 100%; padding: 8px; background: transparent; color: #9c27b0; border: 1px dashed #9c27b0; border-radius: 4px; font-size: 11px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; height: auto;" title="查看浏览器控制台日志">
+                        <span style="font-weight:bold; font-size:12px;">📜 查看日志</span>
+                        <span style="font-size:10px; opacity:0.8; font-weight:normal;">移动端调试专用</span>
+                    </button>
+                </div>
+            </div>
         </div>
     </div>`;
 
@@ -8034,7 +10235,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
                 // ✅ Per-Chat Configuration: Update C and save to current chat immediately
                 C.autoSummary = isChecked;
-                m.save();
+                m.save(false, true); // 配置更改立即保存
                 console.log('💾 [每聊配置] 已保存自动总结设置到当前聊天:', isChecked);
             });
 
@@ -8046,16 +10247,6 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 } else {
                     $('#gg_auto_sum_table_selector').slideUp(200);
                 }
-            });
-
-            // 🆕 表格选择 - 全选按钮
-            $('#gg_auto_sum_select_all').on('click', function () {
-                $('.gg-auto-sum-table-select').prop('checked', true);
-            });
-
-            // 🆕 表格选择 - 全不选按钮
-            $('#gg_auto_sum_deselect_all').on('click', function () {
-                $('.gg-auto-sum-table-select').prop('checked', false);
             });
 
             // ✨✨✨ [关键修复] 总结来源单选按钮的 change 事件监听器 ✨✨✨
@@ -8080,7 +10271,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 }
 
                 // ✅ Per-Chat Configuration: Save to current chat immediately
-                m.save();
+                m.save(false, true); // 配置更改立即保存
                 console.log('💾 [每聊配置] 已保存总结来源设置到当前聊天:', selectedSource);
 
                 // ✅ 同步到云端
@@ -8142,11 +10333,11 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     css: { fontSize: '13px', lineHeight: '1.8', color: 'var(--g-tc)' },
                     html: `
                         <div style="margin-bottom: 12px; font-weight: 600; color: ${accentColor};">🌟 变量模式：</div>
-                        <div style="margin-bottom: 12px;">与实时填表搭配使用，在酒馆的【预设】中随机一处插入变量调整填表提示词、总结内容、表格内容在上下文的位置：</div>
-                        <div style="margin-bottom: 8px;">• 实时填表插入变量(全部表单含总结)：<code style="background:${codeBg}; color:${accentColor}; padding:2px 6px; border-radius:3px; font-weight:bold;">{{MEMORY}}</code> (跟随实时填表开关)</div>
+                        <div style="margin-bottom: 12px;">如需调整表格里面的内容在上下文的位置，用户需手动将对应的变量，新增条目插入到预设中：</div>
+                        <div style="margin-bottom: 8px;">• 全部内容(表格+总结)：<code style="background:${codeBg}; color:${accentColor}; padding:2px 6px; border-radius:3px; font-weight:bold;">{{MEMORY}}</code> (跟随实时填表开关)</div>
                         <div style="margin-bottom: 8px;">• 表格插入变量(不含总结表)：<code style="background:${codeBg}; color:${accentColor}; padding:2px 6px; border-radius:3px; font-weight:bold;">{{MEMORY_TABLE}}</code> (强制发送表格内容)</div>
                         <div style="margin-bottom: 8px;">• 总结插入变量(不含其他表格)：<code style="background:${codeBg}; color:${accentColor}; padding:2px 6px; border-radius:3px; font-weight:bold;">{{MEMORY_SUMMARY}}</code> (强制发送总结内容)</div>
-                        <div>• 填表规则插入变量：<code style="background:${codeBg}; color:${accentColor}; padding:2px 6px; border-radius:3px; font-weight:bold;">{{MEMORY_PROMPT}}</code></div>
+                        <div>• 实时填表提示词插入变量：<code style="background:${codeBg}; color:${accentColor}; padding:2px 6px; border-radius:3px; font-weight:bold;">{{MEMORY_PROMPT}}</code></div>
                     `
                 });
 
@@ -8179,10 +10370,22 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             });
 
             $('#gg_open_probe').on('click', function () {
-                if (typeof window.Gaigai.showLastRequest === 'function') {
-                    window.Gaigai.showLastRequest();
+                if (window.Gaigai && window.Gaigai.DebugManager) {
+                    window.Gaigai.DebugManager.showLastRequest();
                 } else {
-                    customAlert('❌ 探针模块 (probe.js) 尚未加载。\n\n请确保 probe.js 文件存在于同级目录下，并尝试刷新页面。', '错误');
+                    customAlert('❌ 调试模块尚未加载，请刷新页面后重试。', '错误');
+                }
+            });
+
+            // 查看日志按钮
+            $('#gg_show_logs').on('click', function () {
+                if (window.Gaigai && window.Gaigai.DebugManager) {
+                    // 使用 navTo 导航，这样返回时会回到配置面板
+                    navTo('📜 日志查看器', () => {
+                        window.Gaigai.DebugManager.showLogViewer();
+                    });
+                } else {
+                    customAlert('❌ 调试模块尚未加载，请刷新页面后重试。', '错误');
                 }
             });
 
@@ -8201,12 +10404,24 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     const response = await fetch('/api/settings/get?t=' + Date.now(), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-                        body: JSON.stringify({})
+                        body: JSON.stringify({}),
+                        credentials: 'include'
                     });
 
                     if (!response.ok) throw new Error(`配置同步失败: ${response.status}`);
 
-                    const data = await response.json();
+                    // ✅ [Bug Fix] 先获取原始文本，避免 JSON 解析崩溃
+                    const text = await response.text();
+
+                    let data;
+                    try {
+                        data = JSON.parse(text);
+                    } catch (e) {
+                        console.error('❌ [配置加载] JSON 解析失败:', e.message);
+                        console.error('   原始响应 (前200字符):', text.substring(0, 200));
+                        throw new Error(`服务器返回非JSON格式\n\n原始响应: ${text.substring(0, 100)}`);
+                    }
+
                     const parsedData = parseServerSettings(data);
                     const serverConfig = parsedData?.extension_settings?.st_memory_table;
 
@@ -8261,137 +10476,12 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
             // 🚑 历史存档时光机按钮
             $('#gg_rescue_btn').off('click').on('click', async function () {
-                const btn = $(this);
-                const originalText = btn.text();
-                btn.text('正在扫描全盘...');
-
-                // === 🌙 变量定义区 ===
-                const isDark = UI.darkMode;
-                const bgColor = isDark ? '#1e1e1e' : '#fff';
-                const txtColor = isDark ? '#e0e0e0' : UI.tc;
-                const borderColor = isDark ? '1px solid rgba(255,255,255,0.15)' : 'none';
-                const rowBorder = isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #eee';
-                const shadow = isDark ? '0 10px 40px rgba(0,0,0,0.6)' : '0 5px 20px rgba(0,0,0,0.3)';
-
-                // ✨ 修复关键：定义按钮默认颜色
-                // 如果是夜间模式，按钮文字用浅灰色(#e0e0e0)；如果是白天，用主题色(UI.c)
-                const btnDefColor = isDark ? '#e0e0e0' : UI.c;
-                const btnBorderColor = isDark ? 'rgba(255,255,255,0.3)' : UI.c;
-                // ===================
-
-                let backups = [];
-                for (let i = 0; i < localStorage.length; i++) {
-                    const key = localStorage.key(i);
-                    if (key.startsWith('gg_data_')) {
-                        try {
-                            const raw = localStorage.getItem(key);
-                            const d = JSON.parse(raw);
-                            const count = d.d ? d.d.reduce((sum, sheet) => sum + (sheet.r ? sheet.r.length : 0), 0) : 0;
-                            const ts = d.ts || 0;
-                            backups.push({ key, count, ts, dateStr: new Date(ts).toLocaleString(), id: d.id, data: d });
-                        } catch (e) { }
-                    }
+                if (window.Gaigai && window.Gaigai.DebugManager) {
+                    await window.Gaigai.DebugManager.showRescueUI();
+                } else {
+                    console.error('❌ [Rescue] DebugManager 未加载');
+                    await customAlert('⚠️ 调试模块未加载，请刷新页面后重试。', '错误');
                 }
-
-                backups.sort((a, b) => b.ts - a.ts);
-
-                if (backups.length === 0) {
-                    await customAlert('❌ 未找到历史数据。', '扫描结果');
-                    btn.text(originalText);
-                    return;
-                }
-
-                const $overlay = $('<div>', { css: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 20000002, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' } });
-
-                const $box = $('<div>', {
-                    css: {
-                        background: bgColor,
-                        color: txtColor,
-                        border: borderColor,
-                        width: '500px',
-                        maxWidth: '92vw',
-                        maxHeight: '85vh',
-                        margin: 'auto',
-                        padding: '15px',
-                        borderRadius: '12px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        overflow: 'hidden',
-                        boxShadow: shadow
-                    }
-                }).html(`
-                    <h3 style="margin:0 0 15px 0; flex-shrink:0; display:flex; align-items:center; gap:8px;">
-                        🚑 历史存档时光机
-                    </h3>
-                    <div style="flex:1; overflow-y:auto; margin-bottom:15px; border-radius:6px; border:${rowBorder};">
-                        <table style="width:100%; font-size:12px; border-collapse: collapse;">
-                            <thead style="position:sticky; top:0; background:${UI.c}; color:#fff;">
-                                <tr><th style="padding:10px;">时间</th><th style="width:60px;">数据量</th><th style="width:60px;">操作</th></tr>
-                            </thead>
-                            <tbody>${backups.map(b => {
-                    const countStyle = b.count > 0 ? 'color:#28a745; font-weight:bold;' : (isDark ? 'color:#777;' : 'color:#999;');
-                    const subTextStyle = isDark ? 'color:#888;' : 'color:#999;';
-
-                    // ✨ 修改：按钮 style 中的 color 使用 btnDefColor 变量
-                    return `<tr style="border-bottom:${rowBorder}; transition:background 0.2s;">
-                                    <td style="padding:10px;">
-                                        <div style="font-weight:600; margin-bottom:2px;">${b.dateStr}</div>
-                                        <div style="font-size:10px; ${subTextStyle} white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px;">${b.id}</div>
-                                    </td>
-                                    <td style="padding:10px; text-align:center; ${countStyle}">${b.count} 行</td>
-                                    <td style="padding:10px; text-align:center;">
-                                        <button class="restore-item-btn" data-key="${b.key}" style="padding:4px 10px; cursor:pointer; white-space:nowrap; background:transparent; border:1px solid ${btnBorderColor}; color:${btnDefColor}; border-radius:4px;">恢复</button>
-                                    </td>
-                                </tr>`;
-                }).join('')}</tbody>
-                        </table>
-                    </div>
-                    <div style="text-align:right; flex-shrink:0;">
-                        <button id="close-rescue" style="padding:8px 20px; cursor:pointer; background:${isDark ? 'rgba(255,255,255,0.1)' : '#f0f0f0'}; border:none; border-radius:6px; color:${txtColor};">关闭</button>
-                    </div>
-                `);
-
-                $overlay.append($box);
-                $('body').append($overlay);
-
-                $box.find('tr').hover(
-                    function () { $(this).css('background', isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'); },
-                    function () { $(this).css('background', 'transparent'); }
-                );
-
-                // ✨ 修复：鼠标移出时，恢复的颜色必须是 btnDefColor，而不是 UI.c
-                $box.find('.restore-item-btn').hover(
-                    function () {
-                        // 鼠标悬停：背景变主题色，字变白
-                        $(this).css({ background: UI.c, color: '#fff', border: `1px solid ${UI.c}` });
-                    },
-                    function () {
-                        // 鼠标移出：背景变透明，字变回默认色(夜间为白，白天为主题色)
-                        $(this).css({ background: 'transparent', color: btnDefColor, border: `1px solid ${btnBorderColor}` });
-                    }
-                ).on('click', async function () {
-                    const key = $(this).data('key');
-                    const target = backups.find(b => b.key === key);
-                    if (await customConfirm(`确定回退到 ${target.dateStr} (包含 ${target.count} 行数据) 吗？\n\n⚠️ 当前未保存的内容将会丢失！`, '回档确认')) {
-                        m.s.forEach((sheet, i) => {
-                            if (target.data.d[i]) sheet.from(target.data.d[i]);
-                            else sheet.clear();
-                        });
-                        if (target.data.summarized) summarizedRows = target.data.summarized;
-                        m.save(true);
-                        shw();
-                        $overlay.remove();
-                        if (typeof toastr !== 'undefined') toastr.success('✅ 数据已恢复！');
-                    }
-                });
-
-                $('#close-rescue').on('click', () => $overlay.remove());
-
-                $overlay.on('click', (e) => {
-                    if (e.target === $overlay[0]) $overlay.remove();
-                });
-
-                btn.text(originalText);
             });
 
             // 🧹 清除本地缓存按钮
@@ -8413,8 +10503,12 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     return;
                 }
 
+                // ✅ 简单读取 UI 状态，不做任何强制逻辑
                 C.enabled = $('#gg_c_enabled').is(':checked');
                 C.autoBackfill = $('#gg_c_auto_bf').is(':checked');
+
+                console.log(`💾 [配置同步] 实时填表:${C.enabled} | 批量填表:${C.autoBackfill}`);
+
                 C.autoBackfillFloor = parseInt($('#gg_c_auto_bf_floor').val()) || 10;
                 C.autoBackfillPrompt = $('#gg_c_auto_bf_prompt').is(':checked');
                 C.autoBackfillSilent = $('#gg_c_auto_bf_silent').is(':checked');
@@ -8429,10 +10523,10 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 C.autoSummarySilent = $('#gg_c_auto_sum_silent').is(':checked');
                 C.autoSummaryDelay = $('#gg_c_auto_sum_delay').is(':checked');
                 C.autoSummaryDelayCount = parseInt($('#gg_c_auto_sum_delay_count').val()) || 5;
+                C.autoSummaryHideContext = $('#gg_c_auto_sum_hide').is(':checked');
                 C.filterTags = $('#gg_c_filter_tags').val();
                 C.filterTagsWhite = $('#gg_c_filter_tags_white').val();
                 C.syncWorldInfo = $('#gg_c_sync_wi').is(':checked');
-                C.autoBindWI = $('#gg_c_auto_bind_wi').is(':checked');
                 C.vectorEnabled = $('#gg_c_vector_enabled').is(':checked');
                 C.autoVectorizeSummary = $('#gg_c_auto_vectorize').is(':checked');
 
@@ -8441,19 +10535,9 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
                 API_CONFIG.summarySource = $('input[name="cfg-sum-src"]:checked').val();
 
-                // 🆕 收集表格选择
-                const selectedTables = [];
-                $('.gg-auto-sum-table-select:checked').each(function () {
-                    selectedTables.push(parseInt($(this).val()));
-                });
-                // 如果全选了或者都没选，存为空数组（表示默认全部）；否则存具体索引
-                const totalDataTables = m.s.length - 1;
-                if (selectedTables.length === totalDataTables || selectedTables.length === 0) {
-                    C.autoSummaryTargetTables = [];
-                } else {
-                    C.autoSummaryTargetTables = selectedTables;
-                }
-                console.log('📊 [配置保存] 自动总结目标表格:', C.autoSummaryTargetTables.length === 0 ? '全部' : C.autoSummaryTargetTables);
+                // ✅ 修复：表格选择已移到弹窗模态框中，有自己的保存逻辑
+                // 此处不再读取复选框，避免因找不到元素而错误重置 C.autoSummaryTargetTables
+                // 弹窗模态框会直接更新 C.autoSummaryTargetTables 并调用 m.save()
 
                 // 保存到 localStorage
                 try {
@@ -8491,23 +10575,19 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     return;
                 }
 
-                // ✅ [防丢失] 先同步所有UI配置
-                syncUIToConfig();
-
                 const isChecked = $(this).is(':checked');
 
+                // ✅ [UI互斥] 开启实时填表时，自动关闭批量填表
                 if (isChecked) {
-                    if ($('#gg_c_auto_bf').is(':checked')) {
-                        await customAlert('⚠️ 冲突提示\n\n【实时记忆填表】和【自动批量填表】不能同时开启。\n\n已自动关闭自动填表。', '模式切换');
-                        $('#gg_c_auto_bf').prop('checked', false);
-                        $('#gg_auto_bf_settings').slideUp();
-                        C.autoBackfill = false; // Update config
-                    }
+                    $('#gg_c_auto_bf').prop('checked', false);
+                    $('#gg_auto_bf_settings').slideUp();
                 }
 
-                // ✅ Per-Chat Configuration: Update C and save to current chat immediately
-                C.enabled = isChecked;
-                m.save();
+                // ✅ [防丢失] 同步所有UI配置（会根据新的checkbox状态更新C.enabled和C.autoBackfill）
+                syncUIToConfig();
+
+                // ✅ Per-Chat Configuration: Save to current chat immediately
+                m.save(false, true); // 配置更改立即保存
                 console.log('💾 [每聊配置] 已保存实时填表设置到当前聊天:', isChecked);
 
                 // ✅ 同步到云端
@@ -8525,30 +10605,21 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     return;
                 }
 
-                // ✅ [防丢失] 先同步所有UI配置
-                syncUIToConfig();
-
                 const isChecked = $(this).is(':checked');
 
+                // ✅ [UI互斥] 开启批量填表时，自动关闭实时填表
                 if (isChecked) {
                     $('#gg_auto_bf_settings').slideDown();
-                    if ($('#gg_c_enabled').is(':checked')) {
-                        if (await customConfirm('⚠️ 模式切换\n\n开启【自动批量填表】需要关闭【实时记忆填表】。\n\n确定切换吗？', '确认')) {
-                            $('#gg_c_enabled').prop('checked', false);
-                            C.enabled = false; // Update config
-                        } else {
-                            $(this).prop('checked', false);
-                            $('#gg_auto_bf_settings').slideUp();
-                            return; // Don't save if user cancelled
-                        }
-                    }
+                    $('#gg_c_enabled').prop('checked', false);
                 } else {
                     $('#gg_auto_bf_settings').slideUp();
                 }
 
-                // ✅ Per-Chat Configuration: Update C and save to current chat immediately
-                C.autoBackfill = isChecked;
-                m.save();
+                // ✅ [防丢失] 同步所有UI配置（会根据新的checkbox状态更新C.enabled和C.autoBackfill）
+                syncUIToConfig();
+
+                // ✅ Per-Chat Configuration: Save to current chat immediately
+                m.save(false, true); // 配置更改立即保存
                 console.log('💾 [每聊配置] 已保存批量填表设置到当前聊天:', isChecked);
 
                 // ✅ 同步到云端
@@ -8557,6 +10628,37 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         console.warn('⚠️ [批量填表开关] 云端同步失败:', err);
                     });
                 }
+            });
+
+            // 🆕 隐藏楼层与总结后隐藏的互斥逻辑
+            $('#gg_c_limit_on').on('change', function() {
+                const isChecked = $(this).is(':checked');
+
+                if (isChecked) {
+                    // 开启隐藏楼层时，自动关闭总结后隐藏
+                    if ($('#gg_c_auto_sum_hide').is(':checked')) {
+                        $('#gg_c_auto_sum_hide').prop('checked', false);
+                        toastr.info('已自动关闭"总结后隐藏原楼层"功能', '互斥提示', { timeOut: 3000 });
+                    }
+                }
+
+                syncUIToConfig();
+                m.save(false, true);
+            });
+
+            $('#gg_c_auto_sum_hide').on('change', function() {
+                const isChecked = $(this).is(':checked');
+
+                if (isChecked) {
+                    // 开启总结后隐藏时，自动关闭隐藏楼层
+                    if ($('#gg_c_limit_on').is(':checked')) {
+                        $('#gg_c_limit_on').prop('checked', false);
+                        toastr.info('已自动关闭"隐藏楼层"功能', '互斥提示', { timeOut: 3000 });
+                    }
+                }
+
+                syncUIToConfig();
+                m.save(false, true);
             });
 
             $('#gg_save_cfg').on('click', async function () {
@@ -8573,7 +10675,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     console.log('✅ [配置保存] 步骤1：内存对象已更新（通过 syncUIToConfig）');
 
                     // ✅ 步骤 1.5：【核心修复】立即将 C 写入当前角色的存档！
-                    m.save();
+                    m.save(false, true); // 配置更改立即保存
                     console.log('✅ [配置保存] 已同步至当前角色存档');
 
                     // ✨ 检测世界书同步从开启到关闭的状态变化，提示用户手动禁用世界书条目
@@ -8584,18 +10686,6 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     // ✅ 步骤 2：异步保存到云端（不阻塞用户操作）
                     await saveAllSettingsToCloud();
                     console.log('✅ [配置保存] 步骤2：云端同步完成');
-
-                    if (C.autoBackfill && C.enabled) {
-                        C.enabled = false;
-                        $('#gg_c_enabled').prop('checked', false);
-                        localStorage.setItem(CK, JSON.stringify(C));
-                        localStorage.setItem('gg_timestamp', Date.now().toString());  // ✅ 添加时间戳
-
-                        // ✅✅✅ 修复：自动关闭实时填表后，再次同步到云端
-                        await saveAllSettingsToCloud().catch(err => {
-                            console.warn('⚠️ [自动关闭实时填表] 云端同步失败:', err);
-                        });
-                    }
 
                     await customAlert('配置已保存', '成功');
 
@@ -8641,7 +10731,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 try {
                     // ✅ 保存最新的书名配置到内存
                     m.wiConfig.bookName = $('#gg_wi_book_name').val().trim();
-                    m.save();
+                    m.save(false, true); // 世界书配置更改立即保存
 
                     console.log('⚡ [强制覆盖] 调用统一同步接口...');
                     // 调用世界书管理器的统一同步接口（强制覆盖模式）
@@ -8670,6 +10760,71 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 } else {
                     customAlert('向量管理器未加载，请刷新页面后重试', '错误');
                 }
+            });
+
+            // ==================== 快速添加标签功能 ====================
+            // 点击标签快速添加到输入框
+            $('.gg-quick-tag').off('click').on('click', function() {
+                const tag = $(this).data('tag');
+                const $input = $('#gg_c_filter_tags');
+                let currentValue = $input.val().trim();
+
+                // 如果已有内容,追加逗号和空格
+                if (currentValue) {
+                    currentValue += ', ';
+                }
+
+                // 追加标签
+                currentValue += tag;
+                $input.val(currentValue);
+
+                // 视觉反馈
+                $(this).css('background', 'rgba(76,175,80,0.3)');
+                setTimeout(() => {
+                    $(this).css('background', 'rgba(0,0,0,0.08)');
+                }, 200);
+            });
+
+            // 清空按钮
+            $('#gg_clear_filter_tags').off('click').on('click', function() {
+                $('#gg_c_filter_tags').val('');
+
+                // 视觉反馈
+                $(this).css('background', 'rgba(211,47,47,0.4)');
+                setTimeout(() => {
+                    $(this).css('background', 'rgba(211,47,47,0.1)');
+                }, 200);
+            });
+
+            // ==================== 白名单快速添加标签功能 ====================
+            // Whitelist Quick Tags
+            $('.gg-quick-tag-white').off('click').on('click', function() {
+                const tag = $(this).data('tag');
+                const $input = $('#gg_c_filter_tags_white');
+                let currentValue = $input.val().trim();
+
+                if (currentValue) {
+                    currentValue += ', ';
+                }
+                currentValue += tag;
+                $input.val(currentValue);
+
+                // Visual feedback
+                $(this).css('background', 'rgba(76,175,80,0.3)');
+                setTimeout(() => {
+                    $(this).css('background', 'rgba(0,0,0,0.08)');
+                }, 200);
+            });
+
+            // Whitelist Clear Button
+            $('#gg_clear_filter_tags_white').off('click').on('click', function() {
+                $('#gg_c_filter_tags_white').val('');
+
+                // Visual feedback
+                $(this).css('background', 'rgba(211,47,47,0.4)');
+                setTimeout(() => {
+                    $(this).css('background', 'rgba(211,47,47,0.1)');
+                }, 200);
             });
 
             // 🔓 释放恢复标志，允许保存操作
@@ -8703,6 +10858,9 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
      * @param {number} id - 消息ID（可选，默认为最新消息）
      */
     function omsg(id) {
+        // 🔴 全局主开关守卫
+        if (!C.masterSwitch) return;
+
         try {
             const x = m.ctx();
             if (!x || !x.chat) return;
@@ -8713,9 +10871,10 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             const i = typeof id === 'number' ? id : x.chat.length - 1;
             const mg = x.chat[i];
 
-            if (!mg || mg.is_user) return;
+            if (!mg) return; // 消息不存在则返回
 
             const msgKey = i.toString();
+            const isUserMessage = mg.is_user; // 标记是否为用户消息
 
             // 🛑 [核心修复] 移除 processedMessages 的拦截
             // 只要 omsg 被调用，就说明要么是新消息，要么是重Roll/Swipe，必须重新计算
@@ -8727,8 +10886,8 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 console.log(`🔄 [防抖] 已清除消息 ${msgKey} 的旧定时器`);
             }
 
-            // ⏳ 保存新的定时器ID，延迟 1000ms 执行 (给流式传输缓冲时间，可调整为500-2000ms)
-            console.log(`⏳ [延迟] 消息 ${msgKey} 将在 1 秒后处理（等待流式传输完成）`);
+            // ⏳ 保存新的定时器ID，延迟 500ms 执行 (给流式传输缓冲时间，可调整为500-2000ms)
+            console.log(`⏳ [延迟] 消息 ${msgKey} 将在 0.5 秒后处理（等待流式传输完成）`);
             pendingTimers[msgKey] = setTimeout(() => {
                 try {
 
@@ -8784,10 +10943,62 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                                 console.warn(`🛑 [智能保护] 第 ${i} 楼缺失前序快照，禁止回滚到创世快照(-1)，保留当前内存数据作为基准。`);
                                 // 不执行 restoreSnapshot，直接使用当前 m.s 中的数据
                             } else {
-                                // ⚡ 强制回档！这一步非常关键
-                                // 无论当前表格是什么样，必须先回到上一楼的样子
-                                restoreSnapshot(baseKey);
-                                console.log(`↺ [同步] 基准重置成功：已回滚至快照 [${baseKey}]`);
+                                // 🛡️ [智能保护] 深度内容比较，区分"数据加载"和"用户修改"
+                                const snapshot = snapshotHistory[baseKey];
+                                if (snapshot && snapshot.data) {
+                                    // 🚩 [Swipe模式检测] 优先检查Swipe标志
+                                    if (window.Gaigai.isSwiping) {
+                                        // Swipe操作：用户明确想要撤销，强制回滚，无视所有智能保护
+                                        console.log(`↔️ [Swipe模式] 检测到 Swipe 标志，强制对齐基准快照 [${baseKey}] (无视智能保护)`);
+                                        restoreSnapshot(baseKey, true); // Force=true 跳过时间戳保护
+                                        window.Gaigai.isSwiping = false; // 重置标志，防止影响后续正常消息
+                                    } else {
+                                        // 正常模式：应用智能保护逻辑
+                                        // 1. 计算内容哈希值
+                                        const currentHash = calculateTableHash(m.s.slice(0, -1)); // 排除总结表
+                                        const snapshotHash = calculateTableHash(snapshot.data);
+
+                                        // 2. 逻辑判断
+                                        if (currentHash === snapshotHash) {
+                                            // 情况A: 内容完全一致
+                                            // 即使行数>0，也说明当前状态与快照完全匹配
+                                            // 可以安全回滚（例如Swipe/重新生成场景）
+                                            restoreSnapshot(baseKey);
+                                            console.log(`↺ [同步] 内容一致(Hash匹配)，正常回滚至快照 [${baseKey}]`);
+                                        } else {
+                                            // 情况B: 内容不同
+                                            // 检查行数以判断用户意图
+                                            const snapshotRows = snapshot.data.reduce((acc, s) => acc + (s.r ? s.r.length : 0), 0);
+                                            const currentRows = m.s.reduce((acc, s) => acc + (s.r ? s.r.length : 0), 0);
+
+                                            if (currentRows > snapshotRows) {
+                                                // FIX: If it is a swipe (swipe_id > 0), force rollback because the extra rows are likely from the previous AI generation, not user input.
+                                                if (mg.swipe_id && mg.swipe_id > 0) {
+                                                    console.log(`↺ [同步-Swipe修正] 检测到 Swipe 重生成 (id:${mg.swipe_id})，强制回滚前次生成的数据`);
+                                                    restoreSnapshot(baseKey, true);
+                                                } else {
+                                                    // Original protection logic
+                                                    // 用户可能手动导入了数据或添加了行
+                                                    console.warn(`🛑 [智能保护] 检测到数据变更(Hash不同)且行数增加 (${currentRows} > ${snapshotRows})。视为用户手动导入，取消回滚。`);
+                                                    saveSnapshot(baseKey);
+                                                }
+                                            } else if (currentRows === snapshotRows) {
+                                                // 用户可能编辑了单元格内容
+                                                console.warn(`🛑 [智能保护] 检测到数据变更(Hash不同)但行数不变 (${currentRows} 行)。视为用户编辑单元格，取消回滚。`);
+                                                saveSnapshot(baseKey);
+                                            } else {
+                                                // 当前 < 快照（用户手动删除了行？或Swipe？）
+                                                // 为确保AI同步，允许回滚
+                                                restoreSnapshot(baseKey);
+                                                console.log(`↺ [同步] 数据减少 (${currentRows} < ${snapshotRows})，执行回滚以同步状态`);
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // 快照数据不存在，执行正常回滚
+                                    restoreSnapshot(baseKey);
+                                    console.log(`↺ [同步] 基准重置成功：已回滚至快照 [${baseKey}]`);
+                                }
                             }
                         } else {
                             // [新增] 熔断机制：如果是非第一条消息且找不到基准快照，禁止继续写入
@@ -8799,42 +11010,56 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         }
 
                         // ============================================================
-                        // 步骤 2: 读取当前楼层 (可能是重Roll的，可能是Swipe切回来的)
+                        // 步骤 2-3: 读取和解析指令 (仅AI消息)
+                        // 用户消息跳过此步骤，直接保存快照
                         // ============================================================
-
-                        // 获取当前显示的文本 (强制读取 swipes 里的对应分支)
-                        const swipeId = mg.swipe_id ?? 0;
-                        let tx = '';
-                        if (mg.swipes && mg.swipes.length > swipeId) {
-                            tx = mg.swipes[swipeId];
-                        } else {
-                            tx = mg.mes || ''; // 兜底
-                        }
-
-                        // ============================================================
-                        // 步骤 3: 解析并执行指令 (Rehydration)
-                        // ============================================================
-                        const cs = prs(tx);
-                        if (cs.length > 0) {
-                            console.log(`⚡ [写入] 识别到 ${cs.length} 条指令，正在写入表格...`);
-                            exe(cs);
-                            m.save(); // 保存到本地存储
-
-                            // ✅ [修复] 实时填表只更新填表指针，不更新总结指针
-                            // 原因：实时填表不应该阻止自动总结触发，两者是独立的功能
-                            API_CONFIG.lastBackfillIndex = i;
-                            localStorage.setItem(AK, JSON.stringify(API_CONFIG));
-
-                            // ✅ 同步到云端，防止 loadConfig 回滚
-                            if (typeof saveAllSettingsToCloud === 'function') {
-                                saveAllSettingsToCloud().catch(err => {
-                                    console.warn('⚠️ [实时填表] 云端同步失败:', err);
-                                });
+                        if (!isUserMessage) {
+                            // 获取当前显示的文本 (强制读取 swipes 里的对应分支)
+                            const swipeId = mg.swipe_id ?? 0;
+                            let tx = '';
+                            if (mg.swipes && mg.swipes.length > swipeId) {
+                                tx = mg.swipes[swipeId];
+                            } else {
+                                tx = mg.mes || ''; // 兜底
                             }
 
-                            console.log(`✅ [实时填表] 填表指针已更新至第 ${i} 楼`);
+                            // 🛡️ 第一道防线：深层聊天 + 空表 = 加载失败
+                            // 计算当前内存中的总行数
+                            const currentTotalRows = m.s.reduce((acc, sheet) => acc + (sheet.r ? sheet.r.length : 0), 0);
+
+                            // 如果聊天已经进行到一定深度 (>2)，但表格依然完全为空，判定为加载异常。
+                            // 这里的 >2 是为了允许真正的新开局（i=0或1）进行正常的初始化写入。
+                            if (i > 2 && currentTotalRows === 0) {
+                                console.warn(`🛑 [熔断保护] 检测到聊天进行中(第${i}层)但表格完全为空，判定为加载失败。停止写入以防止数据丢失。`);
+                                return;
+                            }
+
+                            // 解析并执行指令
+                            const cs = prs(tx);
+                            if (cs.length > 0) {
+                                console.log(`⚡ [写入] 识别到 ${cs.length} 条指令，正在写入表格...`);
+                                exe(cs);
+                                m.save(false, true); // 立即保存到本地存储（AI 生成的新记忆非常重要）
+
+                                // ✅ [修复] 实时填表只更新填表指针，不更新总结指针
+                                // 原因：实时填表不应该阻止自动总结触发，两者是独立的功能
+                                API_CONFIG.lastBackfillIndex = i;
+                                localStorage.setItem(AK, JSON.stringify(API_CONFIG));
+
+                                // ✅ 同步到云端，防止 loadConfig 回滚
+                                if (typeof saveAllSettingsToCloud === 'function') {
+                                    saveAllSettingsToCloud().catch(err => {
+                                        console.warn('⚠️ [实时填表] 云端同步失败:', err);
+                                    });
+                                }
+
+                                console.log(`✅ [实时填表] 填表指针已更新至第 ${i} 楼`);
+                            } else {
+                                console.log(`Testing: 第 ${i} 楼无指令，保持基准状态。`);
+                            }
                         } else {
-                            console.log(`Testing: 第 ${i} 楼无指令，保持基准状态。`);
+                            // 用户消息：不解析指令，只保存当前状态作为快照
+                            console.log(`👤 [用户消息] 第 ${i} 楼为用户消息，跳过指令解析，仅保存快照`);
                         }
 
                         // ============================================================
@@ -8852,13 +11077,28 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         cleanOldSnapshots();
                     }
 
+                    // 🆕 [修复3] 确保在所有模式下都保存快照
+                    // 如果上面的实时填表模式没有执行（因为 C.autoBackfill = true），这里补充保存
+                    if (C.enabled && C.autoBackfill && !snapshotHistory[msgKey]) {
+                        const newSnapshot = {
+                            data: m.all().slice(0, -1).map(sh => JSON.parse(JSON.stringify(sh.json()))),
+                            summarized: JSON.parse(JSON.stringify(summarizedRows)),
+                            timestamp: Date.now()
+                        };
+                        snapshotHistory[msgKey] = newSnapshot;
+                        console.log(`📸 [快照-补充] 第 ${i} 楼的新状态已封存（自动批量填表模式）。`);
+                        cleanOldSnapshots();
+                    }
+
                     // 🚦 标志位
                     let hasBackfilledThisTurn = false;
 
                     // ============================================================
                     // 模块 A-2: 自动批量填表
                     // ============================================================
-                    if (C.autoBackfill && !isInitCooling) { // ✨ 只有冷却期过才允许触发
+                    console.log('[Auto Backfill Check] Enabled:', C.autoBackfill, 'Cooling:', isInitCooling);
+                    // ✅ 修复：移除 C.enabled 依赖，移除 isInitCooling 限制
+                    if (C.autoBackfill) {
                         // 🔧 修复1：强制加载最新数据，防止读取到过期的 lastBackfillIndex
                         m.load();
 
@@ -8910,7 +11150,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                                                 });
                                             }
 
-                                            m.save(); // ✅ 修复：同步进度到聊天记录
+                                            m.save(false, true); // ✅ 修复：立即同步进度到聊天记录
                                             console.log(`⏰ [批量填表] 顺延 ${result.postpone} 楼，新触发点：${API_CONFIG.lastBackfillIndex + bfThreshold}`);
                                             if (typeof toastr !== 'undefined') {
                                                 toastr.info(`批量填表已顺延 ${result.postpone} 楼`, '记忆表格');
@@ -8918,7 +11158,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                                         } else {
                                             // 立即执行
                                             if (window.Gaigai.BackfillManager && typeof window.Gaigai.BackfillManager.autoRunBackfill === 'function') {
-                                                window.Gaigai.BackfillManager.autoRunBackfill(lastBfIndex, targetEndIndex);
+                                                window.Gaigai.BackfillManager.autoRunBackfill(lastBfIndex, targetEndIndex, false, -1, '', 'chat', false, null, true);
                                                 hasBackfilledThisTurn = true;
                                             }
                                         }
@@ -8929,7 +11169,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                             } else {
                                 // 静默模式（勾选时）：直接执行
                                 if (window.Gaigai.BackfillManager && typeof window.Gaigai.BackfillManager.autoRunBackfill === 'function') {
-                                    window.Gaigai.BackfillManager.autoRunBackfill(lastBfIndex, targetEndIndex);
+                                    window.Gaigai.BackfillManager.autoRunBackfill(lastBfIndex, targetEndIndex, false, -1, '', 'chat', false, null, true);
                                     hasBackfilledThisTurn = true;
                                 }
                             }
@@ -8939,7 +11179,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     // ============================================================
                     // 模块 B: 自动总结
                     // ============================================================
-                    if (C.autoSummary && !isInitCooling) { // ✨ 只有冷却期过才允许触发
+                    if (C.autoSummary) { // ✨ 允许触发
                         const lastIndex = API_CONFIG.lastSummaryIndex || 0;
                         const currentCount = x.chat.length;
                         const newMsgCount = currentCount - lastIndex;
@@ -8984,7 +11224,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                                                     });
                                                 }
 
-                                                m.save(); // ✅ 修复：同步进度到聊天记录
+                                                m.save(false, true); // ✅ 修复：立即同步进度到聊天记录
                                                 console.log(`⏰ [自动总结] 顺延 ${result.postpone} 楼，新触发点：${API_CONFIG.lastSummaryIndex + sumThreshold}`);
                                                 if (typeof toastr !== 'undefined') {
                                                     toastr.info(`自动总结已顺延 ${result.postpone} 楼`, '记忆表格');
@@ -9021,7 +11261,12 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         }
                     }
 
-                    setTimeout(hideMemoryTags, 100);
+                    // ⚡ Optimization: Only scan DOM if Real-time is active OR if the text contains a tag
+                    // This reduces "Render Storm" conflicts when the plugin is supposed to be passive.
+                    const hasTag = mg.mes && (mg.mes.includes('Memory') || mg.mes.includes('tableEdit'));
+                    if (C.enabled || hasTag) {
+                        setTimeout(hideMemoryTags, 100);
+                    }
 
                     // ✨✨✨【UI 自动刷新】✨✨✨
                     // 如果表格窗口正开着，就刷新当前选中的那个表，让你立刻看到变化
@@ -9072,172 +11317,259 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             window.Gaigai.WI.resetState();
         }
 
-        // 加载全局配置
-        try { await loadConfig(); } catch (e) { }
+        // 🛡️🛡️🛡️ [防串味核心修复] 强制清空所有运行时状态
+        // 不依赖 m.load() 内部判断，直接在入口处暴力重置
+        console.log('🧹 [防串味] 正在强制清空当前会话数据，防止残留...');
 
         // 1. 💾 [暂存旧会话] 切换前，把旧会话的快照存入仓库
         if (m.id) {
             window.GaigaiSnapshotStore[m.id] = snapshotHistory;
+            console.log(`💾 [防串味] 已暂存旧会话 [${m.id}] 的快照`);
         }
 
-        // 2. 🔄 [加载新会话]
-        m.load(); // 这会更新 m.id 和从硬盘读取最新的 m.s 数据
-        thm();
-
-        // 重置运行时状态
-        window.Gaigai.foldOffset = 0;
-        window.Gaigai.lastRequestData = null;
+        // 2. 强制重置内存状态（防止串味的关键）
+        m.id = null;
+        const tableDef = (C.customTables && Array.isArray(C.customTables) && C.customTables.length > 0)
+            ? C.customTables
+            : DEFAULT_TABLES;
+        m.s = tableDef.map(t => new S(t.n, t.c));
+        snapshotHistory = {};
+        summarizedRows = {};
+        userColWidths = {};
+        userRowHeights = {};
+        API_CONFIG.lastSummaryIndex = 0;
+        API_CONFIG.lastBackfillIndex = 0;
         lastInternalSaveTime = 0;
-        lastProcessedMsgIndex = -1;
-        isRegenerating = false;
-        deletedMsgIndex = -1;
-        processedMessages.clear();
+        console.log('✅ [防串味] 内存状态已完全清空');
 
-        // 3. 📂 [恢复快照库] 从仓库取出新会话的快照
-        if (m.id && window.GaigaiSnapshotStore[m.id]) {
-            snapshotHistory = window.GaigaiSnapshotStore[m.id];
-            console.log(`📂 [ochat] 已恢复会话 [${m.id}] 的内存快照`);
-        } else {
-            snapshotHistory = {};
+        // 3. 清空 UI，显示加载状态
+        if ($('#gai-main-pop').length > 0) {
+            console.log('🎨 [防串味] 正在清空 UI，显示加载状态...');
+            shw(); // 刷新为空表格
         }
 
-        // 4. 🧹 [内存清理]
-        const allKeys = Object.keys(snapshotHistory).map(Number).filter(k => !isNaN(k)).sort((a, b) => a - b);
-        if (allKeys.length > 50) {
-            const cutoff = allKeys[allKeys.length - 50];
-            allKeys.forEach(k => {
-                if (k < cutoff && k !== -1) delete snapshotHistory[k.toString()];
-            });
-        }
+        // 4. 延迟加载，等待 SillyTavern 上下文完全切换
+        setTimeout(async () => {
+            console.log('⏳ [防串味] 延迟结束，开始加载新会话数据...');
 
-        // 5. 🛡️ [创世快照兜底]
-        if (!snapshotHistory['-1']) {
-            snapshotHistory['-1'] = {
-                data: m.all().slice(0, -1).map(sh => {
-                    let copy = JSON.parse(JSON.stringify(sh.json()));
-                    copy.r = [];
-                    return copy;
-                }),
-                summarized: {},
-                timestamp: 0
-            };
-        }
-
-        // ============================================================
-        // ⚡⚡⚡ [核心修复：分支穿越/时光机逻辑] ⚡⚡⚡
-        // ============================================================
-        const ctx = m.ctx();
-        const currentLen = ctx && ctx.chat ? ctx.chat.length : 0;
-        console.log(`📂 [ochat] 检测到聊天/分支变更 (当前楼层: ${currentLen})`);
-
-        if (currentLen > 0) {
-            // 目标：我们应该处于哪一楼的状态？
-            const targetIndex = currentLen - 1;
-            const targetKey = targetIndex.toString();
-
-            // 策略 A：如果我们有这一楼的快照（说明是切回了已存在的分支）
-            if (snapshotHistory[targetKey]) {
-                console.log(`⚡ [ochat] 检测到已知分支，正在回档至 [${targetKey}]...`);
-                // 强制回档！让表格回到那一楼的样子
-                restoreSnapshot(targetKey, true);
+            // 5. 验证上下文是否有效
+            const ctx = m.ctx();
+            if (!ctx || !ctx.chatId) {
+                console.warn('⚠️ [防串味] 上下文无效或 chatId 不存在，跳过加载');
+                isChatSwitching = false;
+                return;
             }
-            // 策略 B：如果没有这一楼的快照（说明可能是刚加载，或者快照丢了）
-            // 我们尝试找找上一楼的，或者相信 m.load() 从硬盘读出来的数据
-            else {
-                console.log(`⚠️ [ochat] 未找到分支快照 [${targetKey}]，尝试使用硬盘存档数据并建立新快照`);
-                // 立即为当前状态建立一个快照，防止下次切回来又空了
-                saveSnapshot(targetKey);
+
+            // 6. 加载全局配置
+            try { await loadConfig(); } catch (e) { }
+
+            // 7. 🔄 [加载新会话]
+            m.load(); // 这会更新 m.id 和从硬盘读取最新的 m.s 数据
+            thm();
+
+            // 8. 重置运行时状态
+            window.Gaigai.foldOffset = 0;
+            window.Gaigai.lastRequestData = null;
+            lastProcessedMsgIndex = -1;
+            isRegenerating = false;
+            deletedMsgIndex = -1;
+            processedMessages.clear();
+
+            // 9. 📂 [恢复快照库] 从仓库取出新会话的快照
+            if (m.id && window.GaigaiSnapshotStore[m.id]) {
+                snapshotHistory = window.GaigaiSnapshotStore[m.id];
+                console.log(`📂 [ochat] 已恢复会话 [${m.id}] 的内存快照`);
+            } else {
+                snapshotHistory = {};
+                // 🔥 [新增] 如果内存仓库为空，尝试从 localStorage 恢复持久化的快照
+                loadSnapshots();
             }
-        } else {
-            // 如果是新开聊天（0楼）
-            // 🛑 【逻辑修正】绝对信任硬盘存档 (m.load)
-            // 无论刚才读出来的是有数据还是没数据(用户删空了)，那都是最新的状态。
-            // 我们必须强制让内存里的快照(-1)同步成现在的样子。
-            // 严禁在这里执行 restoreSnapshot，否则会把用户"特意删空"的状态当作"数据丢失"给回滚掉。
 
-            saveSnapshot('-1');
-            console.log(`💾 [ochat] 0楼状态同步：已将内存快照-1强制更新为硬盘存档状态`);
-        }
-
-        // 刷新 UI
-        setTimeout(hideMemoryTags, 500);
-        setTimeout(() => {
-            // 强制刷新表格视图
-            if ($('#gai-main-pop').length > 0) {
-                const activeTab = $('.g-t.act').data('i');
-                if (activeTab !== undefined) refreshTable(activeTab);
+            // 10. 🧹 [内存清理]
+            const allKeys = Object.keys(snapshotHistory).map(Number).filter(k => !isNaN(k)).sort((a, b) => a - b);
+            if (allKeys.length > 50) {
+                const cutoff = allKeys[allKeys.length - 50];
+                allKeys.forEach(k => {
+                    if (k < cutoff && k !== -1) delete snapshotHistory[k.toString()];
+                });
             }
-        }, 650);
 
-        // ============================================================
-        // 🚑 [开场白修复补丁]
-        // 检查并强制处理未被快照的开场白消息
-        // ============================================================
-        if (currentLen > 0) {
-            const firstMsg = ctx.chat[0];
-            // 条件：第一条消息存在，是AI发的（is_user为false），并且没有为它创建过快照
-            if (firstMsg && firstMsg.is_user === false && !snapshotHistory['0']) {
-                console.log('🚑 [开场白补丁] 检测到未处理的开场白，正在强制生成快照...');
-                // 立即调用omsg处理第0条消息，强制生成 snapshotHistory['0']
-                omsg(0);
+            // 11. 🛡️ [创世快照兜底]
+            // FIX: Always initialize Genesis snapshot with currently loaded data (m.s),
+            // ensuring it's not empty if we just reloaded an existing chat.
+            if (!snapshotHistory['-1']) {
+                snapshotHistory['-1'] = {
+                    data: m.all().slice(0, -1).map(sh => JSON.parse(JSON.stringify(sh.json()))),
+                    summarized: JSON.parse(JSON.stringify(summarizedRows)),
+                    timestamp: 0
+                };
+                console.log("📸 [Genesis Snapshot] Initialized with loaded data (Rows: " +
+                    m.s.reduce((acc, s) => acc + (s.r ? s.r.length : 0), 0) + ")");
             }
-        }
 
-        // 解锁
-        setTimeout(() => {
-            isChatSwitching = false;
-        }, 800);
+            // ============================================================
+            // ⚡⚡⚡ [核心修复：分支穿越/时光机逻辑] ⚡⚡⚡
+            // ============================================================
+            const currentLen = ctx && ctx.chat ? ctx.chat.length : 0;
+            console.log(`📂 [ochat] 检测到聊天/分支变更 (当前楼层: ${currentLen})`);
+
+            if (currentLen > 0) {
+                // 目标：我们应该处于哪一楼的状态？
+                const targetIndex = currentLen - 1;
+                const targetKey = targetIndex.toString();
+
+                // 策略 A：如果我们有这一楼的快照（说明是切回了已存在的分支）
+                if (snapshotHistory[targetKey]) {
+                    console.log(`⚡ [ochat] 检测到已知分支，正在回档至 [${targetKey}]...`);
+                    // 强制回档！让表格回到那一楼的样子
+                    restoreSnapshot(targetKey, true);
+                }
+                // 策略 B：如果没有这一楼的快照（说明可能是刚加载，或者快照丢了）
+                // 我们尝试找找上一楼的，或者相信 m.load() 从硬盘读出来的数据
+                else {
+                    console.log(`⚠️ [ochat] 未找到分支快照 [${targetKey}]，尝试使用硬盘存档数据并建立新快照`);
+                    // 立即为当前状态建立一个快照，防止下次切回来又空了
+                    saveSnapshot(targetKey);
+
+                    // FIX: If genesis snapshot is empty but we loaded data from disk, sync genesis to prevent wipe on swipe.
+                    const snapMinus1 = snapshotHistory['-1'];
+                    const snapTarget = snapshotHistory[targetKey];
+                    if (snapMinus1 && snapTarget && snapTarget.data) {
+                        const targetHasData = snapTarget.data.some(s => s.r && s.r.length > 0);
+                        const minus1Empty = snapMinus1.data.every(s => !s.r || s.r.length === 0);
+
+                        if (targetHasData && minus1Empty) {
+                            console.log('🛡️ [ochat-Patch] Detected imported data with empty genesis. Syncing snapshot -1.');
+                            snapshotHistory['-1'] = JSON.parse(JSON.stringify(snapTarget));
+                            snapshotHistory['-1'].timestamp = 0; // Keep it as genesis
+                        }
+                    }
+                }
+            } else {
+                // 如果是新开聊天（0楼）
+                // 🛑 【逻辑修正】绝对信任硬盘存档 (m.load)
+                // 无论刚才读出来的是有数据还是没数据(用户删空了)，那都是最新的状态。
+                // 我们必须强制让内存里的快照(-1)同步成现在的样子。
+                // 严禁在这里执行 restoreSnapshot，否则会把用户"特意删空"的状态当作"数据丢失"给回滚掉。
+
+                saveSnapshot('-1');
+                console.log(`💾 [ochat] 0楼状态同步：已将内存快照-1强制更新为硬盘存档状态`);
+            }
+
+            // 刷新 UI
+            setTimeout(hideMemoryTags, 500);
+            setTimeout(() => {
+                // 强制刷新表格视图
+                if ($('#gai-main-pop').length > 0) {
+                    const activeTab = $('.g-t.act').data('i');
+                    if (activeTab !== undefined) refreshTable(activeTab);
+                }
+            }, 650);
+
+            // ============================================================
+            // 🚑 [开场白修复补丁 - 增强版]
+            // 检查并强制处理未被快照的开场白消息
+            // ============================================================
+            if (currentLen > 0) {
+                const firstMsg = ctx.chat[0];
+
+                // 🆕 [修复1] 检查第 0 楼快照是否存在
+                if (!snapshotHistory['0']) {
+                    console.log('🚑 [开场白补丁] 检测到缺失第 0 楼快照');
+
+                    // 情况A：如果是新开局（只有1条消息且是AI发的）
+                    if (currentLen === 1 && firstMsg && firstMsg.is_user === false) {
+                        console.log('🚑 [补丁A] 新开局场景，立即生成第 0 楼快照');
+                        // 立即调用 saveSnapshot 而不是 omsg，避免延迟
+                        saveSnapshot('0');
+                    }
+                    // 情况B：已有聊天记录但缺失快照（可能是刷新后）
+                    else if (currentLen > 1) {
+                        console.log('🚑 [补丁B] 已有聊天记录但缺失第 0 楼快照，尝试补录');
+
+                        // 如果第 0 楼是 AI 发的，调用 omsg 处理
+                        if (firstMsg && firstMsg.is_user === false) {
+                            omsg(0);
+                        }
+                        // 如果第 0 楼是 User 发的，那么第 0 楼的基准应该是空表（-1）
+                        else {
+                            console.log('🚑 [补丁B] 第 0 楼是 User 发的，基准状态应为空表');
+                            // 将 -1 快照复制为 0 快照
+                            if (snapshotHistory['-1']) {
+                                snapshotHistory['0'] = JSON.parse(JSON.stringify(snapshotHistory['-1']));
+                                console.log('✅ [补丁B] 已将创世快照复制为第 0 楼快照');
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 解锁
+            setTimeout(() => {
+                isChatSwitching = false;
+            }, 800);
+
+            console.log('✅ [防串味] 新会话加载完成');
+        }, 200); // 延迟 200ms，等待 SillyTavern 上下文完全切换
     }
 
     // ✨✨✨ 核心逻辑：智能切分法 (防呆增强版) ✨✨✨
     function applyContextLimit(chat) {
-        // 1. 安全检查：如果参数不对，或者没开开关，直接原样返回
-        // 强制把 limit 转为数字，防止它是字符串导致计算错误
+        // 1. 安全检查
         const limit = parseInt(C.contextLimitCount) || 30;
-
         if (!C.contextLimit || !chat || chat.length <= limit) return chat;
 
-        console.log(`✂️ [隐藏楼层] 开始计算: 当前总楼层 ${chat.length}, 限制保留 ${limit} 层`);
+        console.log(`✂️ [隐藏楼层] 智能裁剪开始，目标保留: ${limit} 条`);
 
-        // 2. 统计需要保留的“非系统消息”数量
-        // 我们只切 User 和 Assistant 的水楼，绝不切 System (人设/世界书)
+        // 2. 识别"受保护区域" (Protected Zone)
+        // 逻辑：酒馆的 Prefill (Assistant起手式) 永远位于 Prompt 的【最后一条】。
+        // 我们强制把最后一条消息排除在"可裁剪名单"之外，无论它是谁，无论它说什么。
+        const lastMsgIndex = chat.length - 1;
+
+        // 3. 筛选可裁剪的索引
         let dialogueMsgIndices = [];
         chat.forEach((msg, index) => {
-            if (msg.role !== 'system') {
+            // ✅ 新增：定义过滤关键词（针对预设注入的指令）
+            const content = msg.content || msg.mes || '';
+            const isInstruction = content.includes('thinking标签') ||
+                                  content.includes('<writing-style>') ||
+                                  content.includes('<must-read-materials>');
+
+            // 条件A: 不能是 System (系统指令)
+            // 条件B: 不能是 Last Message (预设 Prefill / 正在进行的对话)
+            // 条件C: 不能是前2条消息 (越狱握手/触发消息，如 Kemini 的 Handshake)
+            // ✅ 条件D: 不能是预设指令 (新增 !isInstruction)
+            if (msg.role !== 'system' && index !== lastMsgIndex && index > 1 && !isInstruction) {
                 dialogueMsgIndices.push(index);
             }
         });
 
-        // 3. 计算需要切掉多少条
+        // 4. 计算需要移除的数量
         const totalDialogue = dialogueMsgIndices.length;
-        const toKeep = limit;
-        const toSkip = Math.max(0, totalDialogue - toKeep);
+        const toKeep = limit; // 用户设置的保留条数
+        const toSkip = Math.max(0, totalDialogue - toKeep); // 需要删掉多少条旧的
 
         if (toSkip === 0) return chat;
 
-        // 4. 确定哪些索引(Index)是“老旧消息”，需要被切掉
-        // slice(0, toSkip) 拿到的就是“最前面”的几条旧对话的索引
+        // 5. 确定移除名单
         const indicesToRemove = new Set(dialogueMsgIndices.slice(0, toSkip));
 
-        // 🛑【三重保险】绝对保护最后 2 条消息，无论算法怎么算，最后2条打死不能切！
-        // 防止因为计算误差导致AI看不到你刚才发的那句话
-        const lastIndex = chat.length - 1;
-        if (indicesToRemove.has(lastIndex)) indicesToRemove.delete(lastIndex);
-        if (indicesToRemove.has(lastIndex - 1)) indicesToRemove.delete(lastIndex - 1);
-
-        console.log(`   - 计划切除 ${indicesToRemove.size} 条旧对话，保留最近 ${toKeep} 条`);
-
-        // 5. 生成新数组
-        const newChat = chat.filter((msg, index) => {
-            // 如果这个索引在“移除名单”里，就不要了
-            if (indicesToRemove.has(index)) {
-                return false;
+        // [额外保险]：如果倒数第二条也是 Assistant（罕见情况），也保下来
+        if (chat.length > 1) {
+            const secondLastIndex = chat.length - 2;
+            const secondLastMsg = chat[secondLastIndex];
+            if (secondLastMsg.role === 'assistant' || secondLastMsg.role === 'model') {
+                 if (indicesToRemove.has(secondLastIndex)) {
+                     indicesToRemove.delete(secondLastIndex);
+                     console.log('🛡️ [隐藏楼层] 额外保护倒数第二条 Assistant 消息');
+                 }
             }
-            // 其他的（System消息 + 最近的对话）全部保留
-            return true;
-        });
+        }
 
-        console.log(`   - 清洗完毕，剩余 ${newChat.length} 条消息发送给AI`);
+        // 6. 执行裁剪
+        const newChat = chat.filter((msg, index) => !indicesToRemove.has(index));
+
+        console.log(`✅ [隐藏楼层] 裁剪完成。原始: ${chat.length}, 剩余: ${newChat.length} (已严格保护末尾 Prefill)`);
         return newChat;
     }
 
@@ -9327,8 +11659,23 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 if (userQuery.trim()) {
                     console.log(`🔍 [向量检索] 正在检索: "${userQuery.substring(0, 20)}..."`);
 
-                    // 异步检索
-                    const results = await window.Gaigai.VM.search(userQuery);
+                    // 🛡️ 创建超时 Promise (10秒宽限期，考虑 Rerank 和网络延迟)
+                    const timeoutPromise = new Promise((_, reject) => {
+                        setTimeout(() => reject(new Error('向量检索超时 (10秒)')), 10000);
+                    });
+
+                    let results;
+                    try {
+                        // 使用 Promise.race 增加超时保护，防止无限等待
+                        results = await Promise.race([
+                            window.Gaigai.VM.search(userQuery),
+                            timeoutPromise
+                        ]);
+                    } catch (searchError) {
+                        // 🛡️ 关键：静默处理，不影响主聊天流程
+                        console.warn('⚠️ [向量检索] 执行异常或超时，已跳过，不影响聊天:', searchError);
+                        return ''; // 直接返回空字符串，让聊天继续
+                    }
 
                     // ==================== 💎 名称匹配加权 (Re-ranking) ====================
                     if (results && results.length > 0) {
@@ -9392,17 +11739,12 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             return vectorContent;
 
         } catch (e) {
-            // 🛡️ 优雅降级：如果向量检索失败，只记录错误，不影响正常流程
-            console.error('❌ [向量检索] 运行出错 (非阻断):', e);
+            // 🛡️ 静默降级：向量检索失败不影响主聊天流程
+            console.warn('⚠️ [向量检索] 执行异常或超时，已跳过，不影响聊天:', e);
 
-            // 用户友好提示
-            if (typeof toastr !== 'undefined') {
-                const errorMsg = e.message || '未知错误';
-                toastr.error(`向量检索失败: ${errorMsg}，但这不影响聊天`, '非阻断错误', { timeOut: 4000 });
-            }
-
-            // 即使出错也返回空字符串
-            return vectorContent;
+            // 不显示错误提示，避免干扰用户体验
+            // 即使出错也返回空字符串，让聊天继续
+            return '';
         }
     }
 
@@ -9410,6 +11752,9 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
     // 2. 生成前预处理 (修复重Roll时的回档逻辑)
     // ============================================================
     async function opmt(ev) {
+        // 🔴 全局主开关守卫
+        if (!C.masterSwitch) return;
+
         try {
             const data = ev.detail || ev;
             if (!data) return;
@@ -9420,7 +11765,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             const globalCtx = m.ctx();
             const globalChat = globalCtx ? globalCtx.chat : null;
 
-            if (C.enabled && globalChat && globalChat.length > 0) {
+            if (C.enabled && !C.autoBackfill && globalChat && globalChat.length > 0) {
                 let targetIndex = globalChat.length;
                 const lastMsg = globalChat[globalChat.length - 1];
 
@@ -9433,6 +11778,24 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 }
 
                 const targetKey = targetIndex.toString();
+
+                // 2.5 🆕 [补充快照] 如果上一楼是用户消息且没有快照，为它创建快照
+                const prevIndex = targetIndex - 1;
+                if (prevIndex >= 0) {
+                    const prevMsg = globalChat[prevIndex];
+                    const prevKey = prevIndex.toString();
+
+                    if (prevMsg && prevMsg.is_user && !snapshotHistory[prevKey]) {
+                        // 为用户消息创建快照（保存当前表格状态）
+                        const userSnapshot = {
+                            data: m.all().slice(0, -1).map(sh => JSON.parse(JSON.stringify(sh.json()))),
+                            summarized: JSON.parse(JSON.stringify(summarizedRows)),
+                            timestamp: Date.now()
+                        };
+                        snapshotHistory[prevKey] = userSnapshot;
+                        console.log(`📸 [opmt-补充] 为用户消息第 ${prevIndex} 楼创建快照`);
+                    }
+                }
 
                 // 2. 🔍 寻找基准快照 (上一楼的状态)
                 let baseIndex = targetIndex - 1;
@@ -9453,16 +11816,124 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     if (baseKey === '-1' && targetIndex > 5) {
                         console.warn(`🛑 [安全拦截] 楼层 ${targetIndex} 较高且缺失中间快照，禁止回滚到初始状态，保持当前数据。`);
                     } else {
-                        restoreSnapshot(baseKey, true); // <--- 这里加了 true (强制回滚)
-                        console.log(`↺ [opmt] 成功回档: 表格已恢复至基准 [${baseKey}]`);
+                        // 🛡️ [智能保护] 深度内容比较，区分"数据加载"和"用户修改"
+                        const snapshot = snapshotHistory[baseKey];
+                        if (snapshot && snapshot.data) {
+                            // 1. 计算内容哈希值
+                            const currentHash = calculateTableHash(m.s.slice(0, -1)); // 排除总结表
+                            const snapshotHash = calculateTableHash(snapshot.data);
+
+                            // 2. 🆕 检查"目标快照"（当前消息上一次生成后的状态）
+                            // 如果我们正在重新生成消息N，检查当前表格是否与快照N一致
+                            const targetSnapshot = snapshotHistory[targetKey];
+                            let isCleanAIOutput = false;
+                            if (targetSnapshot && targetSnapshot.data) {
+                                const targetHash = calculateTableHash(targetSnapshot.data);
+                                if (currentHash === targetHash) {
+                                    isCleanAIOutput = true;
+                                    console.log(`♻️ [opmt] 检测到当前状态与目标快照 [${targetKey}] 一致 (未被用户修改)，允许回滚。`);
+                                }
+                            }
+
+                            // 3. 逻辑判断
+                            if (currentHash === snapshotHash) {
+                                // 情况A: 与基准快照一致（安全）
+                                restoreSnapshot(baseKey, true);
+                                console.log(`↺ [opmt] 内容一致(Hash匹配)，正常回滚至基准 [${baseKey}]`);
+                                // FIX: Immediately refresh UI when rolling back state in opmt
+                                if ($('#gai-main-pop').length > 0) {
+                                    const activeTab = $('.g-t.act').data('i');
+                                    if (activeTab !== undefined) {
+                                        refreshTable(activeTab);
+                                        console.log('🔄 [opmt] Visual state refreshed immediately.');
+                                    }
+                                }
+                            } else if (isCleanAIOutput) {
+                                // 情况B: 与上一轮AI输出一致（安全，可以撤销）
+                                restoreSnapshot(baseKey, true);
+                                console.log(`↺ [opmt] 撤销上一轮AI生成内容，回滚至基准 [${baseKey}]`);
+                                // FIX: Immediately refresh UI when rolling back state in opmt
+                                if ($('#gai-main-pop').length > 0) {
+                                    const activeTab = $('.g-t.act').data('i');
+                                    if (activeTab !== undefined) {
+                                        refreshTable(activeTab);
+                                        console.log('🔄 [opmt] Visual state refreshed immediately.');
+                                    }
+                                }
+                            } else {
+                                // 情况C: 被用户修改（保护）
+                                const snapRows = snapshot.data.reduce((acc, s) => acc + (s.r ? s.r.length : 0), 0);
+                                const currentRows = m.s.reduce((acc, s) => acc + (s.r ? s.r.length : 0), 0);
+
+                                if (currentRows > snapRows) {
+                                    // 用户可能手动导入了数据或添加了行
+                                    console.warn(`🛑 [智能保护/opmt] 检测到用户手动修改(Hash不同且非AI原样)。保留当前数据，更新基准快照。`);
+                                    saveSnapshot(baseKey);
+                                } else if (currentRows === snapRows) {
+                                    // 用户可能编辑了单元格内容
+                                    console.warn(`🛑 [智能保护/opmt] 检测到单元格编辑。保留当前数据，更新基准快照。`);
+                                    saveSnapshot(baseKey);
+                                } else {
+                                    // 当前 < 快照（用户手动删除了行？或Swipe？）
+                                    // 为确保AI同步，允许回滚
+                                    restoreSnapshot(baseKey, true);
+                                    console.log(`↺ [opmt] 数据减少 (${currentRows} < ${snapRows})，执行回滚以同步状态`);
+                                    // FIX: Immediately refresh UI when rolling back state in opmt
+                                    if ($('#gai-main-pop').length > 0) {
+                                        const activeTab = $('.g-t.act').data('i');
+                                        if (activeTab !== undefined) {
+                                            refreshTable(activeTab);
+                                            console.log('🔄 [opmt] Visual state refreshed immediately.');
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            // 快照数据不存在，执行正常回滚
+                            restoreSnapshot(baseKey, true);
+                            console.log(`↺ [opmt] 成功回档: 表格已恢复至基准 [${baseKey}]`);
+                            // FIX: Immediately refresh UI when rolling back state in opmt
+                            if ($('#gai-main-pop').length > 0) {
+                                const activeTab = $('.g-t.act').data('i');
+                                if (activeTab !== undefined) {
+                                    refreshTable(activeTab);
+                                    console.log('🔄 [opmt] Visual state refreshed immediately.');
+                                }
+                            }
+                        }
                     }
                 } else if (baseIndex === -1 && snapshotHistory['-1']) {
-                    // ✅ [安全补丁] 同样检查楼层高度
-                    if (targetIndex > 5) {
-                        console.warn(`🛑 [安全拦截] 楼层 ${targetIndex} 较高但只有创世快照，禁止回滚，保持当前数据。`);
+                    // 🛡️ [终极防御] 检查当前内存中是否已有数据
+                    // 如果当前详情表有数据(行数>0)，但系统试图回滚到空快照(-1)，这绝对是误判！
+                    // 此时必须信任当前内存数据，将其反向同步给快照，而不是清空数据。
+                    const hasData = m.s.slice(0, -1).some(s => s.r && s.r.length > 0);
+
+                    if (hasData) {
+                        console.warn(`🛑 [opmt] 致命拦截：检测到试图将有效数据回滚到空快照(-1)！`);
+                        console.warn(`🔧 [opmt] 自动修正：将当前内存数据强制确立为新的基准快照(-1)。`);
+
+                        // 修正快照 -1
+                        snapshotHistory['-1'] = {
+                            data: m.all().slice(0, -1).map(sh => JSON.parse(JSON.stringify(sh.json()))),
+                            summarized: JSON.parse(JSON.stringify(summarizedRows)),
+                            timestamp: Date.now()
+                        };
                     } else {
-                        restoreSnapshot('-1', true); // <--- 这里也加了 true
-                        console.log(`↺ [opmt] 成功回档: 表格已恢复至创世状态`);
+                        // 只有当当前真的是空的，或者楼层极低时，才允许回滚到创世快照
+                        if (targetIndex > 5) {
+                            console.warn(`🛑 [安全拦截] 楼层 ${targetIndex} 较高但只有创世快照，禁止回滚，保持当前数据。`);
+                        } else {
+                            restoreSnapshot('-1', true);
+                            console.log(`↺ [opmt] 成功回档: 表格已恢复至创世状态`);
+                            // FIX: Immediately refresh UI when rolling back state in opmt
+                            if ($('#gai-main-pop').length > 0) {
+                                const activeTab = $('.g-t.act').data('i');
+                                if (activeTab !== undefined) {
+                                    refreshTable(activeTab);
+                                    console.log('🔄 [opmt] Visual state refreshed immediately.');
+                                }
+                            }
+                        }
                     }
                 } else {
                     // ⚠️ 如果实在找不到存档，为了防止脏数据污染 Prompt，这里选择不做操作(保持现状)或清空
@@ -9485,31 +11956,43 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
             isRegenerating = false;
 
-            // 5. 隐藏楼层逻辑 (保持不变)
-            let currentChat = data.chat;
-            if (C.contextLimit && currentChat) {
-                const limitedChat = applyContextLimit(currentChat);
-                if (limitedChat.length !== currentChat.length) {
-                    data.chat.splice(0, data.chat.length, ...limitedChat);
-                    console.log(`✂️ 隐藏楼层已执行`);
-                }
-
-                // ✅ 新增：清洗历史记录中的图片，防止包体过大
-                // 遍历所有历史消息，移除图片字段，避免 Base64 数据导致 JSON 超过 20MB
-                currentChat.forEach(msg => {
+            // 5. 🖼️ [强制图片清洗] 无论是否开启隐藏楼层，都必须执行图片清洗
+            // 这是防止 Base64 图片标签导致 Token 飙升的关键步骤
+            if (data.chat && Array.isArray(data.chat)) {
+                data.chat.forEach(msg => {
+                    // 删除图片字段
                     if (msg.image) delete msg.image;
                     if (msg.imageUrl) delete msg.imageUrl;
                     if (msg.images) delete msg.images;
                     // 兼容其他可能的图片字段
                     if (msg.extra && msg.extra.image) delete msg.extra.image;
                     if (msg.extra && msg.extra.images) delete msg.extra.images;
+
+                    // ✅ 增强清洗：只移除包含 Base64 数据的图片标签 (防止 Base64 爆破 Token 或导致 API 报错)
+                    // ⚠️ 关键优化：保留 URL 类型的图片（如分割线等格式图片），因为 URL 本身数据量很小
+                    // 只匹配包含 Base64 数据的 img 标签（数据量大，必须处理）
+                    const base64ImageRegex = /<img[^>]*src=["']data:image[^"']*["'][^>]*>/gi;
+                    // 只匹配包含 Base64 数据的 Markdown 图片（虽然很少见）
+                    const base64MarkdownRegex = /!\[[^\]]*\]\(data:image[^)]*\)/gi;
+
+                    if (typeof msg.content === 'string') {
+                        msg.content = msg.content.replace(base64ImageRegex, '[图片]');
+                        msg.content = msg.content.replace(base64MarkdownRegex, '[图片]');
+                    }
+                    if (typeof msg.mes === 'string') {
+                        msg.mes = msg.mes.replace(base64ImageRegex, '[图片]');
+                        msg.mes = msg.mes.replace(base64MarkdownRegex, '[图片]');
+                    }
                 });
-                console.log(`🖼️ 已清洗历史消息中的图片数据，防止请求体过大`);
+                console.log(`🖼️ [强制清洗] 已清洗历史消息中的图片数据（包括文本中的图片标签），防止请求体过大`);
             }
+
+            // ⚠️ 已移除隐藏逻辑 - 现在统一在 Fetch Hijack 中执行（确保在向量检索之前）
+            // 避免重复执行和并发问题
 
             // 注意：向量检索已移至 Fetch Hijack 中处理，确保在发送请求前完成
 
-            // 6. 注入 (此时表格已是回档后的干净状态)
+            // 8. 注入 (此时表格已是回档后的干净状态)
             inj(data);
 
             // 探针
@@ -9533,9 +12016,9 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
      * 等待依赖加载完成后，创建UI按钮，注册事件监听，启动插件
      */
     async function ini() {
-        // 1. 基础依赖检查
+        // 1. Basic Dependency Check
         if (typeof $ === 'undefined' || typeof SillyTavern === 'undefined') {
-            console.log('⏳ 等待依赖加载... (jQuery, SillyTavern)');
+            console.log('⏳ [Gaigai] Waiting for dependencies...');
             setTimeout(ini, 500);
             return;
         }
@@ -9584,7 +12067,13 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
         // loadColWidths(); // ❌ 已废弃：不再从全局加载，列宽/行高通过 m.load() 从会话存档加载
         // loadSummarizedRows(); // ❌ 已废弃：不再从全局加载，改为通过 m.load() 从角色专属存档加载
-        m.load();
+
+        // Only attempt to load data if a chat is actually open
+        const ctx = SillyTavern.getContext();
+        if (ctx && ctx.chatId) {
+            m.load();
+        }
+
         thm();
 
         // ✨✨✨ 核心修复：创建"创世快照"(-1号)，代表对话开始前的空状态 ✨✨✨
@@ -9601,29 +12090,125 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         // 1. 创建容器 (模仿酒馆的 drawer 结构，这样间距和高度会自动对齐)
         const $wrapper = $('<div>', {
             id: 'gaigai-wrapper',
-            class: 'drawer' // 关键：使用 drawer 类名，骗过 CSS 让它认为这是原生按钮
+            class: 'drawer' // 关键：使用 drawer 类名，让 CSS 自动继承主题样式
         });
 
-        // 2. 创建对齐容器
-        const $toggle = $('<div>', { class: 'drawer-toggle' });
+        // 2. 注入图标样式（让图标完全遵循主题的 openIcon/closedIcon 规则）
+        if (!$('#gg-status-dot-style').length) {
+            $('<style id="gg-status-dot-style">').text(`
+    /* 不再为 .gg-enabled 添加特殊样式，让图标完全依赖主题的 openIcon/closedIcon 类 */
+`).appendTo('head');
+        }
 
-        // 3. 创建图标 (模仿原生图标样式)
+        // 长按计时器和标志
+        let pressTimer;
+        let isLongPress = false;
+
+        // 3. 创建图标 (原生结构：Font Awesome 类直接在 div 上)
         const $icon = $('<div>', {
             id: 'gaigai-top-btn',
-            // 关键：使用 drawer-icon 类名，这样大小、颜色、鼠标悬停效果就和旁边的“A”图标一模一样了
-            // ✨✨✨ 修复：添加 closedIcon 类，让它在未激活时保持半透明(变暗)，和其他图标一致
-            class: 'drawer-icon fa-solid fa-table fa-fw interactable closedIcon',
-            title: '记忆表格',
+            class: `drawer-icon fa-solid fa-table fa-fw interactable closedIcon${C.masterSwitch ? ' gg-enabled' : ''}`,
+            title: '记忆表格 (点击打开 | 长按开关)',
             tabindex: '0'
-        }).on('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            shw(); // 点击打开表格
         });
 
-        // 4. 组装
-        $toggle.append($icon);
-        $wrapper.append($toggle);
+        // 创建 drawer-toggle 包装层（复刻酒馆标准结构）
+        const $toggle = $('<div>', {
+            class: 'drawer-toggle'
+        });
+
+        $icon.on('mousedown touchstart', function(e) {
+            // 1. 按下时：重置标记，启动计时器
+            isLongPress = false;
+
+            pressTimer = setTimeout(() => {
+                isLongPress = true; // 标记为长按事件
+
+                // --- 切换全局主开关逻辑 ---
+                C.masterSwitch = !C.masterSwitch;
+
+                // 保存配置
+                try { localStorage.setItem('gg_config', JSON.stringify(C)); } catch(e){}
+                m.save(false, true);
+                if (typeof saveAllSettingsToCloud === 'function') saveAllSettingsToCloud();
+                console.log(`✅ [长按开关] 配置已保存，masterSwitch = ${C.masterSwitch}`);
+
+                // 更新状态视觉反馈
+                if (C.masterSwitch) {
+                    $('#gaigai-top-btn').addClass('gg-enabled');
+                } else {
+                    $('#gaigai-top-btn').removeClass('gg-enabled');
+                }
+
+                // 震动反馈 (手机端)
+                if (navigator.vibrate) navigator.vibrate(50);
+
+                // 提示用户
+                if (typeof toastr !== 'undefined') {
+                    // ✅ 清除所有现有的 toast 通知，避免旧消息干扰
+                    toastr.clear();
+
+                    if (C.masterSwitch) {
+                        toastr.success('✅ 插件已启用 (短按图标打开配置)', '系统提示', {
+                            timeOut: 3000,
+                            progressBar: true
+                        });
+                    } else {
+                        toastr.info('💤 插件已休眠 (再次长按开启)', '系统提示', {
+                            timeOut: 3000,
+                            progressBar: true
+                        });
+                    }
+                }
+
+                console.log(`🔄 [长按开关] 插件状态已切换为: ${C.masterSwitch ? '启用' : '休眠'}`);
+
+            }, 800); // 800毫秒判定为长按
+        })
+        .on('mouseup touchend mouseleave touchcancel', function(e) {
+            // 2. 松开/移出时：清除计时器
+            clearTimeout(pressTimer);
+
+            // 如果不是长按（即短点击）且是 mouseup/touchend 事件
+            if (!isLongPress && (e.type === 'mouseup' || e.type === 'touchend')) {
+                e.preventDefault();
+
+                console.log(`🖱️ [短按图标] 检测到短按事件，当前 masterSwitch = ${C.masterSwitch}`);
+
+                // 检查全局主开关状态
+                if (C.masterSwitch) {
+                    console.log('✅ [短按图标] 插件已启用，正在打开配置面板...');
+
+                    // ✅ 清除可能存在的旧 toast 通知
+                    if (typeof toastr !== 'undefined') {
+                        toastr.clear();
+                    }
+
+                    shw(); // 正常打开
+                } else {
+                    console.log('⚠️ [短按图标] 插件处于休眠状态，显示警告提示');
+
+                    // 提醒用户
+                    if (typeof toastr !== 'undefined') {
+                        toastr.clear(); // 清除旧通知
+                        toastr.warning('⚠️ 插件已休眠 (长按图标开启)', '未启用', {
+                            timeOut: 3000,
+                            progressBar: true
+                        });
+                    }
+                }
+            }
+            return false;
+        })
+        .on('contextmenu', (e) => {
+            // 4. 禁用右键菜单（防止长按弹出浏览器菜单）
+            e.preventDefault();
+            return false;
+        });
+
+        // 4. 组装 (复刻酒馆标准结构)
+        $toggle.append($icon);        // 图标放入 toggle 层
+        $wrapper.append($toggle);     // toggle 层放入容器
 
         // 5. 插入到扩展设置按钮后面，如果找不到则追加到工具栏末尾
         if ($extBtn.length > 0) {
@@ -9642,6 +12227,16 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             try {
                 // 监听AI消息生成完成事件（用于解析Memory标签）
                 x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, function (id) { omsg(id); });
+
+                // 🆕 监听AI消息生成完成事件（用于自动隐藏楼层）
+                // 🔥 防抖机制：避免短时间内重复触发
+                let hideDebounceTimer = null;
+                let isHiding = false; // 全局锁
+
+                x.eventSource.on(x.event_types.CHARACTER_MESSAGE_RENDERED, async function () {
+                    // ⚠️ 已移除自动隐藏逻辑 - 现在在发送前（fetch拦截时）执行无感隐藏
+                    // 避免重复执行和延迟问题
+                });
 
                 // 监听对话切换事件（用于刷新数据和UI）
                 x.eventSource.on(x.event_types.CHAT_CHANGED, function () { ochat(); });
@@ -9671,13 +12266,31 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     window.fetch = async function(...args) {
                         const url = args[0] ? args[0].toString() : '';
 
+                        // Safe check: Ensure body is a string before calling includes (skips FormData/File uploads)
+                        if (args[1] && typeof args[1].body === 'string' && args[1].body.includes("API连接测试是否成功")) {
+                            console.log('🧪 [Fetch Hijack] Detected API connection test, skipping vector search.');
+                            return originalFetch.apply(this, args);
+                        }
+
                         // 检查是否是生成请求
-                        if (url.includes('/api/backends/chat-completions/generate') ||
+                        if ((url.includes('/api/backends/chat-completions/generate') ||
                             url.includes('/generate') ||
-                            url.includes('/v1/chat/completions')) {
+                            url.includes('/v1/chat/completions')) &&
+                            !window.isSummarizing) {
                             console.log('🛑 [Fetch Hijack] 生成请求已拦截，暂停以执行向量检索...');
 
                             try {
+                                // ✅ 【关键修复】先执行隐藏，再执行向量检索
+                                if (C.contextLimit && window.Gaigai.applyContextLimitHiding) {
+                                    console.log('🔍 [Fetch Hijack] 先执行留N层隐藏...');
+                                    await window.Gaigai.applyContextLimitHiding();
+                                }
+
+                                if (C.autoSummaryHideContext && window.Gaigai.applyNativeHiding) {
+                                    console.log('🔍 [Fetch Hijack] 先执行已总结隐藏...');
+                                    await window.Gaigai.applyNativeHiding();
+                                }
+
                                 // 在发送前获取当前 chat 状态
                                 const ctx = SillyTavern.getContext();
                                 if (ctx && ctx.chat) {
@@ -9701,33 +12314,43 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                                             // 使用正则表达式匹配 [Start a new Chat]（不区分大小写）
                                             const startChatRegex = /\[Start a new chat\]/i;
 
-                                            // 递归遍历注入函数
-                                            const injectContent = (obj) => {
+                                            // 第一轮：专门替换 {{VECTOR_MEMORY}} 变量
+                                            const replaceVariable = (obj) => {
                                                 for (let key in obj) {
                                                     if (typeof obj[key] === 'string') {
-                                                        // 情况 A (最高优先级): 替换 {{VECTOR_MEMORY}} 标签
                                                         if (obj[key].includes('{{VECTOR_MEMORY}}')) {
                                                             obj[key] = obj[key].replace(/\{\{VECTOR_MEMORY\}\}/g, vectorText);
-                                                            console.log(`🎯 [智能注入] 在 ${key} 中找到并替换 {{VECTOR_MEMORY}} 标签`);
-                                                            injected = true;
-                                                        }
-                                                        // 情况 B (兜底策略): 在 [Start a new Chat] 前插入（使用正则保留原始大小写）
-                                                        else if (!injected && startChatRegex.test(obj[key])) {
-                                                            // 使用正则替换，保留原始标签
-                                                            obj[key] = obj[key].replace(startChatRegex, (match) => {
-                                                                return vectorText + '\n\n' + match;
-                                                            });
-                                                            console.log(`🎯 [智能注入] 在 ${key} 的 [Start a new Chat] 前插入向量内容`);
+                                                            console.log(`🎯 [智能注入-变量替换] 在 ${key} 中找到并替换 {{VECTOR_MEMORY}} 标签`);
                                                             injected = true;
                                                         }
                                                     } else if (typeof obj[key] === 'object' && obj[key] !== null) {
-                                                        injectContent(obj[key]);
+                                                        replaceVariable(obj[key]);
                                                     }
                                                 }
                                             };
 
-                                            // 执行智能注入
-                                            injectContent(bodyObj);
+                                            // 第二轮：兜底策略 - 在 [Start a new Chat] 前插入
+                                            const injectFallback = (obj) => {
+                                                for (let key in obj) {
+                                                    if (typeof obj[key] === 'string') {
+                                                        if (startChatRegex.test(obj[key])) {
+                                                            obj[key] = obj[key].replace(startChatRegex, (match) => {
+                                                                return vectorText + '\n\n' + match;
+                                                            });
+                                                            console.log(`🎯 [智能注入-兜底插入] 在 ${key} 的 [Start a new Chat] 前插入向量内容`);
+                                                            injected = true;
+                                                        }
+                                                    } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+                                                        injectFallback(obj[key]);
+                                                    }
+                                                }
+                                            };
+
+                                            // 执行两轮扫描：先变量替换，后兜底插入
+                                            replaceVariable(bodyObj);
+                                            if (!injected) {
+                                                injectFallback(bodyObj);
+                                            }
 
                                             if (injected) {
                                                 // 更新请求体
@@ -9763,13 +12386,22 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                                                             // 强制覆盖角色属性
                                                             msg.role = 'system';
                                                             msg.isGaigaiVector = true;
-                                                            msg.name = '向量化';
+
+                                                            // ✅ 智能命名：判断是否为合并消息
+                                                            if (content.length > vectorText.length + 500) {
+                                                                // 内容长度远大于向量文本，说明是酒馆压缩后的合并消息
+                                                                msg.name = 'SYSTEM (Merged)';
+                                                                console.log(`🏷️ [探针] 消息 #${idx} 已标记为 SYSTEM (Merged) - 检测到压缩合并 (${content.length} > ${vectorText.length + 500})`);
+                                                            } else {
+                                                                // 内容长度接近向量文本，说明是纯向量消息
+                                                                msg.name = 'SYSTEM (向量化)';
+                                                                console.log(`🏷️ [探针] 消息 #${idx} 已标记为 SYSTEM (向量化) - 纯向量注入`);
+                                                            }
 
                                                             // 确保没有其他角色标记
                                                             delete msg.is_user;
 
                                                             markedCount++;
-                                                            console.log(`🏷️ [探针] 消息 #${idx} 已强制标记为 SYSTEM (向量化)`);
                                                         }
                                                     });
 
@@ -9813,6 +12445,9 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 x.eventSource.on(x.event_types.MESSAGE_SWIPED, function (id) {
                     console.log(`↔️ [Swipe触发] 第 ${id} 楼正在切换分支...`);
 
+                    // 🚩 设置Swipe标志，通知后续的omsg跳过智能保护
+                    window.Gaigai.isSwiping = true;
+
                     const key = id.toString();
 
                     // 1. 🛑 [第一步：立即刹车] 清除该楼层正在进行的任何写入计划
@@ -9823,36 +12458,111 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     }
 
                     // 2. ⏪ [第二步：时光倒流] 强制回滚到上一楼的状态
-                    // 无论之前表格里是什么，必须先回到这一楼还没发生时的样子！
                     const prevKey = (id - 1).toString();
+
+                    // Determine the base snapshot to rollback to
+                    let targetBaseKey = null;
                     if (snapshotHistory[prevKey]) {
-                        restoreSnapshot(prevKey);
-                        console.log(`↺ [Swipe] 成功回档至基准线: 快照 [${prevKey}]`);
-                    } else if (id === 0) {
-                        restoreSnapshot('-1'); // 第0楼回滚到创世快照
-                        console.log(`↺ [Swipe] 第0楼回档至创世快照`);
-                    } else {
-                        // ✅ [安全补丁] 找不到上一楼快照时，检查是否是高楼层刷新后的情况
-                        if (id > 5 && snapshotHistory['-1']) {
-                            console.warn(`🛑 [安全拦截] 第 ${id} 楼缺失中间快照（可能是刷新后），禁止回滚到初始状态，保持当前数据。`);
-                        } else {
-                            console.warn(`⚠️ [Swipe] 警告: 找不到上一楼 [${prevKey}] 的快照，跳过回滚以保护数据。`);
-                        }
+                        targetBaseKey = prevKey;
+                    } else if (id === 0 && snapshotHistory['-1']) {
+                        targetBaseKey = '-1';
                     }
 
-                    // 3. 🗑️ [第三步：清理现场] 销毁当前楼层的旧快照
-                    // 因为这个快照属于"上一个分支"，现在已经作废了
+                    if (targetBaseKey) {
+                        // ✅ 强制回滚 (Force=true)，无视智能保护
+                        // Swipe 意味着用户明确想要撤销，所以必须强制执行
+                        restoreSnapshot(targetBaseKey, true);
+                        console.log(`↺ [Swipe] 成功强制回档至基准线: 快照 [${targetBaseKey}]`);
+                    } else {
+                        console.warn(`⚠️ [Swipe] 警告: 找不到上一楼的快照，无法回滚。`);
+                    }
+
+                    // 3. 🗑️ [第三步：清理现场] 销毁当前楼层的旧快照 (Dirty Snapshot)
+                    // 这迫使 omsg 重新计算并保存新的快照
                     if (snapshotHistory[key]) {
                         delete snapshotHistory[key];
                         console.log(`🗑️ [Swipe] 已销毁第 ${id} 楼的旧分支快照`);
                     }
 
-                    // 4. ▶️ [第四步：重新开始] 触发读取逻辑
-                    // 此时表格已经是干净的上一楼状态，omsg 会把当前显示的新分支当作"新消息"写入
+                    // 4. 💾 [第四步：立即持久化]
+                    m.save(true, true);
+                    console.log(`💾 [Swipe] 已立即保存回滚后的状态到 localStorage`);
+
+                    // 5. 🔄 [第五步：立即刷新 UI]
+                    if ($('#gai-main-pop').length > 0) {
+                        const activeTab = $('.g-t.act').data('i');
+                        if (activeTab !== undefined) {
+                            refreshTable(activeTab);
+                            console.log(`🔄 [Swipe] 已刷新活动标签页 [${activeTab}]`);
+                        }
+                        // Update tab counts
+                        m.s.slice(0, -1).forEach((_, i) => updateTabCount(i));
+                        console.log(`🔄 [Swipe] 已更新所有标签页计数`);
+                    }
+
+                    // 6. ▶️ [第六步：重新读取当前分支]
+                    // 关键！延迟一小段时间后，重新读取当前显示的 Swipe 内容并执行。
+                    // 如果是新生成(Regenerate)，这里读到的可能是空，但在生成结束后会有 CHARACTER_MESSAGE_RENDERED 再次触发。
+                    // 如果是切回旧分支(Swap)，这里会读到旧分支的内容并恢复表格。
                     setTimeout(() => {
-                        console.log(`▶️ [Swipe] 开始读取新分支内容...`);
+                        console.log(`▶️ [Swipe] 重新计算当前分支内容...`);
                         omsg(id);
-                    }, 50);
+                    }, 200); // 给 200ms 缓冲，确保 DOM 已经切换完成
+
+                    console.log(`✅ [Swipe] 回滚流程执行完毕，等待新生成...`);
+                });
+
+                // ✅✅✅ [暴力修复] 直接监听 DOM 点击事件，确保 Swipe 立即触发回滚
+                $(document).on('click', '.swipe_left, .swipe_right', function(e) {
+                    console.log('🖱️ [DOM监听] 检测到 Swipe 按钮点击，强制启动回滚流程...');
+
+                    // 1. 设置全局标志位，通知后续的 omsg 不要拦截
+                    window.Gaigai.isSwiping = true;
+
+                    // 2. 获取当前上下文
+                    const ctx = m.ctx();
+                    if (!ctx || !ctx.chat || ctx.chat.length === 0) return;
+
+                    // 3. 确定要回滚的目标（通常是当前最后一条消息的上一楼）
+                    // Swipe 实际上是重写最后一条消息，所以我们要让表格回到 "最后一条消息还没发生时" 的状态
+                    const currentId = ctx.chat.length - 1;
+                    const prevKey = (currentId - 1).toString();
+
+                    // 查找基准快照
+                    let targetBaseKey = null;
+                    if (snapshotHistory[prevKey]) {
+                        targetBaseKey = prevKey;
+                    } else if (currentId === 0 && snapshotHistory['-1']) {
+                        targetBaseKey = '-1';
+                    }
+
+                    // 4. 立即执行回滚
+                    if (targetBaseKey) {
+                        // Force = true (无视智能保护)
+                        const success = restoreSnapshot(targetBaseKey, true);
+                        if (success) {
+                            console.log(`↺ [DOM Swipe] 已强制回滚至快照 [${targetBaseKey}]`);
+                        }
+                    } else {
+                         console.warn(`⚠️ [DOM Swipe] 找不到上一楼 [${prevKey}] 的快照，无法回滚`);
+                    }
+
+                    // 5. 立即清理当前楼层的脏快照
+                    const currentKey = currentId.toString();
+                    if (snapshotHistory[currentKey]) {
+                        delete snapshotHistory[currentKey];
+                    }
+
+                    // 6. 立即保存并刷新 UI
+                    m.save(true, true);
+
+                    if ($('#gai-main-pop').length > 0) {
+                        const activeTab = $('.g-t.act').data('i');
+                        if (activeTab !== undefined) {
+                            refreshTable(activeTab);
+                            console.log('🔄 [DOM Swipe] UI 已刷新');
+                        }
+                    }
                 });
 
                 // 🗑️ [已删除] 自动回档监听器 (MESSAGE_DELETED) 已移除，防止重Roll时数据错乱。
@@ -9918,41 +12628,42 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         // 确保全局对象存在
         window.Gaigai = window.Gaigai || {};
 
-        // 动态加载 prompt_manager.js
-        const promptManagerUrl = `${EXTENSION_PATH}/prompt_manager.js`;
-        $.getScript(promptManagerUrl)
+        // 🚀 [优先级1] 最先加载 debug_manager.js，确保能捕获后续模块的所有错误
+        const debugManagerUrl = `${EXTENSION_PATH}/debug_manager.js`;
+        $.getScript(debugManagerUrl)
             .done(function () {
-                console.log('✅ [Loader] prompt_manager.js 加载成功');
+                console.log('✅ [Loader] debug_manager.js 加载成功 (优先加载)');
 
-                // 🆕 加载 io_manager.js
-                const ioManagerUrl = `${EXTENSION_PATH}/io_manager.js`;
-                $.getScript(ioManagerUrl)
+                // 🚀 [优先级2] 调试模块就绪后，开始加载业务模块
+                // 动态加载 prompt_manager.js
+                const promptManagerUrl = `${EXTENSION_PATH}/prompt_manager.js`;
+                $.getScript(promptManagerUrl)
                     .done(function () {
-                        console.log('✅ [Loader] io_manager.js 加载成功');
+                        console.log('✅ [Loader] prompt_manager.js 加载成功');
 
-                        // 🆕 加载 backfill_manager.js
-                        const backfillManagerUrl = `${EXTENSION_PATH}/backfill_manager.js`;
-                        $.getScript(backfillManagerUrl)
+                        // 🆕 加载 io_manager.js
+                        const ioManagerUrl = `${EXTENSION_PATH}/io_manager.js`;
+                        $.getScript(ioManagerUrl)
                             .done(function () {
-                                console.log('✅ [Loader] backfill_manager.js 加载成功');
+                                console.log('✅ [Loader] io_manager.js 加载成功');
 
-                                // 🆕 加载 world_info.js (必须在 summary_manager 之前加载)
-                                const worldInfoUrl = `${EXTENSION_PATH}/world_info.js`;
-                                $.getScript(worldInfoUrl)
+                                // 🆕 加载 backfill_manager.js
+                                const backfillManagerUrl = `${EXTENSION_PATH}/backfill_manager.js`;
+                                $.getScript(backfillManagerUrl)
                                     .done(function () {
-                                        console.log('✅ [Loader] world_info.js 加载成功');
+                                        console.log('✅ [Loader] backfill_manager.js 加载成功');
 
-                                        // 🆕 加载 summary_manager.js
-                                        const summaryManagerUrl = `${EXTENSION_PATH}/summary_manager.js`;
-                                        $.getScript(summaryManagerUrl)
+                                        // 🆕 加载 world_info.js (必须在 summary_manager 之前加载)
+                                        const worldInfoUrl = `${EXTENSION_PATH}/world_info.js`;
+                                        $.getScript(worldInfoUrl)
                                             .done(function () {
-                                                console.log('✅ [Loader] summary_manager.js 加载成功');
+                                                console.log('✅ [Loader] world_info.js 加载成功');
 
-                                                // 🆕 加载 debug_manager.js
-                                                const debugManagerUrl = `${EXTENSION_PATH}/debug_manager.js`;
-                                                $.getScript(debugManagerUrl)
+                                                // 🆕 加载 summary_manager.js
+                                                const summaryManagerUrl = `${EXTENSION_PATH}/summary_manager.js`;
+                                                $.getScript(summaryManagerUrl)
                                                     .done(function () {
-                                                        console.log('✅ [Loader] debug_manager.js 加载成功');
+                                                        console.log('✅ [Loader] summary_manager.js 加载成功');
 
                                                         // 🆕 加载 vector_manager.js
                                                         const vectorManagerUrl = `${EXTENSION_PATH}/vector_manager.js`;
@@ -9961,6 +12672,10 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                                                                 console.log('✅ [Loader] vector_manager.js 加载成功');
 
                                                                 // ✨ 验证模块是否成功挂载
+                                                                if (!window.Gaigai.DebugManager) {
+                                                                    console.error('⚠️ [Loader] window.Gaigai.DebugManager 未成功挂载！');
+                                                                    console.error(`📍 尝试加载的 URL: ${debugManagerUrl}`);
+                                                                }
                                                                 if (!window.Gaigai.IOManager) {
                                                                     console.error('⚠️ [Loader] window.Gaigai.IOManager 未成功挂载！');
                                                                     console.error(`📍 尝试加载的 URL: ${ioManagerUrl}`);
@@ -9976,10 +12691,6 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                                                                 if (!window.Gaigai.WI) {
                                                                     console.error('⚠️ [Loader] window.Gaigai.WI 未成功挂载！');
                                                                     console.error(`📍 尝试加载的 URL: ${worldInfoUrl}`);
-                                                                }
-                                                                if (!window.Gaigai.DebugManager) {
-                                                                    console.error('⚠️ [Loader] window.Gaigai.DebugManager 未成功挂载！');
-                                                                    console.error(`📍 尝试加载的 URL: ${debugManagerUrl}`);
                                                                 }
                                                                 if (!window.Gaigai.VM) {
                                                                     console.error('⚠️ [Loader] window.Gaigai.VM 未成功挂载！');
@@ -9999,9 +12710,19 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                                                                 setTimeout(tryInit, 500);
                                                             });
                                                     })
+                                                    .fail(function (jqxhr, settings, exception) {
+                                                        console.error('❌ [Loader] summary_manager.js 加载失败！');
+                                                        console.error(`📍 尝试加载的 URL: ${summaryManagerUrl}`);
+                                                        console.error(`📍 HTTP 状态码: ${jqxhr.status}`);
+                                                        console.error(`📍 错误详情:`, exception);
+                                                        console.error(`💡 提示：请检查文件是否存在，或控制台 Network 面板查看具体错误`);
+                                                        // 即使加载失败，也继续初始化（降级模式）
+                                                        setTimeout(tryInit, 500);
+                                                    });
+                                            })
                                             .fail(function (jqxhr, settings, exception) {
-                                                console.error('❌ [Loader] debug_manager.js 加载失败！');
-                                                console.error(`📍 尝试加载的 URL: ${debugManagerUrl}`);
+                                                console.error('❌ [Loader] world_info.js 加载失败！');
+                                                console.error(`📍 尝试加载的 URL: ${worldInfoUrl}`);
                                                 console.error(`📍 HTTP 状态码: ${jqxhr.status}`);
                                                 console.error(`📍 错误详情:`, exception);
                                                 console.error(`💡 提示：请检查文件是否存在，或控制台 Network 面板查看具体错误`);
@@ -10010,8 +12731,8 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                                             });
                                     })
                                     .fail(function (jqxhr, settings, exception) {
-                                        console.error('❌ [Loader] summary_manager.js 加载失败！');
-                                        console.error(`📍 尝试加载的 URL: ${summaryManagerUrl}`);
+                                        console.error('❌ [Loader] backfill_manager.js 加载失败！');
+                                        console.error(`📍 尝试加载的 URL: ${backfillManagerUrl}`);
                                         console.error(`📍 HTTP 状态码: ${jqxhr.status}`);
                                         console.error(`📍 错误详情:`, exception);
                                         console.error(`💡 提示：请检查文件是否存在，或控制台 Network 面板查看具体错误`);
@@ -10020,8 +12741,8 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                                     });
                             })
                             .fail(function (jqxhr, settings, exception) {
-                                console.error('❌ [Loader] world_info.js 加载失败！');
-                                console.error(`📍 尝试加载的 URL: ${worldInfoUrl}`);
+                                console.error('❌ [Loader] io_manager.js 加载失败！');
+                                console.error(`📍 尝试加载的 URL: ${ioManagerUrl}`);
                                 console.error(`📍 HTTP 状态码: ${jqxhr.status}`);
                                 console.error(`📍 错误详情:`, exception);
                                 console.error(`💡 提示：请检查文件是否存在，或控制台 Network 面板查看具体错误`);
@@ -10030,33 +12751,33 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                             });
                     })
                     .fail(function (jqxhr, settings, exception) {
-                        console.error('❌ [Loader] backfill_manager.js 加载失败！');
-                        console.error(`📍 尝试加载的 URL: ${backfillManagerUrl}`);
+                        console.error('❌ [Loader] prompt_manager.js 加载失败！请检查文件夹名称是否为 ST-Memory-Context');
+                        console.error(`📍 尝试加载的 URL: ${promptManagerUrl}`);
                         console.error(`📍 HTTP 状态码: ${jqxhr.status}`);
                         console.error(`📍 错误详情:`, exception);
-                        console.error(`💡 提示：请检查文件是否存在，或控制台 Network 面板查看具体错误`);
+                        console.error(`💡 提示：请检查 EXTENSION_PATH 是否正确，当前值为: ${EXTENSION_PATH}`);
                         // 即使加载失败，也继续初始化（降级模式）
                         setTimeout(tryInit, 500);
                     });
             })
             .fail(function (jqxhr, settings, exception) {
-                console.error('❌ [Loader] io_manager.js 加载失败！');
-                console.error(`📍 尝试加载的 URL: ${ioManagerUrl}`);
+                console.error('❌ [Loader] debug_manager.js 加载失败！但尝试继续加载其他模块');
+                console.error(`📍 尝试加载的 URL: ${debugManagerUrl}`);
                 console.error(`📍 HTTP 状态码: ${jqxhr.status}`);
                 console.error(`📍 错误详情:`, exception);
-                console.error(`💡 提示：请检查文件是否存在，或控制台 Network 面板查看具体错误`);
-                // 即使加载失败，也继续初始化（降级模式）
-                setTimeout(tryInit, 500);
-            });
-        })
-        .fail(function (jqxhr, settings, exception) {
-            console.error('❌ [Loader] prompt_manager.js 加载失败！请检查文件夹名称是否为 ST-Memory-Context');
-                console.error(`📍 尝试加载的 URL: ${promptManagerUrl}`);
-                console.error(`📍 HTTP 状态码: ${jqxhr.status}`);
-                console.error(`📍 错误详情:`, exception);
-                console.error(`💡 提示：请检查 EXTENSION_PATH 是否正确，当前值为: ${EXTENSION_PATH}`);
-                // 尝试备用路径（兼容某些改了文件夹名的用户）
-                // 如果你的文件夹名字不是这个，请修改 EXTENSION_PATH 变量
+                console.error(`💡 提示：调试模块加载失败，将无法捕获后续错误日志`);
+
+                // 即使调试模块失败，也尝试加载业务模块（降级模式）
+                const promptManagerUrl = `${EXTENSION_PATH}/prompt_manager.js`;
+                $.getScript(promptManagerUrl)
+                    .done(function () {
+                        console.log('✅ [Loader] prompt_manager.js 加载成功 (降级模式)');
+                        // 继续加载其他模块...
+                        setTimeout(tryInit, 500);
+                    })
+                    .fail(function () {
+                        console.error('❌ [Loader] 严重错误：核心模块加载失败，插件无法启动');
+                    });
             });
     }
 
@@ -10086,13 +12807,20 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         updateTabCount: updateTabCount,  // ✅ 子模块需要
         syncToWorldInfo: (...args) => window.Gaigai.WI.syncToWorldInfo(...args),  // ✅ 总结模块需要同步到世界书（兼容性包装）
         getCsrfToken: getCsrfToken,  // ✅ WI 模块需要
-        customRetryAlert: customRetryAlert  // ✅ 重试弹窗
+        customRetryAlert: customRetryAlert,  // ✅ 重试弹窗
+        DEFAULT_TABLES: DEFAULT_TABLES  // ✅ 单一数据源：默认表格结构（供 prompt_manager.js 等子模块使用）
     });
 
     // ✅ 使用 Object.defineProperty 创建引用（实现双向同步）
     Object.defineProperty(window.Gaigai, 'snapshotHistory', {
         get() { return snapshotHistory; },
         set(val) { snapshotHistory = val; }
+    });
+
+    // ✅ Fix: Expose summarizedRows to window.Gaigai so io_manager.js can read it during export
+    Object.defineProperty(window.Gaigai, 'summarizedRows', {
+        get() { return summarizedRows; },
+        set(val) { summarizedRows = val; }
     });
 
     Object.defineProperty(window.Gaigai, 'isRegenerating', {
@@ -10157,7 +12885,13 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 <div style="font-size:18px; font-weight:bold; margin-bottom:5px; color:var(--g-tc);">
                     📘 记忆表格 (Memory Context)
                 </div>
-                <div style="font-size:12px; opacity:0.8; margin-bottom:8px; color:var(--g-tc);">当前版本: v${cleanVer}</div>
+                <div style="font-size:12px; opacity:0.8; margin-bottom:8px; color:var(--g-tc);">
+                    当前版本: v${cleanVer}
+                    <span style="margin: 0 8px; opacity: 0.5;">|</span>
+                    <a href="https://pcnsnlcapni4.feishu.cn/wiki/AfPuwMlCSieXbckthFUc5bQYnMe" target="_blank" style="text-decoration:none; color:var(--g-tc); border-bottom:1px dashed var(--g-tc);">
+                       📖 详细使用说明书
+                    </a>
+                </div>
                 <div id="update-status" style="background:rgba(0,0,0,0.05); padding:6px; border-radius:4px; font-size:11px; display:flex; align-items:center; justify-content:center; gap:8px; color:var(--g-tc);">
                     ⏳ 正在连接 GitHub 检查更新...
                 </div>
@@ -10177,9 +12911,10 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         📢 本次更新内容 (v${cleanVer})
                     </h4>
                     <ul style="margin:0; padding-left:20px; font-size:12px; color:var(--g-tc); opacity:0.9;">
-                        <li><strong>修复bug ：</strong>修复修改提示词后，提示词无法被保存发送的问题</li>
-                        <li><strong>优化隐藏楼层 ：</strong>隐藏楼层自动清除上下文图片，避免图片太大导致报错的问题。</li>
-                        <li><strong>修复bug ：</strong>修复静默模式下手动填表和批量填表保存设置冲突的问题</li>
+                        <li><strong>⚠️重要通知⚠️：</strong>从1.7.5版本前更新的用户，必须进入【提示词区】上方的【表格结构编辑区】，手动将表格【恢复默认】。</li>
+                        <li><strong>优化：</strong>优化隐藏楼层功能，调用酒馆原生隐藏逻辑。</li>
+                        <li><strong>新增：</strong>新增以总结楼层的指针进度为基准，调用隐藏楼层的功能</li>
+                        <li><strong>新增：</strong>新增总结优化分批功能</li>
                 </div>
 
                 <!-- 📘 第二部分：功能指南 -->
@@ -10192,16 +12927,16 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         <div style="background:rgba(255,255,255,0.3); padding:10px; border-radius:6px; border:1px solid rgba(0,0,0,0.05);">
                             <div style="font-weight:bold; margin-bottom:4px; color:var(--g-tc); font-size:12px;">📊 填表模式 (二选一)</div>
                             <div style="font-size:11px; color:var(--g-tc); opacity:0.8;">
-                                • <strong>实时填表：</strong> 每回合都写。优点是实时性强，缺点是费钱/慢。<br>
-                                • <strong>批量填表：</strong> 每N楼写一次。优点是省Token、速度快。<br>
+                                • <strong>实时填表：</strong> 每次回复都写。优点是实时性强。<br>
+                                • <strong>批量填表：</strong> 每N楼写一次。优点是省Token。<br>
                                 <span style="opacity:0.6; font-size:10px;">(推荐开启批量填表 + 独立API)</span>
                             </div>
                         </div>
                         <div style="background:rgba(255,255,255,0.3); padding:10px; border-radius:6px; border:1px solid rgba(0,0,0,0.05);">
                             <div style="font-weight:bold; margin-bottom:4px; color:var(--g-tc); font-size:12px;">📝 总结模式</div>
                             <div style="font-size:11px; color:var(--g-tc); opacity:0.8;">
-                                • <strong>表格源：</strong> 读取表格里的数据生成总结。<br>
-                                • <strong>聊天源：</strong> 读取聊天记录生成总结。<br>
+                                • <strong>表格源：</strong> 依据表格里的填表数据生成总结。<br>
+                                • <strong>聊天源：</strong> 依据聊天历史楼层生成总结。<br>
                                 <span style="opacity:0.6; font-size:10px;">(可在配置中切换总结来源)</span>
                             </div>
                         </div>
@@ -10220,10 +12955,6 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 <div style="margin-top:15px; font-size:11px; text-align:center; opacity:0.7;">
                     <a href="${repoUrl}" target="_blank" style="text-decoration:none; color:var(--g-tc); border-bottom:1px dashed var(--g-tc);">
                        🔗 GitHub 项目主页
-                    </a>
-                    <span style="margin: 0 10px; opacity: 0.5;">|</span>
-                    <a href="https://pcnsnlcapni4.feishu.cn/wiki/AfPuwMlCSieXbckthFUc5bQYnMe" target="_blank" style="text-decoration:none; color:var(--g-tc); border-bottom:1px dashed var(--g-tc);">
-                       📖 详细使用说明书
                     </a>
                 </div>
             </div>
@@ -10329,169 +13060,4 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         return 0;
     }
 
-    // ✨✨✨ 探针模块 (内置版) ✨✨✨
-    (function () {
-        console.log('🔍 探针模块 (内置版) 已启动');
-
-        // 1. Token 计算辅助函数
-        function countTokens(text) {
-            if (!text) return 0;
-            try {
-                if (window.GPT3Tokenizer) {
-                    const tokenizer = new window.GPT3Tokenizer({ type: 'gpt3' });
-                    return tokenizer.encode(text).bpe.length;
-                }
-                const ctx = SillyTavern.getContext();
-                if (ctx && ctx.encode) return ctx.encode(text).length;
-            } catch (e) { }
-            return text.length;
-        }
-
-        // 2. 挂载显示函数到 Gaigai 对象
-        // 必须等待 index.js 主体执行完，Gaigai 对象挂载后才能执行
-        setTimeout(() => {
-            if (!window.Gaigai) return;
-
-            window.Gaigai.showLastRequest = function () {
-                const lastData = window.Gaigai.lastRequestData;
-                if (!lastData || !lastData.chat) {
-                    // ✨ 修复：调用共享的 customAlert，保持 UI 风格一致
-                    if (window.Gaigai.customAlert) {
-                        window.Gaigai.customAlert('❌ 暂无记录！\n\n请先去发送一条消息，插件会自动捕获发送内容。', '🔍 探针数据为空');
-                    } else {
-                        alert('❌ 暂无记录！\n\n请先去发送一条消息，插件会自动捕获发送内容。');
-                    }
-                    return;
-                }
-
-                let UI = { c: '#888888' };
-
-                try {
-                    const savedUI = localStorage.getItem('gg_ui');
-                    if (savedUI) UI = JSON.parse(savedUI);
-                    else if (window.Gaigai.ui) UI = window.Gaigai.ui;
-                } catch (e) { }
-
-                const esc = window.Gaigai.esc || ((t) => t);
-                const pop = window.Gaigai.pop;
-                const chat = lastData.chat;
-                let totalTokens = 0; // 初始化计数器
-                let listHtml = '';
-
-                // 🌙 夜间模式适配：根据 UI.darkMode 定义颜色变量
-                let itemBg, summaryBg, contentBg, borderColor;
-                if (UI.darkMode) {
-                    // 夜间模式：深灰色背景
-                    itemBg = 'rgba(40, 40, 40, 0.9)';
-                    summaryBg = 'rgba(50, 50, 50, 0.9)';
-                    contentBg = 'rgba(30, 30, 30, 0.5)';
-                    borderColor = 'rgba(255, 255, 255, 0.1)';
-                } else {
-                    // 白天模式：白色半透明
-                    itemBg = 'rgba(255, 255, 255, 0.5)';
-                    summaryBg = 'rgba(255, 255, 255, 0.8)';
-                    contentBg = 'rgba(255, 255, 255, 0.3)';
-                    borderColor = 'rgba(0, 0, 0, 0.1)';
-                }
-
-                // 生成列表并计算 Token
-                chat.forEach((msg, idx) => {
-                    const content = msg.content || '';
-                    // 简单的估算Token，仅供参考
-                    const tokens = (msg.content && msg.content.length) ? Math.ceil(msg.content.length / 1.5) : 0;
-                    totalTokens += tokens;
-                    let roleName = msg.role.toUpperCase();
-                    let roleColor = '#666';
-                    let icon = '📄';
-
-                    if (msg.role === 'system') {
-                        roleName = 'SYSTEM (系统)';
-                        roleColor = '#28a745'; icon = '⚙️';
-
-                        // 表格/总结数据
-                        if (msg.isGaigaiData) {
-                            // ✅ 修复：优先显示动态名字 (如 sys(总结1))，没有则显示默认
-                            roleName = msg.name || 'MEMORY (记忆表格)';
-                            roleColor = '#d35400'; icon = '📊';
-                        }
-
-                        // 提示词
-                        if (msg.isGaigaiPrompt) {
-                            roleName = 'PROMPT (提示词)';
-                            roleColor = '#e67e22';
-                            icon = '📌';
-                        }
-
-                        // ✅ 新增：向量化数据识别
-                        if (msg.isGaigaiVector) {
-                            roleName = 'SYSTEM (向量化)';
-                            roleColor = '#e91e63'; // 使用粉色，与向量化主题一致
-                            icon = '💠';
-                        }
-                    } else if (msg.role === 'user') {
-                        roleName = 'USER (用户)'; roleColor = '#2980b9'; icon = '🧑';
-                    } else if (msg.role === 'assistant') {
-                        roleName = 'ASSISTANT (AI)'; roleColor = '#8e44ad'; icon = '🤖';
-                    }
-
-                    listHtml += `
-                <details class="g-probe-item" style="margin-bottom:8px; border:1px solid ${borderColor}; border-radius:6px; background:${itemBg};">
-                    <summary style="padding:10px; background:${summaryBg}; cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center; user-select:none; outline:none;">
-                        <div style="font-weight:bold; color:${roleColor}; font-size:12px; display:flex; align-items:center; gap:6px;">
-                            <span>${icon}</span>
-                            <span>${roleName}</span>
-                            <span style="background:rgba(0,0,0,0.05); color:${UI.tc}; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:normal;">#${idx}</span>
-                        </div>
-                        <div style="font-size:11px; font-family:monospace; color:${UI.tc}; background:rgba(0,0,0,0.05); padding:2px 6px; border-radius:4px;">
-                            ${tokens} TK
-                        </div>
-                    </summary>
-                    <div class="g-probe-content" style="padding:10px; font-size:12px; line-height:1.6; color:${UI.tc}; border-top:1px solid ${borderColor}; white-space:pre-wrap; font-family:'Segoe UI', monospace; word-break:break-word; max-height: 500px; overflow-y: auto; background: ${contentBg};">${esc(content)}</div>
-                </details>`;
-                });
-
-                const h = `
-            <div class="g-p" style="padding:15px; height:100%; display:flex; flex-direction:column;">
-                <div style="flex:0 0 auto; background: linear-gradient(135deg, ${UI.c}EE, ${UI.c}99); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.25); color:${UI.tc}; padding:15px; border-radius:8px; margin-bottom:15px; box-shadow:0 10px 30px rgba(0,0,0,0.2);">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <div>
-                            <div style="font-size:12px; opacity:0.9;">Total Tokens</div>
-                            <div style="font-size:24px; font-weight:bold;">${totalTokens}</div>
-                        </div>
-                        <div style="text-align:right;">
-                            <div style="font-size:12px; opacity:0.9;">Messages</div>
-                            <div style="font-size:18px; font-weight:bold;">${chat.length} 条</div>
-                        </div>
-                    </div>
-                    <div style="position:relative;">
-                        <input type="text" id="gai-probe-search-input" placeholder="搜索..."
-                            style="width:100%; padding:8px 10px; padding-left:30px; border:1px solid rgba(255,255,255,0.3); border-radius:4px; background:rgba(0,0,0,0.2); color:${UI.tc}; font-size:12px; outline:none;">
-                        <i class="fa-solid fa-search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:rgba(255,255,255,0.6); font-size:12px;"></i>
-                    </div>
-                </div>
-                <div id="gai-probe-list" style="flex:1; overflow-y:auto; padding-right:5px;">${listHtml}</div>
-            </div>`;
-
-                if (pop) {
-                    pop('🔍 最后发送内容 & Toke', h, true);
-                    setTimeout(() => {
-                        $('#gai-probe-search-input').on('input', function () {
-                            const val = $(this).val().toLowerCase().trim();
-                            $('.g-probe-item').each(function () {
-                                const $details = $(this);
-                                const text = $details.find('.g-probe-content').text().toLowerCase();
-                                if (!val) {
-                                    $details.show().removeAttr('open').css('border', `1px solid ${borderColor}`);
-                                } else if (text.includes(val)) {
-                                    $details.show().attr('open', true).css('border', `2px solid ${UI.c}`);
-                                } else {
-                                    $details.hide();
-                                }
-                            });
-                        });
-                    }, 100);
-                } else alert('UI库未加载');
-            };
-        }, 500); // 延迟500毫秒确保 window.Gaigai 已挂载
-    })();
 })();

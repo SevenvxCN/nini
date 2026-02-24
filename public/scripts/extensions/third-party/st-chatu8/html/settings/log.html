@@ -1,4 +1,30 @@
 <div id="ch-tab-log">
+    <!-- 调试模式 -->
+    <div class="st-chatu8-settings-section">
+        <h3>🔧 调试模式</h3>
+        <div class="st-chatu8-field">
+            <label>调试开关</label>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <label class="checkbox_label">
+                    <input id="ch-debug-mode-toggle" type="checkbox" />
+                    <span>启用详细调试日志</span>
+                </label>
+                <span id="ch-debug-status" style="color: #999; font-size: 12px;"></span>
+            </div>
+        </div>
+        <div class="st-chatu8-field">
+            <label>调试工具</label>
+            <div>
+                <button id="ch-download-debug-log" class="st-chatu8-btn" disabled>下载调试日志</button>
+                <button id="ch-clear-debug-log" class="st-chatu8-btn danger" disabled>清空调试日志</button>
+            </div>
+        </div>
+        <div class="st-chatu8-field-col" style="font-size: 12px; color: #888;">
+            <span>💡 调试模式记录详细的函数执行时间和分支逻辑，开关不持久化，关闭设置页面后需重新启用。</span>
+        </div>
+    </div>
+
+    <!-- 普通日志 -->
     <div class="st-chatu8-settings-section">
         <h3>日志</h3>
         <div class="st-chatu8-field">
@@ -10,7 +36,25 @@
         </div>
         <div class="st-chatu8-field-col">
             <label for="ch-log-textarea">日志输出</label>
-            <textarea id="ch-log-textarea" class="st-chatu8-textarea" rows="20" readonly style="font-family: monospace; font-size: 12px;"></textarea>
+            <textarea id="ch-log-textarea" class="st-chatu8-textarea" rows="15" readonly style="font-family: monospace; font-size: 12px;"></textarea>
+        </div>
+    </div>
+
+    <!-- 任务管理器 -->
+    <div class="st-chatu8-settings-section">
+        <h3>📊 任务管理 <span id="ch-task-stats" class="st-chatu8-task-stats" style="display: none;"></span></h3>
+        <div class="st-chatu8-field">
+            <label>操作</label>
+            <div>
+                <button id="ch-cancel-all-tasks" class="st-chatu8-btn danger">全部取消</button>
+                <button id="ch-clear-completed" class="st-chatu8-btn">清空已完成</button>
+            </div>
+        </div>
+        <div class="st-chatu8-field-col">
+            <label>任务列表</label>
+            <div id="ch-task-list" class="st-chatu8-task-list">
+                <div class="st-chatu8-task-empty">暂无任务</div>
+            </div>
         </div>
     </div>
 </div>

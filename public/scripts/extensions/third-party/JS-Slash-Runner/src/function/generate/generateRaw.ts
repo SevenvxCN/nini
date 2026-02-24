@@ -5,18 +5,18 @@ import {
   character_names_behavior,
   default_order,
   detail,
+  extension_prompt_roles,
 } from '@/function/generate/types';
 import { convertFileToBase64, getPromptRole, isPromptFiltered } from '@/function/generate/utils';
-import { InjectionPrompt, injectPrompts } from '@/function/inject';
 import {
   MAX_INJECTION_DEPTH,
   eventSource,
   event_types,
+  extension_prompt_types,
   extension_prompts,
   getExtensionPromptByName,
   substituteParams,
 } from '@sillytavern/script';
-import { NOTE_MODULE_NAME } from '@sillytavern/scripts/authors-note';
 import {
   ChatCompletion,
   Message,
@@ -27,7 +27,7 @@ import {
 } from '@sillytavern/scripts/openai';
 import { persona_description_positions, power_user } from '@sillytavern/scripts/power-user';
 import { Prompt, PromptCollection } from '@sillytavern/scripts/PromptManager';
-import { uuidv4 } from '@sillytavern/scripts/utils';
+import { InjectionPrompt } from '../inject';
 
 /**
  * @fileoverview 原始生成路径处理模块 - 不使用预设的生成逻辑
@@ -289,7 +289,7 @@ async function populationInjectionPrompts(
   let totalInsertedMessages = 0;
   const injectionPrompts = [];
 
-  const authorsNote = _.get(extension_prompts, NOTE_MODULE_NAME, {}) as any;
+  const authorsNote = _.get(extension_prompts, '2_floating_prompt', {}) as any;
   if (authorsNote && authorsNote.value) {
     injectionPrompts.push({
       role: getPromptRole(authorsNote.role),
@@ -313,6 +313,7 @@ async function populationInjectionPrompts(
     });
   }
 
+  // 处理世界书里的深度条目
   if (!isPromptFiltered('char_depth_prompt', config)) {
     const wiDepthPrompt = baseData.worldInfo.worldInfoDepth;
     if (wiDepthPrompt) {
@@ -341,26 +342,72 @@ async function populationInjectionPrompts(
     }
   }
 
+  const knownExtensionPrompts = [
+    '1_memory',
+    '2_floating_prompt',
+    '3_vectors',
+    '4_vectors_data_bank',
+    'chromadb',
+    'PERSONA_DESCRIPTION',
+    'QUIET_PROMPT',
+    'DEPTH_PROMPT',
+  ];
+
+  // Anything that is not a known extension prompt
+  for (const key in extension_prompts) {
+    if (Object.hasOwn(extension_prompts, key)) {
+      // @ts-expect-error 类型正确
+      const prompt = extension_prompts[key];
+      if (knownExtensionPrompts.includes(key)) continue;
+      if (!prompt.value) continue;
+      if (![extension_prompt_types.BEFORE_PROMPT, extension_prompt_types.IN_PROMPT].includes(prompt.position)) continue;
+
+      const hasFilter = typeof prompt.filter === 'function';
+      if (hasFilter && !(await prompt.filter())) continue;
+
+      injectionPrompts.push({
+        identifier: key.replace(/\W/g, '_'),
+        role: getPromptRole(prompt.role),
+        content: prompt.value,
+        injection_depth: prompt.depth || 0,
+        injected: true,
+      });
+    }
+  }
+
+  const roleTypes = {
+    system: extension_prompt_roles.SYSTEM,
+    user: extension_prompt_roles.USER,
+    assistant: extension_prompt_roles.ASSISTANT,
+  };
+
   for (let i = 0; i <= MAX_INJECTION_DEPTH; i++) {
     const depthPrompts = injectionPrompts.filter(prompt => prompt.injection_depth === i && prompt.content);
 
-    const roles = ['system', 'user', 'assistant'];
+    const roles = ['system', 'user', 'assistant'] as const;
     const roleMessages = [];
     const separator = '\n';
 
     for (const role of roles) {
-      // 直接处理当前深度和角色的所有提示词
       const rolePrompts = depthPrompts
         .filter(prompt => prompt.role === role)
-        .map(x => x.content.trim())
+        .map(x => x.content)
         .join(separator);
 
-      if (rolePrompts) {
-        roleMessages.push({
-          role: role as 'user' | 'system' | 'assistant',
-          content: rolePrompts,
-          injected: true,
-        });
+      const extensionPrompt = await filteredGetExtensionPrompt(
+        extension_prompt_types.IN_CHAT,
+        i,
+        separator,
+        roleTypes[role],
+        false,
+      );
+      const jointPrompt = [rolePrompts, extensionPrompt]
+        .filter(x => x)
+        .map(x => x.trim())
+        .join(separator);
+
+      if (jointPrompt && jointPrompt.length) {
+        roleMessages.push({ role: role, content: jointPrompt, injected: true });
       }
     }
 
@@ -372,6 +419,46 @@ async function populationInjectionPrompts(
   }
 
   return processedMessages;
+}
+
+async function filteredGetExtensionPrompt(
+  position = extension_prompt_types.IN_PROMPT,
+  depth: number | undefined = undefined,
+  separator: string = '\n',
+  role: number | undefined = undefined,
+  wrap: boolean = true,
+) {
+  // @ts-expect-error 无视类型
+  const filterByFunction = async prompt => {
+    const hasFilter = typeof prompt.filter === 'function';
+    if (hasFilter && !(await prompt.filter())) {
+      return false;
+    }
+    return true;
+  };
+  const promptPromises = Object.keys(extension_prompts)
+    .sort()
+    .filter(x => x !== '2_floating_prompt' && !/customDepthWI-\d+-\d+/.test(x) && !/TH-CustomInjects-.+/.test(x))
+    // @ts-expect-error 无视类型
+    .map(x => extension_prompts[x])
+    .filter(x => x.position == position && x.value)
+    .filter(x => depth === undefined || x.depth === undefined || x.depth === depth)
+    .filter(x => role === undefined || x.role === undefined || x.role === role)
+    .filter(filterByFunction);
+  const prompts = await Promise.all(promptPromises);
+
+  // @ts-expect-error 无视类型
+  let values = prompts.map(x => x.value.trim()).join(separator);
+  if (wrap && values.length && !values.startsWith(separator)) {
+    values = separator + values;
+  }
+  if (wrap && values.length && !values.endsWith(separator)) {
+    values = values + separator;
+  }
+  if (values.length) {
+    values = substituteParams(values);
+  }
+  return values;
 }
 
 /**

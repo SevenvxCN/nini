@@ -41,12 +41,12 @@
             "matchCreatorNotes": false,
             "ignoreBudget": false,
             "triggers": [],
+            "outletName": "",
             "characterFilter": {
                 "isExclude": false,
                 "names": [],
                 "tags": []
-            },
-            "outletName": ""
+            }
         },
         "1": {
             "uid": 1,
@@ -89,12 +89,12 @@
             "matchCreatorNotes": false,
             "ignoreBudget": false,
             "triggers": [],
+            "outletName": "",
             "characterFilter": {
                 "isExclude": false,
                 "names": [],
                 "tags": []
-            },
-            "outletName": ""
+            }
         },
         "2": {
             "uid": 2,
@@ -233,12 +233,12 @@
             "matchCreatorNotes": false,
             "ignoreBudget": false,
             "triggers": [],
+            "outletName": "",
             "characterFilter": {
                 "isExclude": false,
                 "names": [],
                 "tags": []
-            },
-            "outletName": ""
+            }
         },
         "5": {
             "uid": 5,

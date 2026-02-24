@@ -188,8 +188,173 @@ declare const builtin: {
   saveSettings: () => Promise<void>;
   uuidv4: () => string;
 };
-/** @deprecated 之前的 `Character` 已经重命名为 `RawCharacter`, 给之后制作角色卡接口 `Character` 腾位置 */
-type Character = RawCharacter;
+type Character = {
+  avatar: `${string}.png` | Blob;
+  version: string;
+  creator: string;
+  creator_notes: string;
+
+  worldbook: string | null;
+  description: string;
+  first_messages: string[];
+
+  extensions: {
+    regex_scripts: TavernRegex[];
+    tavern_helper: {
+      scripts: Record<string, any>[];
+      variables: Record<string, any>;
+    };
+    [other: string]: any;
+  };
+};
+
+/**
+ * 获取角色卡名称列表
+ *
+ * @returns 角色卡名称列表
+ */
+declare function getCharacterNames(): string[];
+
+/**
+ * 获取当前角色卡名称
+ *
+ * @returns 当前角色卡名称, 如果当前没有角色卡, 则返回 `null`
+ */
+declare function getCurrentCharacterName(): string | null;
+
+/**
+ * 新建 `character_name` 角色卡, 内容为 `character`
+ *
+ * @param character_name 角色卡名称
+ * @param character 角色卡数据; 不填则使用默认数据
+ *
+ * @returns 是否成功创建, 如果已经存在同名角色卡或尝试创建名为 `'current'` 的角色卡会失败
+ *
+ * @throws 如果访问后端失败, 将会抛出异常
+ */
+declare function createCharacter(
+  character_name: Exclude<string, 'current'>,
+  character?: PartialDeep<Character>,
+): Promise<boolean>;
+
+/**
+ * 创建或替换名为 `character_name` 的角色卡, 内容为 `character`
+ *
+ * @param character_name 角色卡名称
+ * @param character 角色卡数据; 不填则使用默认数据
+ * @param options 可选选项
+ *   - `render:'debounced'|'immediate'|'none'`: 酒馆网页应该防抖渲染 (debounced)、立即渲染 (immediate) 还是不刷新前端显示 (none)? 默认为性能更好的防抖渲染
+ *
+ * @returns 如果发生创建, 则返回 `true`; 如果发生替换, 则返回 `false`
+ *
+ * @throws 如果访问后端失败, 将会抛出异常
+ */
+declare function createOrReplaceCharacter(
+  character_name: Exclude<string, 'current'>,
+  character?: PartialDeep<Character>,
+  options?: ReplaceCharacterOptions,
+): Promise<boolean>;
+
+/**
+ * 删除 `character_name` 角色卡
+ *
+ * @param character_name 角色卡名称
+ *
+ * @returns 是否成功删除, 可能因角色卡不存在等原因而失败
+ */
+declare function deleteCharacter(character_name: LiteralUnion<'current', string>): Promise<boolean>;
+
+/**
+ * 获取 `character_name` 角色卡的内容
+ *
+ * @param character_name 角色卡名称
+ *
+ * @returns 角色卡内容
+ *
+ * @throws 如果角色卡不存在, 将会抛出异常
+ */
+declare function getCharacter(character_name: LiteralUnion<'current', string>): Promise<Character>;
+
+type ReplaceCharacterOptions = {
+  /** 酒馆网页应该防抖渲染 (debounced)、立即渲染 (immediate) 还是不刷新前端显示 (none)? 默认为性能更好的防抖渲染 */
+  render?: 'debounced' | 'immediate' | 'none';
+};
+
+/**
+ * 完全替换 `character_name` 角色卡的内容为 `character`
+ *
+ * @param character_name 角色卡名称
+ * @param character 角色卡数据
+ * @param options 可选选项
+ *   - `render:'debounced'|'immediate'|'none'`: 酒馆网页应该防抖渲染 (debounced)、立即渲染 (immediate) 还是不刷新前端显示 (none)? 默认为性能更好的防抖渲染
+ *
+ * @throws 如果角色卡不存在, 将会抛出异常
+ * @throws 如果访问后端失败, 将会抛出异常
+ *
+ * @example
+ * // 为角色卡更改开场白
+ * const character = await getCharacter('角色卡名称');
+ * character.first_messages = ['新的开场白1', '新的开场白2'];
+ * await replaceCharacter('角色卡名称', character);
+ *
+ * @example
+ * // 清空角色卡的局部正则
+ * const character = await getCharacter('角色卡名称');
+ * character.extensions.regex_scripts = [];
+ * await replaceCharacter('角色卡名称', character);
+ *
+ * @example
+ * // 更换角色卡头像
+ * const character = await getCharacter('角色卡名称');
+ * character.avatar = await fetch('https://example.com/avatar.png').then(response => response.blob());
+ * await replaceCharacter('角色卡名称', character);
+ */
+declare function replaceCharacter(
+  character_name: Exclude<string, 'current'>,
+  character: PartialDeep<Character>,
+  options?: ReplaceCharacterOptions,
+): Promise<void>;
+
+type CharacterUpdater = ((character: Character) => Character) | ((character: Character) => Promise<Character>);
+
+/**
+ * 用 `updater` 函数更新 `character_name` 角色卡
+ *
+ * @param character_name 角色卡名称
+ * @param updater 用于更新角色卡的函数. 它应该接收角色卡内容作为参数, 并返回更新后的角色卡内容.
+ * @param options 可选选项
+ *   - `render:'debounced'|'immediate'|'none'`: 如果对角色卡进行操作, 应该防抖渲染 (debounced)、立即渲染 (immediate) 还是不刷新前端显示 (none)? 默认为性能更好的防抖渲染
+ *
+ * @returns 更新后的角色卡内容
+ *
+ * @throws 如果角色卡不存在, 将会抛出异常
+ * @throws 如果访问后端失败, 将会抛出异常
+ *
+ * @example
+ * // 为角色卡添加一个开场白
+ * await updateCharacterWith('角色卡名称', character => {
+ *   character.first_messages.push('新的开场白');
+ *   return character;
+ * });
+ *
+ * @example
+ * // 清空角色卡的局部正则
+ * await updateCharacterWith('角色卡名称', character => {
+ *   character.extensions.regex_scripts = [];
+ *   return character;
+ * });
+ *
+ * @example
+ * // 更换角色卡头像
+ * await updateCharacterWith('角色卡名称', async character => {
+ *   character.avatar = await fetch('https://example.com/avatar.png').then(response => response.blob());
+ *   return character;
+ * });
+ */
+declare function updateCharacterWith(
+  character_name: LiteralUnion<'current', string>,
+  updater: CharacterUpdater,
+): Promise<Character>;
 type ChatMessage = {
   message_id: number;
   name: string;
@@ -229,9 +394,7 @@ type GetChatMessagesOption = {
  *   - `hide_state:'all'|'hidden'|'unhidden'`: 按是否被隐藏筛选消息; 默认为 `'all'`
  *   - `include_swipes:false`: 不包含未被 AI 使用的消息页信息
  *
- * @returns 一个 `ChatMessage` 数组, 依据 message_id 从低到高排序
- *
- * @throws 如果提供的范围 `range` 无效, 将会抛出错误
+ * @returns 一个 `ChatMessage` 数组, 包含指定楼层范围内实际存在的所有楼层, 依据 message_id 从低到高排序; 如果范围内完全不存在楼层 (如目前只有 3 楼, 但范围为 `4-5`), 则返回空数组
  *
  * @example
  * // 仅获取第 10 楼被 AI 使用的消息页
@@ -261,7 +424,7 @@ declare function getChatMessages(
  *   - `hide_state:'all'|'hidden'|'unhidden'`: 按是否被隐藏筛选消息; 默认为 `'all'`
  *   - `include_swipes:true`: 包含未被 AI 使用的消息页信息
  *
- * @returns 一个 `ChatMessageSwiped` 数组, 依据 message_id 从低到高排序
+ * @returns 一个 `ChatMessage` 数组, 包含指定楼层范围内实际存在的所有楼层, 依据 message_id 从低到高排序; 如果范围内完全不存在楼层 (如目前只有 3 楼, 但范围为 `4-5`), 则返回空数组
  *
  * @example
  * // 获取第 10 楼所有的消息页
@@ -299,7 +462,7 @@ declare function getChatMessages(
 
 type SetChatMessagesOption = {
   /**
-   * 是否更新楼层在页面上的显示, 只会更新已经被加载在网页上的楼层, 并触发被更新楼层的 "仅格式显示" 正则; 默认为 `'affected'`
+   * 是否更新楼层在页面上的显示; 默认为 `'affected'`
    * - `'none'`: 不更新页面的显示
    * - `'affected'`: 仅更新被影响楼层的显示, 更新显示时会发送 `tavern_events.USER_MESSAGE_RENDERED` 或 `tavern_events.CHARACTER_MESSAGE_RENDERED` 事件
    * - `'all'`: 重新载入整个聊天消息, 将会触发 `tavern_events.CHAT_CHANGED` 事件
@@ -312,7 +475,7 @@ type SetChatMessagesOption = {
  *
  * @param chat_messages 要修改的消息, 必须包含 `message_id` 字段
  * @param option 可选选项
- *   - `refresh:'none'|'affected'|'all'`: 是否更新楼层在页面上的显示, 只会更新已经被加载在网页上的楼层, 并触发被更新楼层的 "仅格式显示" 正则; 默认为 `'affected'`
+ *   - `refresh:'none'|'affected'|'all'`: 是否更新楼层在页面上的显示; 默认为 `'affected'`
  *
  * @example
  * // 修改第 10 楼被 AI 使用的消息页的正文
@@ -355,17 +518,12 @@ type ChatMessageCreating = {
   extra?: Record<string, any>;
 };
 
-type CreateChatMessagesOption = {
-  /** 插入到指定楼层前或末尾; 默认为末尾 */
+type CreateChatMessagesOption = SetChatMessagesOption & {
+  /** @deprecated 请使用 `insert_before` */
   insert_at?: number | 'end';
 
-  /**
-   * 是否更新楼层在页面上的显示, 只会更新已经被加载在网页上的楼层, 并触发被更新楼层的 "仅格式显示" 正则; 默认为 `'affected'`
-   * - `'none'`: 不更新页面的显示
-   * - `'affected'`: 仅更新被影响楼层的显示
-   * - `'all'`: 重新载入整个聊天消息, 将会触发 `tavern_events.CHAT_CHANGED` 事件
-   */
-  refresh?: 'none' | 'affected' | 'all';
+  /** 插入到指定楼层前或末尾; 默认为末尾 */
+  insert_before?: number | 'end';
 };
 
 /**
@@ -373,8 +531,8 @@ type CreateChatMessagesOption = {
  *
  * @param chat_messages 要创建的消息, 必须包含 `role` 和 `message` 字段
  * @param option 可选选项
- *   - `insert_at:number|'end'`: 插入到指定楼层前或末尾; 默认为末尾
- *   - `refresh:'none'|'affected'|'all'`: 是否更新楼层在页面上的显示, 只会更新已经被加载在网页上的楼层, 并触发被更新楼层的 "仅格式显示" 正则; 默认为 `'affected'`
+ *   - `insert_before:number|'end'`: 插入到指定楼层前或末尾; 默认为末尾
+ *   - `refresh:'none'|'affected'|'all'`: 是否更新楼层在页面上的显示; 默认为 `'affected'`
  *
  * @example
  * // 在第 10 楼前插入一条消息
@@ -386,24 +544,15 @@ type CreateChatMessagesOption = {
  */
 declare function createChatMessages(
   chat_messages: ChatMessageCreating[],
-  { insert_at, refresh }?: CreateChatMessagesOption,
+  { insert_before, refresh }?: CreateChatMessagesOption,
 ): Promise<void>;
-
-type DeleteChatMessagesOption = {
-  /**
-   * 是否更新楼层在页面上的显示, 只会更新已经被加载在网页上的楼层, 并触发被更新楼层的 "仅格式显示" 正则; 默认为 `'all'`
-   * - `'none'`: 不更新页面的显示
-   * - `'all'`: 重新载入整个聊天消息, 将会触发 `tavern_events.CHAT_CHANGED` 事件
-   */
-  refresh?: 'none' | 'all';
-};
 
 /**
  * 删除聊天消息
  *
  * @param message_ids 要删除的消息楼层号数组
  * @param option 可选选项
- *   - `refresh:'none'|'all'`: 是否更新楼层在页面上的显示, 只会更新已经被加载在网页上的楼层, 并触发被更新楼层的 "仅格式显示" 正则; 默认为 `'all'`
+ *   - `refresh:'none'|'affected'|'all'`: 是否更新楼层在页面上的显示; 默认为 `'affected'`
  *
  * @example
  * // 删除第 10 楼、第 15 楼、倒数第二楼和最后一楼
@@ -413,16 +562,7 @@ type DeleteChatMessagesOption = {
  * // 删除所有楼层
  * await deleteChatMessages(_.range(getLastMessageId() + 1));
  */
-declare function deleteChatMessages(message_ids: number[], { refresh }?: DeleteChatMessagesOption): Promise<void>;
-
-type RotateChatMessagesOption = {
-  /**
-   * 是否更新楼层在页面上的显示, 只会更新已经被加载在网页上的楼层, 并触发被更新楼层的 "仅格式显示" 正则; 默认为 `'all'`
-   * - `'none'`: 不更新页面的显示
-   * - `'all'`: 重新载入整个聊天消息, 将会触发 `tavern_events.CHAT_CHANGED` 事件
-   */
-  refresh?: 'none' | 'all';
-};
+declare function deleteChatMessages(message_ids: number[], { refresh }?: SetChatMessagesOption): Promise<void>;
 
 /**
  * 将原本顺序是 `[begin, middle) [middle, end)` 的楼层旋转为 `[middle, end) [begin, middle)`
@@ -431,7 +571,7 @@ type RotateChatMessagesOption = {
  * @param middle 旋转后将会被放到最开头的楼层号
  * @param end 旋转前结尾楼层的楼层号 + 1
  * @param option 可选选项
- *   - `refresh:'none'|'all'`: 是否更新楼层在页面上的显示, 只会更新已经被加载在网页上的楼层, 并触发被更新楼层的 "仅格式显示" 正则; 默认为 `'all'`
+ *   - `refresh:'none'|'affected'|'all'`: 是否更新楼层在页面上的显示; 默认为 `'affected'`
  *
  * @example
  * // 将最后一楼放到第 5 楼之前
@@ -447,7 +587,7 @@ declare function rotateChatMessages(
   begin: number,
   middle: number,
   end: number,
-  { refresh }?: RotateChatMessagesOption,
+  { refresh }?: SetChatMessagesOption,
 ): Promise<void>;
 /**
  * 获取消息楼层号对应的消息内容 JQuery 实例
@@ -495,6 +635,30 @@ type FormatAsDisplayedMessageOption = {
  * => "<p>少女歌剧 speaks in 5</p>";
  */
 declare function formatAsDisplayedMessage(text: string, { message_id }?: FormatAsDisplayedMessageOption): string;
+
+/**
+ * 刷新或替换单个楼层的显示, 如果该楼层并没有显示在网页上则什么也不做
+ *
+ * @param message_id 要刷新的消息楼层号
+ * @param $mes 要刷新的消息楼层对应的 JQuery 实例, 如果未提供则自动通过 `message_id` 获取
+ *
+ * @example
+ * // 刷新第 0 楼的显示
+ * await refreshOneMessage(0);
+ *
+ * @example
+ * // 刷新最新楼层的显示
+ * await refreshOneMessage(getLastMessageId());
+ *
+ * @example
+ * // 强行让第 5 楼显示第 0 楼的消息, 这只会影响网页显示, 不会影响实际聊天记录
+ * await refreshOneMessage(0, $('#chat > .mes[mesid="5"]'));
+ *
+ * @example
+ * // 强行让最后一楼显示第 0 楼的消息, 这只会影响网页显示, 不会影响实际聊天记录
+ * await refreshOneMessage(0, $('#chat > .mes.last_mes'));
+ */
+declare function refreshOneMessage(message_id: number, $mes?: JQuery): Promise<void>;
 /** 检查当前用户是否为管理员, 只有管理员能更新全局扩展 */
 declare function isAdmin(): boolean;
 
@@ -600,180 +764,6 @@ declare function reinstallExtension(extension_id: string): Promise<Response>;
  */
 declare function updateExtension(extension_id: string): Promise<Response>;
 /**
- * 自定义API配置
- */
-type CustomApiConfig = {
-  /** 自定义API地址 */
-  apiurl: string;
-  /** API密钥 */
-  key?: string;
-  /** 模型名称 */
-  model: string;
-  /** API源，默认为 'openai' */
-  source?: string;
-
-  /** 最大回复 tokens 度 */
-  max_tokens?: 'same_as_preset' | 'unset' | number;
-  /** 温度 */
-  temperature?: 'same_as_preset' | 'unset' | number;
-  /** 频率惩罚 */
-  frequency_penalty?: 'same_as_preset' | 'unset' | number;
-  /** 存在惩罚 */
-  presence_penalty?: 'same_as_preset' | 'unset' | number;
-  top_p?: 'same_as_preset' | 'unset' | number;
-  top_k?: 'same_as_preset' | 'unset' | number;
-};
-
-type GenerateConfig = {
-  /** 用户输入 */
-  user_input?: string;
-
-  /**
-   * 图片输入，支持以下格式：
-   * - File 对象：通过 input[type="file"] 获取的文件对象
-   * - Base64 字符串：图片的 base64 编码
-   * - URL 字符串：图片的在线地址
-   */
-  image?: File | string | (File | string)[];
-
-  /**
-   * 是否启用流式传输; 默认为 `false`.
-   *
-   * 若启用流式传输, 每次得到流式传输结果时, 函数将会发送事件:
-   * - `iframe_events.STREAM_TOKEN_RECEIVED_FULLY`: 监听它可以得到流式传输的当前完整文本 ("这是", "这是一条", "这是一条流式传输")
-   * - `iframe_events.STREAM_TOKEN_RECEIVED_INCREMENTALLY`: 监听它可以得到流式传输的当前增量文本 ("这是", "一条", "流式传输")
-   *
-   * @example
-   * eventOn(iframe_events.STREAM_TOKEN_RECEIVED_FULLY, text => console.info(text));
-   */
-  should_stream?: boolean;
-
-  /**
-   * 覆盖选项. 若设置, 则 `overrides` 中给出的字段将会覆盖对应的提示词.
-   *   如 `overrides.char_description = '覆盖的角色描述';` 将会覆盖角色描述.
-   */
-  overrides?: Overrides;
-
-  /** 要额外注入的提示词 */
-  injects?: Omit<InjectionPrompt, 'id'>[];
-
-  /** 最多使用多少条聊天历史; 默认为 'all' */
-  max_chat_history?: 'all' | number;
-
-  /** 自定义API配置 */
-  custom_api?: CustomApiConfig;
-
-  /**
-   * 唯一id
-   *
-   * 可以并发生成，并可以通过stopGenerateById停止特定生成，不设置默认生成uuid，在发送的事件中也会返回该id
-   */
-  generation_id?: string;
-};
-
-type GenerateRawConfig = {
-  /**
-   * 用户输入.
-   *
-   * 如果设置, 则无论 ordered_prompts 中是否有 'user_input' 都会加入该用户输入提示词; 默认加入在 'chat_history' 末尾.
-   */
-  user_input?: string;
-
-  /**
-   * 图片输入，支持以下格式：
-   * - File 对象：通过 input[type="file"] 获取的文件对象
-   * - Base64 字符串：图片的 base64 编码
-   * - URL 字符串：图片的在线地址
-   */
-  image?: File | string | (File | string)[];
-
-  /**
-   * 是否启用流式传输; 默认为 `false`.
-   *
-   * 若启用流式传输, 每次得到流式传输结果时, 函数将会发送事件:
-   * - `ifraem_events.STREAM_TOKEN_RECEIVED_FULLY`: 监听它可以得到流式传输的当前完整文本 ("这是", "这是一条", "这是一条流式传输")
-   * - `iframe_events.STREAM_TOKEN_RECEIVED_INCREMENTALLY`: 监听它可以得到流式传输的当前增量文本 ("这是", "一条", "流式传输")
-   *
-   * @example
-   * eventOn(iframe_events.STREAM_TOKEN_RECEIVED_FULLY, text => console.info(text));
-   */
-  should_stream?: boolean;
-
-  /**
-   * 覆盖选项. 若设置, 则 `overrides` 中给出的字段将会覆盖对应的提示词.
-   *   如 `overrides.char_description = '覆盖的角色描述';` 将会覆盖提示词
-   */
-  overrides?: Overrides;
-
-  injects?: Omit<InjectionPrompt, 'id'>[];
-
-  /**
-   * 一个提示词数组, 数组元素将会按顺序发给 AI, 因而相当于自定义预设. 该数组允许存放两种类型:
-   * - `BuiltinPrompt`: 内置提示词. 由于不使用预设, 如果需要 "角色描述" 等提示词, 你需要自己指定要用哪些并给出顺序
-   *                      如果不想自己指定, 可通过 `builtin_prompt_default_order` 得到酒馆默认预设所使用的顺序 (但对于这种情况, 也许你更应该用 `generate`).
-   * - `RolePrompt`: 要额外给定的提示词.
-   */
-  ordered_prompts?: (BuiltinPrompt | RolePrompt)[];
-
-  /** 最多使用多少条聊天历史; 默认为 'all' */
-  max_chat_history?: 'all' | number;
-
-  /** 自定义API配置 */
-  custom_api?: CustomApiConfig;
-
-  /**
-   * 唯一id
-   *
-   * 可以并发生成，并可以通过stopGenerateById停止特定生成，不设置默认生成uuid，在发送的事件中也会返回该id
-   */
-  generation_id?: string;
-};
-
-type RolePrompt = {
-  role: 'system' | 'assistant' | 'user';
-  content: string;
-  image?: File | string | (File | string)[];
-};
-
-type Overrides = {
-  world_info_before?: string;
-  persona_description?: string;
-  char_description?: string;
-  char_personality?: string;
-  scenario?: string;
-  world_info_after?: string;
-  dialogue_examples?: string;
-
-  /**
-   * 聊天历史
-   * - `with_depth_entries`: 是否启用世界书中按深度插入的条目; 默认为 `true`
-   * - `author_note`: 若设置, 覆盖 "作者注释" 为给定的字符串
-   * - `prompts`: 若设置, 覆盖 "聊天历史" 为给定的提示词
-   */
-  chat_history?: {
-    with_depth_entries?: boolean;
-    author_note?: string;
-    prompts?: RolePrompt[];
-  };
-};
-
-/**
- * 预设为内置提示词设置的默认顺序
- */
-declare const builtin_prompt_default_order: BuiltinPrompt[];
-
-type BuiltinPrompt =
-  | 'world_info_before'
-  | 'persona_description'
-  | 'char_description'
-  | 'char_personality'
-  | 'scenario'
-  | 'world_info_after'
-  | 'dialogue_examples'
-  | 'chat_history'
-  | 'user_input';
-
-/**
  * 使用酒馆当前启用的预设, 让 AI 生成一段文本.
  *
  * 该函数在执行过程中将会发送以下事件:
@@ -785,6 +775,7 @@ type BuiltinPrompt =
  * @param config 提示词和生成方式设置
  *   - `user_input?:string`: 用户输入
  *   - `should_stream?:boolean`: 是否启用流式传输; 默认为 'false'
+ *   - `should_silence?:boolean`: 是否静默生成; 默认为 'false'
  *   - `image?:File|string`: 图片输入
  *   - `overrides?:Overrides`: 覆盖选项. 若设置, 则 `overrides` 中给出的字段将会覆盖对应的提示词. 如 `overrides.char_description = '覆盖的角色描述';` 将会覆盖角色描述
  *   - `injects?:Omit<InjectionPrompt, 'id'>[]`: 要额外注入的提示词
@@ -855,6 +846,7 @@ declare function generate(config: GenerateConfig): Promise<string>;
  * @param config 提示词和生成方式设置
  *   - `user_input?:string`: 用户输入
  *   - `should_stream?:boolean`: 是否启用流式传输; 默认为 'false'
+ *   - `should_silence?:boolean`: 是否静默生成; 默认为 'false'
  *   - `image?:File|string`: 图片输入
  *   - `overrides?:Overrides`: 覆盖选项. 若设置, 则 `overrides` 中给出的字段将会覆盖对应的提示词. 如 `overrides.char_description = '覆盖的角色描述';` 将会覆盖角色描述
  *   - `injects?:Omit<InjectionPrompt, 'id'>[]`: 要额外注入的提示词
@@ -896,19 +888,165 @@ declare function generate(config: GenerateConfig): Promise<string>;
 declare function generateRaw(config: GenerateRawConfig): Promise<string>;
 
 /**
- * 根据生成ID停止特定的生成过程
+ * 获取模型列表
  *
- * @param generationId 生成ID，用于标识要停止的生成过程
- * @returns Promise<boolean> 返回是否成功停止生成
+ * @param custom_api 自定义API配置
+ * @returns Promise<string[]> 模型列表
+ * @throws 获取模型列表失败
  */
-declare function stopGenerationById(generationId: string): Promise<boolean>;
+declare function getModelList(custom_api: { apiurl: string; key?: string }): Promise<string[]>;
 
 /**
- * 停止所有正在进行的生成过程
+ * 根据生成请求唯一标识符停止特定的生成请求
  *
- * @returns Promise<boolean> 返回是否成功停止所有生成
+ * @param generation_id 生成请求唯一标识符, 用于标识要停止的生成请求
+ * @returns boolean 是否成功停止生成
  */
-declare function stopAllGeneration(): Promise<boolean>;
+declare function stopGenerationById(generation_id: string): boolean;
+
+/**
+ * 停止所有正在进行的生成请求
+ *
+ * @returns boolean 是否成功停止所有生成
+ */
+declare function stopAllGeneration(): boolean;
+
+type GenerateConfig = {
+  /**
+   * 请求生成的唯一标识符, 不设置则默认生成一个随机标识符.
+   *
+   * 当有多个 generate/generateRaw 同时请求生成时, 可以为每个请求指定唯一标识符, 从而能用 `stopGenerationById` 停止特定生成请求, 或正确监听对应的生成事件.
+   */
+  generation_id?: string;
+
+  /** 用户输入 */
+  user_input?: string;
+
+  /**
+   * 图片输入，支持以下格式：
+   * - File 对象：通过 input[type="file"] 获取的文件对象
+   * - Base64 字符串：图片的 base64 编码
+   * - URL 字符串：图片的在线地址
+   */
+  image?: File | string | (File | string)[];
+
+  /**
+   * 是否启用流式传输; 默认为 `false`.
+   *
+   * 若启用流式传输, 每次得到流式传输结果时, 函数将会发送事件:
+   * - `iframe_events.STREAM_TOKEN_RECEIVED_FULLY`: 监听它可以得到流式传输的当前完整文本 ("这是", "这是一条", "这是一条流式传输")
+   * - `iframe_events.STREAM_TOKEN_RECEIVED_INCREMENTALLY`: 监听它可以得到流式传输的当前增量文本 ("这是", "一条", "流式传输")
+   *
+   * @example
+   * eventOn(iframe_events.STREAM_TOKEN_RECEIVED_FULLY, text => console.info(text));
+   */
+  should_stream?: boolean;
+
+  /**
+   * 是否静默生成; 默认为 `false`.
+   * - `false`: 酒馆页面的发送按钮将会变为停止按钮, 点击停止按钮会中断所有非静默生成请求
+   * - `true`: 不影响酒馆停止按钮状态, 点击停止按钮不会中断该生成
+   *
+   * 虽然静默生成不能通过停止按钮中断, 但可以在代码中使用以下方式停止生成:
+   * - 使用该生成请求的 `generation_id` 调用 `stopGenerationById`
+   * - 调用 `stopAllGeneration`
+   */
+  should_silence?: boolean;
+
+  /**
+   * 覆盖选项. 若设置, 则 `overrides` 中给出的字段将会覆盖对应的提示词.
+   *   如 `overrides.char_description = '覆盖的角色描述';` 将会覆盖角色描述.
+   */
+  overrides?: Overrides;
+
+  /** 要额外注入的提示词 */
+  injects?: Omit<InjectionPrompt, 'id'>[];
+
+  /** 最多使用多少条聊天历史; 默认为 'all' */
+  max_chat_history?: 'all' | number;
+
+  /** 自定义API配置 */
+  custom_api?: CustomApiConfig;
+};
+
+type GenerateRawConfig = GenerateConfig & {
+  /**
+   * 一个提示词数组, 数组元素将会按顺序发给 AI, 因而相当于自定义预设. 该数组允许存放两种类型:
+   * - `BuiltinPrompt`: 内置提示词. 由于不使用预设, 如果需要 "角色描述" 等提示词, 你需要自己指定要用哪些并给出顺序
+   *                      如果不想自己指定, 可通过 `builtin_prompt_default_order` 得到酒馆默认预设所使用的顺序 (但对于这种情况, 也许你更应该用 `generate`).
+   * - `RolePrompt`: 要额外给定的提示词.
+   */
+  ordered_prompts?: (BuiltinPrompt | RolePrompt)[];
+};
+
+/**
+ * 预设为内置提示词设置的默认顺序
+ */
+declare const builtin_prompt_default_order: BuiltinPrompt[];
+
+type BuiltinPrompt =
+  | 'world_info_before'
+  | 'persona_description'
+  | 'char_description'
+  | 'char_personality'
+  | 'scenario'
+  | 'world_info_after'
+  | 'dialogue_examples'
+  | 'chat_history'
+  | 'user_input';
+
+type RolePrompt = {
+  role: 'system' | 'assistant' | 'user';
+  content: string;
+  image?: File | string | (File | string)[];
+};
+
+type Overrides = {
+  world_info_before?: string;
+  persona_description?: string;
+  char_description?: string;
+  char_personality?: string;
+  scenario?: string;
+  world_info_after?: string;
+  dialogue_examples?: string;
+
+  /**
+   * 聊天历史
+   * - `with_depth_entries`: 是否启用世界书中按深度插入的条目; 默认为 `true`
+   * - `author_note`: 若设置, 覆盖 "作者注释" 为给定的字符串
+   * - `prompts`: 若设置, 覆盖 "聊天历史" 为给定的提示词
+   */
+  chat_history?: {
+    with_depth_entries?: boolean;
+    author_note?: string;
+    prompts?: RolePrompt[];
+  };
+};
+
+/**
+ * 自定义API配置
+ */
+type CustomApiConfig = {
+  /** 自定义API地址 */
+  apiurl: string;
+  /** API密钥 */
+  key?: string;
+  /** 模型名称 */
+  model: string;
+  /** API源, 默认为 'openai'. 目前支持的源请查看酒馆官方代码[`SillyTavern/src/constants.js`](https://github.com/SillyTavern/SillyTavern/blob/2e3dff73a127679f643e971801cd51173c2c34e7/src/constants.js#L164) */
+  source?: string;
+
+  /** 最大回复 tokens 度 */
+  max_tokens?: 'same_as_preset' | 'unset' | number;
+  /** 温度 */
+  temperature?: 'same_as_preset' | 'unset' | number;
+  /** 频率惩罚 */
+  frequency_penalty?: 'same_as_preset' | 'unset' | number;
+  /** 存在惩罚 */
+  presence_penalty?: 'same_as_preset' | 'unset' | number;
+  top_p?: 'same_as_preset' | 'unset' | number;
+  top_k?: 'same_as_preset' | 'unset' | number;
+};
 /**
  * 将接口共享到全局, 使其可以在其他前端界面或脚本中使用.
  *
@@ -937,13 +1075,13 @@ declare function initializeGlobal(global: LiteralUnion<'Mvu', string>, value: an
  */
 declare function waitGlobalInitialized<T>(global: LiteralUnion<'Mvu', string>): Promise<T>;
 /**
- * 像酒馆界面里那样导入角色卡
+ * 像酒馆界面里那样导入新角色/更新现有角色卡
  *
  * @param filename 角色卡名
  * @param content 角色卡文件内容
  *
  * @example
- * // 从网络链接导入角色卡
+ * // 从网络链接导入新角色/更新现有角色卡
  * const response = await fetch(角色卡网络链接);
  * await importRawCharacter(角色卡名, await response.blob());
  */
@@ -965,26 +1103,26 @@ declare function importRawCharacter(filename: string, content: Blob): Promise<Re
 declare function importRawChat(filename: string, content: string): Promise<Response>;
 
 /**
- * 像酒馆界面里那样导入预设
+ * 像酒馆界面里那样导入新预设/更新现有预设
  *
  * @param filename 预设名
  * @param content 预设文件内容
  *
  * @example
- * // 从网络链接导入预设
+ * // 从网络链接导入新预设/更新现有预设
  * const response = await fetch(预设网络链接);
  * await importRawChat(预设名, await response.text());
  */
 declare function importRawPreset(filename: string, content: string): Promise<boolean>;
 
 /**
- * 像酒馆界面里那样导入世界书
+ * 像酒馆界面里那样导入新世界书/更新现有世界书
  *
  * @param filename 世界书名
  * @param content 世界书文件内容
  *
  * @example
- * // 从网络链接导入世界书
+ * // 从网络链接导入新世界书/更新现有世界书
  * const response = await fetch(世界书网络链接);
  * await importRawChat(世界书名, await response.text());
  */
@@ -1021,7 +1159,13 @@ interface Window {
     readonly builtin: typeof builtin;
 
     // character
-    readonly Character: typeof Character;
+    readonly getCharacterNames: typeof getCharacterNames;
+    readonly createCharacter: typeof createCharacter;
+    readonly createOrReplaceCharacter: typeof createOrReplaceCharacter;
+    readonly deleteCharacter: typeof deleteCharacter;
+    readonly getCharacter: typeof getCharacter;
+    readonly replaceCharacter: typeof replaceCharacter;
+    readonly updateCharacterWith: typeof updateCharacterWith;
 
     // chat_message
     readonly getChatMessages: typeof getChatMessages;
@@ -1033,6 +1177,7 @@ interface Window {
     // displayed_message
     readonly formatAsDisplayedMessage: typeof formatAsDisplayedMessage;
     readonly retrieveDisplayedMessage: typeof retrieveDisplayedMessage;
+    readonly refreshOneMessage: typeof refreshOneMessage;
 
     // extension
     readonly isAdmin: typeof isAdmin;
@@ -1048,6 +1193,9 @@ interface Window {
     readonly builtin_prompt_default_order: typeof builtin_prompt_default_order;
     readonly generate: typeof generate;
     readonly generateRaw: typeof generateRaw;
+    readonly getModelList: typeof getModelList;
+    readonly stopGenerationById: typeof stopGenerationById;
+    readonly stopAllGeneration: typeof stopAllGeneration;
 
     // global
     readonly initializeGlobal: typeof initializeGlobal;
@@ -1446,7 +1594,14 @@ type Preset = {
   prompts_unused: PresetPrompt[];
 
   /** 额外字段, 用于为预设绑定额外数据 */
-  extensions: Record<string, any>;
+  extensions: {
+    regex_scripts?: TavernRegex[];
+    tavern_helper?: {
+      scripts: Record<string, any>[];
+      variales: Record<string, any>;
+    };
+    [other: string]: any;
+  };
 };
 
 type PresetPrompt = {
@@ -1603,8 +1758,8 @@ declare function renamePreset(preset_name: Exclude<string, 'in_use'>, new_name: 
 declare function getPreset(preset_name: LiteralUnion<'in_use', string>): Preset;
 
 type ReplacePresetOptions = {
-  /** 如果对 `'in_use'` 预设进行操作, 应该防抖渲染 (debounced) 还是立即渲染 (immediate)? 默认为性能更好的防抖渲染 */
-  render?: 'debounced' | 'immediate';
+  /** 如果对 `'in_use'` 预设进行操作, 应该防抖渲染 (debounced)、立即渲染 (immediate) 还是不刷新前端显示 (none)? 默认为性能更好的防抖渲染 */
+  render?: 'debounced' | 'immediate' | 'none';
 };
 /**
  * 完全替换 `preset_name` 预设的内容为 `preset`
@@ -1843,10 +1998,7 @@ declare class RawCharacter {
  * @param allowAvatar 是否允许通过头像ID查找
  * @returns 角色卡数据
  */
-declare function getCharData(
-  name: LiteralUnion<'current', string>,
-  allowAvatar?: boolean,
-): SillyTavern.v1CharData | null;
+declare function getCharData(name: LiteralUnion<'current', string>): SillyTavern.v1CharData | null;
 
 /**
  * 获取角色头像路径
@@ -1854,7 +2006,7 @@ declare function getCharData(
  * @param allowAvatar 是否允许通过头像ID查找
  * @returns 角色头像路径
  */
-declare function getCharAvatarPath(name: LiteralUnion<'current', string>, allowAvatar?: boolean): string | null;
+declare function getCharAvatarPath(name: LiteralUnion<'current', string>): string | null;
 
 /**
  * 获取角色聊天历史摘要
@@ -1940,20 +2092,25 @@ type TavernRegex = {
   id: string;
   script_name: string;
   enabled: boolean;
-  run_on_edit: boolean;
   scope: 'global' | 'character';
+
   find_regex: string;
   replace_string: string;
+  trim_strings: string;
+
   source: {
     user_input: boolean;
     ai_output: boolean;
     slash_command: boolean;
     world_info: boolean;
   };
+
   destination: {
     display: boolean;
     prompt: boolean;
   };
+  run_on_edit: boolean;
+
   min_depth: number | null;
   max_depth: number | null;
 }
@@ -2431,6 +2588,8 @@ type WorldbookEntry = {
  *
  * @param worldbook_name 世界书名称
  * @param worldbook 世界书内容; 不填则没有任何条目
+ *
+ * @returns 如果发生创建, 则返回 `true`; 如果发生替换, 则返回 `false`
  */
 declare function createWorldbook(worldbook_name: string, worldbook?: WorldbookEntry[]): Promise<boolean>;
 
@@ -2440,7 +2599,7 @@ declare function createWorldbook(worldbook_name: string, worldbook?: WorldbookEn
  * @param worldbook_name 世界书名称
  * @param worldbook 世界书内容; 不填则没有任何条目
  * @param options 可选选项
- *   - `render:'debounced'|'immediate'`: 对于对世界书的更改, 世界书编辑器应该防抖渲染 (debounced) 还是立即渲染 (immediate)? 默认为性能更好的防抖渲染
+ *   - `render:'debounced'|'immediate'|'none'`: 对于对世界书的更改, 世界书编辑器应该防抖渲染 (debounced)、立即渲染 (immediate) 还是不刷新前端显示 (none)? 默认为性能更好的防抖渲染
  *
  * @returns 如果发生创建, 则返回 `true`; 如果发生替换, 则返回 `false`
  */
@@ -2877,12 +3036,28 @@ interface ListenerType {
 
   [tavern_events.APP_READY]: () => void;
   [tavern_events.EXTRAS_CONNECTED]: (modules: any) => void;
-  [tavern_events.MESSAGE_SWIPED]: (message_id: number | string) => void;
-  [tavern_events.MESSAGE_SENT]: (message_id: number | string) => void;
-  [tavern_events.MESSAGE_RECEIVED]: (message_id: number | string) => void;
-  [tavern_events.MESSAGE_EDITED]: (message_id: number | string) => void;
-  [tavern_events.MESSAGE_DELETED]: (message_id: number | string) => void;
-  [tavern_events.MESSAGE_UPDATED]: (message_id: number | string) => void;
+  [tavern_events.MESSAGE_SWIPED]: (message_id: number) => void;
+  [tavern_events.MESSAGE_SENT]: (message_id: number) => void;
+  [tavern_events.MESSAGE_RECEIVED]: (
+    message_id: number,
+    type: LiteralUnion<
+      | 'normal'
+      | 'quiet'
+      | 'regenerate'
+      | 'impersonate'
+      | 'continue'
+      | 'swipe'
+      | 'append'
+      | 'appendFinal'
+      | 'first_message'
+      | 'command'
+      | 'extension',
+      string
+    >,
+  ) => void;
+  [tavern_events.MESSAGE_EDITED]: (message_id: number) => void;
+  [tavern_events.MESSAGE_DELETED]: (message_id: number) => void;
+  [tavern_events.MESSAGE_UPDATED]: (message_id: number) => void;
   [tavern_events.MESSAGE_FILE_EMBEDDED]: (message_id: number) => void;
   [tavern_events.MESSAGE_REASONING_EDITED]: (message_id: number) => void;
   [tavern_events.MESSAGE_REASONING_DELETED]: (message_id: number) => void;
@@ -2948,7 +3123,8 @@ interface ListenerType {
     presetName: string;
     settingsToUpdate: object;
     settings: object;
-    savePreset: Function;
+    savePreset: (name: string, settings: Record<string, any>, trigger_ui?: boolean) => Promise<void>;
+    presetNameBefore: string;
   }) => void;
   [tavern_events.OAI_PRESET_CHANGED_AFTER]: () => void;
   [tavern_events.OAI_PRESET_EXPORT_READY]: (preset: object) => void;
@@ -2962,7 +3138,7 @@ interface ListenerType {
   [tavern_events.CHARACTER_EDITED]: (result: { detail: { id: string; character: SillyTavern.v1CharData } }) => void;
   [tavern_events.CHARACTER_PAGE_LOADED]: () => void;
   [tavern_events.USER_MESSAGE_RENDERED]: (message_id: number) => void;
-  [tavern_events.CHARACTER_MESSAGE_RENDERED]: (message_id: number) => void;
+  [tavern_events.CHARACTER_MESSAGE_RENDERED]: (message_id: number, type: string) => void;
   [tavern_events.FORCE_SET_BACKGROUND]: (background: { url: string; path: string }) => void;
   [tavern_events.CHAT_DELETED]: (chat_file_name: string) => void;
   [tavern_events.CHAT_CREATED]: () => void;
@@ -3093,7 +3269,7 @@ interface ListenerType {
     timedEffects: Record<string, any>;
   }) => void;
   [custom_event: string]: (...args: any) => any;
-};
+}
 declare namespace EjsTemplate {
   type Features = {
     /** 是否启用扩展 */
@@ -3129,6 +3305,10 @@ declare namespace EjsTemplate {
     debug_enabled: boolean;
     /** 旧设定兼容模式，世界书中的 GENERATE/RENDER/INJECT 条目禁用时视为启用 */
     invert_enabled: boolean;
+    /** 是否启用后台编译 (用 Web Workers 编译) */
+    compile_workers: boolean;
+    /** 是否启用沙盒执行代码 (性能下降, 提升安全性) */
+    sandbox: boolean;
 
     /** 缓存 (实验性) (0=禁用, 1=全部, 2=仅世界书) */
     cache_enabled: number;
@@ -3217,13 +3397,15 @@ declare const EjsTemplate: {
 declare namespace Mvu {
   type MvuData = {
     /** 已被 mvu 初始化 initvar 条目的世界书列表 */
-    initialized_lorebooks: string[];
+    initialized_lorebooks: Record<string, any[]>;
 
     /** 实际的变量数据 */
     stat_data: Record<string, any>;
+
+    [key: string]: any;
   };
 
-  type CommandInfo = SetCommandInfo | InsertCommandInfo | DeleteCommandInfo | AddCommandInfo;
+  type CommandInfo = SetCommandInfo | InsertCommandInfo | DeleteCommandInfo | AddCommandInfo | MoveCommandInfo;
   type SetCommandInfo = {
     type: 'set';
     full_match: string;
@@ -3250,6 +3432,12 @@ declare namespace Mvu {
     type: 'add';
     full_match: string;
     args: [path: string, delta_or_toggle_literal: string];
+    reason: string;
+  };
+  type MoveCommandInfo = {
+    type: 'move';
+    full_match: string;
+    args: [from: string, to: string];
     reason: string;
   };
 }
@@ -3346,7 +3534,7 @@ declare const Mvu: {
   getMvuData: (options: VariableOption) => Mvu.MvuData;
 
   /**
-   * 完全替换变量表为包含 mvu 数据的 `mvu_data` (但如果没用 parseMessages 自行处理变量, 则更建议监听 mvu 事件来修改 mvu 数据!)
+   * 完全替换变量表为包含 mvu 数据的 `mvu_data` (但如果没用 `parseMessages` 自行处理变量, 则更建议监听 mvu 事件来修改 mvu 数据!)
    *
    * @param variables 要用于替换的变量表
    * @param option 可选选项
@@ -3379,25 +3567,21 @@ declare const Mvu: {
   parseMessage: (message: string, old_data: Mvu.MvuData) => Promise<Mvu.MvuData>;
 
   /**
-   * 重新加载初始变量数据
-   *
-   * @param mvu_data 要重新加载初始数据的 MvuData 数据表
-   *
-   * @returns 是否加载成功
+   * 酒馆是否正在进行额外模型解析
    */
-  reloadInitVar: (mvu_data: Mvu.MvuData) => Promise<boolean>;
+  isDuringExtraAnalysis: () => boolean;
 };
 
 interface ListenerType {
   [Mvu.events.VARIABLE_INITIALIZED]: (variables: Mvu.MvuData, swipe_id: number) => void;
-
-  [Mvu.events.BEFORE_MESSAGE_UPDATE]: (context: { variables: Mvu.MvuData; message_content: string }) => void;
 
   [Mvu.events.VARIABLE_UPDATE_STARTED]: (variables: Mvu.MvuData) => void;
 
   [Mvu.events.COMMAND_PARSED]: (variables: Mvu.MvuData, commands: Mvu.CommandInfo[], message_content: string) => void;
 
   [Mvu.events.VARIABLE_UPDATE_ENDED]: (variables: Mvu.MvuData, variables_before_update: Mvu.MvuData) => void;
+
+  [Mvu.events.BEFORE_MESSAGE_UPDATE]: (context: { variables: Mvu.MvuData; message_content: string }) => void;
 }
 /* eslint-disable @typescript-eslint/no-unsafe-function-type */
 declare namespace SillyTavern {
@@ -3814,7 +3998,17 @@ declare const SillyTavern: {
     once: typeof eventOnce;
   };
   readonly eventTypes: typeof tavern_events;
-  readonly addOneMessage: (mes: object, options: any) => Promise<void>;
+  readonly addOneMessage: (
+    mes: SillyTavern.ChatMessage,
+    options?: {
+      type?: 'swipe';
+      insertAfter?: number;
+      scroll?: true;
+      insertBefore?: number;
+      forceId?: number;
+      showSwipes?: boolean;
+    },
+  ) => JQuery<HTMLElement>;
   readonly deleteLastMessage: () => Promise<void>;
   readonly generate: Function;
   readonly sendStreamingRequest: (type: string, data: object) => Promise<void>;
@@ -3958,6 +4152,7 @@ declare const SillyTavern: {
     response_length?: number,
     force_chid?: number,
   ) => Promise<string>;
+  /** 严禁使用本方法修改角色卡的 `extensions` 字段, 它会合并原有值和新值而不是替换; 应该使用 `updateCharacterWith` */
   readonly writeExtensionField: (character_id: number, key: string, value: any) => Promise<void>;
   readonly getThumbnailUrl: (type: any, file: any) => string;
   readonly selectCharacterById: (id: number, { switchMenu }?: { switchMenu?: boolean }) => Promise<void>;

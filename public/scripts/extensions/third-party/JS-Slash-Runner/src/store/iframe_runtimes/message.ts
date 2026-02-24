@@ -12,6 +12,12 @@ function render$mes($mes: JQuery<HTMLElement>, reload_memo: string): Runtime[] {
       const $element = $(div)
         .find('pre')
         .filter((_index, pre) => isFrontend($(pre).text()))
+        .filter((_index, pre) => {
+          if (useGlobalSettingsStore().settings.render.allow_streaming) {
+            return $(pre).closest('.mes_text, .TH-streaming').length === 0;
+          }
+          return true;
+        })
         .map((_index, pre) => {
           const $pre = $(pre);
           const $possible_div = $pre.parent('div.TH-render');
@@ -32,7 +38,7 @@ function renderMessages(ids: number[], reload_memo: string): Runtime[] {
   return render$mes($mes, reload_memo);
 }
 
-function calcToRender(depth: number): number[] {
+export function calcToRender(depth: number): number[] {
   const min_showed_message_id = Number($('#chat > .mes').first().attr('mesid'));
   return _.range(
     depth === 0 ? min_showed_message_id : Math.max(min_showed_message_id, chat.length - depth),
@@ -49,14 +55,26 @@ function auditRuntimes(runtimes: Runtime[], depth: number): Runtime[] {
   );
 }
 
+function rerenderAll(depth: number): Runtime[] {
+  return renderMessages(calcToRender(depth), uuidv4());
+}
+
 export const useMessageIframeRuntimesStore = defineStore('message_iframe_runtimes', () => {
   const global_settings = useGlobalSettingsStore();
 
   const runtimes = ref<Runtime[]>([]);
   watch(
-    () => [global_settings.settings.render.enabled, global_settings.settings.render.depth] as const,
-    ([new_enabled, new_depth]) => {
+    () =>
+      [
+        global_settings.settings.render.enabled,
+        global_settings.settings.render.allow_streaming,
+        global_settings.settings.render.depth,
+      ] as const,
+    ([new_enabled, new_allow_streaming, new_depth]) => {
       if (new_enabled) {
+        if (new_allow_streaming) {
+          runtimes.value = [];
+        }
         runtimes.value = auditRuntimes(runtimes.value, new_depth);
       } else {
         runtimes.value = [];
@@ -65,9 +83,19 @@ export const useMessageIframeRuntimesStore = defineStore('message_iframe_runtime
     { immediate: true },
   );
 
+  if (global_settings.settings.render.enabled && $('#chat > .welcomePanel').length > 0) {
+    runtimes.value = rerenderAll(global_settings.settings.render.depth);
+  } else {
+    setTimeout(() => {
+      if (global_settings.settings.render.enabled && $('#chat > .welcomePanel').length > 0) {
+        runtimes.value = rerenderAll(global_settings.settings.render.depth);
+      }
+    }, 3000);
+  }
+
   eventSource.on('chatLoaded', () => {
     if (global_settings.settings.render.enabled) {
-      runtimes.value = renderMessages(calcToRender(global_settings.settings.render.depth), uuidv4());
+      runtimes.value = rerenderAll(global_settings.settings.render.depth);
     }
   });
 
@@ -88,10 +116,12 @@ export const useMessageIframeRuntimesStore = defineStore('message_iframe_runtime
     });
   });
 
-  eventSource.on(event_types.MESSAGE_DELETED, () => {
-    if (global_settings.settings.render.enabled) {
-      runtimes.value = auditRuntimes(runtimes.value, global_settings.settings.render.depth);
-    }
+  [event_types.MESSAGE_DELETED, event_types.MORE_MESSAGES_LOADED].forEach(event => {
+    eventSource.on(event, () => {
+      if (global_settings.settings.render.enabled) {
+        runtimes.value = auditRuntimes(runtimes.value, global_settings.settings.render.depth);
+      }
+    });
   });
 
   const reloadAll = () => {

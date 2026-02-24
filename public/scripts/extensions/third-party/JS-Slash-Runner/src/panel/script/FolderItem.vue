@@ -2,13 +2,13 @@
   <div
     v-show="is_visible"
     ref="folder_item"
-    class="w-full rounded-md border bg-(--grey5020a)"
+    class="w-full rounded-[10px] border bg-(--grey5020a)"
     :class="[is_sorting_target ? 'border-solid! border-(--SmartThemeQuoteColor)' : 'border-(--SmartThemeBorderColor)']"
     data-type="folder"
     data-folder
     :data-folder-id="script_folder.id"
   >
-    <div class="flex w-full cursor-pointer items-center justify-between p-0.5" @click="is_expanded = !is_expanded">
+    <div class="flex w-full cursor-pointer items-center justify-between p-[5px]" @click="is_expanded = !is_expanded">
       <span class="TH-handle cursor-grab select-none active:cursor-grabbing" aria-hidden="true" @click.stop>☰</span>
 
       <i
@@ -19,7 +19,7 @@
       <span class="ml-0.5 w-0 grow overflow-hidden" :class="{ 'opacity-50': !actually_enabled }">
         <Highlighter :query="search_input" :text-to-highlight="script_folder.name" />
       </span>
-      <div class="flex shrink-0 flex-wrap items-center gap-0.25">
+      <div class="flex shrink-0 flex-wrap items-center">
         <!-- prettier-ignore-attribute -->
         <div
           class="mt-0! mr-0.5 mb-0! cursor-pointer"
@@ -30,7 +30,7 @@
           <i class="fa-solid" :class="[script_folder.enabled ? 'fa-toggle-on' : 'fa-toggle-off']" />
         </div>
         <DefineScriptFolderButton v-slot="{ icon }">
-          <div class="mt-0! mr-0.5 mb-0! cursor-pointer">
+          <div class="flex cursor-pointer items-center justify-center p-[6px] leading-none">
             <i class="fa-solid" :class="icon"></i>
           </div>
         </DefineScriptFolderButton>
@@ -74,7 +74,8 @@
           :folder-enabled="script_folder.enabled"
           :search-input="search_input"
           @delete="handleScriptDelete"
-          @move="handleMove"
+          @move="handleScriptMove"
+          @copy="handleScriptCopy"
         />
       </div>
     </VueDraggable>
@@ -89,7 +90,7 @@ import TargetSelector from '@/panel/script/TargetSelector.vue';
 import { ScriptFolderForm } from '@/panel/script/type';
 import { useCharacterScriptsStore, useGlobalScriptsStore, usePresetScriptsStore } from '@/store/scripts';
 import { ScriptFolder } from '@/type/scripts';
-import { download, getSanitizedFilename } from '@sillytavern/scripts/utils';
+import { download, getSanitizedFilename, uuidv4 } from '@sillytavern/scripts/utils';
 import { createReusableTemplate } from '@vueuse/core';
 import { VueDraggable } from 'vue-draggable-plus';
 
@@ -154,10 +155,6 @@ const { open: openFolderEditor } = useModal({
   },
 });
 
-const handleScriptDelete = (id: string) => {
-  _.remove(script_folder.value.scripts, script => script.id === id);
-};
-
 const { open: openDeleteConfirm } = useModal({
   component: Popup,
   attrs: {
@@ -191,21 +188,6 @@ const { open: openMoveConfirm } = useModal({
   },
 });
 
-const handleMove = (id: string, target: 'global' | 'character' | 'preset') => {
-  const removed = _.remove(script_folder.value.scripts, script => script.id === id);
-  switch (target) {
-    case 'global':
-      useGlobalScriptsStore().script_trees.push(...removed);
-      break;
-    case 'character':
-      useCharacterScriptsStore().script_trees.push(...removed);
-      break;
-    case 'preset':
-      usePresetScriptsStore().script_trees.push(...removed);
-      break;
-  }
-};
-
 type ScriptExportOptions = {
   should_strip_data: boolean;
 };
@@ -233,8 +215,8 @@ const downloadExport = async (options: ScriptExportOptions) => {
 };
 
 const exportFolder = async () => {
-  const has_data = script_folder.value.scripts.some(script => !_.isEmpty(script.data));
-  if (!has_data) {
+  const scripts_with_data = script_folder.value.scripts.filter(script => !_.isEmpty(script.data));
+  if (scripts_with_data.length === 0) {
     downloadExport({ should_strip_data: false });
     return;
   }
@@ -263,8 +245,50 @@ const exportFolder = async () => {
     },
     slots: {
       // TODO: 显示脚本变量有什么?
-      default: t`<div>'${script_folder.value.name}' 文件夹中脚本包含脚本变量, 是否要清除? 如有 API Key 等敏感数据，注意清除</div>`,
+      default: t`<div>'${script_folder.value.name}' 文件夹中 '${JSON.stringify(scripts_with_data.map(script => script.name))}' 脚本包含脚本变量, 是否要清除? 如有 API Key 等敏感数据，注意清除</div>`,
     },
   }).open();
+};
+
+const handleScriptDelete = (id: string) => {
+  _.remove(script_folder.value.scripts, script => script.id === id);
+};
+
+// TODO: 这里的和 Container 的明显重复, 应该合并
+const handleScriptMove = (id: string, target: 'global' | 'character' | 'preset') => {
+  const removed = _.remove(script_folder.value.scripts, script => script.id === id);
+  switch (target) {
+    case 'global':
+      useGlobalScriptsStore().script_trees.push(...removed);
+      break;
+    case 'character':
+      useCharacterScriptsStore().script_trees.push(...removed);
+      break;
+    case 'preset':
+      usePresetScriptsStore().script_trees.push(...removed);
+      break;
+  }
+};
+
+// TODO: 这里的和 Container 的明显重复, 应该合并
+const handleScriptCopy = (id: string, target: 'global' | 'character' | 'preset') => {
+  const script = _.find(script_folder.value.scripts, script => script.id === id);
+  if (!script) {
+    return;
+  }
+  const copied_script = klona(script);
+  copied_script.id = uuidv4();
+  copied_script.enabled = false;
+  switch (target) {
+    case 'global':
+      useGlobalScriptsStore().script_trees.push(copied_script);
+      break;
+    case 'character':
+      useCharacterScriptsStore().script_trees.push(copied_script);
+      break;
+    case 'preset':
+      usePresetScriptsStore().script_trees.push(copied_script);
+      break;
+  }
 };
 </script>

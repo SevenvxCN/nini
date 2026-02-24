@@ -5,7 +5,7 @@
  * 支持：OpenAI、SiliconFlow、Ollama 等兼容 OpenAI API 的服务
  * 新架构：多书架 + 会话绑定系统
  *
- * @version 1.6.2
+ * @version 1.9.7
  * @author Gaigai Team
  */
 
@@ -226,7 +226,8 @@
                         'Content-Type': 'application/json',
                         'X-CSRF-Token': csrfToken
                     },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(payload),
+                    credentials: 'include'
                 });
 
                 if (!response.ok) {
@@ -280,11 +281,22 @@
                             'Content-Type': 'application/json',
                             'X-CSRF-Token': csrfToken
                         },
-                        body: JSON.stringify({ name: STORAGE_BOOK_NAME })
+                        body: JSON.stringify({ name: STORAGE_BOOK_NAME }),
+                        credentials: 'include'
                     });
 
                     if (response.ok) {
-                        const bookData = await response.json();
+                        // ✅ [Bug Fix] 先获取原始文本，避免 JSON 解析崩溃
+                        const text = await response.text();
+
+                        let bookData;
+                        try {
+                            bookData = JSON.parse(text);
+                        } catch (e) {
+                            console.error('❌ [向量库加载] JSON 解析失败:', e.message);
+                            console.error('   原始响应 (前200字符):', text.substring(0, 200));
+                            throw new Error(`服务器返回非JSON格式\n\n原始响应: ${text.substring(0, 100)}`);
+                        }
 
                         // 解析世界书中的数据
                         if (bookData && bookData.entries && bookData.entries["0"] && bookData.entries["0"].content) {
@@ -389,7 +401,7 @@
                 ctx.chatMetadata.gaigai_activeBooks = bookIds;
 
                 // 保存聊天数据
-                m.save();
+                m.save(false, true); // 向量书绑定立即保存
 
                 console.log(`🔗 [VectorManager] 已绑定 ${bookIds.length} 本书到当前会话`);
             } catch (error) {
@@ -482,9 +494,9 @@
 
             const config = this._getConfig();
 
-            // 验证配置
-            if (!config.url || !config.key) {
-                throw new Error('未配置向量 API URL 或 Key');
+            // 验证配置（仅检查 URL，允许空 Key 以支持本地端点如 Ollama）
+            if (!config.url) {
+                throw new Error('未配置向量 API URL');
             }
 
             // 检查缓存
@@ -540,12 +552,17 @@
             console.log(`🔄 [VectorManager] 调用 Embedding API: ${url} ${isBatch ? `(批量: ${text.length} 条)` : '(单条)'}`);
 
             try {
+                // ✅ 构建请求头：仅在有 Key 时才添加 Authorization
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+                if (config.key) {
+                    headers['Authorization'] = `Bearer ${config.key}`;
+                }
+
                 const response = await fetch(url, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${config.key}`
-                    },
+                    headers: headers,
                     body: JSON.stringify(payload)
                 });
 
@@ -554,7 +571,17 @@
                     throw new Error(`API 请求失败 (${response.status}): ${errorText}`);
                 }
 
-                const data = await response.json();
+                // ✅ [Bug Fix] 先获取原始文本，避免 JSON 解析崩溃
+                const text = await response.text();
+
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    console.error('❌ [Embedding API] JSON 解析失败:', e.message);
+                    console.error('   原始响应 (前200字符):', text.substring(0, 200));
+                    throw new Error(`API返回非JSON格式\n\n原始响应: ${text.substring(0, 100)}`);
+                }
 
                 // ✅ 标准 OpenAI 格式: { data: [{ embedding: [...] }, ...] }
                 if (data.data && Array.isArray(data.data)) {
@@ -614,12 +641,17 @@
             }, 3000); // 3秒超时
 
             try {
+                // ✅ 构建请求头：仅在有 Key 时才添加 Authorization
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+                if (config.rerankKey) {
+                    headers['Authorization'] = `Bearer ${config.rerankKey}`;
+                }
+
                 const response = await fetch(url, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${config.rerankKey}`
-                    },
+                    headers: headers,
                     body: JSON.stringify(payload),
                     signal: controller.signal // 绑定超时信号
                 });
@@ -633,7 +665,17 @@
                     return []; // 返回空数组，触发降级
                 }
 
-                const data = await response.json();
+                // ✅ [Bug Fix] 先获取原始文本，避免 JSON 解析崩溃
+                const text = await response.text();
+
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    console.error('❌ [Rerank API] JSON 解析失败:', e.message);
+                    console.error('   原始响应 (前200字符):', text.substring(0, 200));
+                    return []; // 返回空数组，触发降级
+                }
 
                 // 解析 Rerank API 返回的结果
                 // 标准格式: { results: [{ index: 0, relevance_score: 0.95 }, ...] }
@@ -883,8 +925,8 @@
             const multiplier = 2; // 设定为 2 倍召回
             // 如果开启 Rerank，向量阶段召回 2 倍数据；否则只召回 1 倍
             const recallCount = config.rerankEnabled ? (targetCount * multiplier) : targetCount;
-            // 如果开启 Rerank，强制降低向量检索的门槛到 0.05，确保能捞出足够多的候选集；否则保持用户设置的阈值
-            const initialThreshold = config.rerankEnabled ? 0.05 : config.threshold;
+            // Rerank 模式下，设置 0.1 作为粗排门槛，过滤掉绝对不相关的噪音，同时保留绝大多数潜在相关内容。
+            const initialThreshold = config.rerankEnabled ? 0.1 : config.threshold;
 
             // 如果未提供 allowedBookIds，从当前会话获取
             if (!allowedBookIds) {
@@ -1050,128 +1092,122 @@
         }
 
         /**
-         * 📚 同步总结表到书架
-         * @returns {Promise<Object>} - { success: boolean, count: number, error?: string }
+         * 📚 同步总结表到书架 (修复版：增量更新，保留未变动的向量)
+         * @returns {Promise<Object>}
          */
         async syncSummaryToBook(autoVectorize = false) {
-            console.log('📚 [VectorManager] 开始同步总结表到书架...');
+            console.log('📚 [VectorManager] 开始同步总结表到书架 (增量模式)...');
 
             try {
-                // 获取 Memory Manager
                 const m = window.Gaigai?.m;
-                if (!m || !m.s || m.s.length === 0) {
-                    throw new Error('Memory Manager 不可用或没有表格数据');
-                }
+                if (!m || !m.s || m.s.length === 0) throw new Error('Memory Manager 不可用');
 
-                // 获取最后一个表格（总结表）
                 const summarySheet = m.s[m.s.length - 1];
-                if (!summarySheet || !summarySheet.r || summarySheet.r.length === 0) {
-                    throw new Error('总结表为空或不存在');
-                }
+                if (!summarySheet || !summarySheet.r) throw new Error('总结表无效');
 
-                // 构建 chunks 数组
-                const chunks = [];
+                // 1. 构建新的 chunks
+                const newChunks = [];
                 for (const row of summarySheet.r) {
-                    // 兼容 Object 和 Array 格式
                     const rowData = Array.isArray(row) ? row : Object.values(row);
-
-                    // 假设格式：[标题, 内容, 备注, ...]
-                    // 根据实际表格结构调整索引
                     const title = rowData[0] || '';
                     const content = rowData[1] || '';
                     const remark = rowData[2] || '';
 
-                    // 构建片段文本：标题 (备注)\n内容
                     let chunkText = '';
-                    if (title) {
-                        chunkText += title;
-                        if (remark) {
-                            chunkText += ` (${remark})`;
-                        }
-                        chunkText += '\n';
-                    }
-                    if (content) {
-                        chunkText += content;
-                    }
+                    if (title) chunkText += title + (remark ? ` (${remark})` : '') + '\n';
+                    if (content) chunkText += content;
 
-                    // ✅ 变量替换：将 {{user}} 和 {{char}} 替换为实际名字
                     chunkText = this._resolvePlaceholders(chunkText);
-
-                    if (chunkText.trim()) {
-                        chunks.push(chunkText.trim());
-                    }
+                    if (chunkText.trim()) newChunks.push(chunkText.trim());
                 }
 
-                if (chunks.length === 0) {
-                    throw new Error('总结表中没有有效内容');
-                }
+                if (newChunks.length === 0) throw new Error('总结表内容为空');
 
-                // 🔒 会话隔离：使用会话 ID 生成唯一的书籍 ID
+                // 2. 准备 ID 和 旧数据
                 const sessionId = m.gid() || 'default';
                 const bookId = 'summary_book_' + sessionId;
                 const defaultBookName = '《剧情总结归档》';
 
-                // 创建或更新书籍
+                let existingVectorsMap = new Map(); // Map<Text, Vector>
+                let existingName = defaultBookName;
+                let existingCreateTime = Date.now();
+
+                // 3. 【核心修复】建立旧数据缓存索引
                 if (this.library[bookId]) {
-                    // 书籍已存在：保留用户自定义的书名，仅更新内容和重置向量化状态
-                    const existingName = this.library[bookId].name;
-                    this.library[bookId] = {
-                        name: existingName, // 保留原书名
-                        chunks: chunks,
-                        vectors: new Array(chunks.length).fill(null),
-                        vectorized: new Array(chunks.length).fill(false),
-                        createTime: this.library[bookId].createTime
-                    };
-                    console.log(`📝 [VectorManager] 更新现有书籍 "${existingName}" (ID: ${bookId})`);
-                } else {
-                    // 书籍不存在：创建新书
-                    this.library[bookId] = {
-                        name: defaultBookName,
-                        chunks: chunks,
-                        vectors: new Array(chunks.length).fill(null),
-                        vectorized: new Array(chunks.length).fill(false),
-                        createTime: Date.now()
-                    };
-                    console.log(`✨ [VectorManager] 创建新书籍 "${defaultBookName}" (ID: ${bookId})`);
+                    const oldBook = this.library[bookId];
+                    existingName = oldBook.name;
+                    existingCreateTime = oldBook.createTime;
+
+                    // 将旧的 文本->向量 存入 Map
+                    oldBook.chunks.forEach((text, idx) => {
+                        if (oldBook.vectorized[idx] && oldBook.vectors[idx]) {
+                            existingVectorsMap.set(text, oldBook.vectors[idx]);
+                        }
+                    });
+                    console.log(`♻️ [缓存复用] 已索引 ${existingVectorsMap.size} 条旧向量`);
                 }
 
-                // 保存到全局
+                // 4. 构建新书籍数据 (尝试继承向量)
+                const newVectors = [];
+                const newVectorized = [];
+                let reusedCount = 0;
+
+                newChunks.forEach(text => {
+                    if (existingVectorsMap.has(text)) {
+                        // ✅ 命中缓存：内容没变，直接复用旧向量
+                        newVectors.push(existingVectorsMap.get(text));
+                        newVectorized.push(true);
+                        reusedCount++;
+                    } else {
+                        // ❌ 内容变了或新内容：重置为空，等待重新向量化
+                        newVectors.push(null);
+                        newVectorized.push(false);
+                    }
+                });
+
+                // 5. 更新书架
+                this.library[bookId] = {
+                    name: existingName,
+                    chunks: newChunks,
+                    vectors: newVectors,     // 使用混合了旧数据的新数组
+                    vectorized: newVectorized, // 状态同步
+                    createTime: existingCreateTime
+                };
+
+                console.log(`📝 [增量同步] 书籍已更新。复用旧向量: ${reusedCount} 条, 待计算: ${newChunks.length - reusedCount} 条`);
+
                 this.saveLibrary();
 
-                // 🔗 自动绑定：将书籍添加到当前会话的 activeBooks
+                // 6. 绑定与自动执行
                 const ctx = m.ctx();
                 if (ctx && ctx.chatMetadata) {
                     const currentActiveBooks = ctx.chatMetadata.gaigai_activeBooks || [];
                     if (!currentActiveBooks.includes(bookId)) {
-                        const newActiveBooks = [...currentActiveBooks, bookId];
-                        this.setActiveBooks(newActiveBooks);
-                        console.log(`🔗 [VectorManager] 已自动绑定书籍到当前会话`);
+                        this.setActiveBooks([...currentActiveBooks, bookId]);
                     }
                 }
 
-                console.log(`✅ [VectorManager] 已同步 ${chunks.length} 条总结到书架`);
-
-                // ⚡ 自动执行向量化
+                // ⚡ 仅当有未向量化的内容时，才触发 API
                 if (autoVectorize) {
-                    console.log('⚡ [VectorManager] 开始自动向量化...');
-                    const vectorizeResult = await this.vectorizeBook(bookId);
-                    console.log(`⚡ [VectorManager] 向量化完成: 成功 ${vectorizeResult.count || 0} 条, 失败 ${vectorizeResult.errors || 0} 条`);
-                    return {
-                        success: true,
-                        count: chunks.length,
-                        bookId: bookId,
-                        vectorized: true,
-                        vectorizeResult: vectorizeResult
-                    };
+                    const needsUpdate = newVectorized.includes(false);
+                    if (needsUpdate) {
+                        console.log('⚡ [VectorManager] 检测到新内容，开始增量向量化...');
+                        const vectorizeResult = await this.vectorizeBook(bookId);
+                        return { success: true, count: newChunks.length, vectorized: true, vectorizeResult };
+                    } else {
+                        console.log('✅ [VectorManager] 所有内容命中缓存，无需调用 API');
+                    }
                 }
 
-                return { success: true, count: chunks.length, bookId: bookId, vectorized: false };
+                return { success: true, count: newChunks.length, bookId, vectorized: false };
 
             } catch (error) {
-                console.error('❌ [VectorManager] 同步总结到书架失败:', error);
+                console.error('❌ [VectorManager] 同步失败:', error);
                 return { success: false, count: 0, error: error.message };
             }
         }
+
+
 
         /**
          * 🗑️ 删除书籍
@@ -1313,9 +1349,17 @@
                     // 解析图书馆
                     if (currentSection === 'library') {
                         if (line === '=== 书籍信息 ===') {
+                            // 🔥 [Bug Fix] 在遇到新书之前，先保存上一本书
+                            if (currentBookId && currentEntry && currentEntry.name) {
+                                newLibrary[currentBookId] = currentEntry;
+                                console.log(`📚 [导入] 已保存书籍: ${currentEntry.name} (ID: ${currentBookId})`);
+                            }
+
+                            // 开始新书
                             mode = 'book_meta';
                             currentEntry = { chunks: [], vectors: [], vectorized: [] };
                             currentChunkIndex = -1;
+                            currentBookId = null; // 重置ID
                             continue;
                         }
 
@@ -1364,14 +1408,13 @@
                                 }
                             }
                         }
-
-                        // 当遇到下一本书或文件结束时，保存当前书
-                        if ((line === '=== 书籍信息 ===' && currentBookId) || i === lines.length - 1) {
-                            if (currentBookId && currentEntry.name) {
-                                newLibrary[currentBookId] = currentEntry;
-                            }
-                        }
                     }
+                }
+
+                // 🔥 [Bug Fix] 循环结束后，保存最后一本书
+                if (currentBookId && currentEntry && currentEntry.name) {
+                    newLibrary[currentBookId] = currentEntry;
+                    console.log(`📚 [导入] 已保存书籍（最后一本）: ${currentEntry.name} (ID: ${currentBookId})`);
                 }
 
                 // 更新数据（合并模式）
@@ -1519,6 +1562,39 @@
                         .gg-vm-book-list {
                             max-height: 180px;
                         }
+
+                        /* 模型配置行的布局容器 */
+                        .gg-model-row {
+                            display: flex;
+                            gap: 4px;
+                            align-items: center;
+                        }
+                        /* 按钮组容器 */
+                        .gg-model-btns {
+                            display: flex;
+                            gap: 4px;
+                            flex-shrink: 0; /* 防止按钮被压缩 */
+                        }
+
+                        /* 📱 手机端适配 */
+                        @media (max-width: 768px) {
+                            .gg-model-row {
+                                flex-direction: column; /* 改为垂直排列 */
+                                align-items: stretch;
+                                gap: 8px !important;
+                            }
+                            .gg-model-btns {
+                                width: 100%;
+                                display: grid; /* 使用网格布局 */
+                                grid-template-columns: 1fr 1fr; /* 两个按钮平分宽度 */
+                                gap: 10px;
+                            }
+                            .gg-model-btns button {
+                                width: 100% !important;
+                                justify-content: center;
+                                padding: 8px !important; /* 增加手机端点击区域 */
+                            }
+                        }
                     }
                 </style>
 
@@ -1546,20 +1622,30 @@
 
                             <div style="margin-bottom: 6px;">
                                 <label style="display: block; font-size: 10px; opacity: 0.7; color: ${UI.tc}; margin-bottom: 2px;">API 地址</label>
-                                <input type="text" id="gg_vm_url" value="${config.url || ''}" placeholder="https://api.siliconflow.cn" style="width: 100%; padding: 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box;" />
+                                <input type="text" id="gg_vm_url" value="${config.url || ''}" placeholder="https://api.siliconflow.cn" style="width: 100%; padding: 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
                             </div>
 
                             <div style="margin-bottom: 6px;">
                                 <label style="display: block; font-size: 10px; opacity: 0.7; color: ${UI.tc}; margin-bottom: 2px;">API 密钥</label>
                                 <div style="position: relative;">
-                                    <input type="password" id="gg_vm_key" value="${config.key || ''}" placeholder="sk-xxx" style="width: 100%; padding: 5px 30px 5px 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box;" />
+                                    <input type="password" id="gg_vm_key" value="${config.key || ''}" placeholder="sk-xxx" style="width: 100%; padding: 5px 30px 5px 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
                                     <i class="gg-vm-toggle-key fa-solid fa-eye" data-target="gg_vm_key" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); cursor: pointer; opacity: 0.6; color: ${UI.tc}; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'"></i>
                                 </div>
                             </div>
 
                             <div style="margin-bottom: 6px;">
                                 <label style="display: block; font-size: 10px; opacity: 0.7; color: ${UI.tc}; margin-bottom: 2px;">模型名称</label>
-                                <input type="text" id="gg_vm_model" value="${config.model || 'BAAI/bge-m3'}" style="width: 100%; padding: 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box;" />
+                                <div class="gg-model-row">
+                                    <input type="text" id="gg_vm_model" value="${config.model || 'BAAI/bge-m3'}" style="flex: 1; padding: 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+
+                                    <div class="gg-model-btns">
+                                        <button id="gg_vm_fetch_models" style="padding: 5px 8px; border: 1px solid rgba(255,255,255,0.3); border-radius: 3px; background: rgba(100,150,255,0.2); color: ${UI.tc}; font-size: 9px; cursor: pointer; white-space: nowrap; transition: all 0.2s;" onmouseover="this.style.background='rgba(100,150,255,0.4)'" onmouseout="this.style.background='rgba(100,150,255,0.2)'">🔄 拉取模型</button>
+                                        <button id="gg_vm_test_connection" style="padding: 5px 8px; border: 1px solid rgba(255,255,255,0.3); border-radius: 3px; background: rgba(76,175,80,0.2); color: ${UI.tc}; font-size: 9px; cursor: pointer; white-space: nowrap; transition: all 0.2s;" onmouseover="this.style.background='rgba(76,175,80,0.4)'" onmouseout="this.style.background='rgba(76,175,80,0.2)'">🧪 测试连接</button>
+                                    </div>
+                                </div>
+                                <div style="font-size: 9px; opacity: 0.9; margin-top: 4px; color: #ff9800;">
+                                    ⚠️ 此为向量化(Embedding)模型，不支持LLM模型，如gemini-2.5/deepseek/claude4.5
+                                </div>
                             </div>
 
                             <!-- 分隔线 -->
@@ -1577,21 +1663,21 @@
                             <!-- 最大召回条数 -->
                             <div style="margin-bottom: 6px;">
                                 <label style="display: block; font-size: 10px; opacity: 0.7; color: ${UI.tc}; margin-bottom: 2px;">最大召回条数</label>
-                                <input type="number" id="gg_vm_max_count" value="${config.maxCount || 3}" min="1" max="20" style="width: 100%; padding: 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box;" />
+                                <input type="number" id="gg_vm_max_count" value="${config.maxCount || 3}" min="1" max="20" style="width: 100%; padding: 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
                                 <div style="font-size: 9px; opacity: 0.5; margin-top: 2px; color: ${UI.tc};">每次检索返回的最大结果数</div>
                             </div>
 
                             <!-- 检索上下文深度 -->
                             <div style="margin-bottom: 6px;">
                                 <label style="display: block; font-size: 10px; opacity: 0.7; color: ${UI.tc}; margin-bottom: 2px;">检索上下文深度</label>
-                                <input type="number" id="gg_vm_context_depth" value="${config.contextDepth || 1}" min="1" max="5" style="width: 100%; padding: 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box;" />
-                                <div style="font-size: 9px; opacity: 0.5; margin-top: 2px; color: ${UI.tc};">检索时向前回溯的消息数量 (User+AI)，解决短回复无法检索的问题</div>
+                                <input type="number" id="gg_vm_context_depth" value="${config.contextDepth || 1}" min="1" max="5" style="width: 100%; padding: 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+                                <div style="font-size: 9px; opacity: 0.5; margin-top: 2px; color: ${UI.tc};">引用最后多少条上下文进行检索，解决短回复无法检索的问题</div>
                             </div>
 
                             <!-- 文本切分符 -->
                             <div style="margin-bottom: 8px;">
                                 <label style="display: block; font-size: 10px; opacity: 0.7; color: ${UI.tc}; margin-bottom: 2px;">文本切分符</label>
-                                <input type="text" id="gg_vm_separator" value="${config.separator || '==='}" placeholder="===" style="width: 100%; padding: 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box;" />
+                                <input type="text" id="gg_vm_separator" value="${config.separator || '==='}" placeholder="===" style="width: 100%; padding: 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
                                 <div style="font-size: 9px; opacity: 0.5; margin-top: 2px; color: ${UI.tc};">导入 TXT 时按此分隔符切分文本</div>
                             </div>
 
@@ -1608,20 +1694,20 @@
 
                                 <div style="margin-bottom: 6px;">
                                     <label style="display: block; font-size: 10px; opacity: 0.7; color: ${UI.tc}; margin-bottom: 2px;">Rerank API URL</label>
-                                    <input type="text" id="gg_vm_rerank_url" value="${config.rerankUrl || 'https://api.siliconflow.cn/v1/rerank'}" placeholder="https://api.siliconflow.cn/v1/rerank" style="width: 100%; padding: 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box;" />
+                                    <input type="text" id="gg_vm_rerank_url" value="${config.rerankUrl || 'https://api.siliconflow.cn/v1/rerank'}" placeholder="https://api.siliconflow.cn/v1/rerank" style="width: 100%; padding: 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
                                 </div>
 
                                 <div style="margin-bottom: 6px;">
                                     <label style="display: block; font-size: 10px; opacity: 0.7; color: ${UI.tc}; margin-bottom: 2px;">Rerank API Key</label>
                                     <div style="position: relative;">
-                                        <input type="password" id="gg_vm_rerank_key" value="${config.rerankKey || ''}" placeholder="sk-..." style="width: 100%; padding: 5px 30px 5px 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box;" />
+                                        <input type="password" id="gg_vm_rerank_key" value="${config.rerankKey || ''}" placeholder="sk-..." style="width: 100%; padding: 5px 30px 5px 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
                                         <i class="gg-vm-toggle-key fa-solid fa-eye" data-target="gg_vm_rerank_key" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); cursor: pointer; opacity: 0.6; color: ${UI.tc}; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'"></i>
                                     </div>
                                 </div>
 
                                 <div style="margin-bottom: 6px;">
                                     <label style="display: block; font-size: 10px; opacity: 0.7; color: ${UI.tc}; margin-bottom: 2px;">Rerank Model</label>
-                                    <input type="text" id="gg_vm_rerank_model" value="${config.rerankModel || 'BAAI/bge-reranker-v2-m3'}" placeholder="BAAI/bge-reranker-v2-m3" style="width: 100%; padding: 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box;" />
+                                    <input type="text" id="gg_vm_rerank_model" value="${config.rerankModel || 'BAAI/bge-reranker-v2-m3'}" placeholder="BAAI/bge-reranker-v2-m3" style="width: 100%; padding: 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
                                 </div>
                             </div>
 
@@ -1636,28 +1722,44 @@
                         </div>
 
                         <!-- 全局操作 -->
+                        <!-- 全局操作 -->
                         <div class="gg-vm-global-section" style="background: rgba(255,255,255,0.05); border-radius: 6px; padding: 10px; border: 1px solid rgba(255,255,255,0.1);">
                             <div style="font-size: 11px; font-weight: bold; color: ${UI.tc}; margin-bottom: 8px;">
                                 🛠️ 全局操作
                             </div>
-                            <div style="display: flex; flex-direction: column; gap: 6px;">
-                                <button id="gg_vm_create_book" style="width: 100%; padding: 7px; background: #9C27B0; color: white; border: none; border-radius: 3px; font-size: 10px; cursor: pointer; font-weight: 500;">
+
+                            <!-- 改为 Grid 布局：双排显示，按钮增高 -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+
+                                <!-- 第一排：新建 & 导入 -->
+                                <button id="gg_vm_create_book" style="width: 100%; padding: 10px; background: #9C27B0; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 500;">
                                     📝 新建空白书
                                 </button>
-                                <button id="gg_vm_import_book" style="width: 100%; padding: 7px; background: #4CAF50; color: white; border: none; border-radius: 3px; font-size: 10px; cursor: pointer; font-weight: 500;">
+                                <button id="gg_vm_import_book" style="width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 500;">
                                     📂 导入新书 (TXT)
                                 </button>
-                                <button id="gg_vm_rebuild_table" style="width: 100%; padding: 7px; background: #2196F3; color: white; border: none; border-radius: 3px; font-size: 10px; cursor: pointer; font-weight: 500;">
-                                    📚 同步总结到书架
-                                </button>
-                                <div style="font-size: 9px; opacity: 0.5; margin-top: 2px; color: ${UI.tc};">
-                                    💡 将最新的记忆总结表转换为书籍，以便进行向量化检索
+
+                                <!-- 第二排：同步 (独占一行，因为有提示语) -->
+                                <div style="grid-column: 1 / -1;">
+                                    <button id="gg_vm_rebuild_table" style="width: 100%; padding: 10px; background: #2196F3; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 500;">
+                                        📚 同步总结到书架
+                                    </button>
+                                    <div style="font-size: 10px; opacity: 0.6; margin-top: 4px; color: ${UI.tc}; text-align: center;">
+                                        💡 将最新的记忆总结表转换为书籍，以便进行向量化检索
+                                    </div>
                                 </div>
-                                <button id="gg_vm_import_all" style="width: 100%; padding: 7px; background: #009688; color: white; border: none; border-radius: 3px; font-size: 10px; cursor: pointer; font-weight: 500;">
+
+                                <!-- 第三排：备份操作 -->
+                                <button id="gg_vm_import_all" style="width: 100%; padding: 10px; background: #009688; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 500;">
                                     📥 导入图书馆备份
                                 </button>
-                                <button id="gg_vm_export_all" style="width: 100%; padding: 7px; background: #607D8B; color: white; border: none; border-radius: 3px; font-size: 10px; cursor: pointer; font-weight: 500;">
+                                <button id="gg_vm_export_all" style="width: 100%; padding: 10px; background: #607D8B; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 500;">
                                     📤 导出图书馆备份
+                                </button>
+
+                                <!-- 第四排：清空 (独占一行，防止误触) -->
+                                <button id="gg_vm_clear_all" style="grid-column: 1 / -1; width: 100%; padding: 10px; background: #f44336; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 500;">
+                                    🧹 清空所有书籍 (重置)
                                 </button>
                             </div>
                         </div>
@@ -1876,6 +1978,7 @@
                             value="${this._escapeHtml(defaultValue)}"
                             placeholder="请输入..."
                             style="width: 100%; padding: 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box; margin-bottom: 6px;"
+                            autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                         />
                         <div style="display: flex; gap: 5px;">
                             <button id="gg_vm_prompt_cancel" style="flex: 1; padding: 5px; background: #6c757d; color: #fff; border: none; border-radius: 3px; cursor: pointer; font-size: 10px;">
@@ -2206,6 +2309,210 @@
                 }
             });
 
+            // 🔄 拉取模型列表
+            $('#gg_vm_fetch_models').off('click').on('click', async function () {
+                const btn = $(this);
+                const originalText = btn.html();
+                btn.html('<i class="fa-solid fa-spinner fa-spin"></i> 拉取中...').prop('disabled', true);
+
+                try {
+                    const apiUrl = $('#gg_vm_url').val().trim();
+                    const apiKey = $('#gg_vm_key').val().trim();
+
+                    if (!apiUrl) {
+                        await customAlert('⚠️ 请先填写 API 地址', '提示');
+                        return;
+                    }
+
+                    // 智能处理 API URL (确保以 /v1 结尾)
+                    let baseUrl = apiUrl.replace(/\/+$/, ''); // 移除尾部斜杠
+                    if (!baseUrl.endsWith('/v1')) {
+                        baseUrl += '/v1';
+                    }
+                    const modelsUrl = `${baseUrl}/models`;
+
+                    // ✅ 构建请求头：仅在有 Key 时才添加 Authorization
+                    const headers = {
+                        'Content-Type': 'application/json'
+                    };
+                    if (apiKey) {
+                        headers['Authorization'] = `Bearer ${apiKey}`;
+                    }
+
+                    // 发送请求
+                    const response = await fetch(modelsUrl, {
+                        method: 'GET',
+                        headers: headers
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    // ✅ [Bug Fix] 先获取原始文本，避免 JSON 解析崩溃
+                    const text = await response.text();
+
+                    let data;
+                    try {
+                        data = JSON.parse(text);
+                    } catch (e) {
+                        console.error('❌ [模型列表] JSON 解析失败:', e.message);
+                        console.error('   原始响应 (前200字符):', text.substring(0, 200));
+                        throw new Error(`API返回非JSON格式\n\n原始响应: ${text.substring(0, 100)}`);
+                    }
+
+                    // 解析模型列表 (兼容 OpenAI 格式)
+                    let models = [];
+                    if (data.data && Array.isArray(data.data)) {
+                        models = data.data.map(m => m.id || m.name || m).filter(Boolean);
+                    } else if (Array.isArray(data)) {
+                        models = data.map(m => m.id || m.name || m).filter(Boolean);
+                    }
+
+                    if (models.length === 0) {
+                        await customAlert('⚠️ 未找到可用模型', '提示');
+                        return;
+                    }
+
+                    // 将输入框替换为下拉框
+                    const $modelInput = $('#gg_vm_model');
+                    const currentValue = $modelInput.val();
+                    const $select = $('<select>', {
+                        id: 'gg_vm_model',
+                        style: $modelInput.attr('style')
+                    });
+
+                    // 1. 添加"手动输入"选项
+                    $select.append($('<option>', {
+                        value: '__manual__',
+                        text: '-- 手动输入 --'
+                    }));
+
+                    // 2. 添加模型选项
+                    models.forEach(modelId => {
+                        $select.append($('<option>', {
+                            value: modelId,
+                            text: modelId,
+                            selected: modelId === currentValue
+                        }));
+                    });
+
+                    // 3. 添加切换回输入框的逻辑
+                    $select.on('change', function() {
+                        if ($(this).val() === '__manual__') {
+                            // 重新创建文本输入框
+                            const $newInput = $('<input>', {
+                                type: 'text',
+                                id: 'gg_vm_model',
+                                value: '',
+                                style: $(this).attr('style'),
+                                placeholder: '请输入模型名称...'
+                            });
+
+                            // 替换下拉框为输入框
+                            $(this).replaceWith($newInput);
+                            $newInput.focus();
+                        }
+                    });
+
+                    // 替换输入框
+                    $modelInput.replaceWith($select);
+
+                    if (typeof toastr !== 'undefined') {
+                        toastr.success(`已加载 ${models.length} 个模型`, '拉取成功');
+                    } else {
+                        await customAlert(`✅ 已加载 ${models.length} 个模型`, '拉取成功');
+                    }
+                } catch (e) {
+                    console.error('❌ [VectorManager] 拉取模型失败:', e);
+                    await customAlert(`❌ 拉取模型失败\n\n${e.message}`, '错误');
+                } finally {
+                    btn.html(originalText).prop('disabled', false);
+                }
+            });
+
+            // 🧪 测试连接
+            $('#gg_vm_test_connection').off('click').on('click', async function () {
+                const btn = $(this);
+                const originalText = btn.html();
+                btn.html('<i class="fa-solid fa-spinner fa-spin"></i> 测试中...').prop('disabled', true);
+
+                try {
+                    const apiUrl = $('#gg_vm_url').val().trim();
+                    const apiKey = $('#gg_vm_key').val().trim();
+                    const model = $('#gg_vm_model').val().trim();
+
+                    if (!apiUrl) {
+                        await customAlert('⚠️ 请先填写 API 地址', '提示');
+                        return;
+                    }
+
+                    if (!model) {
+                        await customAlert('⚠️ 请先填写模型名称', '提示');
+                        return;
+                    }
+
+                    // 智能处理 API URL
+                    let baseUrl = apiUrl.replace(/\/+$/, '');
+                    if (!baseUrl.endsWith('/v1')) {
+                        baseUrl += '/v1';
+                    }
+                    const embeddingsUrl = `${baseUrl}/embeddings`;
+
+                    // ✅ 构建请求头：仅在有 Key 时才添加 Authorization
+                    const headers = {
+                        'Content-Type': 'application/json'
+                    };
+                    if (apiKey) {
+                        headers['Authorization'] = `Bearer ${apiKey}`;
+                    }
+
+                    // 发送测试请求
+                    const response = await fetch(embeddingsUrl, {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify({
+                            model: model,
+                            input: 'test'
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`HTTP ${response.status}: ${errorText}`);
+                    }
+
+                    // ✅ [Bug Fix] 先获取原始文本，避免 JSON 解析崩溃
+                    const text = await response.text();
+
+                    let data;
+                    try {
+                        data = JSON.parse(text);
+                    } catch (e) {
+                        console.error('❌ [连接测试] JSON 解析失败:', e.message);
+                        console.error('   原始响应 (前200字符):', text.substring(0, 200));
+                        throw new Error(`API返回非JSON格式\n\n原始响应: ${text.substring(0, 100)}`);
+                    }
+
+                    // 验证返回的数据格式
+                    if (data.data && Array.isArray(data.data) && data.data[0]?.embedding) {
+                        const vectorDim = data.data[0].embedding.length;
+                        if (typeof toastr !== 'undefined') {
+                            toastr.success(`向量维度: ${vectorDim}`, '✅ 连接成功');
+                        } else {
+                            await customAlert(`✅ 连接成功\n\n向量维度: ${vectorDim}`, '测试成功');
+                        }
+                    } else {
+                        throw new Error('返回数据格式不正确');
+                    }
+                } catch (e) {
+                    console.error('❌ [VectorManager] 测试连接失败:', e);
+                    await customAlert(`❌ 测试连接失败\n\n${e.message}`, '错误');
+                } finally {
+                    btn.html(originalText).prop('disabled', false);
+                }
+            });
+
             // 保存配置
             $('#gg_vm_save').off('click').on('click', async () => {
                 try {
@@ -2236,7 +2543,7 @@
                         console.warn('⚠️ [VectorManager] localStorage 保存失败:', e);
                     }
 
-                    if (m) m.save();
+                    if (m) m.save(false, true); // 向量配置保存立即执行
                     if (typeof window.Gaigai.saveAllSettingsToCloud === 'function') {
                         await window.Gaigai.saveAllSettingsToCloud();
                     }
@@ -2444,6 +2751,20 @@
                 } catch (e) {
                     console.error('❌ [VectorManager] 导出失败:', e);
                     await customAlert(`❌ 导出失败\n\n${e.message}`, '错误');
+                }
+            });
+
+            // 清空所有书籍
+            $('#gg_vm_clear_all').off('click').on('click', async () => {
+                const confirmed = await self._customConfirm(
+                    '⚠️ 危险操作：确定要清空整个图书馆吗？\n\n所有书籍、片段和向量数据都将永久删除！\n建议先导出备份。',
+                    '💥 核弹级清空'
+                );
+
+                if (confirmed) {
+                    self.clearAllBooks();
+                    self.showUI(); // Refresh UI
+                    if (typeof toastr !== 'undefined') toastr.success('图书馆已重置为空', '已清空');
                 }
             });
 
@@ -2655,10 +2976,9 @@
                     }
 
                     const url = $('#gg_vm_url').val().trim();
-                    const key = $('#gg_vm_key').val().trim();
 
-                    if (!url || !key) {
-                        await customAlert('⚠️ 未配置 API\n\n请先填写 API 地址和密钥。', '配置不完整');
+                    if (!url) {
+                        await customAlert('⚠️ 未配置 API\n\n请先填写 API 地址。', '配置不完整');
                         return;
                     }
 

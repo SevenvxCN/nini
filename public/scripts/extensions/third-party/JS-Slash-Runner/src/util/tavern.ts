@@ -1,17 +1,23 @@
+import { isFrontend } from '@/util/is_frontend';
 import {
   characters,
   clearChat,
   event_types,
   eventSource,
+  getRequestHeaders,
   getThumbnailUrl,
+  name2,
   printMessages,
   reloadMarkdownProcessor,
   saveChatConditional,
   this_chid,
   user_avatar,
 } from '@sillytavern/script';
+import { v1CharData } from '@sillytavern/scripts/char-data';
+import { getRegexedString, regex_placement } from '@sillytavern/scripts/extensions/regex/engine';
 import { getPresetManager } from '@sillytavern/scripts/preset-manager';
 import { getImageSizeFromDataURL } from '@sillytavern/scripts/utils';
+import { serialize } from 'object-to-formdata';
 
 export const version = await fetch('/version')
   .then(res => res.json())
@@ -22,9 +28,27 @@ export const APP_READY_EVENTS = [event_types.APP_READY, 'chatLoaded', event_type
 
 export const preset_manager = getPresetManager('openai');
 
+export function getCompletionPresetByName(name: string): any {
+  const { presets, preset_names } = preset_manager.getPresetList();
+
+  let preset;
+  if (Array.isArray(preset_names)) {
+    if (preset_names.includes(name)) {
+      preset = presets[preset_names.indexOf(name)];
+    }
+  } else if ((preset_names as Record<string, number>)[name] !== undefined) {
+    preset = presets[(preset_names as Record<string, number>)[name]];
+  }
+
+  if (preset === undefined) {
+    console.error(`Preset ${name} not found`);
+  }
+  return preset;
+}
+
 export function highlight_code(element: HTMLElement) {
   const $node = $(element);
-  if ($node.hasClass('hljs') || $node.text().includes('<body')) {
+  if ($node.hasClass('hljs') || isFrontend($node.text())) {
     return;
   }
 
@@ -117,4 +141,109 @@ export async function getVideoTokenCost(_data_url: string): Promise<number> {
 
 export function renderMarkdown(markdown: string) {
   return reloadMarkdownProcessor().makeHtml(markdown);
+}
+
+export function getFirstMessage() {
+  const first_messag = characters[Number(this_chid)]?.first_mes || '';
+  const alternate_greetings = characters[Number(this_chid)]?.data?.alternate_greetings;
+
+  const message = {
+    name: name2,
+    is_user: false,
+    is_system: false,
+    send_date: new Date().toISOString(),
+    mes: getRegexedString(first_messag, regex_placement.AI_OUTPUT),
+    extra: {},
+  };
+
+  if (Array.isArray(alternate_greetings) && alternate_greetings.length > 0) {
+    const swipes = [
+      message.mes,
+      ...alternate_greetings.map(greeting => getRegexedString(greeting, regex_placement.AI_OUTPUT)),
+    ];
+
+    if (!message.mes) {
+      swipes.shift();
+      message.mes = swipes[0];
+    }
+
+    _.set(message, 'swipe_id', 0);
+    _.set(message, 'swipes', swipes);
+    _.set(
+      message,
+      'swipe_info',
+      swipes.map(_ => ({
+        send_date: message.send_date,
+        gen_started: void 0,
+        gen_finished: void 0,
+        extra: {},
+      })),
+    );
+  }
+
+  return message;
+}
+
+// 酒馆自带的 writeExtensionField 会合并旧值和新值, 因此自己做一个
+export async function writeExtensionField(id: string | undefined, field: string, value: any | undefined) {
+  const character = (characters as v1CharData[])[Number(id)];
+  if (!character) {
+    return;
+  }
+
+  if (value === undefined) {
+    _.unset(character.data.extensions, field);
+  } else {
+    _.set(character.data.extensions, field, value);
+  }
+
+  if (character.json_data) {
+    const json_data = JSON.parse(character.json_data);
+    if (value === undefined) {
+      _.unset(json_data.data.extensions, field);
+    } else {
+      _.set(json_data.data.extensions, field, value);
+    }
+    character.json_data = JSON.stringify(json_data);
+
+    if (Number(id) === Number(this_chid)) {
+      $('#character_json_data').val(character.json_data);
+    }
+  }
+
+  const payload = {
+    ch_name: character.name,
+    avatar_url: character.name + '.png',
+    character_version: character.data.character_version,
+    creator: character.data.creator,
+    creator_notes: character.data.creator_notes,
+    description: character.data.description,
+    first_mes: character.data.first_mes,
+    alternate_greetings: character.data.alternate_greetings,
+    world: character.data.extensions.world,
+    extensions: JSON.stringify(character.data.extensions),
+
+    chat: character.chat,
+    create_date: character.create_date,
+    personality: character.data.personality,
+    scenario: character.data.scenario,
+    mes_example: character.data.mes_example,
+    talkativeness: character.data.extensions?.talkativeness,
+    fav: character.data.extensions?.fav,
+    tags: character.data.tags,
+  };
+
+  const headers = getRequestHeaders();
+  _.unset(headers, 'Content-Type');
+
+  const response = await fetch('/api/characters/edit', {
+    method: 'POST',
+    headers: headers,
+    body: serialize(payload),
+    cache: 'no-cache',
+  });
+
+  if (!response.ok) {
+    console.error('Failed to save extension field', await response.text());
+  }
 }

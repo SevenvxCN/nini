@@ -66,8 +66,8 @@
         </Teleport>
       </div>
       <div class="flex items-center justify-between gap-1 border-b border-(--SmartThemeBorderColor) py-0.25">
-        <span class="overflow-hidden th-text-sm text-ellipsis whitespace-nowrap">{{ t`模型` }}: {{ model }}</span
-        ><span class="overflow-hidden th-text-sm text-ellipsis whitespace-nowrap">{{ t`预设` }}: {{ preset }}</span>
+        <span class="overflow-hidden th-text-sm text-ellipsis whitespace-nowrap">{{ t`模型` }}: {{ model }}</span>
+        <span class="overflow-hidden th-text-sm text-ellipsis whitespace-nowrap">{{ t`预设` }}: {{ preset }}</span>
       </div>
     </div>
     <template v-if="state !== 'idle'">
@@ -77,7 +77,7 @@
       </div>
     </template>
     <template v-else>
-      <VirtList ref="virt_list" item-key="id" :list="filtered_prompts" :min-size="10" :item-gap="7">
+      <VirtList ref="virt_list" item-key="id" :list="filtered_prompts" :item-gap="7" :buffer="10">
         <template #default="{ itemData: item_data }">
           <div class="rounded-md border border-(--SmartThemeBorderColor) p-0.5 text-(--SmartThemeBodyColor)">
             <div
@@ -162,7 +162,7 @@ useEventSourceOn(event_types.CHATCOMPLETION_MODEL_CHANGED, () => {
   model.value = getChatCompletionModel();
 });
 
-const preset = toRef(usePresetSettingsStore(), 'name');
+const preset = toRef(() => usePresetSettingsStore().name);
 
 const prompts = shallowRef<PromptData[]>([]);
 const roles_to_show = ref<string[]>(['system', 'user', 'assistant']);
@@ -181,6 +181,13 @@ function toggleAll(should_expand: boolean) {
   is_expanded.value = _.times(prompts.value.length, _.constant(should_expand));
   should_expand_by_default.value = should_expand;
 }
+
+watch(
+  () => [filtered_prompts, is_expanded],
+  () => {
+    virt_list_ref.value?.forceUpdate();
+  },
+);
 
 const state = ref<'idle' | 'past_loading' | 'refreshing' | 'loading'>('idle');
 const hint_text = computed(() => {
@@ -271,7 +278,6 @@ function collectPrompts(data: SendingMessage[]) {
       }),
     );
     is_expanded.value = _.times(data.length, _.constant(should_expand_by_default.value));
-    virt_list_ref.value?.forceUpdate();
     state.value = 'idle';
   });
 }

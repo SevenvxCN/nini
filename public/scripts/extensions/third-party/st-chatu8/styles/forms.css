@@ -1,26 +1,31 @@
 /* Form Fields & Controls */
-#st-chatu8-settings .st-chatu8-field, #st-chatu8-settings .st-chatu8-field-col {
+#st-chatu8-settings .st-chatu8-field,
+#st-chatu8-settings .st-chatu8-field-col {
     display: flex;
     align-items: center;
     justify-content: space-between;
     margin-bottom: 16px;
     gap: 16px;
 }
+
 #st-chatu8-settings .st-chatu8-field-col {
     flex-direction: column;
     align-items: stretch;
     position: relative;
 }
 
-#st-chatu8-settings .st-chatu8-field label, #st-chatu8-settings .st-chatu8-field-col label {
+#st-chatu8-settings .st-chatu8-field label,
+#st-chatu8-settings .st-chatu8-field-col label {
     color: var(--st-chatu8-text-primary);
     font-size: 1rem;
 }
 
 #st-chatu8-settings .st-chatu8-unsaved-warning {
-    color: #ffc107; /* A more warning-like yellow */
+    color: #ffc107;
+    /* A more warning-like yellow */
     margin-left: 8px;
-    display: none; /* Hidden by default */
+    display: none;
+    /* Hidden by default */
     cursor: help;
     animation: st-chatu8-pulse-warning 2s infinite ease-in-out;
 }
@@ -59,16 +64,17 @@
 }
 
 /* Constrain the width of controls inside a field for better aesthetics */
-#st-chatu8-settings .st-chatu8-field > .st-chatu8-select,
-#st-chatu8-settings .st-chatu8-field > .st-chatu8-text-input,
-#st-chatu8-settings .st-chatu8-field > .st-chatu8-input-group,
-#st-chatu8-settings .st-chatu8-field > .st-chatu8-profile-controls {
+#st-chatu8-settings .st-chatu8-field>.st-chatu8-select,
+#st-chatu8-settings .st-chatu8-field>.st-chatu8-text-input,
+#st-chatu8-settings .st-chatu8-field>.st-chatu8-input-group,
+#st-chatu8-settings .st-chatu8-field>.st-chatu8-profile-controls {
     max-width: 420px;
     flex-grow: 1;
-    min-width: 0; /* Allow shrinking */
+    min-width: 0;
+    /* Allow shrinking */
 }
 
-#st-chatu8-settings .st-chatu8-field > .st-chatu8-text-input {
+#st-chatu8-settings .st-chatu8-field>.st-chatu8-text-input {
     width: auto;
 }
 
@@ -110,11 +116,11 @@
     border-radius: 50%;
 }
 
-#st-chatu8-settings .st-chatu8-toggle input:checked + .st-chatu8-slider {
+#st-chatu8-settings .st-chatu8-toggle input:checked+.st-chatu8-slider {
     background-color: var(--st-chatu8-accent-primary);
 }
 
-#st-chatu8-settings .st-chatu8-toggle input:checked + .st-chatu8-slider:before {
+#st-chatu8-settings .st-chatu8-toggle input:checked+.st-chatu8-slider:before {
     transform: translateX(22px);
 }
 
@@ -162,6 +168,7 @@
 #st-chatu8-settings .st-chatu8-range-slider:hover::-webkit-slider-thumb {
     background: var(--st-chatu8-accent-secondary);
 }
+
 #st-chatu8-settings .st-chatu8-range-slider:hover::-moz-range-thumb {
     background: var(--st-chatu8-accent-secondary);
 }
@@ -188,17 +195,20 @@
     border: none;
     cursor: pointer;
 }
+
 #st-chatu8-settings .st-chatu8-color-picker::-webkit-color-swatch {
     border-radius: 50%;
     border: 2px solid var(--st-chatu8-border-color);
 }
+
 #st-chatu8-settings .st-chatu8-color-picker::-moz-color-swatch {
     border-radius: 50%;
     border: 2px solid var(--st-chatu8-border-color);
 }
 
 /* General Buttons */
-#st-chatu8-settings .st-chatu8-btn, #st-chatu8-settings .st-chatu8-icon-btn {
+#st-chatu8-settings .st-chatu8-btn,
+#st-chatu8-settings .st-chatu8-icon-btn {
     background-color: var(--st-chatu8-bg-tertiary);
     border: 1px solid var(--st-chatu8-border-color);
     color: var(--st-chatu8-text-primary);
@@ -209,18 +219,22 @@
     font-size: 0.95rem;
 }
 
-#st-chatu8-settings .st-chatu8-btn:hover, #st-chatu8-settings .st-chatu8-icon-btn:hover {
+#st-chatu8-settings .st-chatu8-btn:hover,
+#st-chatu8-settings .st-chatu8-icon-btn:hover {
     background-color: var(--st-chatu8-accent-secondary);
     border-color: var(--st-chatu8-accent-primary);
     color: var(--st-chatu8-text-highlight, white);
 }
 
-#st-chatu8-settings .st-chatu8-btn.danger, #st-chatu8-settings .st-chatu8-icon-btn.danger {
+#st-chatu8-settings .st-chatu8-btn.danger,
+#st-chatu8-settings .st-chatu8-icon-btn.danger {
     background-color: var(--st-chatu8-danger-primary);
     border-color: var(--st-chatu8-danger-secondary);
     color: var(--st-chatu8-danger-text, white);
 }
-#st-chatu8-settings .st-chatu8-btn.danger:hover, #st-chatu8-settings .st-chatu8-icon-btn.danger:hover {
+
+#st-chatu8-settings .st-chatu8-btn.danger:hover,
+#st-chatu8-settings .st-chatu8-icon-btn.danger:hover {
     background-color: var(--st-chatu8-danger-secondary);
 }
 
@@ -234,6 +248,10 @@
     display: flex;
     gap: 8px;
     align-items: center;
+    min-width: 0;
+    /* Allow shrinking in flexbox */
+    overflow: hidden;
+    /* Prevent content overflow */
 }
 
 #st-chatu8-settings .st-chatu8-select {
@@ -248,7 +266,8 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    min-width: 0; /* Allow shrinking in flexbox */
+    min-width: 0;
+    /* Allow shrinking in flexbox */
 }
 
 #st-chatu8-settings .st-chatu8-select:hover {
@@ -272,11 +291,13 @@
 #st-chatu8-settings .st-chatu8-select option {
     background-color: var(--st-chatu8-dropdown-list-bg, var(--st-chatu8-bg-secondary));
     color: var(--st-chatu8-dropdown-text, var(--st-chatu8-text-primary));
-    padding: 10px 12px; /* May not be applied consistently */
+    padding: 10px 12px;
+    /* May not be applied consistently */
 }
 
 
-#st-chatu8-settings .st-chatu8-textarea, #st-chatu8-settings .st-chatu8-text-input {
+#st-chatu8-settings .st-chatu8-textarea,
+#st-chatu8-settings .st-chatu8-text-input {
     width: 100%;
     background: var(--st-chatu8-bg-secondary);
     border: 1px solid var(--st-chatu8-border-color);
@@ -312,7 +333,8 @@
     max-height: 300px;
     overflow-y: auto;
     z-index: 1000;
-    top: 100%; /* Position it right below the textarea */
+    top: 100%;
+    /* Position it right below the textarea */
     left: 0;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
@@ -390,4 +412,28 @@
 
 #st-chatu8-settings .st-chatu8-details-content {
     padding: 16px;
+}
+
+/* Select Search Input */
+#st-chatu8-settings .st-chatu8-select-search {
+    width: 100%;
+    margin-bottom: 6px;
+    padding: 8px 10px;
+    background: var(--st-chatu8-bg-secondary);
+    border: 1px solid var(--st-chatu8-border-color);
+    color: var(--st-chatu8-text-primary);
+    border-radius: 6px;
+    box-sizing: border-box;
+    font-size: 0.9rem;
+}
+
+#st-chatu8-settings .st-chatu8-select-search:focus {
+    outline: none;
+    border-color: var(--st-chatu8-accent-primary);
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.15);
+}
+
+#st-chatu8-settings .st-chatu8-select-search::placeholder {
+    color: var(--st-chatu8-text-secondary);
+    opacity: 0.7;
 }

@@ -89,6 +89,8 @@ export interface EvalTemplateOptions {
     sandbox?: FunctionSandbox | null;
 }
 
+export let SharedDefines: Record<string, unknown> = {};
+
 /**
  * use EJS template engine to process content
  * @see prepareContext
@@ -162,6 +164,8 @@ export async function evalTemplate(
                         TavernHelper: globalThis.TavernHelper,
                         // @ts-expect-error
                         Mvu: globalThis.Mvu,
+                        // @ts-expect-error
+                        YAML: globalThis.YAML,
                     },
                     data,
                 );
@@ -378,8 +382,6 @@ async function boundedPresetPrompt(this: Record<string, unknown>,
     ));
 }
 
-export let SharedDefines: Record<string, unknown> = {};
-
 function boundedDefine(this: Record<string, unknown>, name: string, value: unknown, merge: boolean = false) {
     // console.debug(`[Prompt Template] global ${name} defined: ${value}`);
     const oldValue = _.get(SharedDefines, name, undefined);
@@ -551,7 +553,10 @@ export async function compileTemplate(
                 const { resolve, reject } = taskMap.get(id)!;
                 taskMap.delete(id);
                 if (error) {
-                    reject(new Error(error));
+                    const e = new Error(error);
+                    // @ts-expect-error: 2339
+                    e.src = code;
+                    reject(e);
                 } else {
                     resolve(code);
                 }
@@ -597,6 +602,8 @@ export async function compileTemplate(
                                     TavernHelper: globalThis.TavernHelper,
                                     // @ts-expect-error
                                     Mvu: globalThis.Mvu,
+                                    // @ts-expect-error
+                                    YAML: globalThis.YAML,
                                 },
                                 thisData,
                             );

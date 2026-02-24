@@ -5,6 +5,7 @@ import {
   setChatLorebook,
   setCurrentCharLorebooks,
 } from '@/function/lorebook';
+import { RawCharacter } from '@/function/raw_character';
 import { reloadEditor, reloadEditorDebounced } from '@/util/compatibility';
 import { saveSettingsDebounced } from '@sillytavern/script';
 import {
@@ -47,11 +48,15 @@ type CharWorldbooks = {
   additional: string[];
 };
 export function getCharWorldbookNames(character_name: LiteralUnion<'current', string>): CharWorldbooks {
-  return getCharLorebooks(character_name === 'current' ? undefined : { name: character_name });
+  return getCharLorebooks({ name: character_name });
 }
 export async function rebindCharWorldbooks(character_name: 'current', char_worldbooks: CharWorldbooks): Promise<void> {
   if (character_name !== 'current') {
     throw Error(`目前不支持对非当前角色卡调用 bindCharWorldbooks`);
+  }
+  const character = RawCharacter.find({ name: character_name });
+  if (!character) {
+    throw Error(`角色卡 '${character_name}' 不存在`);
   }
   // TODO: 重做 characters.ts, 然后直接访问后端来修改这里
   return setCurrentCharLorebooks(char_worldbooks);
@@ -133,6 +138,14 @@ const _default_implicit_keys: _ImplicitKeys = {
   matchWholeWords: null,
   useGroupScoring: null,
   automationId: '',
+  ignoreBudget: false,
+  outletName: '',
+  triggers: [],
+  characterFilter: {
+    isExclude: false,
+    names: [],
+    tags: [],
+  },
 } as const;
 type _ImplicitKeys = {
   addMemo: true;
@@ -149,6 +162,14 @@ type _ImplicitKeys = {
   matchWholeWords: null;
   useGroupScoring: null;
   automationId: '';
+  ignoreBudget: false,
+  outletName: '',
+  triggers: [],
+  characterFilter: {
+    isExclude: false,
+    names: [],
+    tags: [],
+  },
 };
 type _OriginalWorldbookEntry = {
   uid: number;
@@ -360,10 +381,13 @@ export async function createOrReplaceWorldbook(
           .value(),
       ),
     });
-    if (render === 'debounced') {
-      reloadEditorDebounced(worldbook_name);
-    } else {
-      reloadEditor(worldbook_name);
+    switch (render) {
+      case 'debounced':
+        reloadEditorDebounced(worldbook_name);
+        break;
+      case 'immediate':
+        reloadEditor(worldbook_name);
+        break;
     }
   }
   return !is_existing;

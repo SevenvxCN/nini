@@ -1,4 +1,6 @@
+import { from_tavern_regex, TavernRegex, to_tavern_regex } from '@/function/tavern_regex';
 import { settingsToUpdate } from '@/util/compatibility';
+import { getCompletionPresetByName } from '@/util/tavern';
 import { saveSettingsDebounced } from '@sillytavern/script';
 import { oai_settings, promptManager } from '@sillytavern/scripts/openai';
 import { getPresetManager } from '@sillytavern/scripts/preset-manager';
@@ -42,7 +44,14 @@ type Preset = {
   prompts: PresetPrompt[];
   prompts_unused: PresetPrompt[];
 
-  extensions: Record<string, any>;
+  extensions: {
+    regex_scripts?: TavernRegex[];
+    tavern_helper: {
+      scripts: Record<string, any>[];
+      variables: Record<string, any>;
+    };
+    [other: string]: any;
+  };
 };
 
 type PresetPrompt = {
@@ -201,7 +210,12 @@ export const default_preset: Preset = {
     },
   ],
   prompts_unused: [],
-  extensions: {},
+  extensions: {
+    tavern_helper: {
+      scripts: [],
+      variables: {},
+    },
+  },
 } as const;
 
 const in_use_map = {
@@ -402,6 +416,9 @@ function toPreset(preset: _OriginalPreset, { in_use }: { in_use: boolean }): Pre
   );
   const prompts = prompt_order_identifiers.map(identifier => prompts_used.find(prompt => prompt.id === identifier)!);
 
+  const extensions = klona(preset.extensions);
+  _.set(extensions, 'regex_scripts', (extensions?.regex_scripts ?? []).map(to_tavern_regex));
+
   return {
     settings: {
       max_context: Number(preset.openai_max_context),
@@ -449,7 +466,8 @@ function toPreset(preset: _OriginalPreset, { in_use }: { in_use: boolean }): Pre
     prompts,
     prompts_unused,
 
-    extensions: preset.extensions,
+    // @ts-expect-error 类型是正确的, extensions 里必然有 tavern_helper
+    extensions,
   };
 }
 function fromPreset(preset: Preset): _OriginalPreset {
@@ -480,6 +498,12 @@ function fromPreset(preset: Preset): _OriginalPreset {
 
   const prompt_used = preset.prompts.map(prompt => fromPresetPrompt(prompt));
   const prompt_unused = preset.prompts_unused.map(prompt => fromPresetPrompt(prompt));
+
+  const extensions = klona(preset.extensions);
+  if (_.has(extensions, 'regex_scripts[0].source')) {
+    // @ts-expect-error 类型是正确的, 就是需要转换回酒馆格式
+    extensions.regex_scripts = extensions.regex_scripts.map(from_tavern_regex);
+  }
 
   return {
     max_context_unlocked: true,
@@ -541,7 +565,7 @@ function fromPreset(preset: Preset): _OriginalPreset {
       },
     ],
 
-    extensions: preset.extensions,
+    extensions,
   };
 }
 
@@ -578,7 +602,7 @@ export async function createPreset(
 function updateOriginalPresetData(
   data: Record<string, any>,
   updates: _OriginalPreset,
-  { in_use, render }: { in_use: boolean; render?: 'immediate' | 'debounced' },
+  { in_use, render }: { in_use: boolean; render?: 'immediate' | 'debounced' | 'none' },
 ): void {
   let lodash_data = _(data);
   Object.entries(settingsToUpdate).forEach(([key, { oai_setting }]) => {
@@ -590,6 +614,12 @@ function updateOriginalPresetData(
   lodash_data.value();
 
   if (!in_use) {
+    return;
+  }
+
+  saveSettingsDebounced();
+
+  if (render === 'none') {
     return;
   }
 
@@ -610,7 +640,6 @@ function updateOriginalPresetData(
 
   $(checkboxes).trigger('input', { source: 'preset' });
   $(inputs).trigger('input', { source: 'preset' });
-  saveSettingsDebounced();
   if (render === 'debounced') {
     promptManager.renderDebounced();
   } else {
@@ -618,7 +647,7 @@ function updateOriginalPresetData(
   }
 }
 type ReplacePresetOptions = {
-  render?: 'debounced' | 'immediate';
+  render?: 'debounced' | 'immediate' | 'none';
 };
 export async function createOrReplacePreset(
   preset_name: LiteralUnion<'in_use', string>,
@@ -637,7 +666,7 @@ export async function createOrReplacePreset(
     );
   } else {
     updateOriginalPresetData(
-      preset_name === 'in_use' ? oai_settings : preset_manager.getCompletionPresetByName(preset_name),
+      preset_name === 'in_use' ? oai_settings : getCompletionPresetByName(preset_name),
       original_preset,
       {
         in_use: preset_name === 'in_use',
@@ -647,7 +676,7 @@ export async function createOrReplacePreset(
   }
 
   if (preset_name !== 'in_use') {
-    await preset_manager.savePreset(preset_name, preset_manager.getCompletionPresetByName(preset_name), {
+    await preset_manager.savePreset(preset_name, getCompletionPresetByName(preset_name), {
       skipUpdate: true,
     });
   }
@@ -669,8 +698,7 @@ export async function renamePreset(preset_name: Exclude<string, 'in_use'>, new_n
 }
 
 export function getPreset(preset_name: LiteralUnion<'in_use', string>): Preset {
-  const original_preset =
-    preset_name === 'in_use' ? oai_settings : preset_manager.getCompletionPresetByName(preset_name);
+  const original_preset = preset_name === 'in_use' ? oai_settings : getCompletionPresetByName(preset_name);
   if (!original_preset) {
     throw Error(`预设 '${preset_name}' 不存在`);
   }

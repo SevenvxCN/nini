@@ -1,8 +1,8 @@
 import { CharacterSettings as BackwardCharacterSettings } from '@/type/backward';
 import { CharacterSettings, setting_field } from '@/type/settings';
 import { fromCharacterBook, updateWorldInfoList } from '@/util/compatibility';
+import { writeExtensionField } from '@/util/tavern';
 import { characters, event_types, eventSource, this_chid } from '@sillytavern/script';
-import { writeExtensionField } from '@sillytavern/scripts/extensions';
 import { loadWorldInfo, saveWorldInfo } from '@sillytavern/scripts/world-info';
 
 function getSettings(id: string | undefined): CharacterSettings {
@@ -13,23 +13,26 @@ function getSettings(id: string | undefined): CharacterSettings {
 
   const backward_scripts = _.get(character, `data.extensions.TavernHelper_scripts`);
   const backward_variables = _.get(character, `data.extensions.TavernHelper_characterScriptVariables`);
-  if (
-    (backward_scripts !== undefined || backward_variables !== undefined) &&
-    !_.has(character, `data.extensions.${setting_field}`)
-  ) {
-    const parsed = BackwardCharacterSettings.safeParse({
-      scripts: backward_scripts ?? [],
-      variables: backward_variables ?? {},
-    } satisfies z.infer<typeof BackwardCharacterSettings>);
-    if (parsed.success) {
-      saveSettings(id as string, characters[id as unknown as number]?.name as string, parsed.data);
-    } else {
-      toastr.warning(parsed.error.message, t`[酒馆助手]迁移旧数据失败, 将使用空数据`);
+  if (backward_scripts !== undefined || backward_variables !== undefined) {
+    if (!_.has(character, `data.extensions.${setting_field}`)) {
+      const parsed = BackwardCharacterSettings.safeParse({
+        scripts: backward_scripts ?? [],
+        variables: backward_variables ?? {},
+      } satisfies z.infer<typeof BackwardCharacterSettings>);
+      if (parsed.success) {
+        saveSettings(id as string, characters[id as unknown as number]?.name as string, parsed.data);
+      } else {
+        toastr.warning(parsed.error.message, t`[酒馆助手]迁移旧数据失败, 将使用空数据`);
+      }
     }
+    writeExtensionField(id, 'TavernHelper_scripts', undefined);
+    writeExtensionField(id, 'TavernHelper_characterScriptVariables', undefined);
   }
 
-  const settings = Object.fromEntries(_.get(character, `data.extensions.${setting_field}`, []));
-  const parsed = CharacterSettings.safeParse(settings);
+  const settings = _.get(character, `data.extensions.${setting_field}`);
+  const parsed = CharacterSettings.safeParse(
+    settings !== undefined ? (_.isArray(settings) ? Object.fromEntries(settings) : settings) : {},
+  );
   if (!parsed.success) {
     toastr.warning(parsed.error.message, t`[酒馆助手]读取角色卡数据失败, 将使用空数据`);
     return CharacterSettings.parse({});
@@ -37,15 +40,11 @@ function getSettings(id: string | undefined): CharacterSettings {
   return CharacterSettings.parse(parsed.data);
 }
 
-function saveSettings(id: string, name: string, settings: CharacterSettings) {
-  // 酒馆的 `writeExtensionField` 会对对象进行合并, 因此要将对象转换为数组再存储
+async function saveSettings(id: string, name: string, settings: CharacterSettings) {
   if (name === characters[id as unknown as number]?.name) {
-    const entries = Object.entries(settings);
-    _.set(characters[id as unknown as number], `data.extensions.${setting_field}`, entries);
-    writeExtensionField(Number(id), setting_field, entries);
+    await writeExtensionField(id, setting_field, settings);
   }
 }
-const saveSettingsDebounced = _.debounce(saveSettings, 1000);
 
 export const useCharacterSettingsStore = defineStore('character_setttings', () => {
   const id = ref<string | undefined>(this_chid);
@@ -100,9 +99,10 @@ export const useCharacterSettingsStore = defineStore('character_setttings', () =
   // 在某角色卡内修改 settings 时保存
   const { ignoreUpdates } = watchIgnorable(
     settings,
-    new_settings => {
+    async new_settings => {
       if (id.value !== undefined && name.value !== undefined) {
-        saveSettingsDebounced(id.value, name.value, klona(new_settings));
+        // 酒馆经常读取角色卡数据, 所以这里需要立即保存
+        await saveSettings(id.value, name.value, klona(new_settings));
       }
     },
     { deep: true },
@@ -112,7 +112,6 @@ export const useCharacterSettingsStore = defineStore('character_setttings', () =
     ignoreUpdates(() => {
       if (id.value !== undefined && name.value !== undefined) {
         settings.value = getSettings(id.value);
-        saveSettings(id.value, name.value, settings.value);
       }
     });
   };

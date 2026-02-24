@@ -51,7 +51,7 @@
       class="flex flex-1 flex-col gap-(--TH-log--gap) overflow-y-auto"
       style="--TH-log--gap: calc(var(--mainFontSize) * 0.5)"
     >
-      <VirtList item-key="timestamp" :list="logs" :min-size="10" item-class="TH-log--item" item-style="">
+      <VirtList item-key="timestamp" :list="logs" item-class="TH-log--item" item-style="" :buffer="10">
         <template #default="{ itemData: item_data }">
           <div
             :class="{
@@ -95,6 +95,7 @@ function computeLogs(
 ): { iframe_id: string; level: LogLevel; timestamp: number; message: string }[] {
   let result = _(iframe_logs)
     .flatMap(([iframe_id, logs]) => logs.map(log => ({ iframe_id, ...log })))
+    .filter(item => level_filters.value[item.level])
     .sortBy(item => item.timestamp);
   if (search_input.value !== null) {
     result = result.filter(item => search_input.value!.test(item.message));

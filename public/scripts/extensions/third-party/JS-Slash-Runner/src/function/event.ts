@@ -3,38 +3,81 @@ import { _getButtonEvent } from '@/function/script';
 import { _getIframeName } from '@/function/util';
 import { getOrSet } from '@/util/algorithm';
 import { eventSource } from '@sillytavern/script';
+import { LiteralUnion } from 'type-fest';
 
-const iframe_event_listeners_map: Map<string, Map<string, Set<Function>>> = new Map();
+const iframe_event_listener_wrapper_map: Map<string, Map<string, Map<Function, Function>>> = new Map();
 
-function register_listener(this: Window, event: string, listener: Function): void {
-  const event_listeners_map = getOrSet(
-    iframe_event_listeners_map,
+function get_event_listener_wrapper_map(this: Window): Map<string, Map<Function, Function>> {
+  return getOrSet(
+    iframe_event_listener_wrapper_map,
     _getIframeName.call(this),
-    () => new Map<string, Set<Function>>(),
+    () => new Map<string, Map<Function, Function>>(),
   );
-  const listeners = getOrSet(event_listeners_map, event, () => new Set());
-
-  listeners.add(listener);
 }
 
-function get_map(this: Window): Map<string, Set<Function>> {
-  return getOrSet(iframe_event_listeners_map, _getIframeName.call(this), () => new Map<string, Set<Function>>());
+function get_listener_wrapper_map(this: Window, event_type: string): Map<Function, Function> {
+  const event_listener_wrapper_map = get_event_listener_wrapper_map.call(this);
+  return getOrSet(event_listener_wrapper_map, event_type, () => new Map<Function, Function>());
+}
+
+function register_listener_wrapper(
+  this: Window,
+  event_type: string,
+  listener: Function,
+  options: { once?: boolean } = {},
+): Function {
+  const listener_wrapper_map = get_listener_wrapper_map.call(this, event_type);
+  return getOrSet(listener_wrapper_map, listener, () => {
+    const wrapper = (...args: any[]) => {
+      const listener_wrapper_map = get_listener_wrapper_map.call(this, event_type);
+      if (!listener_wrapper_map?.has(listener)) {
+        eventSource.removeListener(event_type, wrapper);
+        return;
+      }
+
+      if (
+        [
+          tavern_events.MESSAGE_SWIPED,
+          tavern_events.MESSAGE_SENT,
+          tavern_events.MESSAGE_RECEIVED,
+          tavern_events.MESSAGE_EDITED,
+          tavern_events.MESSAGE_UPDATED,
+          tavern_events.USER_MESSAGE_RENDERED,
+          tavern_events.CHARACTER_MESSAGE_RENDERED,
+        ].some(event => event === event_type)
+      ) {
+        args[0] = parseInt(args[0]);
+        if (isNaN(args[0])) {
+          return;
+        }
+      }
+
+      const result = listener(...args);
+
+      if (options.once) {
+        _eventRemoveListener.call(this, event_type, listener as any);
+      }
+
+      return result;
+    };
+    return wrapper;
+  });
 }
 
 type EventOnReturn = {
   stop: () => void;
 };
 
-function make_event_on_return<T extends EventType>(this: Window, event_type: T, listener: ListenerType[T]) {
+function make_event_on_return(this: Window, event_type: string, listener: Function) {
   return {
-    stop: () => _eventRemoveListener.call(this, event_type, listener),
+    stop: () => _eventRemoveListener.call(this, event_type, listener as any),
   };
 }
 
 export function _eventOn<T extends EventType>(this: Window, event_type: T, listener: ListenerType[T]): EventOnReturn {
-  register_listener.call(this, event_type, listener);
-  eventSource.on(event_type, listener);
-  return make_event_on_return.call(this, event_type, listener);
+  const wrapped = register_listener_wrapper.call(this, event_type, listener);
+  eventSource.on(event_type, wrapped);
+  return make_event_on_return.call(this, event_type, wrapped);
 }
 
 /** @deprecated */
@@ -47,9 +90,9 @@ export function _eventMakeLast<T extends EventType>(
   event_type: T,
   listener: ListenerType[T],
 ): EventOnReturn {
-  register_listener.call(this, event_type, listener);
-  eventSource.makeLast(event_type, listener);
-  return make_event_on_return.call(this, event_type, listener);
+  const wrapped = register_listener_wrapper.call(this, event_type, listener);
+  eventSource.makeLast(event_type, wrapped);
+  return make_event_on_return.call(this, event_type, wrapped);
 }
 
 export function _eventMakeFirst<T extends EventType>(
@@ -57,20 +100,15 @@ export function _eventMakeFirst<T extends EventType>(
   event_type: T,
   listener: ListenerType[T],
 ): EventOnReturn {
-  register_listener.call(this, event_type, listener);
-  eventSource.makeFirst(event_type, listener);
-  return make_event_on_return.call(this, event_type, listener);
+  const wrapped = register_listener_wrapper.call(this, event_type, listener);
+  eventSource.makeFirst(event_type, wrapped);
+  return make_event_on_return.call(this, event_type, wrapped);
 }
 
 export function _eventOnce<T extends EventType>(this: Window, event_type: T, listener: ListenerType[T]): EventOnReturn {
-  // 酒馆自己也支持重复 once, 因此此处不考虑重复的情况
-  const once = (...args: any[]) => {
-    get_map.call(this).get(event_type)?.delete(once);
-    return listener(...args);
-  };
-  register_listener.call(this, event_type, once);
-  eventSource.once(event_type, once);
-  return make_event_on_return.call(this, event_type, listener);
+  const wrapped = register_listener_wrapper.call(this, event_type, listener, { once: true });
+  eventSource.once(event_type, wrapped);
+  return make_event_on_return.call(this, event_type, wrapped);
 }
 
 export async function _eventEmit<T extends EventType>(
@@ -94,32 +132,34 @@ export function _eventRemoveListener<T extends EventType>(
   event_type: T,
   listener: ListenerType[T],
 ): void {
-  get_map.call(this).get(event_type)?.delete(listener);
-  eventSource.removeListener(event_type, listener);
+  const listener_wrapper_map = get_listener_wrapper_map.call(this, event_type);
+  if (listener_wrapper_map) {
+    const wrapper = listener_wrapper_map.get(listener);
+    if (wrapper) {
+      listener_wrapper_map.delete(listener);
+      eventSource.removeListener(event_type, wrapper);
+    }
+  }
 }
 
 export function _eventClearEvent(this: Window, event_type: EventType): void {
-  const event_listeners_map = get_map.call(this);
-  event_listeners_map.get(event_type)?.forEach(listener => {
-    eventSource.removeListener(event_type, listener);
+  get_listener_wrapper_map.call(this, event_type)?.forEach((_wrapper, listener) => {
+    _eventRemoveListener.call(this, event_type, listener as any);
   });
-  event_listeners_map.delete(event_type);
 }
 
 export function _eventClearListener(this: Window, listener: Function): void {
-  get_map.call(this).forEach((listeners, event_type) => {
-    eventSource.removeListener(event_type, listener);
-    listeners.delete(listener);
+  get_event_listener_wrapper_map.call(this).forEach((_listeners, event_type) => {
+    _eventRemoveListener.call(this, event_type, listener as any);
   });
 }
 
 export function _eventClearAll(this: Window): void {
-  get_map.call(this).forEach((listeners, event_type) => {
-    listeners.forEach(listener => {
-      eventSource.removeListener(event_type, listener);
+  get_event_listener_wrapper_map.call(this).forEach((listeners, event_type) => {
+    listeners.forEach((_wrapper, listener) => {
+      _eventRemoveListener.call(this, event_type, listener as any);
     });
   });
-  iframe_event_listeners_map.delete(_getIframeName.call(this));
 }
 
 type EventType = IframeEventType | TavernEventType | string;
@@ -243,12 +283,28 @@ export type ListenerType = {
 
   [tavern_events.APP_READY]: () => void;
   [tavern_events.EXTRAS_CONNECTED]: (modules: any) => void;
-  [tavern_events.MESSAGE_SWIPED]: (message_id: number | string) => void;
-  [tavern_events.MESSAGE_SENT]: (message_id: number | string) => void;
-  [tavern_events.MESSAGE_RECEIVED]: (message_id: number | string) => void;
-  [tavern_events.MESSAGE_EDITED]: (message_id: number | string) => void;
-  [tavern_events.MESSAGE_DELETED]: (message_id: number | string) => void;
-  [tavern_events.MESSAGE_UPDATED]: (message_id: number | string) => void;
+  [tavern_events.MESSAGE_SWIPED]: (message_id: number) => void;
+  [tavern_events.MESSAGE_SENT]: (message_id: number) => void;
+  [tavern_events.MESSAGE_RECEIVED]: (
+    message_id: number,
+    type: LiteralUnion<
+      | 'normal'
+      | 'quiet'
+      | 'regenerate'
+      | 'impersonate'
+      | 'continue'
+      | 'swipe'
+      | 'append'
+      | 'appendFinal'
+      | 'first_message'
+      | 'command'
+      | 'extension',
+      string
+    >,
+  ) => void;
+  [tavern_events.MESSAGE_EDITED]: (message_id: number) => void;
+  [tavern_events.MESSAGE_DELETED]: (message_id: number) => void;
+  [tavern_events.MESSAGE_UPDATED]: (message_id: number) => void;
   [tavern_events.MESSAGE_FILE_EMBEDDED]: (message_id: number) => void;
   [tavern_events.MESSAGE_REASONING_EDITED]: (message_id: number) => void;
   [tavern_events.MESSAGE_REASONING_DELETED]: (message_id: number) => void;
@@ -325,7 +381,7 @@ export type ListenerType = {
   [tavern_events.CHARACTER_EDITED]: (result: { detail: { id: string; character: object } }) => void;
   [tavern_events.CHARACTER_PAGE_LOADED]: () => void;
   [tavern_events.USER_MESSAGE_RENDERED]: (message_id: number) => void;
-  [tavern_events.CHARACTER_MESSAGE_RENDERED]: (message_id: number) => void;
+  [tavern_events.CHARACTER_MESSAGE_RENDERED]: (message_id: number, type: string) => void;
   [tavern_events.FORCE_SET_BACKGROUND]: (background: { url: string; path: string }) => void;
   [tavern_events.CHAT_DELETED]: (chat_file_name: string) => void;
   [tavern_events.CHAT_CREATED]: () => void;
