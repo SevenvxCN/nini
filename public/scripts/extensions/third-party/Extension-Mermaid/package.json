@@ -1,0 +1,17 @@
+{
+  "name": "extension-mermaid",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "mermaid": "^11.10.0"
+  },
+  "scripts": {
+    "build": "webpack --mode production"
+  },
+  "devDependencies": {
+    "css-loader": "^7.1.2",
+    "style-loader": "^4.0.0",
+    "terser-webpack-plugin": "^5.3.10",
+    "webpack-cli": "^5.1.4"
+  }
+}

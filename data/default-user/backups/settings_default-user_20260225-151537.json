@@ -2136,47 +2136,6 @@
             "debug": {
                 "首次额外请求必失败": false
             }
-        },
-        "st-preset-drag-optimizer": {
-            "enabled": true,
-            "debounceMs": 250,
-            "debugLog": false,
-            "promptDragEnabled": true,
-            "engine": "indicator",
-            "helperMode": "lite",
-            "appendToBody": true,
-            "zIndex": 2147483647,
-            "autoScrollEnabled": true,
-            "autoScrollEdgePx": 72,
-            "autoScrollMinSpeedPx": 4,
-            "autoScrollMaxSpeedPx": 22
-        },
-        "st-worldinfo-panel-slim": {
-            "optimizationMode": "hide",
-            "enabled": false,
-            "hideAdditionalMatchingSources": false,
-            "hidePrimaryKeywords": false,
-            "hideEntryLogic": false,
-            "hideOptionalFilter": false,
-            "hideCharacterOrTagFilter": false,
-            "hideGenerationTriggersFilter": false,
-            "hideScanDepth": false,
-            "hideCaseSensitive": false,
-            "hideMatchWholeWords": false,
-            "hideUseGroupScoring": false,
-            "hideAutomationId": false,
-            "hideRecursionLevel": false,
-            "hideInclusionGroup": false,
-            "hideGroupWeight": false,
-            "hideSticky": false,
-            "hideCooldown": false,
-            "hideDelay": false,
-            "hideExcludeRecursion": false,
-            "hidePreventRecursion": false,
-            "hideDelayUntilRecursion": false,
-            "hideIgnoreBudget": false,
-            "hideBottomLegacyControls": false,
-            "debugLog": false
         }
     },
     "tags": [
