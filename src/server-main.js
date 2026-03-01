@@ -99,8 +99,8 @@ app.use(helmet({
 app.use(compression());
 app.use(responseTime());
 
-app.use(bodyParser.json({ limit: '500mb' }));
-app.use(bodyParser.urlencoded({ extended: true, limit: '500mb' }));
+app.use(bodyParser.json({ limit: '5000mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '5000mb' }));
 
 // CORS Settings //
 const corsEnabled = getConfigValue('cors.enabled', true, 'boolean');
