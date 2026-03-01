@@ -422,8 +422,7 @@
         "autoConnect": false,
         "notifyUpdates": false,
         "disabledExtensions": [
-            "third-party/mobile",
-            "third-party/st-chatu8"
+            "third-party/mobile"
         ],
         "expressionOverrides": [],
         "memory": {
@@ -1185,7 +1184,7 @@
             "disableBodyText": false
         },
         "st-chatu8": {
-            "theme_id": "纯净白",
+            "theme_id": "默认-夜间",
             "themes": {
                 "默认-白天": {
                     "--st-chatu8-bg-primary": "#f5f5f5",
@@ -1759,7 +1758,7 @@
                     "left": "10px"
                 }
             },
-            "lastTab": "about",
+            "lastTab": "image-cache",
             "comfyuiCache": {
                 "models": [],
                 "samplers": [],
