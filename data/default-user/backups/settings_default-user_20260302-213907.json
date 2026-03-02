@@ -2,9 +2,9 @@
     "firstRun": false,
     "accountStorage": {
         "__migrated": "1",
-        "LNavOpened": "false",
+        "LNavOpened": "true",
         "AlertRegex_openai_Kemini Aether-fr-3.3": "true",
-        "NavOpened": "false",
+        "NavOpened": "true",
         "StoryStringValidationCache": "{\"hashCache\":{\"3090278210222208\":{\"fieldsWarned\":{}}}}",
         "AlertRegex_openai_【明月秋青】5.2.2": "true",
         "slash_command_experimental_engine_warning_shown": "true",
