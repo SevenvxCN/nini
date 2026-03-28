@@ -184,7 +184,7 @@ type _OriginalWorldbookEntry = {
   keysecondary: string[];
   scanDepth: number | null;
   vectorized: boolean;
-  position: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  position: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
   role: 0 | 1 | 2 | null; // 0: system, 1: user, 2: assistant
   depth: number;
   order: number;
@@ -229,6 +229,7 @@ function toWorldbookEntry(entry: _OriginalWorldbookEntry & _ImplicitKeys): World
         2: 'before_author_note',
         3: 'after_author_note',
         4: 'at_depth',
+        7: 'outlet',
       }[entry.position],
     )
     .set('position.role', ({ 0: 'system', 1: 'user', 2: 'assistant' } as const)[entry.role ?? 0])
@@ -295,6 +296,7 @@ function fromWorldbookEntry(
         before_author_note: 2,
         after_author_note: 3,
         at_depth: 4,
+        outlet: 7,
       }[entry?.position?.type ?? 'at_depth'],
     )
     .set('role', ({ system: 0, user: 1, assistant: 2 } as const)[entry?.position?.role ?? 'system'])
@@ -349,6 +351,19 @@ function handleWorldbookEntriesCollision(
     uid: handle_uid_collision(entry.uid),
   }));
 }
+
+
+export async function getWorldbook(worldbook_name: string): Promise<WorldbookEntry[]> {
+  if (!getWorldbookNames().includes(worldbook_name)) {
+    throw Error(`未能找到世界书 '${worldbook_name}'`);
+  }
+  const original_worldbook_entries = await loadWorldInfo(worldbook_name).then(
+    data => (data! as { entries: { [uid: number]: _OriginalWorldbookEntry & _ImplicitKeys } }) ?? {},
+  );
+
+  return klona(_(original_worldbook_entries.entries).values().sortBy('displayIndex').map(toWorldbookEntry).value());
+}
+
 export async function createWorldbook(worldbook_name: string, worldbook: WorldbookEntry[] = []): Promise<boolean> {
   if (getWorldbookNames().includes(worldbook_name)) {
     return false;
@@ -399,17 +414,6 @@ export async function deleteWorldbook(worldbook_name: string): Promise<boolean> 
 
 // TODO: rename 需要处理世界书绑定
 // export function renameWorldbook(old_name: string, new_name: string): boolean;
-
-export async function getWorldbook(worldbook_name: string): Promise<WorldbookEntry[]> {
-  if (!getWorldbookNames().includes(worldbook_name)) {
-    throw Error(`未能找到世界书 '${worldbook_name}'`);
-  }
-  const original_worldbook_entries = await loadWorldInfo(worldbook_name).then(
-    data => (data! as { entries: { [uid: number]: _OriginalWorldbookEntry & _ImplicitKeys } }) ?? {},
-  );
-
-  return klona(_(original_worldbook_entries.entries).values().sortBy('displayIndex').map(toWorldbookEntry).value());
-}
 
 export async function replaceWorldbook(
   worldbook_name: string,

@@ -1,4 +1,46 @@
 <!-- markdownlint-disable MD041 MD036 -->
+## 4.8.2
+
+### 🐛修复
+
+- `getModelList` 在一些版本不可用的问题
+
+## 4.8.1
+
+此版本的酒馆助手仅支持酒馆 1.12.14 及以上版本.
+
+### 📦函数
+
+- `generate` 函数支持使用酒馆代理预设，新增 `custom_api.proxy_preset` 字段, 详见[文档](https://n0vi028.github.io/JS-Slash-Runner-Doc/guide/功能详情/请求生成.html)
+- `generate` 函数的 `custom_api` 配置更加灵活：
+  - 可以不指定 `apiurl`，仅覆盖 `model` 等参数来使用当前 ST 源
+  - 支持通过 `proxy_preset` 名称直接使用酒馆已保存的代理预设, 优先度高于 `apiurl`
+- 让世界书函数兼容酒馆新的插入位置 `➡️ 锚点 (Outlet)`
+
+### 🐛修复
+
+- 修复 `generate` 函数在自定义源和酒馆本身的源不同时，参数处理导致的返回内容异常
+- 修复内置库添加脚本时没有弹出选择目标的问题
+
+### 🎨样式
+
+- 修复小标题底色在半透明背景下可见的问题
+
+## 4.8.0
+
+### 📦函数
+
+- 不影响以前代码地重制了酒馆助手正则函数 `getTavernRegexes`、`replaceTavernRegexes`、`updateTavernRegexesWith`, 使之与变量函数、世界书函数等更为相似 ([文档链接](https://n0vi028.github.io/JS-Slash-Runner-Doc/guide/功能详情/酒馆正则/获取正则.html))
+- 新增了 `getScriptTrees`、`replaceScriptTrees`、`updateScriptTreesWith` 等函数, 用于在脚本内操控酒馆助手脚本列表 ([文档链接](https://n0vi028.github.io/JS-Slash-Runner-Doc/guide/功能详情/酒馆助手脚本/获取脚本.html))
+
+### 🎨渲染器
+
+- 渲染器的流式渲染在启用时会弹出警告，以提示可能出现的问题
+
+### 🗣提示词查看器
+
+- 对提示词查看器条目的展开高度做限制，方便浏览长文本的情况下快速折叠
+
 ## 4.7.12
 
 ### 🐛修复
