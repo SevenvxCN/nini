@@ -6,6 +6,8 @@ import { extension_settings } from "../../../../../extensions.js";
 import { EXT_ID } from "../../core/constants.js";
 import { createModuleEvents, event_types } from "../../core/event-manager.js";
 import { xbLog } from "../../core/debug-core.js";
+import { initAfterAiGate, notifyAfterAiHint, registerAfterAiHandler } from "../../core/after-ai-gate.js";
+import { getContext } from "../../../../../extensions.js";
 
 import { generateImage, clearQueue } from "./fw-image.js";
 import { synthesizeAndPlay, stopCurrent as stopCurrentVoice } from "./fw-voice-runtime.js";
@@ -19,16 +21,64 @@ const CSS_INJECTED_KEY = 'xb-me-css-injected';
 
 let imageObserver = null;
 let novelDrawObserver = null;
+let afterAiGateDispose = null;
+let runtimeActive = false;
+let enhancerInitialized = false;
+
+export function setMessageEnhancerRuntimeActive(active) {
+    runtimeActive = !!active;
+}
+
+function isFourthWallEnabled() {
+    const settings = extension_settings[EXT_ID];
+    if (settings?.enabled === false) return false;
+    return runtimeActive || !!settings?.fourthWall?.enabled;
+}
+
+function isImageEnhancementEnabled() {
+    const draw = window.xiaobaixDraw;
+    try {
+        const status = draw?.getStatus?.();
+        if (status && typeof status === 'object') return !!status.enabled;
+    } catch { }
+    try {
+        return !!draw?.isEnabled?.();
+    } catch {
+        return false;
+    }
+}
+
+function isVoiceEnhancementEnabled() {
+    try {
+        return !!window.xiaobaixTts?.isEnabled?.();
+    } catch {
+        return false;
+    }
+}
 
 // ════════════════════════════════════════════
 // Init & Cleanup
 // ════════════════════════════════════════════
 
 export async function initMessageEnhancer() {
-    const settings = extension_settings[EXT_ID];
-    if (!settings?.fourthWall?.enabled) return;
+    if (!isFourthWallEnabled()) return;
+    if (enhancerInitialized) {
+        processAllMessages();
+        return;
+    }
+    enhancerInitialized = true;
 
     xbLog.info('messageEnhancer', 'init message enhancer');
+    initAfterAiGate();
+    afterAiGateDispose?.();
+    afterAiGateDispose = registerAfterAiHandler('messageEnhancer', ({ chatId, messageId }) => {
+        if (String(getContext()?.chatId || '') !== String(chatId || '')) return;
+        setTimeout(() => {
+            const mesText = document.querySelector(`#chat .mes[mesid="${messageId}"] .mes_text`);
+            if (mesText) enhanceMessageContent(mesText);
+            else processAllMessages();
+        }, 0);
+    });
 
     injectStyles();
     initImageObserver();
@@ -39,22 +89,30 @@ export async function initMessageEnhancer() {
         setTimeout(processAllMessages, 150);
     });
 
-    events.on(event_types.MESSAGE_RECEIVED, handleMessageChange);
+    events.on(event_types.MESSAGE_RECEIVED, (data) => notifyEnhancerAfterAi(data, 'message_received'));
     events.on(event_types.USER_MESSAGE_RENDERED, handleMessageChange);
     events.on(event_types.MESSAGE_EDITED, handleMessageChange);
     events.on(event_types.MESSAGE_UPDATED, handleMessageChange);
     events.on(event_types.MESSAGE_SWIPED, handleMessageChange);
 
     events.on(event_types.GENERATION_STOPPED, () => setTimeout(processAllMessages, 150));
-    events.on(event_types.GENERATION_ENDED, () => setTimeout(processAllMessages, 150));
+    events.on(event_types.GENERATION_ENDED, (data) => notifyEnhancerAfterAi(data, 'generation_ended'));
 
+    processAllMessages();
+}
+
+export function refreshMessageEnhancer() {
+    if (!isFourthWallEnabled()) return;
     processAllMessages();
 }
 
 export function cleanupMessageEnhancer() {
     xbLog.info('messageEnhancer', 'cleanup message enhancer');
+    enhancerInitialized = false;
 
     events.cleanup();
+    afterAiGateDispose?.();
+    afterAiGateDispose = null;
     clearQueue();
 
     stopCurrentVoice();
@@ -68,6 +126,28 @@ export function cleanupMessageEnhancer() {
         novelDrawObserver.disconnect();
         novelDrawObserver = null;
     }
+}
+
+function notifyEnhancerAfterAi(data, source) {
+    const ctx = getContext();
+    const chatId = String(ctx?.chatId || '');
+    const chat = ctx?.chat || [];
+    if (!chatId || !chat.length) return;
+
+    const messageId = source === 'generation_ended'
+        ? (chat.length - 1)
+        : (typeof data === 'object' ? data?.messageId ?? data?.id ?? data?.index ?? data?.mesId : data);
+    if (!Number.isFinite(messageId) || messageId < 0) return;
+
+    const message = chat[messageId];
+    if (!message || message.is_user) return;
+
+    notifyAfterAiHint({
+        chatId,
+        messageId,
+        source,
+        kind: 'messageEnhancer',
+    });
 }
 
 // ════════════════════════════════════════════
@@ -87,8 +167,7 @@ function initNovelDrawObserver() {
     const pendingTexts = new Set();
 
     novelDrawObserver = new MutationObserver((mutations) => {
-        const settings = extension_settings[EXT_ID];
-        if (!settings?.fourthWall?.enabled) return;
+        if (!isFourthWallEnabled()) return;
 
         for (const mutation of mutations) {
             for (const node of mutation.addedNodes) {
@@ -120,6 +199,7 @@ function initNovelDrawObserver() {
 
 function hasUnrenderedVoice(mesText) {
     if (!mesText) return false;
+    if (!isVoiceEnhancementEnabled()) return false;
     return /\[(?:voice|语音)\s*:[^\]]+\]/i.test(mesText.innerHTML);
 }
 
@@ -143,8 +223,7 @@ function handleMessageChange(data) {
 }
 
 function processAllMessages() {
-    const settings = extension_settings[EXT_ID];
-    if (!settings?.fourthWall?.enabled) return;
+    if (!isFourthWallEnabled()) return;
     document.querySelectorAll('#chat .mes .mes_text').forEach(enhanceMessageContent);
 }
 
@@ -253,26 +332,30 @@ function enhanceMessageContent(container) {
     let enhanced = html;
     let hasChanges = false;
 
-    enhanced = enhanced.replace(/\[(?:img|图片)\s*:\s*([^\]]+)\]/gi, (match, inner) => {
-        const tags = parseImageToken(inner);
-        if (!tags) return match;
-        hasChanges = true;
-        return `<div class="xb-img-slot" data-tags="${encodeURIComponent(tags)}"></div>`;
-    });
+    if (isImageEnhancementEnabled()) {
+        enhanced = enhanced.replace(/\[(?:img|图片)\s*:\s*([^\]]+)\]/gi, (match, inner) => {
+            const tags = parseImageToken(inner);
+            if (!tags) return match;
+            hasChanges = true;
+            return `<div class="xb-img-slot" data-tags="${encodeURIComponent(tags)}"></div>`;
+        });
+    }
 
-    enhanced = enhanced.replace(/\[(?:voice|语音)\s*:([^:]*):([^\]]+)\]/gi, (match, emotionRaw, voiceText) => {
-        const txt = voiceText.trim();
-        if (!txt) return match;
-        hasChanges = true;
-        return createVoiceBubbleHTML(txt, (emotionRaw || '').trim().toLowerCase());
-    });
+    if (isVoiceEnhancementEnabled()) {
+        enhanced = enhanced.replace(/\[(?:voice|语音)\s*:([^:]*):([^\]]+)\]/gi, (match, emotionRaw, voiceText) => {
+            const txt = voiceText.trim();
+            if (!txt) return match;
+            hasChanges = true;
+            return createVoiceBubbleHTML(txt, (emotionRaw || '').trim().toLowerCase());
+        });
 
-    enhanced = enhanced.replace(/\[(?:voice|语音)\s*:\s*([^\]:]+)\]/gi, (match, voiceText) => {
-        const txt = voiceText.trim();
-        if (!txt) return match;
-        hasChanges = true;
-        return createVoiceBubbleHTML(txt, '');
-    });
+        enhanced = enhanced.replace(/\[(?:voice|语音)\s*:\s*([^\]:]+)\]/gi, (match, voiceText) => {
+            const txt = voiceText.trim();
+            if (!txt) return match;
+            hasChanges = true;
+            return createVoiceBubbleHTML(txt, '');
+        });
+    }
 
     if (hasChanges) {
         // Replaces existing message HTML with enhanced tokens only.
@@ -308,6 +391,12 @@ function escapeHtml(text) {
 
 function hydrateImageSlots(container) {
     container.querySelectorAll('.xb-img-slot').forEach(slot => {
+        if (slot.dataset.drawDisabled === '1' && isImageEnhancementEnabled()) {
+            slot.dataset.drawDisabled = '';
+            slot.dataset.loaded = '';
+            slot.dataset.loading = '';
+            slot.dataset.observed = '';
+        }
         if (slot.dataset.observed === '1') return;
         slot.dataset.observed = '1';
 
@@ -321,6 +410,16 @@ function hydrateImageSlots(container) {
 }
 
 async function loadImage(slot, tags) {
+    if (!isImageEnhancementEnabled()) {
+        slot.dataset.drawDisabled = '1';
+        slot.dataset.loaded = '';
+        slot.dataset.loading = '';
+        slot.dataset.observed = '';
+        // eslint-disable-next-line no-unsanitized/property
+        slot.innerHTML = `<div class="xb-img-error"><i class="fa-solid fa-ban"></i><div>画图功能未启用</div></div>`;
+        return;
+    }
+    slot.dataset.drawDisabled = '';
     // eslint-disable-next-line no-unsanitized/property
     slot.innerHTML = `<div class="xb-img-loading"><i class="fa-solid fa-spinner"></i> 检查缓存...</div>`;
 
@@ -412,6 +511,11 @@ function hydrateVoiceSlots(container) {
 
         bubble.onclick = async (e) => {
             e.stopPropagation();
+            if (!isVoiceEnhancementEnabled()) {
+                bubble.classList.add('error');
+                setTimeout(() => bubble.classList.remove('error'), 3000);
+                return;
+            }
             if (bubble.classList.contains('loading')) return;
 
             if (bubble.classList.contains('playing')) {

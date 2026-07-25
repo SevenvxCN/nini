@@ -66,12 +66,17 @@
 /* Constrain the width of controls inside a field for better aesthetics */
 #st-chatu8-settings .st-chatu8-field>.st-chatu8-select,
 #st-chatu8-settings .st-chatu8-field>.st-chatu8-text-input,
-#st-chatu8-settings .st-chatu8-field>.st-chatu8-input-group,
-#st-chatu8-settings .st-chatu8-field>.st-chatu8-profile-controls {
+#st-chatu8-settings .st-chatu8-field>.st-chatu8-input-group {
     max-width: 420px;
     flex-grow: 1;
     min-width: 0;
     /* Allow shrinking */
+}
+
+#st-chatu8-settings .st-chatu8-field>.st-chatu8-profile-controls {
+    max-width: 480px;
+    flex-grow: 1;
+    min-width: 0;
 }
 
 #st-chatu8-settings .st-chatu8-field>.st-chatu8-text-input {
@@ -246,12 +251,11 @@
 /* Vibration Profile Controls */
 #st-chatu8-settings .st-chatu8-profile-controls {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     align-items: center;
     min-width: 0;
     /* Allow shrinking in flexbox */
-    overflow: hidden;
-    /* Prevent content overflow */
 }
 
 #st-chatu8-settings .st-chatu8-select {
@@ -266,8 +270,8 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    min-width: 0;
-    /* Allow shrinking in flexbox */
+    min-width: 120px;
+    /* Prevent squashing to 0 width */
 }
 
 #st-chatu8-settings .st-chatu8-select:hover {
@@ -436,4 +440,87 @@
 #st-chatu8-settings .st-chatu8-select-search::placeholder {
     color: var(--st-chatu8-text-secondary);
     opacity: 0.7;
+}
+
+/* ===== Request Type Cards ===== */
+#st-chatu8-settings .st-chatu8-request-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+}
+
+#st-chatu8-settings .st-chatu8-request-card {
+    display: flex;
+    flex-direction: column;
+    padding: 14px;
+    background: var(--st-chatu8-bg-secondary);
+    border: 1px solid var(--st-chatu8-border-color);
+    border-radius: 8px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+#st-chatu8-settings .st-chatu8-request-card:hover {
+    border-color: var(--st-chatu8-accent-secondary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Accent variants */
+#st-chatu8-settings .st-chatu8-request-card--accent-pink {
+    border-left: 3px solid #ff69b4;
+}
+
+#st-chatu8-settings .st-chatu8-request-card--accent-purple {
+    border-left: 3px solid #9b59b6;
+}
+
+/* Card header (icon + title) */
+#st-chatu8-settings .st-chatu8-request-card-header {
+    font-weight: bold;
+    font-size: 0.95rem;
+    color: var(--st-chatu8-text-primary);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#st-chatu8-settings .st-chatu8-request-card-header i {
+    color: var(--st-chatu8-accent-primary);
+    font-size: 0.9rem;
+}
+
+/* Card description */
+#st-chatu8-settings .st-chatu8-request-card-desc {
+    font-size: 11px;
+    color: var(--st-chatu8-text-secondary);
+    margin: 0 0 10px 0;
+    line-height: 1.5;
+}
+
+/* Selects area */
+#st-chatu8-settings .st-chatu8-request-card-selects {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: auto;
+}
+
+#st-chatu8-settings .st-chatu8-request-card-select-item {
+    flex: 1;
+    min-width: 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+#st-chatu8-settings .st-chatu8-request-card-select-item label {
+    font-size: 11px;
+    color: var(--st-chatu8-text-secondary);
+    font-weight: 500;
+}
+
+#st-chatu8-settings .st-chatu8-request-card-select-item .st-chatu8-select {
+    width: 100%;
+    font-size: 0.85rem;
+    padding: 6px 8px;
 }

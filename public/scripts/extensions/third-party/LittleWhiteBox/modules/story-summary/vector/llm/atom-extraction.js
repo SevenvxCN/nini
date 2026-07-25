@@ -8,22 +8,28 @@
 // 每楼层 1-2 个场景锚点（非碎片原子），60-100 字场景摘要
 // ============================================================================
 
-import { callLLM, parseJson } from './llm-service.js';
+import { callLLM, cancelAllL0Requests, parseJson } from './llm-service.js';
 import { xbLog } from '../../../../core/debug-core.js';
 import { filterText } from '../utils/text-filter.js';
 
 const MODULE_ID = 'atom-extraction';
 
 const CONCURRENCY = 10;
-const RETRY_COUNT = 2;
+const RETRY_COUNT = 1;
 const RETRY_DELAY = 500;
-const DEFAULT_TIMEOUT = 20000;
+const DEFAULT_TIMEOUT = 60000;
 const STAGGER_DELAY = 80;
+const DEBUG_RAW_PREVIEW_LEN = 800;
 
 let batchCancelled = false;
 
 export function cancelBatchExtraction() {
     batchCancelled = true;
+    cancelAllL0Requests();
+}
+
+export function resetBatchExtractionCancel() {
+    batchCancelled = false;
 }
 
 export function isBatchCancelled() {
@@ -52,10 +58,17 @@ const SYSTEM_PROMPT = `你是场景摘要器。从一轮对话中提取1-2个场
 ]}
 
 ## scene 写法
-- 纯自然语言，像旁白或日记，不要任何标签/标记/枚举值
-- 必须包含：角色名、动作、情感氛围、关键细节
-- 读者只看 scene 就能复原这一幕
-- 60-100字，信息密集但流畅
+- 纯自然语言完整句，不要任何标签/标记/枚举值
+- 用朴实白描的叙述句写，不要文学化修饰，不要抽象总结腔
+- scene 不是好看的概括，而是高召回的场景卡片；后续玩家只要隐约提到这段，也要尽量能命中
+- 优先保留：正式人名、地点、关键物件/道具、具体动作
+- 有则尽量保留：原文出现过的称呼/昵称/代称、情绪或态度、关系变化、后续可能被玩家提起的词面线索
+- 不要为了凑全字段而编造原文没有明确出现的信息；没有明确依据的内容不要硬写
+- 读者只看 scene 就能复原这一幕，也能看出别人以后会怎么提起这件事
+- 必须优先保留原词，不得擅自把昵称、称呼、道具名、地点名、暗号、身体特征、衣物、约定、秘密、羞辱/暧昧/冲突动作改写成抽象同义词
+- 禁止空泛写法，例如：两人交谈、关系升温、发生冲突、气氛暧昧、展开互动、进行交流、产生矛盾
+- 必须把抽象概括改写成具象句，写清楚谁在什么地方拿着什么、对谁做了什么；如有关键言语行为，可简要保留其内容或目的；态度和关系变化仅在这一轮里有明确依据时再写
+- 60-100字，信息密集但流畅；不要列清单，要在自然语言里尽量塞进可检索钩子
 
 ## edges（关系三元组）
 - s=施事方 t=受事方 r=互动行为（建议 6-12 字，最多 20 字）
@@ -81,13 +94,17 @@ const SYSTEM_PROMPT = `你是场景摘要器。从一轮对话中提取1-2个场
 输出：
 {"anchors":[{"scene":"火山口上艾拉举起圣剑刺穿古龙的心脏，龙血溅满铠甲，古龙轰然倒地，艾拉跪倒在滚烫的岩石上痛哭，完成了她不得不做的弑杀","edges":[{"s":"艾拉","t":"古龙","r":"以圣剑刺穿心脏"}],"where":"火山口"}]}`;
 
-const JSON_PREFILL = '{"anchors":[';
-
 // ============================================================================
 // 睡眠工具
 // ============================================================================
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+function previewText(text, maxLen = DEBUG_RAW_PREVIEW_LEN) {
+    const raw = String(text ?? '').replace(/\s+/g, ' ').trim();
+    if (!raw) return '(empty)';
+    return raw.length > maxLen ? `${raw.slice(0, maxLen)} ...(truncated)` : raw;
+}
 
 const ACTION_STRIP_WORDS = [
     '突然', '非常', '有些', '有点', '轻轻', '悄悄', '缓缓', '立刻',
@@ -206,7 +223,7 @@ async function extractAtomsForRoundWithRetry(userMessage, aiMessage, aiFloor, op
     const aiText = filterText(aiMessage.mes);
     parts.push(`<assistant>\n${aiText}\n</assistant>`);
 
-    const input = `<round>\n${parts.join('\n')}\n</round>`;
+    const input = `<round>\n${parts.join('\n')}\n</round>\n请读取上述 <round> 内容，提取 1-2 个场景锚点，并严格按 JSON 输出。\n不要解释，不要续写，不要角色扮演，不要输出 JSON 以外的任何内容。`;
 
     for (let attempt = 0; attempt <= RETRY_COUNT; attempt++) {
         if (batchCancelled) return [];
@@ -215,7 +232,6 @@ async function extractAtomsForRoundWithRetry(userMessage, aiMessage, aiFloor, op
             const response = await callLLM([
                 { role: 'system', content: SYSTEM_PROMPT },
                 { role: 'user', content: input },
-                { role: 'assistant', content: JSON_PREFILL },
             ], {
                 temperature: 0.3,
                 max_tokens: 600,
@@ -223,6 +239,7 @@ async function extractAtomsForRoundWithRetry(userMessage, aiMessage, aiFloor, op
             });
 
             const rawText = String(response || '');
+            xbLog.info(MODULE_ID, `floor ${aiFloor} attempt ${attempt} rawText(len=${rawText.length}): ${previewText(rawText)}`);
             if (!rawText.trim()) {
                 if (attempt < RETRY_COUNT) {
                     await sleep(RETRY_DELAY);
@@ -231,11 +248,11 @@ async function extractAtomsForRoundWithRetry(userMessage, aiMessage, aiFloor, op
                 return null;
             }
 
-            const fullJson = JSON_PREFILL + rawText;
+            xbLog.info(MODULE_ID, `floor ${aiFloor} attempt ${attempt} parseSource(len=${rawText.length}): ${previewText(rawText)}`);
 
             let parsed;
             try {
-                parsed = parseJson(fullJson);
+                parsed = parseJson(rawText);
             } catch (e) {
                 xbLog.warn(MODULE_ID, `floor ${aiFloor} JSON解析失败 (attempt ${attempt})`);
                 if (attempt < RETRY_COUNT) {
@@ -248,6 +265,7 @@ async function extractAtomsForRoundWithRetry(userMessage, aiMessage, aiFloor, op
             // 兼容：优先 anchors，回退 atoms
             const rawAnchors = parsed?.anchors;
             if (!rawAnchors || !Array.isArray(rawAnchors)) {
+                xbLog.warn(MODULE_ID, `floor ${aiFloor} attempt ${attempt} 缺少有效 anchors，parsed=${previewText(JSON.stringify(parsed))}`);
                 if (attempt < RETRY_COUNT) {
                     await sleep(RETRY_DELAY);
                     continue;
@@ -260,6 +278,12 @@ async function extractAtomsForRoundWithRetry(userMessage, aiMessage, aiFloor, op
                 .slice(0, 2)
                 .map((a, idx) => anchorToAtom(a, aiFloor, idx))
                 .filter(Boolean);
+
+            xbLog.info(MODULE_ID, `floor ${aiFloor} attempt ${attempt} anchors=${rawAnchors.length} atoms=${atoms.length}`);
+
+            if (rawAnchors.length === 0) {
+                return [];
+            }
 
             return atoms;
 
@@ -373,4 +397,3 @@ export async function batchExtractAtoms(chat, onProgress) {
 
     return allAtoms;
 }
-

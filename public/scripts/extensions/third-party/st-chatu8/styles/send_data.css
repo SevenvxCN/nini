@@ -340,6 +340,17 @@
     background: var(--st-chatu8-accent-secondary, rgba(255, 255, 255, 0.5));
 }
 
+/* --- 右侧复选框点击区域 --- */
+#st-chatu8-tab-send_data .st-chatu8-entry-container .st-chatu8-entry-checkbox {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 35px;
+    cursor: pointer;
+    z-index: 1;
+}
+
 /* --- 右侧复选框样式 (模拟) - 使用主题变量 --- */
 #st-chatu8-tab-send_data .st-chatu8-entry-container .st-chatu8-list-item {
     padding-left: 35px;
@@ -428,6 +439,22 @@
     font-weight: bold;
     border-radius: 3px;
     vertical-align: middle;
+}
+
+/* --- 常开条目样式 --- */
+/* 常开条目边框高亮 */
+#st-chatu8-tab-send_data .st-chatu8-entry-container .st-chatu8-list-item.constant-entry {
+    border-left: 3px solid rgba(255, 193, 7, 0.6) !important;
+}
+
+/* 常开条目选中时的背景色（黄色调） */
+#st-chatu8-tab-send_data .st-chatu8-entry-container .st-chatu8-list-item.constant-entry.selected {
+    background-color: rgba(255, 193, 7, 0.15) !important;
+}
+
+/* 常开条目强制启用时的背景色 */
+#st-chatu8-tab-send_data .st-chatu8-entry-container .st-chatu8-list-item.constant-entry.force-enabled {
+    background-color: rgba(255, 193, 7, 0.25) !important;
 }
 
 /* --- 批量操作新条目按钮样式 --- */

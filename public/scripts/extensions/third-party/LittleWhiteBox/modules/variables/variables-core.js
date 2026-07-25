@@ -9,6 +9,7 @@ import { updateMessageBlock } from "../../../../../../script.js";
 import { getLocalVariable, setLocalVariable } from "../../../../../variables.js";
 import { createModuleEvents, event_types } from "../../core/event-manager.js";
 import { xbLog, CacheRegistry } from "../../core/debug-core.js";
+import { initAfterAiGate, notifyAfterAiHint, registerAfterAiHandler } from "../../core/after-ai-gate.js";
 import {
     normalizePath,
     lwbSplitPathWithBrackets,
@@ -43,6 +44,8 @@ const MODULE_ID = 'variablesCore';
 const EXT_ID = 'LittleWhiteBox';
 const LWB_RULES_KEY = 'LWB_RULES';
 const LWB_SNAP_KEY = 'LWB_SNAP';
+const LWB_V1_OWNED_ROOTS_KEY = 'LWB_V1_OWNED_ROOTS';
+const LWB_V1_OWNED_ROOTS_MIGRATED_KEY = 'LWB_V1_OWNED_ROOTS_MIGRATED';
 const LWB_PLOT_APPLIED_KEY = 'LWB_PLOT_APPLIED_KEY';
 
 // plot-log tag regex
@@ -63,6 +66,8 @@ let events = null;
 let initialized = false;
 let pendingSwipeApply = new Map();
 let suppressUpdatedOnce = new Set();
+let postReceiveApplyQueue = Promise.resolve();
+let afterAiGateDispose = null;
 
 CacheRegistry.register(MODULE_ID, {
     name: '变量系统缓存',
@@ -119,6 +124,8 @@ CacheRegistry.register(MODULE_ID, {
             const meta = getContext()?.chatMetadata || {};
             try { delete meta[LWB_PLOT_APPLIED_KEY]; } catch {}
             try { delete meta[LWB_SNAP_KEY]; } catch {}
+            try { delete meta[LWB_V1_OWNED_ROOTS_KEY]; } catch {}
+            try { delete meta[LWB_V1_OWNED_ROOTS_MIGRATED_KEY]; } catch {}
         } catch {}
         try { guardianState.regexCache = {}; } catch {}
         try { pendingSwipeApply?.clear?.(); } catch {}
@@ -1488,19 +1495,155 @@ function getVarDict() {
     return deepClone(meta.variables || {});
 }
 
-function setVarDict(dict) {
+function rootFromPath(path) {
+    try {
+        const normalized = normalizePath(path);
+        const root = String(normalized || '').split('.').map(s => s.trim()).filter(Boolean)[0];
+        return root || null;
+    } catch {
+        const root = String(path || '').split('.').map(s => s.trim()).filter(Boolean)[0];
+        return root || null;
+    }
+}
+
+function getV1OwnedRootSet() {
+    const meta = getContext()?.chatMetadata || {};
+    const raw = meta[LWB_V1_OWNED_ROOTS_KEY];
+    return new Set(Array.isArray(raw) ? raw.map(String).map(s => s.trim()).filter(Boolean) : []);
+}
+
+function saveV1OwnedRootSet(roots) {
+    const meta = getContext()?.chatMetadata || {};
+    meta[LWB_V1_OWNED_ROOTS_KEY] = [...(roots || [])].map(String).filter(Boolean).sort();
+    getContext()?.saveMetadataDebounced?.();
+}
+
+function rememberV1OwnedRoots(rootsLike) {
+    const incoming = [...(rootsLike || [])].map(String).map(s => s.trim()).filter(Boolean);
+    if (!incoming.length) return;
+    const roots = getV1OwnedRootSet();
+    let changed = false;
+    for (const root of incoming) {
+        if (!roots.has(root)) {
+            roots.add(root);
+            changed = true;
+        }
+    }
+    if (changed) saveV1OwnedRootSet(roots);
+}
+
+function collectRuleRoots(tableLike) {
+    const roots = new Set();
+    for (const path of Object.keys(tableLike || {})) {
+        const root = rootFromPath(path);
+        if (root) roots.add(root);
+    }
+    return roots;
+}
+
+function collectV1RootsFromOps(ops = [], delVarNames = new Set()) {
+    const roots = new Set();
+    for (const op of ops || []) {
+        if (op?.operation === 'guard') {
+            for (const entry of op.data || []) {
+                const root = rootFromPath(entry?.path);
+                if (root) roots.add(root);
+            }
+            continue;
+        }
+        const root = getRootAndPath(op?.name || '').root;
+        if (root) roots.add(root);
+    }
+    for (const name of delVarNames || []) {
+        const root = getRootAndPath(name || '').root;
+        if (root) roots.add(root);
+    }
+    return roots;
+}
+
+function collectV1RootsFromChat() {
+    const roots = new Set();
+    try {
+        const chat = getContext()?.chat || [];
+        for (const msg of chat) {
+            const key = getMsgKey(msg);
+            const raw = key ? String(msg?.[key] ?? '') : '';
+            const blocks = extractPlotLogBlocks(raw);
+            for (const block of blocks) {
+                let parts = [];
+                try { parts = parseBlock(block); } catch { continue; }
+                for (const part of parts || []) {
+                    if (part?.operation === 'guard') {
+                        for (const entry of part.data || []) {
+                            const root = rootFromPath(entry?.path);
+                            if (root) roots.add(root);
+                        }
+                        continue;
+                    }
+                    const root = getRootAndPath(part?.name || '').root;
+                    if (root) roots.add(root);
+                }
+            }
+        }
+    } catch {}
+    return roots;
+}
+
+function migrateV1OwnedRootsFromChatOnce() {
+    const meta = getContext()?.chatMetadata || {};
+    const roots = getV1OwnedRootSet();
+    if (meta[LWB_V1_OWNED_ROOTS_MIGRATED_KEY]) return roots;
+
+    collectRuleRoots(rulesGetTable()).forEach(root => roots.add(root));
+    collectV1RootsFromChat().forEach(root => roots.add(root));
+    meta[LWB_V1_OWNED_ROOTS_MIGRATED_KEY] = true;
+    saveV1OwnedRootSet(roots);
+    return roots;
+}
+
+function getEffectiveV1OwnedRoots({ migrate = false } = {}) {
+    if (migrate) return migrateV1OwnedRootsFromChatOnce();
+    const roots = getV1OwnedRootSet();
+    collectRuleRoots(rulesGetTable()).forEach(root => roots.add(root));
+    return roots;
+}
+
+function setVarDict(dict, scopedRoots = null) {
     try {
         guardBypass(true);
         const ctx = getContext();
         const meta = ctx?.chatMetadata || {};
         const current = meta.variables || {};
         const next = dict || {};
+        const roots = scopedRoots == null ? null : new Set([...(scopedRoots || [])].map(String).filter(Boolean));
+
+        if (roots) {
+            for (const k of roots) {
+                if (!Object.prototype.hasOwnProperty.call(next, k)) {
+                    try { setLocalVariable(k, ''); } catch {}
+                    try { delete current[k]; } catch {}
+                    continue;
+                }
+
+                const v = next[k];
+                let toStore = v;
+                if (v && typeof v === 'object') {
+                    try { toStore = JSON.stringify(v); } catch { toStore = ''; }
+                }
+                try { setLocalVariable(k, toStore); } catch {}
+                current[k] = deepClone(v);
+            }
+
+            meta.variables = deepClone(current);
+            getContext()?.saveMetadataDebounced?.();
+            return;
+        }
 
         // remove missing variables
         for (const k of Object.keys(current)) {
             if (!(k in next)) {
-                try { delete current[k]; } catch {}
                 try { setLocalVariable(k, ''); } catch {}
+                try { delete current[k]; } catch {}
             }
         }
 
@@ -1531,9 +1674,25 @@ function cloneRulesTableForSnapshot() {
     }
 }
 
-function applyRulesSnapshot(tableLike) {
+function applyRulesSnapshot(tableLike, scopedRoots = null) {
     const safe = (tableLike && typeof tableLike === 'object') ? tableLike : {};
-    rulesSetTable(deepClone(safe));
+    if (scopedRoots == null) {
+        rulesSetTable(deepClone(safe));
+    } else {
+        const roots = new Set([...(scopedRoots || [])].map(String).filter(Boolean));
+        const current = rulesGetTable();
+        const merged = {};
+
+        for (const [path, node] of Object.entries(current || {})) {
+            const root = rootFromPath(path);
+            if (!root || !roots.has(root)) merged[path] = deepClone(node);
+        }
+        for (const [path, node] of Object.entries(safe || {})) {
+            const root = rootFromPath(path);
+            if (root && roots.has(root)) merged[path] = deepClone(node);
+        }
+        rulesSetTable(merged);
+    }
 
     if (guardianState?.regexCache) guardianState.regexCache = {};
 
@@ -1552,14 +1711,15 @@ function applyRulesSnapshot(tableLike) {
 }
 
 function normalizeSnapshotRecord(raw) {
-    if (!raw || typeof raw !== 'object') return { vars: {}, rules: {} };
+    if (!raw || typeof raw !== 'object') return { vars: {}, rules: {}, roots: [] };
     if (Object.prototype.hasOwnProperty.call(raw, 'vars') || Object.prototype.hasOwnProperty.call(raw, 'rules')) {
         return {
             vars: (raw.vars && typeof raw.vars === 'object') ? raw.vars : {},
-            rules: (raw.rules && typeof raw.rules === 'object') ? raw.rules : {}
+            rules: (raw.rules && typeof raw.rules === 'object') ? raw.rules : {},
+            roots: Array.isArray(raw.roots) ? raw.roots.map(String).filter(Boolean) : [],
         };
     }
-    return { vars: raw, rules: {} };
+    return { vars: raw, rules: {}, roots: [] };
 }
 
 function setSnapshot(messageId, snapDict) {
@@ -1603,7 +1763,8 @@ function snapshotCurrentLastFloor() {
 
         const dict = getVarDict();
         const rules = cloneRulesTableForSnapshot();
-        setSnapshot(lastId, { vars: dict, rules });
+        const roots = getEffectiveV1OwnedRoots();
+        setSnapshot(lastId, { vars: dict, rules, roots: [...roots] });
     } catch {}
 }
 
@@ -1616,7 +1777,8 @@ function snapshotForMessageId(currentId) {
         if (typeof currentId !== 'number' || currentId < 0) return;
         const dict = getVarDict();
         const rules = cloneRulesTableForSnapshot();
-        setSnapshot(currentId, { vars: dict, rules });
+        const roots = getEffectiveV1OwnedRoots();
+        setSnapshot(currentId, { vars: dict, rules, roots: [...roots] });
     } catch {}
 }
 
@@ -1625,16 +1787,29 @@ function rollbackToPreviousOf(messageId) {
     if (Number.isNaN(id)) return;
 
     const prevId = id - 1;
-    if (prevId < 0) return;
+    const ownedRoots = getEffectiveV1OwnedRoots({ migrate: true });
+    if (prevId < 0) {
+        try {
+            guardBypass(true);
+            setVarDict({}, ownedRoots);
+            applyRulesSnapshot({}, ownedRoots);
+        } finally {
+            guardBypass(false);
+        }
+        return;
+    }
 
     // 1.0: restore from snapshot if available
     const snap = getSnapshot(prevId);
     if (snap) {
         const normalized = normalizeSnapshotRecord(snap);
+        const scopedRoots = new Set(ownedRoots);
+        for (const root of normalized.roots || []) scopedRoots.add(root);
+        collectRuleRoots(normalized.rules || {}).forEach(root => scopedRoots.add(root));
         try {
             guardBypass(true);
-            setVarDict(normalized.vars || {});
-            applyRulesSnapshot(normalized.rules || {});
+            setVarDict(normalized.vars || {}, scopedRoots);
+            applyRulesSnapshot(normalized.rules || {}, scopedRoots);
         } finally {
             guardBypass(false);
         }
@@ -1683,7 +1858,9 @@ async function rebuildVariablesFromScratch() {
             return;
         }
         // 1.0 legacy logic
-        setVarDict({});
+        const ownedRoots = getEffectiveV1OwnedRoots({ migrate: true });
+        setVarDict({}, ownedRoots);
+        applyRulesSnapshot({}, ownedRoots);
         const chat = getContext()?.chat || [];
         for (let i = 0; i < chat.length; i++) {
             await applyVariablesForMessage(i);
@@ -1914,6 +2091,8 @@ async function applyVariablesForMessage(messageId) {
             setAppliedSignature(messageId, curSig);
             return;
         }
+
+        rememberV1OwnedRoots(collectV1RootsFromOps(ops, delVarNames));
 
         // build variable records
         const byName = new Map();
@@ -2243,6 +2422,55 @@ function getMsgIdStrict(payload) {
     return undefined;
 }
 
+function queuePostReceiveApply(messageId, options = {}) {
+    const shouldSnapshot = options?.snapshot === true;
+    postReceiveApplyQueue = postReceiveApplyQueue
+        .catch(() => {})
+        .then(async () => {
+            await applyVarsForMessage(messageId);
+            applyXbGetVarForMessage(messageId, true);
+            await executeQueuedVareventJsAfterTurn();
+            if (shouldSnapshot && getVariablesMode() !== '2.0') {
+                snapshotForMessageId(messageId);
+            }
+        })
+        .catch(() => {});
+    return postReceiveApplyQueue;
+}
+
+function notifyVariablesAfterAi(data, source) {
+    const ctx = getContext();
+    const chatId = String(ctx?.chatId || '');
+    const chat = ctx?.chat || [];
+    if (!chatId || !chat.length) return;
+
+    const messageId = source === 'generation_ended'
+        ? (chat.length - 1)
+        : getMsgIdLoose(data);
+    if (typeof messageId !== 'number' || messageId < 0) return;
+
+    const message = chat[messageId];
+    if (!message || message.is_user) return;
+
+    notifyAfterAiHint({
+        chatId,
+        messageId,
+        source,
+        kind: MODULE_ID,
+    });
+}
+
+function registerVariablesAfterAiGate() {
+    initAfterAiGate();
+    if (afterAiGateDispose) return;
+    afterAiGateDispose = registerAfterAiHandler(MODULE_ID, ({ chatId, messageId }) => {
+        if (String(getContext()?.chatId || '') !== String(chatId || '')) return;
+        const message = getContext()?.chat?.[messageId];
+        if (!message || message.is_user) return;
+        void queuePostReceiveApply(messageId, { snapshot: true });
+    });
+}
+
 function bindEvents() {
     pendingSwipeApply = new Map();
     let lastSwipedId;
@@ -2263,14 +2491,9 @@ function bindEvents() {
     });
 
     // message received
-    events?.on(event_types.MESSAGE_RECEIVED, async (data) => {
+    events?.on(event_types.MESSAGE_RECEIVED, (data) => {
         try {
-            const id = getMsgIdLoose(data);
-            if (typeof id === 'number') {
-                await applyVarsForMessage(id);
-                applyXbGetVarForMessage(id, true);
-                await executeQueuedVareventJsAfterTurn();
-            }
+            notifyVariablesAfterAi(data, 'message_received');
         } catch {}
     });
 
@@ -2287,14 +2510,15 @@ function bindEvents() {
     });
 
     // character message rendered
-    events?.on(event_types.CHARACTER_MESSAGE_RENDERED, async (data) => {
+    events?.on(event_types.CHARACTER_MESSAGE_RENDERED, (data) => {
         try {
-            const id = getMsgIdLoose(data);
-            if (typeof id === 'number') {
-                await applyVarsForMessage(id);
-                applyXbGetVarForMessage(id, true);
-                if (getVariablesMode() !== '2.0') snapshotForMessageId(id);
-            }
+            notifyVariablesAfterAi(data, 'character_message_rendered');
+        } catch {}
+    });
+
+    events?.on(event_types.GENERATION_ENDED, (data) => {
+        try {
+            notifyVariablesAfterAi(data, 'generation_ended');
         } catch {}
     });
 
@@ -2444,6 +2668,7 @@ export function initVariablesCore() {
     try { xbLog.info('variablesCore', '变量系统启动'); } catch {}
     if (initialized) return;
     initialized = true;
+    registerVariablesAfterAiGate();
 
     // init events
 
@@ -2506,6 +2731,8 @@ export function cleanupVariablesCore() {
     // cleanup events
     events?.cleanup();
     events = null;
+    afterAiGateDispose?.();
+    afterAiGateDispose = null;
 
     // uninstall API patch
     uninstallVariableApiPatch();

@@ -40,6 +40,7 @@ function openCreator(type: 'script' | 'folder') {
     const editor = useModal({
       component: type === 'script' ? ScriptEditor : FolderEditor,
       attrs: {
+        target,
         onSubmit: async (result: ScriptForm | ScriptFolderForm) => {
           if (type === 'script') {
             onScriptEditorSubmit(target, result as ScriptForm);
@@ -74,7 +75,7 @@ function onFolderEditorSubmit(target: 'global' | 'character' | 'preset', result:
   getScriptsStoreByType(target).script_trees.push(ScriptFolder.parse(result));
 }
 
-const { open: openFileDialog, onChange } = useFileDialog({
+const { open: openFileDialog, onChange, reset } = useFileDialog({
   accept: '.json',
   multiple: true,
   directory: false,
@@ -115,6 +116,7 @@ let importDisposer: ReturnType<typeof onChange> | null = null;
 function openImport() {
   importDisposer?.off();
   const doImport = (target: 'global' | 'character' | 'preset') => {
+    reset();
     importDisposer = onChange(selected => {
       handleImport(target, selected);
       importDisposer?.off();

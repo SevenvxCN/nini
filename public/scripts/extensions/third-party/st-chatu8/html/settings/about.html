@@ -16,11 +16,32 @@
         </div>
     </div>
     <div class="st-chatu8-settings-section">
-        <h3>检查更新</h3>
-        <button id="ch-check-update" class="st-chatu8-btn">检查更新</button>
-        <div class="st-chatu8-field-col" style="margin-top: 10px;">
-            <label for="ch-update-notes">更新说明</label>
-            <textarea id="ch-update-notes" class="st-chatu8-textarea" rows="5" readonly></textarea>
+        <h3>🌟 站点推荐</h3>
+        <div class="st-chatu8-about-links" style="flex-direction: column; gap: 10px;">
+            <a href="https://spell.novelai.dev/" target="_blank" class="st-chatu8-about-link" style="width: 100%; justify-content: flex-start;">
+                <i class="fa-solid fa-wand-magic-sparkles" style="min-width: 20px; text-align: center;"></i>
+                <div style="display: flex; flex-direction: column; align-items: flex-start; text-align: left; margin-left: 10px;">
+                    <span style="font-weight: bold;">Spell</span>
+                    <span style="font-size: 0.85em; opacity: 0.8; font-weight: normal;">可以解析图片的 novelai 的 tag 和 comfyui 的工作流</span>
+                </div>
+            </a>
+            <a href="https://novelai-tag.pages.dev/" target="_blank" class="st-chatu8-about-link" style="width: 100%; justify-content: flex-start;">
+                <i class="fa-solid fa-tags" style="min-width: 20px; text-align: center;"></i>
+                <div style="display: flex; flex-direction: column; align-items: flex-start; text-align: left; margin-left: 10px;">
+                    <span style="font-weight: bold;">NovelAI Tag</span>
+                    <span style="font-size: 0.85em; opacity: 0.8; font-weight: normal;">novelai 的画师串分享站点</span>
+                </div>
+            </a>
+        </div>
+    </div>
+    <div class="st-chatu8-settings-section">
+        <h3>📋 更新日志</h3>
+        <div class="st-chatu8-update-header">
+            <button id="ch-check-update" class="st-chatu8-btn">检查更新</button>
+            <span id="ch-update-status" class="st-chatu8-update-status"></span>
+        </div>
+        <div id="ch-update-notes" class="st-chatu8-changelog-container">
+            <div class="st-chatu8-changelog-loading">正在获取更新日志...</div>
         </div>
     </div>
     <div class="st-chatu8-settings-section">

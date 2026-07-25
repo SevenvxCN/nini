@@ -6,7 +6,7 @@ import { oai_settings, promptManager } from '@sillytavern/scripts/openai';
 import { uuidv4 } from '@sillytavern/scripts/utils';
 import { LiteralUnion, PartialDeep, SetRequired } from 'type-fest';
 
-type Preset = {
+export type Preset = {
   settings: {
     max_context: number;
     max_completion_tokens: number;
@@ -53,7 +53,7 @@ type Preset = {
   };
 };
 
-type PresetPrompt = {
+export type PresetPrompt = {
   id: LiteralUnion<
     | 'main'
     | 'nsfw'
@@ -72,7 +72,7 @@ type PresetPrompt = {
   name: string;
   enabled: boolean;
 
-  position:
+  position?:
     | {
         type: 'relative';
         depth?: never;
@@ -85,12 +85,12 @@ type PresetPrompt = {
 
   extra?: Record<string, any>;
 };
-type PresetNormalPrompt = SetRequired<{ id: string } & Omit<PresetPrompt, 'id'>, 'position' | 'content'>;
-type PresetSystemPrompt = SetRequired<
-  { id: 'main' | 'nsfw' | 'jailbreak' | 'enhanceDefinitions' } & Omit<PresetPrompt, 'id'>,
+export type PresetNormalPrompt = SetRequired<{ id: string } & Omit<PresetPrompt, 'id'>, 'position' | 'content'>;
+export type PresetSystemPrompt = SetRequired<
+  { id: 'main' | 'nsfw' | 'jailbreak' | 'enhanceDefinitions' } & Omit<PresetPrompt, 'id' | 'position'>,
   'content'
 >;
-type PresetPlaceholderPrompt = SetRequired<
+export type PresetPlaceholderPrompt = SetRequired<
   {
     id:
       | 'worldInfoBefore'
@@ -101,7 +101,7 @@ type PresetPlaceholderPrompt = SetRequired<
       | 'worldInfoAfter'
       | 'dialogueExamples'
       | 'chatHistory';
-  } & Omit<PresetPrompt, 'id'>,
+  } & Omit<PresetPrompt, 'id' | 'content'>,
   'position'
 >;
 export function isPresetNormalPrompt(prompt: PresetPrompt): prompt is PresetNormalPrompt {

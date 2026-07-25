@@ -25,7 +25,9 @@
 
             // 劫持 console.log
             console.log = (...args) => {
-                this.originalConsole.log(...args);
+                if (this._shouldPrintInfo(args)) {
+                    this.originalConsole.log(...args);
+                }
                 this.addLog('info', args);
             };
 
@@ -55,6 +57,67 @@
             this._initNetworkCapture();
 
             console.log('✅ [DebugManager] 初始化完成');
+        }
+
+        /**
+         * 读取最小日志模式开关（优先运行时配置，兜底本地存储）
+         * @returns {boolean}
+         */
+        _isMinimalLogMode() {
+            const runtimeFlag = window.Gaigai?.config_obj?.minimalLogMode;
+            if (typeof runtimeFlag === 'boolean') return runtimeFlag;
+
+            try {
+                const raw = localStorage.getItem('gg_config');
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (typeof parsed?.minimalLogMode === 'boolean') {
+                        return parsed.minimalLogMode;
+                    }
+                }
+            } catch (e) {
+                // ignore parse errors
+            }
+
+            return true; // 默认启用最小日志
+        }
+
+        /**
+         * 最小日志过滤：仅保留权限命中与拦截结果
+         * @param {Array} args
+         * @returns {boolean}
+         */
+        _shouldPrintInfo(args) {
+            if (!this._isMinimalLogMode()) return true;
+
+            const msg = args.map(arg => {
+                if (typeof arg === 'string') return arg;
+                if (typeof arg === 'number' || typeof arg === 'boolean') return String(arg);
+                return '';
+            }).join(' ');
+
+            // 1) 权限命中日志
+            if (msg.includes('[权限管控]')) return true;
+
+            // 2) 拦截结果日志（仅保留结果，不保留过程噪音）
+            if (msg.includes('[Fetch Hijack]')) {
+                return (
+                    msg.includes('拦截') ||
+                    msg.includes('跳过') ||
+                    msg.includes('放行') ||
+                    msg.includes('完成') ||
+                    msg.includes('恢复请求发送') ||
+                    msg.includes('失败') ||
+                    msg.includes('出错')
+                );
+            }
+
+            // 3) 向量检索最终结果
+            if (msg.includes('[向量检索]')) {
+                return msg.includes('跳过') || msg.includes('检索完成') || msg.includes('未找到');
+            }
+
+            return false;
         }
 
         /**
@@ -325,6 +388,47 @@
             const chat = lastData.chat;
             let totalTokens = 0;
             let listHtml = '';
+            const resolvePhoneSystemTags = (content) => {
+                const source = String(content || '');
+                const tags = [];
+                if (source.includes('【🎵 音乐状态栏】') || source.includes('音乐状态栏')) tags.push('音乐');
+                if (source.includes('【 微博用户已发动态】') || source.includes('【 微博最新热搜】')) tags.push('微博');
+                if (source.includes('【 手机微信已有消息】') || source.includes('【📱 手机微信已有消息】')) tags.push('微信历史');
+                if (source.includes('【微信线下模式】')) tags.push('微信线下');
+                return Array.from(new Set(tags));
+            };
+            const resolveSystemRoleName = (msg) => {
+                const explicitName = String(msg?.name || '').trim();
+                const identifier = String(msg?.identifier || '').trim().toLowerCase();
+                const content = String(msg?.content || '');
+                const explicitNameCompact = explicitName.replace(/\s+/g, '');
+                const isMainViewportName = explicitNameCompact.includes('手机(主视口)') || explicitNameCompact.includes('手机（主视口）');
+
+                const identifierTags = [];
+                if (identifier === 'music_system') identifierTags.push('音乐');
+                if (identifier === 'weibo_system_history') identifierTags.push('微博');
+                if (identifier === 'phone_system_history') identifierTags.push('微信历史');
+                if (identifier === 'phone_system_rules' && content.includes('【微信线下模式】')) identifierTags.push('微信线下');
+
+                if (isMainViewportName) {
+                    const tags = Array.from(new Set([...identifierTags, ...resolvePhoneSystemTags(content)]));
+                    if (tags.length > 0) return `SYSTEM (${tags.join('+')})`;
+                    return 'SYSTEM (手机规则)';
+                }
+
+                if (explicitName) return explicitName;
+
+                if (identifier === 'weibo_system_history') return 'SYSTEM (微博)';
+                if (identifier === 'music_system') return 'SYSTEM (音乐)';
+                if (identifier === 'phone_system_history') return 'SYSTEM (微信历史)';
+                if (identifier === 'phone_system_rules') {
+                    const tags = Array.from(new Set([...identifierTags, ...resolvePhoneSystemTags(content)]));
+                    if (tags.length > 0) return `SYSTEM (${tags.join('+')})`;
+                    return 'SYSTEM (手机规则)';
+                }
+
+                return 'SYSTEM (系统)';
+            };
 
             // 🌙 夜间模式适配：使用 getDarkMode() 方法获取准确状态
             const isDark = this.getDarkMode();
@@ -364,14 +468,26 @@
                 let icon = '📄';
 
                 if (msg.role === 'system') {
-                    roleName = 'SYSTEM (系统)';
+                    roleName = resolveSystemRoleName(msg);
                     roleColor = '#28a745'; icon = '⚙️';
 
                     // 表格/总结数据
                     if (msg.isGaigaiData) {
-                        // ✅ 修复：优先显示动态名字 (如 sys(总结1))，没有则显示默认
+                        // ✅ 优先显示动态名字 (如 sys(总结1))，没有则显示默认
                         roleName = msg.name || 'MEMORY (记忆表格)';
-                        roleColor = '#d35400'; icon = '📊';
+                        roleColor = '#d35400';
+                        icon = '📊';
+
+                        // 手机主视口表在探针里做来源细分，避免只显示“手机(主视口)”
+                        const currentName = String(roleName || '');
+                        if (currentName.includes('手机(主视口)')) {
+                            const tags = resolvePhoneSystemTags(content);
+                            if (tags.length > 0) {
+                                roleName = `SYSTEM (${tags.join('+')})`;
+                                roleColor = '#28a745';
+                                icon = '⚙️';
+                            }
+                        }
                     }
 
                     // 提示词

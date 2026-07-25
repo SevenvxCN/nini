@@ -29,18 +29,26 @@
         <h3>手动标签管理</h3>
         <div class="st-chatu8-field-col" style="gap: 10px;">
             <label>添加新标签</label>
-            <div class="st-chatu8-input-group">
-                <input type="text" id="vocabulary-manual-tag-original-input" class="st-chatu8-text-input" placeholder="标签原文...">
-                <input type="text" id="vocabulary-manual-tag-translation-input" class="st-chatu8-text-input" placeholder="标签翻译...">
+            <div class="st-chatu8-input-group" style="flex-wrap: wrap;">
+                <input type="text" id="vocabulary-manual-tag-original-input" class="st-chatu8-text-input" placeholder="标签原文..." style="min-width: 120px; flex: 1;">
+                <input type="text" id="vocabulary-manual-tag-translation-input" class="st-chatu8-text-input" placeholder="标签翻译..." style="min-width: 120px; flex: 1;">
                 <button id="vocabulary-manual-tag-add-btn" class="st-chatu8-btn">添加</button>
             </div>
         </div>
         <div class="st-chatu8-field">
             <label>操作</label>
-            <button id="vocabulary-manual-tags-refresh-btn" class="st-chatu8-btn">刷新列表</button>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                <button id="vocabulary-manual-tags-refresh-btn" class="st-chatu8-btn">刷新列表</button>
+                <button id="vocabulary-manual-tags-export-btn" class="st-chatu8-btn">导出</button>
+                <button id="vocabulary-manual-tags-import-btn" class="st-chatu8-btn">导入</button>
+                <input type="file" id="vocabulary-manual-tags-import-input" accept=".json" style="display: none;">
+            </div>
         </div>
         <div class="st-chatu8-field-col">
-            <label>手动添加的标签</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <label style="min-width: 120px;">手动添加的标签</label>
+                <input type="text" id="vocabulary-manual-tags-filter-input" class="st-chatu8-text-input" placeholder="过滤标签..." style="flex: 1; min-width: 150px; max-width: 300px;">
+            </div>
             <div id="vocabulary-manual-tags-list" class="st-chatu8-vocabulary-list" style="max-height: 200px; overflow-y: auto;"></div>
         </div>
     </div>

@@ -4,12 +4,37 @@
  * 功能：AI总结相关的所有逻辑（表格总结、聊天总结、自动总结触发器、总结优化）
  * 支持：快照总结、分批总结、总结优化/润色
  *
- * @version 2.1.5
+ * @version 2.2.2
  * @author Gaigai Team
  */
 
 (function() {
     'use strict';
+
+    function cleanSummaryOutput(text) {
+        if (!text) return text;
+        let output = String(text).trim();
+
+        if (output.includes('</think>')) {
+            const raw = output;
+            const cleaned = output
+                .replace(/<think>[\s\S]*?<\/think>/gi, '')
+                .replace(/^[\s\S]*?<\/think>/i, '')
+                .trim();
+            output = cleaned || raw;
+        }
+
+        const formalStart = output.search(/(?:^|\n)\s*(?:【\s*(?:主线剧情|支线剧情|记忆总结|剧情总结|人物档案|人物关系|世界设定|物品追踪|约定)[^】]*】|\d{4}年\d{1,2}月\d{1,2}日[^\n]*\[)/);
+        if (formalStart > 0) {
+            const removed = output.slice(0, formalStart).trim();
+            if (removed) {
+                console.log(`🧹 [总结清洗] 已移除正式标题前的模型前置说明 (${removed.length} 字符)`);
+            }
+            output = output.slice(formalStart).trim();
+        }
+
+        return output;
+    }
 
     // 【全局单例】总结控制台表格选择按钮监听器（防止重复绑定）
     (function() {
@@ -316,6 +341,8 @@
     async function applyNativeHiding() {
         // 1. Check Config
         const C = window.Gaigai.config_obj;
+        // 🔴 全局主开关守卫
+        if (!C.masterSwitch) return;
         if (!C.autoSummaryHideContext) return;
 
         const m = window.Gaigai.m;
@@ -351,13 +378,11 @@
         // 6. 获取已隐藏的楼层
         const alreadyHidden = getHiddenMessageIndices();
 
-        // 7. 找到"上次隐藏边界"（从0开始最后一个连续隐藏的索引）
+        // 7. 找到"上次隐藏边界"（在目标范围内，从后往前找到索引最大的已隐藏楼层）
         let lastHiddenBoundary = -1;
-        for (let i = 0; i <= rangeEnd; i++) {
+        for (let i = rangeEnd; i >= 0; i--) {
             if (alreadyHidden.has(i)) {
                 lastHiddenBoundary = i;
-            } else {
-                // 遇到第一个未隐藏的，停止（只找连续的）
                 break;
             }
         }
@@ -457,6 +482,8 @@
     async function applyContextLimitHiding() {
         // ⚠️ 已移除配置同步 - 发送前不需要同步，直接读取内存中的配置
         const C = window.Gaigai.config_obj;
+        // 🔴 全局主开关守卫
+        if (!C.masterSwitch) return;
         const m = window.Gaigai.m;
 
         // 1. 检查是否启用上下文限制
@@ -508,13 +535,11 @@
         // 7. 获取已隐藏的楼层
         const alreadyHidden = getHiddenMessageIndices();
 
-        // 8. 找到"上次隐藏边界"（从0开始最后一个连续隐藏的索引）
+        // 8. 找到"上次隐藏边界"（在目标范围内，从后往前找到索引最大的已隐藏楼层）
         let lastHiddenBoundary = -1;
-        for (let i = 0; i <= hideRangeEnd; i++) {
+        for (let i = hideRangeEnd; i >= 0; i--) {
             if (alreadyHidden.has(i)) {
                 lastHiddenBoundary = i;
-            } else {
-                // 遇到第一个未隐藏的，停止（只找连续的）
                 break;
             }
         }
@@ -628,10 +653,15 @@
 
             // 读取进度
             let lastSumIndex = API_CONFIG.lastSummaryIndex || 0;
+            let lastBigSumIndex = API_CONFIG.lastBigSummaryIndex || 0;
             // ✅ 智能修正逻辑：如果指针超出范围，修正到当前最大值（而不是归零）
             if (totalCount > 0 && lastSumIndex > totalCount) {
                 lastSumIndex = totalCount;
                 console.log(`⚠️ [进度修正] 总结指针超出范围，已修正为 ${totalCount}（原值: ${API_CONFIG.lastSummaryIndex}）`);
+            }
+            if (totalCount > 0 && lastBigSumIndex > totalCount) {
+                lastBigSumIndex = totalCount;
+                console.log(`⚠️ [进度修正] 大总结指针超出范围，已修正为 ${totalCount}（原值: ${API_CONFIG.lastBigSummaryIndex}）`);
             }
 
             // ✅ 读取保存的批次步长
@@ -662,19 +692,37 @@
             const h = `
         <div class="g-p" style="display: flex; flex-direction: column; height: 100%; box-sizing: border-box;">
             <!-- 📌 当前配置状态显示 -->
-            <div style="background: rgba(255,193,7,0.1); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; border: 1px solid rgba(255,193,7,0.3); flex-shrink: 0;">
-                <div style="font-size: 11px; color: ${UI.tc}; opacity: 0.9; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
-                    <span><strong>⚙️ 自动总结模式：</strong>${sourceText}</span>
-                    <span style="opacity: 0.7;">|</span>
-                    <span><strong>📍 进度指针：</strong></span>
-                    <input type="number" id="gg_edit_sum_pointer" value="${lastSumIndex}" min="0" max="${totalCount}" style="width:60px; text-align:center; padding:3px; border-radius:4px; border:1px solid rgba(0,0,0,0.2); font-size:11px;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-                    <span>/ ${totalCount} 层</span>
-                    <button id="gg_save_sum_pointer_btn" style="padding:3px 10px; background:#ff9800; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:10px; white-space:nowrap;">修正</button>
-                    <span style="opacity: 0.7;">|</span>
-                    <a href="javascript:void(0)" id="gg_open_config_link" style="color: #ff9800; text-decoration: underline; cursor: pointer; font-size: 10px;">修改配置</a>
+            <div style="background: rgba(255,193,7,0.1); border-radius: 6px; padding: 12px; margin-bottom: 12px; border: 1px solid rgba(255,193,7,0.3); flex-shrink: 0; color: ${UI.tc};">
+                
+                <!-- 模式显示 -->
+                <div style="font-size: 12px; font-weight: 600; margin-bottom: 10px; border-bottom: 1px dashed rgba(0,0,0,0.1); padding-bottom: 8px;">
+                    ⚙️ 自动总结模式：<span style="font-weight: normal; color: #ff9800;">${sourceText}</span>
                 </div>
-                <div style="font-size: 9px; color: ${UI.tc}; opacity: 0.6;">
-                    💡 提示：进度指针会自动保存到角色存档中，切换角色时自动恢复
+
+                <!-- 小总结指针 -->
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 11px;">
+                    <span style="font-weight: bold; white-space: nowrap;">📍 小总结指针:</span>
+                    <div style="display: flex; align-items: center; gap: 5px; flex: 1;">
+                        <input type="number" id="gg_edit_sum_pointer" value="${lastSumIndex}" min="0" max="${totalCount}" style="width: 100%; min-width: 50px; text-align: center; padding: 4px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.2); font-size: 11px;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                        <span style="white-space: nowrap;">/ ${totalCount} 层</span>
+                    </div>
+                    <button id="gg_save_sum_pointer_btn" style="padding: 4px 12px; background: #ff9800; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; white-space: nowrap; flex-shrink: 0;">修正</button>
+                </div>
+
+                <!-- 大总结指针 -->
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 11px;">
+                    <span style="font-weight: bold; white-space: nowrap;">📚 大总结指针:</span>
+                    <div style="display: flex; align-items: center; gap: 5px; flex: 1;">
+                        <input type="number" id="gg_edit_big_sum_pointer" value="${lastBigSumIndex}" min="0" max="${totalCount}" style="width: 100%; min-width: 50px; text-align: center; padding: 4px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.2); font-size: 11px;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                        <span style="white-space: nowrap;">/ ${totalCount} 层</span>
+                    </div>
+                    <button id="gg_save_big_sum_pointer_btn" style="padding: 4px 12px; background: #ff9800; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; white-space: nowrap; flex-shrink: 0;">修正</button>
+                </div>
+
+                <!-- 底部提示与链接 -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                    <span style="font-size: 9px; opacity: 0.6;">💡 指针会自动保存，切换角色时恢复</span>
+                    <a href="javascript:void(0)" id="gg_open_config_link" style="color: #ff9800; text-decoration: underline; cursor: pointer; font-size: 11px; white-space: nowrap;">修改配置</a>
                 </div>
             </div>
 
@@ -788,7 +836,7 @@
                 </div>
 
                 <div style="margin-bottom:10px;">
-                    <label style="font-size:11px; display:block; margin-bottom:4px;">💬 优化建议（下方建议处留空，自动触发插件自带的总结优化提示词，若填写则使用用户输入的总结建议优化提示词。）</label>
+                    <label style="font-size:11px; display:block; margin-bottom:4px;">💬 优化建议</label>
                     <textarea id="gg_opt_prompt" placeholder="例如：把流水账改写成史诗感、精简字数到200字以内、增加情感描写、用古文风格重写..." style="width:100%; height:80px; padding:6px; border-radius:4px; font-size:11px; resize:vertical; font-family:inherit;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
                     <div style="font-size:9px; color:${UI.tc}; opacity:0.7; margin-top:4px;">
                         💡 输入您希望AI如何优化总结的具体要求（留空则使用默认优化策略）
@@ -822,7 +870,7 @@
             window.Gaigai.pop('🤖 总结控制台', h, true);
 
             // 阻止输入框的按键冒泡
-            $('#gg_sum_chat-start, #gg_sum_chat-end, #gg_sum_step, #gg_opt_range-input, #gg_opt_prompt, #edit-sum-pointer').on('keydown keyup input', function (e) {
+            $('#gg_sum_chat-start, #gg_sum_chat-end, #gg_sum_step, #gg_opt_range-input, #gg_opt_prompt, #gg_edit_sum_pointer, #gg_edit_big_sum_pointer').on('keydown keyup input', function (e) {
                 e.stopPropagation();
             });
 
@@ -944,6 +992,43 @@
                     }
 
                     // 5. 刷新控制台界面
+                    setTimeout(() => self.showUI(), 300);
+                });
+
+                // ✨ 大总结指针修正按钮点击事件
+                $('#gg_save_big_sum_pointer_btn').on('click', async function() {
+                    const API_CONFIG = window.Gaigai.config;
+                    const ctx = m.ctx();
+                    const totalCount = ctx && ctx.chat ? ctx.chat.length : 0;
+
+                    const newPointer = parseInt($('#gg_edit_big_sum_pointer').val());
+
+                    if (isNaN(newPointer) || newPointer < 0 || newPointer > totalCount) {
+                        await window.Gaigai.customAlert(`⚠️ 输入无效！\n\n请输入 0 到 ${totalCount} 之间的数字`, '错误');
+                        return;
+                    }
+
+                    API_CONFIG.lastBigSummaryIndex = newPointer;
+
+                    try {
+                        localStorage.setItem('gg_api', JSON.stringify(API_CONFIG));
+                        console.log(`✅ [进度修正] 大总结指针已更新至: ${newPointer}`);
+                    } catch (e) {
+                        console.error('❌ [进度修正] localStorage 保存失败:', e);
+                    }
+
+                    if (typeof window.Gaigai.saveAllSettingsToCloud === 'function') {
+                        window.Gaigai.saveAllSettingsToCloud().catch(err => {
+                            console.warn('⚠️ [进度修正] 云端同步失败:', err);
+                        });
+                    }
+
+                    m.save(false, true);
+
+                    if (typeof toastr !== 'undefined') {
+                        toastr.success(`大总结进度已修正为 ${newPointer}`, '更新成功', { timeOut: 2000 });
+                    }
+
                     setTimeout(() => self.showUI(), 300);
                 });
 
@@ -1137,15 +1222,37 @@
                     console.log(`💾 [分批优化配置] 已保存步长: ${step}`);
                 });
 
-                // 总结优化 - 按钮点击事件
+                // 总结优化 - 按钮点击事件（重构版：支持停止功能）
                 $('#gg_opt_run').on('click', async function() {
+                    const $btn = $(this);
+
+                    // 🛑 检测是否正在运行优化任务
+                    if (window.Gaigai.isOptimizationRunning) {
+                        // 用户点击停止
+                        window.Gaigai.stopOptimizationBatch = true;
+                        console.log('🛑 [用户操作] 请求停止批量优化');
+
+                        // ✅ 立即更新按钮状态，给用户视觉反馈
+                        $btn.text('🛑 正在停止...')
+                            .prop('disabled', true)
+                            .css({
+                                'background': '#666',
+                                'opacity': '0.8'
+                            });
+
+                        if (typeof toastr !== 'undefined') {
+                            toastr.info('正在停止优化任务...', '停止中', { timeOut: 2000 });
+                        }
+
+                        return;
+                    }
+
                     const target = $('#gg_opt_target').val();
                     let prompt = $('#gg_opt_prompt').val().trim();
                     const rangeInput = $('#gg_opt_range-input').val().trim() || "1"; // ✅ 改为字符串类型
 
                     // ✅ prompt 现在可以为空，将由 optimizeSummary 函数从提示词管理获取
 
-                    const $btn = $(this);
                     const oldText = $btn.text();
                     $btn.text('⏳ AI正在优化...').prop('disabled', true).css('opacity', 0.7);
                     $('#gg_opt_status').text('正在生成优化版本...').css('color', window.Gaigai.ui.tc);
@@ -1153,8 +1260,12 @@
                     try {
                         await self.optimizeSummary(target, prompt, rangeInput);
                     } finally {
-                        $btn.text(oldText).prop('disabled', false).css('opacity', 1);
-                        $('#gg_opt_status').text('');
+                        // ✅ optimizeSummary 的 finally 块已经统一处理了按钮恢复和锁释放
+                        // 这里只是兜底：如果 isOptimizationRunning 意外未被清理，强制恢复
+                        if (window.Gaigai.isOptimizationRunning) {
+                            window.Gaigai.isOptimizationRunning = false;
+                            $btn.text(oldText).prop('disabled', false).css('opacity', 1);
+                        }
                     }
                 });
 
@@ -1170,8 +1281,9 @@
          * @param {boolean} isBatch - 是否批量模式
          * @param {boolean} skipSave - 是否跳过保存
          * @param {Array<number>} targetTableIndices - 🆕 指定要总结的表格索引数组（仅表格模式有效，为空则默认所有表）
+         * @param {boolean} useRawRange - 聊天模式下是否把 forceStart/forceEnd 按原始消息索引解释（自动流程用）
          */
-        async callAIForSummary(forceStart = null, forceEnd = null, forcedMode = null, isSilent = false, isBatch = false, skipSave = false, targetTableIndices = null, skipWorldInfoSync = false) {
+        async callAIForSummary(forceStart = null, forceEnd = null, forcedMode = null, isSilent = false, isBatch = false, skipSave = false, targetTableIndices = null, skipWorldInfoSync = false, useRawRange = false) {
             // 使用 window.Gaigai.loadConfig 确保配置最新
             const loadConfig = window.Gaigai.loadConfig || (() => Promise.resolve());
             await loadConfig();
@@ -1195,7 +1307,7 @@
                 if (!tableContentRaw) {
                     if (!isSilent) {
                         if (await window.Gaigai.customConfirm('⚠️ 当前表格没有【未总结】的新内容。\n（所有行可能都已标记为绿色/已归档）\n\n是否转为"总结聊天历史"？', '无新内容')) {
-                            return this.callAIForSummary(forceStart, forceEnd, 'chat', isSilent);
+                            return this.callAIForSummary(forceStart, forceEnd, 'chat', isSilent, isBatch, skipSave, targetTableIndices, skipWorldInfoSync, useRawRange);
                         }
                     } else {
                         console.log('🛑 [自动总结] 表格内容为空（或全已归档），跳过。');
@@ -1264,30 +1376,46 @@
                     return { success: false, error: '聊天记录为空' };
                 }
 
-                // ✅ 修复：手动输入的楼层数应该只计算对话消息（不含 System）
+                // 支持两种口径：
+                // 1) 手动模式：按对话楼层（排除 system/插件注入）
+                // 2) 自动模式：按原始消息索引（useRawRange=true）
                 if (forceEnd !== null) {
-                    const targetDialogueCount = parseInt(forceEnd);
-                    let dialogueCount = 0;
-                    endIndex = ctx.chat.length; // 默认到末尾
+                    const parsedEnd = parseInt(forceEnd);
 
-                    // 遍历找到第 N 条对话消息的实际索引
-                    for (let i = 0; i < ctx.chat.length; i++) {
-                        const msg = ctx.chat[i];
-                        // 跳过 System 消息
-                        if (msg.role === 'system' || msg.isGaigaiPrompt || msg.isGaigaiData) continue;
-
-                        dialogueCount++;
-                        if (dialogueCount === targetDialogueCount) {
-                            endIndex = i + 1; // +1 因为 slice 是右开区间
-                            break;
+                    if (useRawRange) {
+                        if (!isNaN(parsedEnd)) {
+                            endIndex = Math.max(0, Math.min(parsedEnd, ctx.chat.length));
+                        } else {
+                            endIndex = ctx.chat.length;
                         }
+                        console.log(`📍 [楼层映射-RAW] end=${parsedEnd} → 实际索引 ${Math.max(0, endIndex - 1)}（slice 到 ${endIndex}）`);
+                    } else {
+                        const targetDialogueCount = parsedEnd;
+                        let dialogueCount = 0;
+                        endIndex = ctx.chat.length; // 默认到末尾
+
+                        // 遍历找到第 N 条对话消息的实际索引
+                        for (let i = 0; i < ctx.chat.length; i++) {
+                            const msg = ctx.chat[i];
+                            // 跳过 System 消息
+                            if (msg.role === 'system' || msg.isGaigaiPrompt || msg.isGaigaiData) continue;
+
+                            dialogueCount++;
+                            if (dialogueCount === targetDialogueCount) {
+                                endIndex = i + 1; // +1 因为 slice 是右开区间
+                                break;
+                            }
+                        }
+                        console.log(`📍 [楼层映射] 用户输入第 ${targetDialogueCount} 楼 → 实际索引 ${endIndex - 1}（slice 到 ${endIndex}）`);
                     }
-                    console.log(`📍 [楼层映射] 用户输入第 ${targetDialogueCount} 楼 → 实际索引 ${endIndex - 1}（slice 到 ${endIndex}）`);
                 } else {
                     endIndex = ctx.chat.length;
                 }
 
                 startIndex = (forceStart !== null) ? parseInt(forceStart) : (API_CONFIG.lastSummaryIndex || 0);
+                if (useRawRange && !isNaN(startIndex)) {
+                    startIndex = Math.max(0, Math.min(startIndex, ctx.chat.length));
+                }
                 if (startIndex < 0) startIndex = 0;
                 if (startIndex >= endIndex) {
                     if (!isSilent) await window.Gaigai.customAlert(`范围无效`, '提示');
@@ -1300,13 +1428,7 @@
                     content: window.Gaigai.PromptManager.resolveVariables(window.Gaigai.PromptManager.get('nsfwPrompt'), ctx)
                 });
 
-                // 2. System Prompt (总结提示词主体 - 规则、格式等)
-                messages.push({
-                    role: 'system',
-                    content: targetPrompt
-                });
-
-                // 3. 背景资料（仅包含角色名和用户名）
+                // 2. 背景资料（仅包含角色名和用户名）
                 const contextText = `【背景资料】\n角色: ${charName}\n用户: ${userName}`;
                 messages.push({ role: 'system', content: contextText });
 
@@ -1355,8 +1477,8 @@
                 const cleanMemoryTags = window.Gaigai.cleanMemoryTags;
                 let validMsgCount = 0;
                 targetSlice.forEach((msg) => {
-                    if (msg.isGaigaiPrompt || msg.isGaigaiData || msg.isPhoneMessage) return;
                     let content = msg.mes || msg.content || '';
+                    if (msg.isGaigaiPrompt || msg.isGaigaiData || msg.isPhoneMessage === true) return;
 
                     // ✅ [图片清洗] 移除 Base64 图片，防止请求体过大
                     const base64ImageRegex = /<img[^>]*src=["']data:image[^"']*["'][^>]*>/gi;
@@ -1380,15 +1502,25 @@
                     return { success: false, error: '范围内无有效内容' };
                 }
 
-                // 4. 执行指令（对话历史结束标记）
+                // 7. 总结规则：保持 system 角色，只从聊天历史前方移动到后方
+                messages.push({
+                    role: 'system',
+                    content: targetPrompt
+                });
+
+                // 8. 执行指令：最后用独立 user 消息收口，触发立即总结
                 const endMarker = window.Gaigai.PromptManager.CHAT_HISTORY_END_MARKER;
-                const lastMsg = messages[messages.length - 1];
-                if (lastMsg && lastMsg.role === 'user') {
-                    // 如果最后一条是 user，直接追加
-                    lastMsg.content += '\n\n' + endMarker;
-                } else {
-                    // 如果最后一条是 assistant，单独发一条 user 消息
-                    messages.push({ role: 'user', content: endMarker });
+                messages.push({
+                    role: 'user',
+                    content: `${endMarker}\n\n🛑 严禁输出思考过程、分析过程、任务说明、英文小标题或任何前置解释。请直接从正式总结正文开始输出。`
+                });
+
+                const isGeminiSummaryModel = (API_CONFIG.provider === 'gemini') ||
+                    String(API_CONFIG.model || '').toLowerCase().includes('gemini');
+                const summaryPrefill = '我将开始直接总结剧情：';
+                if (!isTableMode && isGeminiSummaryModel) {
+                    messages.push({ role: 'assistant', content: summaryPrefill });
+                    console.log('✅ [总结Prefill] Gemini模型已添加 Assistant Prefill');
                 }
 
                 logMsg = `📝 聊天总结: ${startIndex}-${endIndex} (消息数:${messages.length})`;
@@ -1450,10 +1582,12 @@
                 }
             }
             const finalMsg = messages[messages.length - 1];
-            if (!finalMsg || finalMsg.role !== 'user') {
+            const finalRole = finalMsg ? finalMsg.role : '';
+            if (!finalMsg || !['user', 'assistant', 'model'].includes(finalRole)) {
                 messages.push({ role: 'user', content: '请继续执行上述总结任务。' });
             }
 
+            // 🔍 更新探针数据（记录最后一次API请求，包括自动总结）
             window.Gaigai.lastRequestData = {
                 chat: JSON.parse(JSON.stringify(messages)),
                 timestamp: Date.now(),
@@ -1469,47 +1603,64 @@
                 } else {
                     result = await window.Gaigai.tools.callTavernAPI(messages);
                 }
-            } finally {
-                window.isSummarizing = false;
+            } catch (e) {
+                window.isSummarizing = false; // ✅ API请求失败,解锁
+                console.error('❌ [总结请求失败]', e);
+
+                // 使用 customRetryAlert 提供"重试"和"放弃"选项
+                const customRetryAlert = window.Gaigai.customRetryAlert;
+                if (!customRetryAlert) {
+                    await window.Gaigai.customAlert(`API请求失败：${e.message}`, '⚠️ 请求错误');
+                    return { success: false, error: e.message };
+                }
+
+                const shouldRetry = await customRetryAlert(e.message, '⚠️ 请求错误');
+                if (shouldRetry) {
+                    return this.callAIForSummary(forceStart, forceEnd, forcedMode, isSilent, isBatch, skipSave, targetTableIndices, skipWorldInfoSync, useRawRange);
+                } else {
+                    return { success: false, error: e.message };
+                }
             }
 
             // 🛡️ [Safe Guard] Check if session changed during API call
             if (m.gid() !== initialSessionId) {
+                window.isSummarizing = false; // ✅ Session变化,解锁
                 console.warn(`🛑 [Safe Guard] Session changed during summary. Aborting.`);
                 return { success: false, error: 'session_changed' };
             }
 
             if (result.success) {
                 if (!result.summary || !result.summary.trim()) {
+                    window.isSummarizing = false; // ✅ AI返回空,解锁
                     if (!isSilent) await window.Gaigai.customAlert('AI返回空', '警告');
                     return { success: false, error: 'AI 返回空内容' };
                 }
 
-                let cleanSummary = result.summary;
-                // 移除思考过程 (带回退保护)
-                // 移除思维链 (标准成对 + 残缺开头)
-                if (cleanSummary.includes('</think>')) {
-                    const raw = cleanSummary;
-                    let cleaned = cleanSummary
-                        .replace(/<think>[\s\S]*?<\/think>/gi, '') // 移除标准成对
-                        .replace(/^[\s\S]*?<\/think>/i, '')        // 移除残缺开头
-                        .trim();
-                    // 如果清洗后为空，保留原文(防止报错)，否则使用清洗结果
-                    cleanSummary = cleaned || raw;
+                let rawSummary = result.summary;
+                if (!isTableMode && typeof summaryPrefill === 'string' && summaryPrefill && isGeminiSummaryModel) {
+                    const trimmed = String(rawSummary || '').trimStart();
+                    if (trimmed && !trimmed.startsWith(summaryPrefill) && !trimmed.startsWith('【主线剧情')) {
+                        rawSummary = summaryPrefill + trimmed;
+                        console.log('✅ [总结Prefill重建] 已补回主线剧情标题前缀');
+                    }
                 }
+                let cleanSummary = cleanSummaryOutput(rawSummary);
 
                 if (!cleanSummary || cleanSummary.length < 10) {
                     if (!isSilent) {
+                        window.isSummarizing = false; // ✅ 弹窗前先解锁,避免阻塞
                         const shouldRetry = await window.Gaigai.customRetryAlert("总结内容过短或为空，AI 可能没看懂指令。", "⚠️ 内容无效");
                         if (shouldRetry) {
-                            return this.callAIForSummary(forceStart, forceEnd, forcedMode, isSilent, isBatch, skipSave, targetTableIndices);
+                            return this.callAIForSummary(forceStart, forceEnd, forcedMode, isSilent, isBatch, skipSave, targetTableIndices, skipWorldInfoSync, useRawRange);
                         }
+                    } else {
+                        window.isSummarizing = false; // ✅ 静默模式也要解锁
                     }
                     return { success: false, error: '总结内容过短或无效' };
                 }
 
                 // ✅✅✅ [核心修复] 无论是表格模式还是聊天模式，只要是自动(静默)执行，就必须推进指针，防止重复触发
-                if (isSilent && endIndex !== null && endIndex !== undefined) {
+                if (isSilent && !skipSave && endIndex !== null && endIndex !== undefined) {
                     const currentLast = API_CONFIG.lastSummaryIndex || 0;
                     // 只有当新位置比旧位置靠后时才更新
                     // ✅ 使用原始索引，而不是对话数量，避免 System 消息导致的索引错位
@@ -1579,6 +1730,7 @@
                         if (typeof toastr !== 'undefined') {
                             if (!isBatch) toastr.success('自动总结已在后台完成并保存', '记忆表格', { timeOut: 1000, preventDuplicates: true });
                         }
+                        window.isSummarizing = false; // ✅ 静默模式保存完成,解锁
                         return { success: true, summary: cleanSummary };
                     } else {
                         // 非表格模式(聊天总结),正常静默执行
@@ -1596,14 +1748,16 @@
                         if (typeof toastr !== 'undefined') {
                             if (!isBatch) toastr.success('自动总结已在后台完成并保存', '记忆表格', { timeOut: 1000, preventDuplicates: true });
                         }
+                        window.isSummarizing = false; // ✅ 静默模式保存完成,解锁
                         return { success: true, summary: cleanSummary };
                     }
                 } else if (isSilent && skipSave) {
+                    window.isSummarizing = false; // ✅ 静默且跳过保存,解锁
                     return { success: true, summary: cleanSummary };
                 }
 
                 // ✨ 如果是表格模式且用户未勾选静默，会执行到这里，弹出预览窗口
-                const regenParams = { forceStart, forceEnd, forcedMode, isSilent, targetTableIndices };
+                const regenParams = { forceStart, forceEnd, forcedMode, isSilent, targetTableIndices, useRawRange };
                 const res = await this.showSummaryPreview(cleanSummary, filteredTables, isTableMode, endIndex, regenParams, currentRangeStr, isBatch);
                 return res;
 
@@ -1613,6 +1767,7 @@
 
                 // 🛑 【重要】如果是 Key 错误（401/Unauthorized），直接报错并停止，防止死循环
                 if (errorText.includes('Unauthorized') || errorText.includes('401')) {
+                    window.isSummarizing = false; // ✅ Key错误,解锁
                     await window.Gaigai.customAlert(
                         `🛑 API Key 错误或已失效！\n\n错误信息：${errorText}\n\n请前往配置页面检查您的 API Key 设置。`,
                         '⚠️ 认证失败'
@@ -1623,17 +1778,21 @@
                 // 其他错误：使用 customRetryAlert 提供"重试"和"放弃"选项
                 const customRetryAlert = window.Gaigai.customRetryAlert;
                 if (!customRetryAlert) {
+                    window.isSummarizing = false; // ✅ 错误,解锁
                     // 如果 customRetryAlert 不存在，降级为普通弹窗
                     await window.Gaigai.customAlert(`生成失败：${errorText}`, '⚠️ AI 生成失败');
                     return { success: false, error: errorText };
                 }
+
+                // ✅ 弹窗前先解锁,避免阻塞
+                window.isSummarizing = false;
 
                 // ✅ 使用 customRetryAlert 提供"重试"和"放弃"选项（传递原始错误）
                 const shouldRetry = await customRetryAlert(errorText, '⚠️ AI 生成失败');
 
                 if (shouldRetry) {
                     // 用户点击"重试"，递归调用
-                    return this.callAIForSummary(forceStart, forceEnd, forcedMode, isSilent, isBatch, skipSave, targetTableIndices);
+                    return this.callAIForSummary(forceStart, forceEnd, forcedMode, isSilent, isBatch, skipSave, targetTableIndices, skipWorldInfoSync, useRawRange);
                 } else {
                     // 用户点击"放弃"，停止递归
                     return { success: false, error: errorText };
@@ -1694,6 +1853,8 @@
 
                 const $x = $('<button>', { class: 'g-x', text: '×', css: { background: 'none', border: 'none', color: UI.tc, cursor: 'pointer', fontSize: '22px' } }).on('click', () => {
                     $o.remove();
+                    window.isSummarizing = false; // ✅ 关闭弹窗，解锁
+                    console.log('🔓 [总结弹窗-X] 已释放 isSummarizing 锁');
                     resolve({ success: false });
                 });
                 $hd.append($x);
@@ -1706,8 +1867,15 @@
                 setTimeout(() => {
                     $('#gg_summary_editor').focus();
 
+                    // ✅ 统一的清理函数：关闭弹窗 + 释放锁
+                    const cleanup = (removePopup = true) => {
+                        if (removePopup) $o.remove();
+                        window.isSummarizing = false; // ✅ 用户操作完了，解锁！
+                        console.log('🔓 [总结弹窗] 已释放 isSummarizing 锁');
+                    };
+
                     $('#gg_cancel_summary').on('click', () => {
-                        $o.remove();
+                        cleanup();
                         resolve({ success: false });
                     });
 
@@ -1730,7 +1898,9 @@
                                     true,  // isSilent
                                     false, // isBatch
                                     true,  // skipSave
-                                    regenParams.targetTableIndices  // 🆕 传递表格索引
+                                    regenParams.targetTableIndices,  // 🆕 传递表格索引
+                                    false,
+                                    regenParams.useRawRange === true
                                 );
 
                                 if (res && res.success && res.summary && res.summary.trim()) {
@@ -1750,7 +1920,7 @@
 
                                 if (shouldRetry) {
                                     console.log('🔄 [用户重试] 关闭弹窗并重新调用总结...');
-                                    $o.remove();
+                                    cleanup(); // ✅ 释放锁后再重新调用
                                     resolve({ success: false });
                                     await self.callAIForSummary(
                                         regenParams.forceStart,
@@ -1759,7 +1929,9 @@
                                         false,
                                         false,
                                         false,
-                                        regenParams.targetTableIndices  // 🆕 传递表格索引
+                                        regenParams.targetTableIndices,  // 🆕 传递表格索引
+                                        false,
+                                        regenParams.useRawRange === true
                                     );
                                     return;
                                 }
@@ -1819,6 +1991,9 @@
                                 API_CONFIG.lastSummaryIndex = newIndex;
                                 try { localStorage.setItem('gg_api', JSON.stringify(API_CONFIG)); } catch (e) { }
                                 console.log(`✅ [进度更新] 总结进度已更新至: 原始索引 ${newIndex} (模式: ${isTableMode ? '表格' : '聊天'})`);
+
+                                // ✨✨✨ [修复] 手动保存后，立即触发隐藏逻辑
+                                await applyNativeHiding();
                             }
                         }
 
@@ -1833,7 +2008,7 @@
                         if (saveSessionId !== initialSessionId) {
                             console.error(`🛑 [安全拦截] 会话ID不一致！弹窗打开: ${initialSessionId}, 最终保存时: ${saveSessionId}`);
                             await window.Gaigai.customAlert('🛑 安全拦截：检测到会话切换，数据未保存\n\n警告：总结可能已同步到世界书，请检查数据完整性！', '严重错误');
-                            $o.remove();
+                            cleanup();
                             resolve({ success: false });
                             return;
                         }
@@ -1845,7 +2020,7 @@
                             window.Gaigai.updateCurrentSnapshot();
                         }
 
-                        $o.remove();
+                        cleanup(); // ✅ 关闭弹窗并释放锁
 
                         if (!isTableMode) {
                             if (!isBatch) {
@@ -2015,13 +2190,177 @@
                     $o.on('keydown', async e => {
                         if (e.key === 'Escape') {
                             if (await window.Gaigai.customConfirm('确定取消？当前总结内容将丢失。', '确认')) {
-                                $o.remove();
+                                cleanup();
                                 resolve({ success: false });
                             }
                         }
                     });
                 }, 100);
             });
+        }
+
+        /**
+         * 🆕 大总结功能：对指定区间进行总结，并清理零散小总结
+         * @param {number} start - 起始楼层
+         * @param {number} end - 结束楼层
+         */
+        async runBigSummary(start, end) {
+            const m = window.Gaigai.m;
+            const API_CONFIG = window.Gaigai.config;
+            const C = window.Gaigai.config_obj;
+            const wasBigSummaryRunning = !!window.Gaigai.isBigSummaryRunning;
+            window.Gaigai.isBigSummaryRunning = true;
+            window.Gaigai.pendingBigSummaryEnd = Math.max(window.Gaigai.pendingBigSummaryEnd || 0, end);
+
+            console.log(`📚 [大总结] 开始执行: ${start}-${end}`);
+
+            try {
+                // === 🌟 新增：执行大总结前，检查记忆总结中是否已存在该区间的总结 ===
+                const checkSumSheet = m.get(m.s.length - 1);
+                if (checkSumSheet && checkSumSheet.r && checkSumSheet.r.length > 0) {
+                    const targetRangeStr = `${start}-${end}`;
+                    let alreadyExists = false;
+
+                    // 遍历总结表，检查备注（通常在第3列索引2）是否包含这个区间
+                    for (let i = 0; i < checkSumSheet.r.length; i++) {
+                        const note = checkSumSheet.r[i][2] || '';
+                        if (note.trim() === targetRangeStr) {
+                            alreadyExists = true;
+                            break;
+                        }
+                    }
+
+                    if (alreadyExists) {
+                        const msg = `⚠️ 拦截提示：检测到总结表格中已存在 [ ${start}-${end} ] 楼层的记录！\n\n大总结已自动取消。请手动前往总结控制台修正【大总结指针】，或自行检查已有内容。`;
+                        console.warn(`🛑 [大总结] ${msg}`);
+
+                        // ✅ 防重复触发：既然该区间总结已存在，直接推进大总结指针到区间末尾
+                        const currentBigIndex = API_CONFIG.lastBigSummaryIndex || 0;
+                        if (end > currentBigIndex) {
+                            API_CONFIG.lastBigSummaryIndex = end;
+                            localStorage.setItem('gg_api', JSON.stringify(API_CONFIG));
+                            m.save(false, true);
+                            if (typeof window.Gaigai.saveAllSettingsToCloud === 'function') {
+                                window.Gaigai.saveAllSettingsToCloud().catch(err => {
+                                    console.warn('⚠️ [大总结指针同步] 云端同步失败:', err);
+                                });
+                            }
+                            console.log(`✅ [大总结] 检测到区间已存在，指针已自动推进到 ${end}`);
+                        }
+                        
+                        // 弹出提示 (兼容不同环境)
+                        if (typeof toastr !== 'undefined') {
+                            toastr.warning(`已存在 ${start}-${end} 楼层总结，大总结已取消，请手动修正指针。`, '⚠️ 大总结拦截', { timeOut: 8000 });
+                        } else {
+                            await window.Gaigai.customAlert(msg, '⚠️ 大总结拦截');
+                        }
+                        
+                        return; // 存在相同区间，直接终止大总结流程
+                    }
+                }
+
+                // 🛡️ 防撞车锁：如果常规小总结正在执行，大总结必须排队等待其落盘
+                while (window.isSummarizing) {
+                    console.log('⏳ [大总结] 检测到小总结正在生成，大总结排队等待 2 秒...');
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+                // 锁定状态，防止新的小总结在此期间乱入
+                window.isSummarizing = true;
+
+                // 1. 触发 AI 总结
+                const result = await this.callAIForSummary(start, end, null, true, false, true, null, true, true);
+
+                if (!result || !result.success || !result.summary) {
+                    console.warn('❌ [大总结] AI 总结失败');
+                    return;
+                }
+                // callAIForSummary(skipSave=true) 会释放通用总结锁；大总结清理/写入阶段继续持锁。
+                window.isSummarizing = true;
+
+                // 2. 获取总结表
+                m.load();
+                const sumSheet = m.get(m.s.length - 1);
+                if (!sumSheet) {
+                    console.error('❌ [大总结] 总结表不存在');
+                    return;
+                }
+
+                // 3. 先清理碎片总结（只删除当前区间内的零散小总结）
+                const indicesToDelete = [];
+                const crossBoundarySummaries = []; // 记录跨区域总结
+                for (let i = 0; i < sumSheet.r.length; i++) {
+                    const row = sumSheet.r[i];
+                    const note = row[2] || '';
+                    const match = note.match(/^(\d+)\s*-\s*(\d+)$/);
+
+                    if (match) {
+                        const s = parseInt(match[1]);
+                        const e = parseInt(match[2]);
+
+                        // 完全在区间内：删除
+                        if (s >= start && e <= end) {
+                            indicesToDelete.push(i);
+                        }
+                        // 跨区域：起点在区间外，终点在区间内（如 98-120 对于 100-200）
+                        else if (s < start && e > start && e <= end) {
+                            crossBoundarySummaries.push(note);
+                        }
+                        // 跨区域：起点在区间内，终点在区间外（如 180-220 对于 100-200）
+                        else if (s >= start && s < end && e > end) {
+                            crossBoundarySummaries.push(note);
+                        }
+                    }
+                }
+
+                if (indicesToDelete.length > 0) {
+                    sumSheet.delMultiple(indicesToDelete);
+                    console.log(`🗑️ [大总结] 已清理 ${indicesToDelete.length} 个零散总结`);
+                }
+
+                // 提醒用户跨区域总结
+                if (crossBoundarySummaries.length > 0) {
+                    const message = `⚠️ 检测到 ${crossBoundarySummaries.length} 个跨区域总结：\n${crossBoundarySummaries.join(', ')}\n\n大总结已完成，跨区域总结内容已保留，请手动核实后删除。`;
+                    console.warn(`⚠️ [大总结] ${message}`);
+                    if (typeof toastr !== 'undefined') {
+                        toastr.warning(message, '大总结完成', { timeOut: 10000 });
+                    }
+                }
+
+                // 4. 写入大总结（删除后保存，标题会自动按顺序命名）
+                m.sm.save(result.summary, `${start}-${end}`);
+                console.log(`✅ [大总结] 已保存: ${start}-${end}`);
+
+                // 4. 更新进度指针
+                API_CONFIG.lastBigSummaryIndex = end;
+                if ((API_CONFIG.lastSummaryIndex || 0) < end) {
+                    API_CONFIG.lastSummaryIndex = end;
+                }
+                localStorage.setItem('gg_api', JSON.stringify(API_CONFIG));
+                m.save(true, true);
+
+                // 5. 同步到世界书
+                await window.Gaigai.WI.syncToWorldInfo(null, true);
+
+                // 6. 触发自动向量化
+                if (C.autoVectorizeSummary && window.Gaigai.VM) {
+                    await window.Gaigai.VM.syncSummaryToBook(true);
+                }
+
+                // 7. 刷新界面
+                if ($('#gai-main-pop').length > 0) window.Gaigai.shw();
+
+                console.log(`✅ [大总结] 完成: ${start}-${end}`);
+            } catch (error) {
+                console.error('❌ [大总结] 执行失败:', error);
+            } finally {
+                window.isSummarizing = false;
+                if (!wasBigSummaryRunning) {
+                    window.Gaigai.isBigSummaryRunning = false;
+                }
+                if ((window.Gaigai.pendingBigSummaryEnd || 0) <= end) {
+                    window.Gaigai.pendingBigSummaryEnd = 0;
+                }
+            }
         }
 
         /**
@@ -2351,22 +2690,15 @@
             // 3. 构建 Prompt 指令
             let coreInstruction = "";
             if (userPrompt && userPrompt.trim()) {
-                // 如果用户提供了建议，使用用户的建议作为核心指令
+                // 如果用户在弹窗中提供了临时优化建议，优先使用用户的建议
                 coreInstruction = userPrompt.trim();
             } else {
-                // 如果用户没有提供建议，使用默认指令
-                // ✅ 修改：使用详细的规则替代原本简单的一句话，确保格式纯净、时空合并、拒绝定义
-                coreInstruction = `请对上述内容进行整合且精简优化，目标是生成类似小说梗概的连贯叙事。严格遵守以下核心协议：
-
-1. 【格式纯净】：严禁使用 Markdown 符号（如 #、*、-、>），严禁加粗。仅使用纯文本和标点符号。
-2. 【时空聚合】：强制合并主线剧情里同一个地点（如[山庄·主卧]）且连贯的时间线内的所有连续剧情，必须合并成**唯一的一个段落**。严禁像流水账一样罗列时间点！格式要求：只写总的“开始时间-结束时间”，中间的剧情全部用合适的标点符号或分号连接成一段完整的剧情。
-- 示例：
-     (原) 10:00-10:05 [山庄·客厅] A做了X。
-     (原) 10:05-10:30 [山庄·客厅] A又做了Y。
-     (改) 10:00-10:30 [山庄·客厅] A先做了X，随后做了Y。
-3. 【拒绝抽象】：严禁使用“宣示主权”、“暧昧气氛”、“心理博弈”等定义性词汇。必须保留具体的“行为动作”和“对话核心”来体现事情的前因后果及状态。
-4. 【因果完整】：严禁为了精简而删除前因后果。保留导致人物关系变化、状态变更（如死亡、受伤、恢复、移动、获得/丢失物品）的关键逻辑。
-5. 【客观口吻】：保持绝对客观的记录风格。`;
+                // 如果用户没有提供临时建议，自动调用提示词管理器中的配置
+                coreInstruction = window.Gaigai.PromptManager.get('summaryPromptOptimize');
+                // 兜底防空保护
+                if (!coreInstruction || !coreInstruction.trim()) {
+                    coreInstruction = window.Gaigai.PromptManager.DEFAULT_SUM_OPTIMIZE || "请对上述内容进行整合且精简优化，目标是生成类似小说梗概的连贯叙事。";
+                }
             }
 
             // 应用变量替换（支持 {{char}} 等变量）
@@ -2375,7 +2707,7 @@
             // ✨ 核心修改：如果是多段优化，强制注入分隔符指令
             let formatInstruction = "";
             if (targetIndices.length > 1) {
-                formatInstruction = `\n\n⚠️⚠️⚠️ 【重要格式要求】 ⚠️⚠️⚠️\n你正在同时优化 ${targetIndices.length} 个独立的页面。请务必保持它们的独立性！\n在输出时，不同页面的优化结果之间**必须**使用 \`---分隔线---\` 进行分割。\n严禁将它们合并成一段！请严格按照原文顺序输出。`;
+                formatInstruction = `\n\n你正在同时优化 ${targetIndices.length} 个页面。请严格按照总结优化提示词进行优化输出。`;
             }
 
             messages.push({
@@ -2462,12 +2794,16 @@
         }
 
         /**
-         * 🆕 分批优化执行
+         * 🆕 分批优化执行（重构版：增强的错误处理和停止逻辑）
          * @private
          */
         async _optimizeSummaryBatch(targetIndices, userPrompt, batchStep, initialSessionId) {
             const m = window.Gaigai.m;
             const summaryTable = m.s[m.s.length - 1];
+
+            // 🔒 锁定用户提示词，防止在批次间丢失
+            const fixedUserPrompt = userPrompt ? String(userPrompt).trim() : "";
+            console.log(`🔒 [分批优化] 已锁定用户提示词，长度: ${fixedUserPrompt.length}`);
 
             // 将 targetIndices 按步长切分为多个 batch
             const batches = [];
@@ -2477,81 +2813,249 @@
 
             console.log(`📦 [分批优化] 共分为 ${batches.length} 批次`);
 
-            // 依次处理每个批次
-            for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-                const currentBatch = batches[batchIndex];
-                const batchNum = batchIndex + 1;
-                const totalBatches = batches.length;
-
-                // 🆕 更新全局进度变量（用于UI恢复）
-                window.Gaigai.optimizeBatchProgress = {
-                    current: batchNum,
-                    total: totalBatches
-                };
-
-                // 更新 UI 状态
+            // 辅助函数：更新按钮状态
+            const updateBtn = (text, isRunning) => {
                 const $btn = $('#gg_opt_run');
-                const $status = $('#gg_opt_status');
                 if ($btn.length > 0) {
-                    $btn.text(`⏳ 正在优化第 ${batchNum}/${totalBatches} 批...`);
+                    $btn.text(text)
+                        .css('background', isRunning ? '#dc3545' : '#ff9800')
+                        .css('opacity', '1')
+                        .prop('disabled', false);
                 }
+            };
+
+            const updateStatus = (text, color = null) => {
+                const $status = $('#gg_opt_status');
                 if ($status.length > 0) {
-                    $status.text(`处理中: 第 ${currentBatch[0] + 1}-${currentBatch[currentBatch.length - 1] + 1} 页`).css('color', '#17a2b8');
+                    $status.text(text).css(color ? {color} : {});
+                }
+            };
+
+            let successCount = 0;
+            let failedBatches = [];
+            let isUserCancelled = false;
+
+            try {
+                // 🆕 初始化停止标志
+                window.Gaigai.stopOptimizationBatch = false;
+
+                if (typeof toastr !== 'undefined') {
+                    toastr.info(`开始执行 ${batches.length} 个批次`, '分批优化');
                 }
 
-                console.log(`📦 [批次 ${batchNum}/${totalBatches}] 处理页码: ${currentBatch.map(i => i + 1).join(', ')}`);
+                // 依次处理每个批次
+                for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+                    // 🛑 检查点 1：任务开始前
+                    if (window.Gaigai.stopOptimizationBatch) {
+                        isUserCancelled = true;
+                        break;
+                    }
 
-                try {
-                    // 调用单次优化逻辑处理当前批次
-                    await this._optimizeSummarySingle(currentBatch, userPrompt, initialSessionId);
+                    // 冷却逻辑（除了第一批）
+                    if (batchIndex > 0) {
+                        for (let d = 5; d > 0; d--) {
+                            if (window.Gaigai.stopOptimizationBatch) break; // 🛑 检查点 2：冷却期间
+                            updateBtn(`⏳ 冷却 ${d}s... (点此停止)`, true);
+                            updateStatus(`批次间冷却... ${d}秒`, '#ffc107');
+                            await new Promise(r => setTimeout(r, 1000));
+                        }
+                    }
+
+                    if (window.Gaigai.stopOptimizationBatch) {
+                        isUserCancelled = true;
+                        break;
+                    }
+
+                    const currentBatch = batches[batchIndex];
+                    const batchNum = batchIndex + 1;
+                    const totalBatches = batches.length;
+
+                    // 🆕 更新全局进度变量（用于UI恢复）
+                    window.Gaigai.optimizeBatchProgress = {
+                        current: batchNum,
+                        total: totalBatches
+                    };
+
+                    updateBtn(`🛑 停止 (${batchNum}/${totalBatches})`, true);
+                    updateStatus(`处理中: 第 ${currentBatch[0] + 1}-${currentBatch[currentBatch.length - 1] + 1} 页`, '#17a2b8');
+
+                    console.log(`📦 [批次 ${batchNum}/${totalBatches}] 处理页码: ${currentBatch.map(i => i + 1).join(', ')}`);
+
+                    // 🔄 重试机制：最多重试1次
+                    let retryCount = 0;
+                    let lastError = null;
+                    let result = null;
+
+                    while (retryCount <= 1) {
+                        try {
+                            // 调用单次优化逻辑处理当前批次
+                            if (fixedUserPrompt) console.log(`📝 [批次 ${batchNum}] 正在应用用户自定义指令...`);
+                            await this._optimizeSummarySingle(currentBatch, fixedUserPrompt, initialSessionId);
+
+                            // 🛑 检查点 3：API返回后立即检查
+                            if (window.Gaigai.stopOptimizationBatch) {
+                                console.warn(`🛑 [分批优化] 任务 ${batchNum} 执行期间被中止`);
+                                isUserCancelled = true;
+                                break;
+                            }
+
+                            // ✅ 成功！跳出重试循环
+                            lastError = null;
+                            break;
+
+                        } catch (error) {
+                            lastError = error;
+
+                            // ✨✨✨ 修复：如果用户已经点了停止，直接退出，不要弹窗
+                            if (window.Gaigai.stopOptimizationBatch) {
+                                console.warn(`🛑 [分批优化] 检测到用户停止，跳过异常弹窗`);
+                                isUserCancelled = true;
+                                break;
+                            }
+
+                            // 🔄 判断是否需要重试
+                            if (retryCount < 1) {
+                                retryCount++;
+                                console.warn(`⚠️ [重试机制] 批次 ${batchNum} 失败，准备第 ${retryCount} 次重试...`);
+                                console.error(`[重试原因] ${error.message}`);
+
+                                updateStatus(`⚠️ 连接不稳定，等待 5秒 后重试...`, '#ffc107');
+
+                                // 等待5秒后重试
+                                for (let retrySec = 5; retrySec > 0; retrySec--) {
+                                    if (window.Gaigai.stopOptimizationBatch) {
+                                        console.warn(`🛑 [重试等待] 检测到用户停止`);
+                                        isUserCancelled = true;
+                                        break;
+                                    }
+                                    updateStatus(`⚠️ 连接不稳定，等待 ${retrySec}秒 后重试...`, '#ffc107');
+                                    await new Promise(r => setTimeout(r, 1000));
+                                }
+
+                                if (window.Gaigai.stopOptimizationBatch) {
+                                    isUserCancelled = true;
+                                    break;
+                                }
+
+                                // 继续下一次循环（重试）
+                                continue;
+                            } else {
+                                // 🚨 重试次数已用完，抛出错误让外层处理
+                                console.error(`❌ [重试机制] 批次 ${batchNum} 重试失败，进入异常处理流程`);
+                                throw error;
+                            }
+                        }
+                    }
+
+                    // 🛑 如果用户取消，跳出主循环
+                    if (isUserCancelled) break;
+
+                    // 🚨 如果重试后仍有错误，弹窗询问用户
+                    if (lastError) {
+                        console.error(lastError);
+                        failedBatches.push({ batch: batchNum, error: lastError.message });
+
+                        const userChoice = await window.Gaigai.customConfirm(
+                            `批次 ${batchNum} 发生异常：\n${lastError.message}\n\n是否继续后续批次？`,
+                            '异常处理',
+                            '继续',
+                            '停止'
+                        );
+
+                        if (!userChoice) {
+                            isUserCancelled = true;
+                            break;
+                        }
+                        continue; // 用户选择继续，跳到下一个批次
+                    }
+
+                    // ✅ 批次成功
+                    successCount++;
 
                     // 每批次成功后立即保存
                     m.save();
                     console.log(`✅ [批次 ${batchNum}/${totalBatches}] 完成并已保存`);
 
-                    // 批次之间增加冷却时间（除了最后一批）
+                    if (typeof toastr !== 'undefined') {
+                        toastr.success(`批次 ${batchNum}/${totalBatches} 完成`, '进度');
+                    }
+
+                    // 🛑 检查点 4：冷却前再次检查
+                    if (window.Gaigai.stopOptimizationBatch) {
+                        isUserCancelled = true;
+                        break;
+                    }
+
+                    // ⏳ 批次间冷却（除了最后一批）
                     if (batchIndex < batches.length - 1) {
                         console.log(`⏱️ [冷却] 等待 4 秒后继续下一批...`);
-                        if ($status.length > 0) {
-                            $status.text(`⏱️ 冷却中，4秒后继续...`).css('color', '#ff9800');
+                        for (let delay = 4; delay > 0; delay--) {
+                            if (window.Gaigai.stopOptimizationBatch) break;
+                            updateStatus(`⏱️ 冷却中，${delay}秒后继续...`, '#ff9800');
+                            await new Promise(r => setTimeout(r, 1000));
                         }
-                        await new Promise(resolve => setTimeout(resolve, 4000));
                     }
 
-                } catch (error) {
-                    console.error(`❌ [批次 ${batchNum}/${totalBatches}] 失败:`, error.message);
-
-                    // 询问用户是否继续
-                    const shouldContinue = await window.Gaigai.customConfirm(
-                        `⚠️ 第 ${batchNum}/${totalBatches} 批次优化失败！\n\n错误信息: ${error.message}\n\n是否继续处理下一批次？`,
-                        '批次失败'
-                    );
-
-                    if (!shouldContinue) {
-                        console.log(`🛑 [分批优化] 用户选择停止，已完成 ${batchNum - 1}/${totalBatches} 批次`);
-
-                        // 清除进度变量
-                        delete window.Gaigai.optimizeBatchProgress;
-
-                        await window.Gaigai.customAlert(
-                            `已完成 ${batchNum - 1}/${totalBatches} 批次的优化。\n\n已优化的内容已保存。`,
-                            '任务中止'
-                        );
-                        return;
+                    // 🛑 检查点 5：冷却后
+                    if (window.Gaigai.stopOptimizationBatch) {
+                        isUserCancelled = true;
+                        break;
                     }
-
-                    console.log(`⏭️ [分批优化] 用户选择继续，跳过当前批次`);
                 }
+
+            } finally {
+                // 🛡️ 绝对确保状态重置
+                try {
+                    window.Gaigai.stopOptimizationBatch = false;
+                    delete window.Gaigai.optimizeBatchProgress;
+
+                    // 🛡️ 强制重置按钮状态
+                    const $btn = $('#gg_opt_run');
+                    if ($btn.length > 0) {
+                        $btn.text('✨ 开始优化')
+                            .css('background', '#ff9800')
+                            .css('opacity', '1')
+                            .prop('disabled', false);
+                    }
+
+                    console.log('🔓 [状态重置] 分批优化锁已释放');
+                } catch (resetError) {
+                    console.error('❌ [严重错误] 状态重置失败:', resetError);
+                    window.Gaigai.stopOptimizationBatch = false;
+                }
+
+                // 结果汇报
+                if (isUserCancelled) {
+                    updateStatus('', null);
+                    if (typeof toastr !== 'undefined') {
+                        toastr.info('批量优化已手动停止或取消', '已中止');
+                    }
+                    return;
+                }
+
+                // 保存最终状态
+                if (successCount > 0) {
+                    m.save(false, true);
+                    if (typeof window.Gaigai.updateCurrentSnapshot === 'function') {
+                        window.Gaigai.updateCurrentSnapshot();
+                    }
+                }
+
+                const msg = failedBatches.length > 0
+                    ? `⚠️ 完成，但有 ${failedBatches.length} 个批次失败。`
+                    : `✅ 全部完成！共处理 ${successCount} 个批次。`;
+
+                if (typeof toastr !== 'undefined') {
+                    const isWarning = failedBatches.length > 0;
+                    if (isWarning) toastr.warning(msg, '分批优化');
+                    else toastr.success(msg, '分批优化');
+                }
+
+                updateStatus('✅ 就绪', '#28a745');
+                setTimeout(() => updateStatus('', null), 3000);
+
+                if ($('#gai-main-pop').length > 0) window.Gaigai.shw();
             }
-
-            // 所有批次完成，清除进度变量
-            delete window.Gaigai.optimizeBatchProgress;
-
-            console.log(`🎉 [分批优化] 全部 ${totalBatches} 批次处理完成`);
-            await window.Gaigai.customAlert(
-                `✅ 分批优化完成！\n\n共处理 ${totalBatches} 批次，优化了 ${targetIndices.length} 页内容。`,
-                '任务完成'
-            );
         }
 
         /**
@@ -2668,6 +3172,28 @@
                         console.log(`🔒 [安全验证通过] 会话ID: ${finalSessionId}, 追加新页到总结表`);
 
                         m.save(false, true); // 追加总结后立即保存
+
+                        // ✅✅✅ [新增] 总结优化保存后，触发自动向量化并隐藏总结表所有行
+                        if (window.Gaigai.config_obj.autoVectorizeSummary && window.Gaigai.VM && typeof window.Gaigai.VM.syncSummaryToBook === 'function') {
+                            try {
+                                console.log('⚡ [总结优化] 触发自动向量化同步...');
+                                // 强制将当前总结表覆盖同步到知识书，并执行向量化
+                                await window.Gaigai.VM.syncSummaryToBook(true);
+
+                                const sumIdx = m.s.length - 1; // 总结表索引
+                                const sumSheet = m.get(sumIdx);
+                                if (sumSheet && sumSheet.r.length > 0) {
+                                    // 遍历所有行进行隐藏标记
+                                    for (let ri = 0; ri < sumSheet.r.length; ri++) {
+                                        window.Gaigai.markAsSummarized(sumIdx, ri);
+                                    }
+                                    console.log('⚡ [总结优化] 已自动隐藏总结表所有行');
+                                }
+                            } catch (vecErr) {
+                                console.error('❌ [总结优化] 自动向量化失败:', vecErr);
+                            }
+                        }
+
                         if (typeof window.Gaigai.updateCurrentSnapshot === 'function') {
                             window.Gaigai.updateCurrentSnapshot();
                         }
@@ -2825,6 +3351,28 @@
                         console.log(`🔒 [安全验证通过] 会话ID: ${finalSessionId}, 实际覆盖 ${realUpdateCount} 页内容`);
 
                         m.save(false, true); // 总结优化后立即保存
+
+                        // ✅✅✅ [新增] 总结优化保存后，触发自动向量化并隐藏总结表所有行
+                        if (window.Gaigai.config_obj.autoVectorizeSummary && window.Gaigai.VM && typeof window.Gaigai.VM.syncSummaryToBook === 'function') {
+                            try {
+                                console.log('⚡ [总结优化] 触发自动向量化同步...');
+                                // 强制将当前总结表覆盖同步到知识书，并执行向量化
+                                await window.Gaigai.VM.syncSummaryToBook(true);
+
+                                const sumIdx = m.s.length - 1; // 总结表索引
+                                const sumSheet = m.get(sumIdx);
+                                if (sumSheet && sumSheet.r.length > 0) {
+                                    // 遍历所有行进行隐藏标记
+                                    for (let ri = 0; ri < sumSheet.r.length; ri++) {
+                                        window.Gaigai.markAsSummarized(sumIdx, ri);
+                                    }
+                                    console.log('⚡ [总结优化] 已自动隐藏总结表所有行');
+                                }
+                            } catch (vecErr) {
+                                console.error('❌ [总结优化] 自动向量化失败:', vecErr);
+                            }
+                        }
+
                         if (typeof window.Gaigai.updateCurrentSnapshot === 'function') {
                             window.Gaigai.updateCurrentSnapshot();
                         }

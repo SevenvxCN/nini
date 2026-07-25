@@ -2,10 +2,18 @@
 // Fourth Wall Module - Main Controller
 // ════════════════════════════════════════════════════════════════════════════
 import { extension_settings, getContext, saveMetadataDebounced } from "../../../../../extensions.js";
-import { saveSettingsDebounced, chat_metadata, default_user_avatar, default_avatar } from "../../../../../../script.js";
+import { getRequestHeaders, saveSettingsDebounced, chat_metadata, default_user_avatar, default_avatar } from "../../../../../../script.js";
 import { EXT_ID, extensionFolderPath } from "../../core/constants.js";
+import { AssistantStorage } from "../../core/server-storage.js";
 import { createModuleEvents, event_types } from "../../core/event-manager.js";
 import { xbLog } from "../../core/debug-core.js";
+import { initAfterAiGate, notifyAfterAiHint, registerAfterAiHandler } from "../../core/after-ai-gate.js";
+import {
+    AGENT_SETTINGS_CONFIG_VERSION,
+    normalizeAgentSettings,
+    normalizeJsApiPermission,
+    normalizePresetName,
+} from "../agent-core/config.js";
 
 import { handleCheckCache, handleGenerate, clearExpiredCache } from "./fw-image.js";
 import { synthesizeAndPlay, stopCurrent as stopCurrentVoice } from "./fw-voice-runtime.js";
@@ -17,7 +25,7 @@ import {
     DEFAULT_BOTTOM,
     DEFAULT_META_PROTOCOL
 } from "./fw-prompt.js";
-import { initMessageEnhancer, cleanupMessageEnhancer } from "./fw-message-enhancer.js";
+import { initMessageEnhancer, refreshMessageEnhancer, cleanupMessageEnhancer, setMessageEnhancerRuntimeActive } from "./fw-message-enhancer.js";
 import { postToIframe, isTrustedMessage, getTrustedOrigin } from "../../core/iframe-messaging.js";
 
 // ════════════════════════════════════════════
@@ -26,9 +34,18 @@ import { postToIframe, isTrustedMessage, getTrustedOrigin } from "../../core/ifr
 
 const events = createModuleEvents('fourthWall');
 const iframePath = `${extensionFolderPath}/modules/fourth-wall/fourth-wall.html`;
-const STREAM_SESSION_ID = 'xb9';
+const agentBridgePath = toRootedBrowserPath(`${extensionFolderPath}/modules/fourth-wall/dist/fourth-wall-agent.js`);
+const AGENT_SETTINGS_FILE_KEY = 'settings';
 const COMMENTARY_COOLDOWN = 180000;
 const IFRAME_PING_TIMEOUT = 800;
+
+function toRootedBrowserPath(path) {
+    const value = String(path || '');
+    if (/^(?:[a-z][a-z\d+.-]*:)?\/\//i.test(value) || value.startsWith('/') || value.startsWith('./') || value.startsWith('../')) {
+        return value;
+    }
+    return `/${value}`;
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 // State
@@ -38,7 +55,6 @@ let overlayCreated = false;
 let frameReady = false;
 let pendingFrameMessages = [];
 let isStreaming = false;
-let streamTimerId = null;
 let floatBtnResizeHandler = null;
 let suppressFloatBtnClickUntil = 0;
 let currentLoadedChatId = null;
@@ -46,9 +62,16 @@ let lastCommentaryTime = 0;
 let commentaryBubbleEl = null;
 let commentaryBubbleTimer = null;
 let currentVoiceRequestId = null;
+let commentaryAfterAiDispose = null;
+let runtimeActive = false;
 
 let visibilityHandler = null;
 let pendingPingId = null;
+let fullscreenChangeHandler = null;
+let hostThemeObserver = null;
+let activeGenerationController = null;
+let activeGenerationId = 0;
+let agentBridgePromise = null;
 
 // ════════════════════════════════════════════════════════════════════════════
 // Settings
@@ -58,7 +81,7 @@ function getSettings() {
     extension_settings[EXT_ID] ||= {};
     const s = extension_settings[EXT_ID];
 
-    s.fourthWall ||= { enabled: true };
+    s.fourthWall ||= { enabled: false };
     s.fourthWallImage ||= { enablePrompt: false };
     s.fourthWallVoice ||= { enabled: false };
     s.fourthWallCommentary ||= { enabled: false, probability: 30 };
@@ -73,16 +96,13 @@ function getSettings() {
     return s;
 }
 
+function isFourthWallActive() {
+    return runtimeActive || !!getSettings().fourthWall?.enabled;
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // Utilities
 // ════════════════════════════════════════════════════════════════════════════
-
-function b64UrlEncode(str) {
-    const utf8 = new TextEncoder().encode(String(str));
-    let bin = '';
-    utf8.forEach(b => bin += String.fromCharCode(b));
-    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
 
 function extractMsg(text) {
     const src = String(text || '');
@@ -161,6 +181,147 @@ function getAvatarUrls() {
     return { user: toAbsUrl(user), char: toAbsUrl(char) };
 }
 
+function getHostTheme() {
+    const sources = [
+        document.documentElement?.className || '',
+        document.body?.className || '',
+        document.documentElement?.dataset?.theme || '',
+        document.body?.dataset?.theme || '',
+    ].join(' ').toLowerCase();
+    if (/(?:^|\s)(?:theme-dark|dark-theme|dark|neo-dark)(?:\s|$)/.test(sources)) return 'dark';
+    if (/(?:^|\s)(?:theme-light|light-theme|light)(?:\s|$)/.test(sources)) return 'light';
+    const background = getComputedStyle(document.body).backgroundColor || '';
+    const match = background.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (match) {
+        const r = Number(match[1]);
+        const g = Number(match[2]);
+        const b = Number(match[3]);
+        const luminance = (0.2126 * r) + (0.7152 * g) + (0.0722 * b);
+        return luminance < 128 ? 'dark' : 'light';
+    }
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function postThemeToFrame() {
+    postToFrame({ type: 'THEME_UPDATE', theme: getHostTheme() });
+}
+
+function startHostThemeObserver() {
+    if (hostThemeObserver) return;
+    hostThemeObserver = new MutationObserver(postThemeToFrame);
+    const options = { attributes: true, attributeFilter: ['class', 'data-theme', 'style'] };
+    hostThemeObserver.observe(document.documentElement, options);
+    if (document.body) hostThemeObserver.observe(document.body, options);
+}
+
+function stopHostThemeObserver() {
+    hostThemeObserver?.disconnect();
+    hostThemeObserver = null;
+}
+
+async function loadSharedAgentConfig() {
+    try {
+        const saved = await AssistantStorage.get(AGENT_SETTINGS_FILE_KEY, {});
+        return normalizeAgentSettings(saved || {});
+    } catch {
+        return normalizeAgentSettings({});
+    }
+}
+
+async function saveSharedAgentConfig(patch = {}, options = {}) {
+    const silent = options.silent !== false;
+    let current = null;
+    try {
+        current = await AssistantStorage.get(AGENT_SETTINGS_FILE_KEY, null);
+    } catch {
+        current = null;
+    }
+    const normalizedCurrent = normalizeAgentSettings(current || {});
+    const next = normalizeAgentSettings({
+        ...normalizedCurrent,
+        workspaceFileName: normalizedCurrent.workspaceFileName || '',
+        jsApiPermission: normalizeJsApiPermission(patch.jsApiPermission ?? normalizedCurrent.jsApiPermission),
+        tavilyApiKey: patch.tavilyApiKey ?? normalizedCurrent.tavilyApiKey,
+        tavilyBaseUrl: patch.tavilyBaseUrl ?? normalizedCurrent.tavilyBaseUrl,
+        currentPresetName: normalizePresetName(patch.currentPresetName || normalizedCurrent.currentPresetName),
+        delegatePresetName: normalizePresetName(patch.delegatePresetName || normalizedCurrent.delegatePresetName || patch.currentPresetName || normalizedCurrent.currentPresetName),
+        delegateConfig: patch.delegateConfig && typeof patch.delegateConfig === 'object'
+            ? patch.delegateConfig
+            : normalizedCurrent.delegateConfig,
+        presets: patch.presets && typeof patch.presets === 'object'
+            ? patch.presets
+            : normalizedCurrent.presets,
+        updatedAt: Date.now(),
+        configVersion: AGENT_SETTINGS_CONFIG_VERSION,
+    });
+
+    try {
+        const data = await AssistantStorage.load();
+        data[AGENT_SETTINGS_FILE_KEY] = next;
+        AssistantStorage._dirtyVersion = (AssistantStorage._dirtyVersion || 0) + 1;
+        await AssistantStorage.saveNow({ silent });
+        window.xiaobaixAssistant?.refreshConfig?.();
+        window.xiaobaixEbook?.refreshConfig?.();
+        return { ok: true, config: next };
+    } catch (error) {
+        return {
+            ok: false,
+            config: next,
+            error: error instanceof Error ? error.message : String(error || '保存失败'),
+        };
+    }
+}
+
+async function getFourthWallAgentBridge() {
+    if (!agentBridgePromise) {
+        // The path is built from the extension's own base URL and points to a bundled local module.
+        // eslint-disable-next-line no-unsanitized/method
+        agentBridgePromise = import(agentBridgePath).then((bridge) => {
+            bridge.configureFourthWallAgent?.({
+                requestHeadersProvider: () => getRequestHeaders?.() || {},
+            });
+            return bridge;
+        });
+    }
+    return agentBridgePromise;
+}
+
+function formatAgentThoughts(thoughts = []) {
+    if (!Array.isArray(thoughts) || !thoughts.length) return '';
+    return thoughts
+        .map((item) => {
+            if (typeof item === 'string') return item.trim();
+            const label = String(item?.label || '').trim();
+            const text = String(item?.text || '').trim();
+            if (!text) return '';
+            return label ? `【${label}】\n${text}` : text;
+        })
+        .filter(Boolean)
+        .join('\n\n');
+}
+
+function buildVisibleGenerationText(rawText = '') {
+    const raw = String(rawText || '');
+    const tagged = extractMsg(raw);
+    if (tagged) return tagged;
+    const partial = extractMsgPartial(raw);
+    if (partial) return partial;
+    return raw.trim();
+}
+
+function buildVisibleGenerationThinking(rawText = '', thoughts = []) {
+    return extractThinking(rawText) || formatAgentThoughts(thoughts);
+}
+
+function buildPartialGenerationThinking(rawText = '', thoughts = []) {
+    return extractThinkingPartial(rawText) || formatAgentThoughts(thoughts);
+}
+
+function isAbortError(error) {
+    return error?.name === 'AbortError'
+        || /abort|aborted|已取消/i.test(String(error?.message || error || ''));
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // Storage
 // ════════════════════════════════════════════════════════════════════════════
@@ -173,7 +334,8 @@ function getFWStore(chatId = getCurrentChatIdSafe()) {
     chat_metadata[chatId].extensions[EXT_ID].fw ||= {};
 
     const fw = chat_metadata[chatId].extensions[EXT_ID].fw;
-    fw.settings ||= { maxChatLayers: 9999, maxMetaTurns: 9999, stream: true };
+    fw.settings ||= { maxChatLayers: 9999, maxMetaTurns: 9999, stream: true, disableAssistantPrefill: false };
+    if (fw.settings.disableAssistantPrefill === undefined) fw.settings.disableAssistantPrefill = false;
 
     if (!fw.sessions) {
         const oldHistory = Array.isArray(fw.history) ? fw.history.slice() : [];
@@ -204,7 +366,8 @@ function saveFWStore() {
 
 function postToFrame(payload) {
     const iframe = document.getElementById('xiaobaix-fourth-wall-iframe');
-    if (!iframe?.contentWindow || !frameReady) {
+    if (!iframe?.contentWindow) return;
+    if (!frameReady) {
         pendingFrameMessages.push(payload);
         return;
     }
@@ -219,11 +382,12 @@ function flushPendingMessages() {
     pendingFrameMessages = [];
 }
 
-function sendInitData() {
+async function sendInitData() {
     const store = getFWStore();
     const settings = getSettings();
     const session = getActiveSession();
     const avatars = getAvatarUrls();
+    const agentConfig = await loadSharedAgentConfig();
 
     postToFrame({
         type: 'INIT_DATA',
@@ -235,6 +399,9 @@ function sendInitData() {
         voiceSettings: settings.fourthWallVoice || {},
         commentarySettings: settings.fourthWallCommentary || {},
         promptTemplates: settings.fourthWallPromptTemplates || {},
+        agentConfig,
+        hostRequestHeaders: getRequestHeaders?.() || {},
+        theme: getHostTheme(),
         avatars
     });
 }
@@ -366,7 +533,7 @@ function handleFrameMessage(event) {
         case 'FRAME_READY':
             frameReady = true;
             flushPendingMessages();
-            sendInitData();
+            void sendInitData();
             break;
 
         case 'PONG':
@@ -396,6 +563,20 @@ function handleFrameMessage(event) {
             }
             break;
 
+        case 'SAVE_AGENT_CONFIG': {
+            const requestId = String(data.requestId || '');
+            saveSharedAgentConfig(data.payload || data, { silent: false }).then((result) => {
+                postToFrame({
+                    type: 'AGENT_CONFIG_SAVED',
+                    requestId,
+                    ok: result.ok,
+                    config: result.config,
+                    error: result.error || '',
+                });
+            });
+            break;
+        }
+
         case 'SAVE_IMG_SETTINGS':
             Object.assign(settings.fourthWallImage, data.imgSettings);
             saveSettingsDebounced();
@@ -420,7 +601,7 @@ function handleFrameMessage(event) {
             extension_settings[EXT_ID].fourthWallPromptTemplates = {};
             getSettings();
             saveSettingsDebounced();
-            sendInitData();
+            void sendInitData();
             break;
 
         case 'SAVE_HISTORY': {
@@ -445,7 +626,7 @@ function handleFrameMessage(event) {
             if (store) {
                 store.activeSessionId = data.sessionId;
                 saveFWStore();
-                sendInitData();
+                void sendInitData();
             }
             break;
 
@@ -455,14 +636,14 @@ function handleFrameMessage(event) {
                 store.sessions.push({ id: newId, name: data.name, createdAt: Date.now(), history: [] });
                 store.activeSessionId = newId;
                 saveFWStore();
-                sendInitData();
+                void sendInitData();
             }
             break;
 
         case 'RENAME_SESSION':
             if (store) {
                 const sess = store.sessions.find(s => s.id === data.sessionId);
-                if (sess) { sess.name = data.name; saveFWStore(); sendInitData(); }
+                if (sess) { sess.name = data.name; saveFWStore(); void sendInitData(); }
             }
             break;
 
@@ -471,12 +652,16 @@ function handleFrameMessage(event) {
                 store.sessions = store.sessions.filter(s => s.id !== data.sessionId);
                 store.activeSessionId = store.sessions[0].id;
                 saveFWStore();
-                sendInitData();
+                void sendInitData();
             }
             break;
 
         case 'CLOSE_OVERLAY':
             hideOverlay();
+            break;
+
+        case 'CLOSE_MODULE':
+            closeFourthWall();
             break;
 
         case 'CHECK_IMAGE_CACHE':
@@ -502,7 +687,11 @@ function handleFrameMessage(event) {
 // ════════════════════════════════════════════════════════════════════════════
 
 async function startGeneration(data) {
-    const { msg1, msg2, msg3, msg4 } = await buildPrompt({
+    const runId = activeGenerationId + 1;
+    activeGenerationId = runId;
+    activeGenerationController = new AbortController();
+
+    const builtPrompt = await buildPrompt({
         userInput: data.userInput,
         history: data.history,
         settings: data.settings,
@@ -510,29 +699,34 @@ async function startGeneration(data) {
         voiceSettings: data.voiceSettings,
         promptTemplates: getSettings().fourthWallPromptTemplates
     });
+    if (runId !== activeGenerationId || activeGenerationController?.signal?.aborted) return;
 
-    const gen = window.xiaobaixStreamingGeneration;
-    if (!gen?.xbgenrawCommand) throw new Error('xbgenraw module unavailable');
+    const bridge = await getFourthWallAgentBridge();
+    if (runId !== activeGenerationId || activeGenerationController?.signal?.aborted) return;
+    const controller = activeGenerationController;
+    const config = await loadSharedAgentConfig();
+    if (runId !== activeGenerationId || controller?.signal?.aborted) return;
+    const result = await bridge.generateFourthWallResponse({
+        config,
+        builtPrompt,
+        stream: !!data.settings?.stream,
+        disableAssistantPrefill: !!data.settings?.disableAssistantPrefill,
+        signal: controller?.signal,
+        onStreamProgress(snapshot = {}) {
+            if (runId !== activeGenerationId) return;
+            const rawText = String(snapshot.text || '');
+            const visibleText = buildVisibleGenerationText(rawText) || '...';
+            const thinking = buildPartialGenerationThinking(rawText, snapshot.thoughts);
+            postToFrame({
+                type: 'STREAM_UPDATE',
+                text: visibleText,
+                thinking: thinking || undefined,
+            });
+        },
+    });
 
-    const topMessages = [
-        { role: 'user', content: msg1 },
-        { role: 'assistant', content: msg2 },
-        { role: 'user', content: msg3 },
-    ];
-
-    await gen.xbgenrawCommand({
-        id: STREAM_SESSION_ID,
-        top64: b64UrlEncode(JSON.stringify(topMessages)),
-        bottomassistant: msg4,
-        nonstream: data.settings.stream ? 'false' : 'true',
-        as: 'user',
-    }, '');
-
-    if (data.settings.stream) {
-        startStreamingPoll();
-    } else {
-        startNonstreamAwait();
-    }
+    if (runId !== activeGenerationId) return;
+    finalizeGeneration(result);
 }
 
 async function handleSendMessage(data) {
@@ -547,10 +741,17 @@ async function handleSendMessage(data) {
 
     try {
         await startGeneration(data);
-    } catch {
-        stopStreamingPoll();
+    } catch (error) {
         isStreaming = false;
-        postToFrame({ type: 'GENERATION_CANCELLED' });
+        activeGenerationController = null;
+        if (isAbortError(error)) {
+            postToFrame({ type: 'GENERATION_CANCELLED' });
+        } else {
+            postToFrame({
+                type: 'GENERATION_ERROR',
+                message: error instanceof Error ? error.message : String(error || '生成失败'),
+            });
+        }
     }
 }
 
@@ -566,53 +767,27 @@ async function handleRegenerate(data) {
 
     try {
         await startGeneration(data);
-    } catch {
-        stopStreamingPoll();
+    } catch (error) {
         isStreaming = false;
-        postToFrame({ type: 'GENERATION_CANCELLED' });
+        activeGenerationController = null;
+        if (isAbortError(error)) {
+            postToFrame({ type: 'GENERATION_CANCELLED' });
+        } else {
+            postToFrame({
+                type: 'GENERATION_ERROR',
+                message: error instanceof Error ? error.message : String(error || '生成失败'),
+            });
+        }
     }
 }
 
-function startStreamingPoll() {
-    stopStreamingPoll();
-    streamTimerId = setInterval(() => {
-        const gen = window.xiaobaixStreamingGeneration;
-        if (!gen?.getLastGeneration) return;
-
-        const raw = gen.getLastGeneration(STREAM_SESSION_ID) || '...';
-        const thinking = extractThinkingPartial(raw);
-        const msg = extractMsg(raw) || extractMsgPartial(raw);
-        postToFrame({ type: 'STREAM_UPDATE', text: msg || '...', thinking: thinking || undefined });
-
-        const st = gen.getStatus?.(STREAM_SESSION_ID);
-        if (st && st.isStreaming === false) finalizeGeneration();
-    }, 80);
-}
-
-function startNonstreamAwait() {
-    stopStreamingPoll();
-    streamTimerId = setInterval(() => {
-        const gen = window.xiaobaixStreamingGeneration;
-        const st = gen?.getStatus?.(STREAM_SESSION_ID);
-        if (st && st.isStreaming === false) finalizeGeneration();
-    }, 120);
-}
-
-function stopStreamingPoll() {
-    if (streamTimerId) {
-        clearInterval(streamTimerId);
-        streamTimerId = null;
-    }
-}
-
-function finalizeGeneration() {
-    stopStreamingPoll();
-    const gen = window.xiaobaixStreamingGeneration;
-    const rawText = gen?.getLastGeneration?.(STREAM_SESSION_ID) || '(no response)';
-    const finalText = extractMsg(rawText) || '(no response)';
-    const thinkingText = extractThinking(rawText);
+function finalizeGeneration(result = {}) {
+    const rawText = String(result?.text || '');
+    const finalText = buildVisibleGenerationText(rawText) || '(no response)';
+    const thinkingText = buildVisibleGenerationThinking(rawText, result?.thoughts);
 
     isStreaming = false;
+    activeGenerationController = null;
 
     const session = getActiveSession();
     if (session) {
@@ -624,10 +799,10 @@ function finalizeGeneration() {
 }
 
 function cancelGeneration() {
-    const gen = window.xiaobaixStreamingGeneration;
-    stopStreamingPoll();
+    activeGenerationId += 1;
+    activeGenerationController?.abort?.();
+    activeGenerationController = null;
     isStreaming = false;
-    try { gen?.cancel?.(STREAM_SESSION_ID); } catch { }
     postToFrame({ type: 'GENERATION_CANCELLED' });
 }
 
@@ -678,27 +853,18 @@ async function generateCommentary(targetText, type) {
     });
 
     if (!built) return null;
-    const { msg1, msg2, msg3, msg4 } = built;
-
-    const gen = window.xiaobaixStreamingGeneration;
-    if (!gen?.xbgenrawCommand) return null;
-
-    const topMessages = [
-        { role: 'user', content: msg1 },
-        { role: 'assistant', content: msg2 },
-        { role: 'user', content: msg3 },
-    ];
 
     try {
-        const result = await gen.xbgenrawCommand({
-            id: 'xb8',
-            top64: b64UrlEncode(JSON.stringify(topMessages)),
-            bottomassistant: msg4,
-            nonstream: 'true',
-            as: 'user',
-        }, '');
-        return extractMsg(result) || null;
-    } catch {
+        const bridge = await getFourthWallAgentBridge();
+        const result = await bridge.generateFourthWallResponse({
+            config: await loadSharedAgentConfig(),
+            builtPrompt: built,
+            stream: false,
+            disableAssistantPrefill: !!store.settings?.disableAssistantPrefill,
+        });
+        return buildVisibleGenerationText(result?.text) || null;
+    } catch (error) {
+        console.warn('[FourthWall] commentary generation failed:', error);
         return null;
     }
 }
@@ -807,14 +973,55 @@ function hideCommentaryBubble() {
     }
 }
 
+function notifyCommentaryAfterAi(data, source) {
+    const ctx = getContext?.() || {};
+    const chatId = String(ctx?.chatId || '');
+    const chat = ctx?.chat || [];
+    if (!chatId || !chat.length) return;
+
+    const messageId = source === 'generation_ended'
+        ? (chat.length - 1)
+        : (typeof data === 'object' ? data?.messageId ?? data?.id ?? data?.index : data);
+    if (!Number.isFinite(messageId) || messageId < 0) return;
+
+    const message = chat[messageId];
+    if (!message || message.is_user) return;
+
+    notifyAfterAiHint({
+        chatId,
+        messageId,
+        source,
+        kind: 'fourthWallCommentary',
+    });
+}
+
+function handleCommentaryAfterAiMessageReceived(data) {
+    notifyCommentaryAfterAi(data, 'message_received');
+}
+
+function handleCommentaryAfterAiGenerationEnded(data) {
+    notifyCommentaryAfterAi(data, 'generation_ended');
+}
+
 function initCommentary() {
-    events.on(event_types.MESSAGE_RECEIVED, handleAIMessageForCommentary);
+    initAfterAiGate();
+    commentaryAfterAiDispose?.();
+    commentaryAfterAiDispose = registerAfterAiHandler('fourthWallCommentary', ({ chatId, messageId }) => {
+        const ctx = getContext?.() || {};
+        if (String(ctx?.chatId || '') !== String(chatId || '')) return;
+        void handleAIMessageForCommentary({ messageId });
+    });
+    events.on(event_types.MESSAGE_RECEIVED, handleCommentaryAfterAiMessageReceived);
+    events.on(event_types.GENERATION_ENDED, handleCommentaryAfterAiGenerationEnded);
     events.on(event_types.MESSAGE_EDITED, handleEditForCommentary);
 }
 
 function cleanupCommentary() {
-    events.off(event_types.MESSAGE_RECEIVED, handleAIMessageForCommentary);
+    events.off(event_types.MESSAGE_RECEIVED, handleCommentaryAfterAiMessageReceived);
+    events.off(event_types.GENERATION_ENDED, handleCommentaryAfterAiGenerationEnded);
     events.off(event_types.MESSAGE_EDITED, handleEditForCommentary);
+    commentaryAfterAiDispose?.();
+    commentaryAfterAiDispose = null;
     hideCommentaryBubble();
     lastCommentaryTime = 0;
 }
@@ -847,13 +1054,15 @@ function createOverlay() {
     // eslint-disable-next-line no-restricted-syntax
     window.addEventListener('message', handleFrameMessage);
 
-    document.addEventListener('fullscreenchange', () => {
+    fullscreenChangeHandler = () => {
         if (!document.fullscreenElement) {
             postToFrame({ type: 'FULLSCREEN_STATE', isFullscreen: false });
         } else {
             postToFrame({ type: 'FULLSCREEN_STATE', isFullscreen: true });
         }
-    });
+    };
+    document.addEventListener('fullscreenchange', fullscreenChangeHandler);
+    startHostThemeObserver();
 }
 
 function showOverlay() {
@@ -867,7 +1076,7 @@ function showOverlay() {
         pendingFrameMessages = [];
     }
 
-    sendInitData();
+    void sendInitData();
     postToFrame({ type: 'FULLSCREEN_STATE', isFullscreen: !!document.fullscreenElement });
 
     if (!visibilityHandler) {
@@ -877,7 +1086,6 @@ function showOverlay() {
 }
 
 function hideOverlay() {
-    $('#xiaobaix-fourth-wall-overlay').hide();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => { });
     stopVoiceAndNotify();
 
@@ -885,6 +1093,27 @@ function hideOverlay() {
         document.removeEventListener('visibilitychange', visibilityHandler);
         visibilityHandler = null;
     }
+
+    if (fullscreenChangeHandler) {
+        document.removeEventListener('fullscreenchange', fullscreenChangeHandler);
+        fullscreenChangeHandler = null;
+    }
+
+    const overlay = document.getElementById('xiaobaix-fourth-wall-overlay');
+    if (overlay) {
+        const iframe = overlay.querySelector('#xiaobaix-fourth-wall-iframe');
+        if (iframe) {
+            try { iframe.src = 'about:blank'; } catch { }
+        }
+        overlay.remove();
+    }
+
+    window.removeEventListener('message', handleFrameMessage);
+    stopHostThemeObserver();
+    overlayCreated = false;
+    frameReady = false;
+    pendingFrameMessages = [];
+    currentLoadedChatId = null;
     pendingPingId = null;
 }
 
@@ -937,7 +1166,7 @@ function createFloatingButton() {
 
     $btn.on('click', () => {
         if (Date.now() < suppressFloatBtnClickUntil) return;
-        if (!getSettings().fourthWall?.enabled) return;
+        if (!isFourthWallActive()) return;
         showOverlay();
     });
 
@@ -1025,33 +1254,25 @@ function removeFloatingButton() {
 // Init & Cleanup
 // ════════════════════════════════════════════
 
-function initFourthWall() {
-    try { xbLog.info('fourthWall', 'initFourthWall'); } catch { }
-    const settings = getSettings();
-    if (!settings.fourthWall?.enabled) return;
-
-    createFloatingButton();
-    initCommentary();
+function initFourthWallFloorTools() {
+    try { xbLog.info('fourthWall', 'initFourthWallFloorTools'); } catch { }
+    getSettings();
+    setMessageEnhancerRuntimeActive(true);
     clearExpiredCache();
     initMessageEnhancer();
-
-    events.on(event_types.CHAT_CHANGED, () => {
-        cancelGeneration();
-        currentLoadedChatId = null;
-        pendingFrameMessages = [];
-        if ($('#xiaobaix-fourth-wall-overlay').is(':visible')) hideOverlay();
-    });
 }
 
-function fourthWallCleanup() {
-    try { xbLog.info('fourthWall', 'fourthWallCleanup'); } catch { }
+function refreshFourthWallFloorTools() {
+    refreshMessageEnhancer();
+}
+
+function cleanupFourthWallRuntime() {
+    runtimeActive = false;
     events.cleanup();
     cleanupCommentary();
     removeFloatingButton();
     hideOverlay();
     cancelGeneration();
-    cleanupMessageEnhancer();
-    stopCurrentVoice();
     currentVoiceRequestId = null;
     frameReady = false;
     pendingFrameMessages = [];
@@ -1066,13 +1287,58 @@ function fourthWallCleanup() {
 
     $('#xiaobaix-fourth-wall-overlay').remove();
     window.removeEventListener('message', handleFrameMessage);
+    stopHostThemeObserver();
 }
 
-export { initFourthWall, fourthWallCleanup, showOverlay as showFourthWallPopup };
+function activateFourthWall() {
+    if (runtimeActive) return;
+    runtimeActive = true;
+    initFourthWallFloorTools();
+    createFloatingButton();
+    initCommentary();
+
+    events.on(event_types.CHAT_CHANGED, () => {
+        cancelGeneration();
+        currentLoadedChatId = null;
+        pendingFrameMessages = [];
+        if ($('#xiaobaix-fourth-wall-overlay').is(':visible')) hideOverlay();
+    });
+}
+
+function initFourthWall() {
+    try { xbLog.info('fourthWall', 'initFourthWall'); } catch { }
+    const settings = getSettings();
+    if (!settings.fourthWall?.enabled) return;
+    activateFourthWall();
+}
+
+function openFourthWall() {
+    try { xbLog.info('fourthWall', 'openFourthWall'); } catch { }
+    activateFourthWall();
+    showOverlay();
+}
+
+function closeFourthWall() {
+    const settings = getSettings();
+    settings.fourthWall ||= {};
+    settings.fourthWall.enabled = false;
+    saveSettingsDebounced();
+    cleanupFourthWallRuntime();
+}
+
+function fourthWallCleanup() {
+    try { xbLog.info('fourthWall', 'fourthWallCleanup'); } catch { }
+    cleanupFourthWallRuntime();
+    setMessageEnhancerRuntimeActive(false);
+    cleanupMessageEnhancer();
+    stopCurrentVoice();
+}
+
+export { initFourthWall, initFourthWallFloorTools, refreshFourthWallFloorTools, closeFourthWall, fourthWallCleanup, openFourthWall, openFourthWall as showFourthWallPopup };
 
 if (typeof window !== 'undefined') {
     window.fourthWallCleanup = fourthWallCleanup;
-    window.showFourthWallPopup = showOverlay;
+    window.showFourthWallPopup = openFourthWall;
 
     document.addEventListener('xiaobaixEnabledChanged', e => {
         if (e?.detail?.enabled === false) {

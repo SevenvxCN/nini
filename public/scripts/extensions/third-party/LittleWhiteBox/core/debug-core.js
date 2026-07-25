@@ -1,4 +1,13 @@
-﻿import { EventCenter } from "./event-manager.js";
+﻿let eventCenterPromise = null;
+
+async function getEventCenter() {
+    if (!eventCenterPromise) {
+        eventCenterPromise = import("./event-manager.js")
+            .then((module) => module.EventCenter)
+            .catch(() => null);
+    }
+    return await eventCenterPromise;
+}
 
 const DEFAULT_MAX_LOGS = 200;
 
@@ -30,6 +39,32 @@ function errorToStack(err) {
     }
 }
 
+const CONSOLE_PREFIX_RULES = [
+    { prefix: "[NovelDraw]", module: "novelDraw" },
+    { prefix: "[LLM-Service]", module: "novelDrawLlm" },
+    { prefix: "[GalleryCache]", module: "novelDrawGallery" },
+    { prefix: "[CloudPresets]", module: "novelDrawCloudPresets" },
+    { prefix: "[Live]", module: "novelDrawLive" },
+    { prefix: "[recall-runtime]", module: "recall-runtime" },
+    { prefix: "[recall-runtime-worker]", module: "recall-runtime-worker" },
+    { prefix: "[SiliconFlow]", module: "storySummarySiliconFlow" },
+];
+
+function getInterceptedConsoleEntry(args) {
+    try {
+        const parts = Array.isArray(args) ? args : [];
+        const msg = parts.map(a => (typeof a === "string" ? a : safeStringify(a))).join(" ");
+        const matched = CONSOLE_PREFIX_RULES.find(rule => msg.startsWith(rule.prefix));
+        if (!matched) return null;
+        return {
+            moduleId: matched.module,
+            message: msg,
+        };
+    } catch {
+        return null;
+    }
+}
+
 class LoggerCore {
     constructor() {
         this._enabled = false;
@@ -39,7 +74,8 @@ class LoggerCore {
         this._originalConsole = null;
         this._originalOnError = null;
         this._originalOnUnhandledRejection = null;
-        this._mounted = false;
+        this._windowHooksMounted = false;
+        this._consoleHooksMounted = false;
     }
 
     setMaxSize(n) {
@@ -57,13 +93,17 @@ class LoggerCore {
     enable() {
         if (this._enabled) return;
         this._enabled = true;
-        this._mountGlobalHooks();
+        this._mountWindowHooks();
+        this._mountConsoleHooks();
     }
 
-    disable() {
+    disable(options = {}) {
+        const shouldClear = options?.clear === true;
         this._enabled = false;
-        this.clear();
-        this._unmountGlobalHooks();
+        if (shouldClear) {
+            this.clear();
+        }
+        this._unmountWindowHooks();
     }
 
     clear() {
@@ -122,10 +162,9 @@ class LoggerCore {
         this._log("error", moduleId, message, err || null);
     }
 
-    _mountGlobalHooks() {
-        if (this._mounted) return;
-        this._mounted = true;
-
+    _mountWindowHooks() {
+        if (this._windowHooksMounted) return;
+        this._windowHooksMounted = true;
         if (typeof window !== "undefined") {
             try {
                 this._originalOnError = window.onerror;
@@ -165,16 +204,59 @@ class LoggerCore {
             } catch {}
         }
 
+    }
+
+    _mountConsoleHooks() {
+        if (this._consoleHooksMounted) return;
+        this._consoleHooksMounted = true;
+
         if (typeof console !== "undefined" && console) {
             this._originalConsole = this._originalConsole || {
+                log: console.log?.bind(console),
+                info: console.info?.bind(console),
                 warn: console.warn?.bind(console),
                 error: console.error?.bind(console),
             };
 
             try {
+                if (typeof this._originalConsole.log === "function") {
+                    console.log = (...args) => {
+                        try {
+                            const intercepted = getInterceptedConsoleEntry(args);
+                            if (intercepted) {
+                                if (this._enabled) this.info(intercepted.moduleId, intercepted.message);
+                                return;
+                            }
+                        } catch {}
+                        return this._originalConsole.log(...args);
+                    };
+                }
+            } catch {}
+
+            try {
+                if (typeof this._originalConsole.info === "function") {
+                    console.info = (...args) => {
+                        try {
+                            const intercepted = getInterceptedConsoleEntry(args);
+                            if (intercepted) {
+                                if (this._enabled) this.info(intercepted.moduleId, intercepted.message);
+                                return;
+                            }
+                        } catch {}
+                        return this._originalConsole.info(...args);
+                    };
+                }
+            } catch {}
+
+            try {
                 if (typeof this._originalConsole.warn === "function") {
                     console.warn = (...args) => {
                         try {
+                            const intercepted = getInterceptedConsoleEntry(args);
+                            if (intercepted) {
+                                if (this._enabled) this.warn(intercepted.moduleId, intercepted.message);
+                                return;
+                            }
                             const msg = args.map(a => (typeof a === "string" ? a : safeStringify(a))).join(" ");
                             this.warn("console", msg);
                         } catch {}
@@ -187,6 +269,11 @@ class LoggerCore {
                 if (typeof this._originalConsole.error === "function") {
                     console.error = (...args) => {
                         try {
+                            const intercepted = getInterceptedConsoleEntry(args);
+                            if (intercepted) {
+                                if (this._enabled) this.error(intercepted.moduleId, intercepted.message, null);
+                                return;
+                            }
                             const msg = args.map(a => (typeof a === "string" ? a : safeStringify(a))).join(" ");
                             this.error("console", msg, null);
                         } catch {}
@@ -197,10 +284,9 @@ class LoggerCore {
         }
     }
 
-    _unmountGlobalHooks() {
-        if (!this._mounted) return;
-        this._mounted = false;
-
+    _unmountWindowHooks() {
+        if (!this._windowHooksMounted) return;
+        this._windowHooksMounted = false;
         if (typeof window !== "undefined") {
             try {
                 if (this._originalOnError !== null && this._originalOnError !== undefined) {
@@ -217,15 +303,10 @@ class LoggerCore {
                 }
             } catch {}
         }
+    }
 
-        if (typeof console !== "undefined" && console && this._originalConsole) {
-            try {
-                if (this._originalConsole.warn) console.warn = this._originalConsole.warn;
-            } catch {}
-            try {
-                if (this._originalConsole.error) console.error = this._originalConsole.error;
-            } catch {}
-        }
+    ensureConsoleFilters() {
+        this._mountConsoleHooks();
     }
 }
 
@@ -233,7 +314,7 @@ const logger = new LoggerCore();
 
 export const xbLog = {
     enable: () => logger.enable(),
-    disable: () => logger.disable(),
+    disable: (options) => logger.disable(options),
     isEnabled: () => logger.isEnabled(),
     setMaxSize: (n) => logger.setMaxSize(n),
     info: (moduleId, message) => logger.info(moduleId, message),
@@ -243,6 +324,8 @@ export const xbLog = {
     clear: () => logger.clear(),
     export: () => logger.export(),
 };
+
+logger.ensureConsoleFilters();
 
 export const CacheRegistry = (() => {
     const _registry = new Map();
@@ -306,13 +389,23 @@ export const CacheRegistry = (() => {
 })();
 
 export function enableDebugMode() {
-    xbLog.enable();
-    try { EventCenter.enableDebug?.(); } catch {}
+    getEventCenter().then((EventCenter) => {
+        try { EventCenter?.enableDebug?.(); } catch {}
+    });
 }
 
 export function disableDebugMode() {
-    xbLog.disable();
-    try { EventCenter.disableDebug?.(); } catch {}
+    getEventCenter().then((EventCenter) => {
+        try { EventCenter?.disableDebug?.(); } catch {}
+    });
+}
+
+export function enablePersistentDebugLogging() {
+    xbLog.enable();
+}
+
+export function disablePersistentDebugLogging(options = {}) {
+    xbLog.disable(options);
 }
 
 if (typeof window !== "undefined") {

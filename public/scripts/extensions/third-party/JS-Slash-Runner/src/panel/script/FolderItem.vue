@@ -24,7 +24,7 @@
         <div
           class="mt-0! mr-0.5 mb-0! cursor-pointer"
           :class="{ enabled: script_folder.enabled }"
-          title="批量开关文件夹内脚本"
+          :title="t`批量开关文件夹内脚本`"
           @click.stop="script_folder.enabled = !script_folder.enabled"
         >
           <i class="fa-solid" :class="[script_folder.enabled ? 'fa-toggle-on' : 'fa-toggle-off']" />
@@ -34,11 +34,11 @@
             <i class="fa-solid" :class="icon"></i>
           </div>
         </DefineScriptFolderButton>
-        <ScriptFolderButton name="编辑文件夹" icon="fa-pencil" @click.stop="openFolderEditor" />
-        <ScriptFolderButton name="移动文件夹" icon="fa-arrow-right-arrow-left" @click.stop="openMoveConfirm" />
-        <ScriptFolderButton name="导出文件夹" icon="fa-file-export" @click.stop="exportFolder" />
-        <ScriptFolderButton name="删除文件夹" icon="fa-trash" @click.stop="openDeleteConfirm" />
-        <ScriptFolderButton name="展开或折叠文件夹" :icon="is_expanded ? 'fa-chevron-up' : 'fa-chevron-down'" />
+        <ScriptFolderButton :name="t`编辑文件夹`" icon="fa-pencil" @click.stop="openFolderEditor" />
+        <ScriptFolderButton :name="t`移动文件夹`" icon="fa-arrow-right-arrow-left" @click.stop="openMoveConfirm" />
+        <ScriptFolderButton :name="t`导出文件夹`" icon="fa-file-export" @click.stop="exportFolder" />
+        <ScriptFolderButton :name="t`删除文件夹`" icon="fa-trash" @click.stop="openDeleteConfirm" />
+        <ScriptFolderButton :name="t`展开或折叠文件夹`" :icon="is_expanded ? 'fa-chevron-up' : 'fa-chevron-down'" />
       </div>
     </div>
     <VueDraggable
@@ -85,9 +85,10 @@
 <script setup lang="ts">
 import Popup from '@/panel/component/Popup.vue';
 import FolderEditor from '@/panel/script/FolderEditor.vue';
+import FolderExport from '@/panel/script/FolderExport.vue';
 import ScriptItem from '@/panel/script/ScriptItem.vue';
 import TargetSelector from '@/panel/script/TargetSelector.vue';
-import { ScriptFolderForm } from '@/panel/script/type';
+import { ScriptFolderExportOptions, ScriptFolderForm } from '@/panel/script/type';
 import { getScriptsStoreByType } from '@/store/scripts';
 import { ScriptFolder } from '@/type/scripts';
 import { download, getSanitizedFilename, uuidv4 } from '@sillytavern/scripts/utils';
@@ -149,6 +150,7 @@ const { open: openFolderEditor } = useModal({
   component: FolderEditor,
   attrs: {
     scriptFolder: script_folder.value,
+    target: props.target,
     onSubmit: (result: ScriptFolderForm) => {
       _.assign(script_folder.value, result);
     },
@@ -188,64 +190,65 @@ const { open: openMoveConfirm } = useModal({
   },
 });
 
-type ScriptExportOptions = {
-  should_strip_data: boolean;
-};
-
 type ScriptFolderExportPayload = {
   filename: string;
   data: string;
 };
 
-const createExportPayload = async (option: ScriptExportOptions): Promise<ScriptFolderExportPayload> => {
+const createExportPayload = async (option: ScriptFolderExportOptions): Promise<ScriptFolderExportPayload> => {
   const to_export = klona(script_folder.value);
-  if (option.should_strip_data) {
-    to_export.scripts.forEach(script => {
-      _.set(script, 'data', {});
-    });
-  }
-  const filename = await getSanitizedFilename(t`酒馆助手脚本-${to_export.name}.json`);
+  to_export.scripts.forEach(script => {
+    const script_option = option.scripts[script.id];
+    if (!script_option) {
+      return;
+    }
+
+    script.export_with.data = script_option.include_data;
+    if (!script.export_with.data) {
+      _.set(to_export, 'data', {});
+    }
+
+    script.export_with.button = script_option.include_button;
+    if (!script.export_with.button) {
+      _.set(to_export, 'button.buttons', []);
+    }
+  });
+
+  const filename = await getSanitizedFilename(t`酒馆助手脚本文件夹-${to_export.name}.json`);
   const data = JSON.stringify(to_export, null, 2);
   return { filename, data };
 };
 
-const downloadExport = async (options: ScriptExportOptions) => {
+const downloadExport = async (options: ScriptFolderExportOptions) => {
   const { filename, data } = await createExportPayload(options);
   download(data, filename, 'application/json');
 };
 
 const exportFolder = async () => {
-  const scripts_with_data = script_folder.value.scripts.filter(script => !_.isEmpty(script.data));
-  if (scripts_with_data.length === 0) {
-    downloadExport({ should_strip_data: false });
+  const scripts = script_folder.value.scripts.map(script => {
+    return {
+      id: script.id,
+      name: script.name,
+      has_data: !_.isEmpty(script.data),
+      has_button: script.button.buttons.length > 0,
+      include_data: script.export_with.data,
+      include_button: script.export_with.button,
+    };
+  });
+
+  if (scripts.filter(script => script.has_data || script.has_button).length === 0) {
+    downloadExport({ scripts: {} });
     return;
   }
 
   useModal({
-    component: Popup,
+    component: FolderExport,
     attrs: {
-      buttons: [
-        {
-          name: t`包含数据导出`,
-          onClick: close => {
-            void downloadExport({ should_strip_data: false });
-            close();
-          },
-        },
-        {
-          name: t`清除数据导出`,
-          shouldEmphasize: true,
-          onClick: close => {
-            void downloadExport({ should_strip_data: true });
-            close();
-          },
-        },
-        { name: t`取消`, onClick: close => close() },
-      ],
-    },
-    slots: {
-      // TODO: 显示脚本变量有什么?
-      default: t`<div>'${script_folder.value.name}' 文件夹中 '${JSON.stringify(scripts_with_data.map(script => script.name))}' 脚本包含脚本变量, 是否要清除? 如有 API Key 等敏感数据，注意清除</div>`,
+      folderName: script_folder.value.name,
+      scripts: scripts,
+      onSubmit: (option: ScriptFolderExportOptions) => {
+        downloadExport(option);
+      },
     },
   }).open();
 };

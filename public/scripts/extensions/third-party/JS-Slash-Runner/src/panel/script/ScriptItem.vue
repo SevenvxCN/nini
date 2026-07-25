@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <!-- prettier-ignore-attribute -->
   <div
     v-show="is_visible"
@@ -49,8 +49,9 @@
 <script setup lang="ts">
 import Popup from '@/panel/component/Popup.vue';
 import ScriptEditor from '@/panel/script/ScriptEditor.vue';
+import ScriptExport from '@/panel/script/ScriptExport.vue';
 import TargetSelector from '@/panel/script/TargetSelector.vue';
-import { ScriptForm } from '@/panel/script/type';
+import { ScriptExportOptions, ScriptForm } from '@/panel/script/type';
 import { useScriptIframeRuntimesStore } from '@/store/iframe_runtimes/script';
 import { Script } from '@/type/scripts';
 import { renderMarkdown } from '@/util/tavern';
@@ -96,6 +97,7 @@ const { open: openScriptEditor } = useModal({
   component: ScriptEditor,
   attrs: {
     script: script.value,
+    target: props.target,
     onSubmit: (result: ScriptForm) => {
       const should_reload =
         script.value.enabled &&
@@ -157,10 +159,6 @@ const { open: openMoveConfirm } = useModal({
   },
 });
 
-type ScriptExportOptions = {
-  should_strip_data: boolean;
-};
-
 type ScriptExportPayload = {
   filename: string;
   data: string;
@@ -168,9 +166,17 @@ type ScriptExportPayload = {
 
 const createExportPayload = async (option: ScriptExportOptions): Promise<ScriptExportPayload> => {
   const to_export = klona(script.value);
-  if (option.should_strip_data) {
+
+  to_export.export_with.data = option.include_data;
+  if (!to_export.export_with.data) {
     _.set(to_export, 'data', {});
   }
+
+  to_export.export_with.button = option.include_button;
+  if (!to_export.export_with.button) {
+    _.set(to_export, 'button.buttons', []);
+  }
+
   const filename = await getSanitizedFilename(t`酒馆助手脚本-${to_export.name}.json`);
   const data = JSON.stringify(to_export, null, 2);
   return { filename, data };
@@ -183,35 +189,26 @@ const downloadExport = async (options: ScriptExportOptions) => {
 
 const exportScript = () => {
   const has_data = !_.isEmpty(script.value.data);
-  if (!has_data) {
-    downloadExport({ should_strip_data: false });
+  const has_button = script.value.button.buttons.length > 0;
+  if (!has_data && !has_button) {
+    downloadExport({ include_data: true, include_button: true });
     return;
   }
 
   useModal({
-    component: Popup,
+    component: ScriptExport,
     attrs: {
-      buttons: [
-        {
-          name: t`包含数据导出`,
-          onClick: close => {
-            void downloadExport({ should_strip_data: false });
-            close();
-          },
-        },
-        {
-          name: t`清除数据导出`,
-          shouldEmphasize: true,
-          onClick: close => {
-            void downloadExport({ should_strip_data: true });
-            close();
-          },
-        },
-        { name: t`取消`, onClick: close => close() },
-      ],
-    },
-    slots: {
-      default: t`<div>'${script.value.name}' 脚本包含脚本变量，是否要清除？如有 API Key 等敏感数据，注意清除</div>`,
+      scriptName: script.value.name,
+      hasData: has_data,
+      hasButton: has_button,
+      includeData: has_data,
+      includeButton: has_button,
+      onSubmit: (result: { include_data: boolean; include_button: boolean }) => {
+        downloadExport({
+          include_data: has_data ? result.include_data : true,
+          include_button: has_button ? result.include_button : true,
+        });
+      },
     },
   }).open();
 };

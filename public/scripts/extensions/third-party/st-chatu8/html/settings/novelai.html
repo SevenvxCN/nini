@@ -6,8 +6,10 @@
             <div class="st-chatu8-profile-controls">
                 <select id="yusheid_novelai" class="st-chatu8-select"></select>
                 <button class="st-chatu8-icon-btn" id="st_chatu8_tishici_visual_select_novelai" title="可视化选择"><i class="fa-solid fa-grip"></i></button>
+                <button class="st-chatu8-icon-btn" id="st_chatu8_tishici_new_novelai" title="新建"><i class="fa-solid fa-plus"></i></button>
                 <button class="st-chatu8-icon-btn" id="st_chatu8_tishici_update_style_novelai" title="保存"><i class="fa-solid fa-save"></i></button>
                 <button class="st-chatu8-icon-btn" id="st_chatu8_tishici_save_style_novelai" title="另存为"><i class="fa-solid fa-file-export"></i></button>
+                <button class="st-chatu8-icon-btn" id="st_chatu8_tishici_rename_novelai" title="重命名"><i class="fa-solid fa-pen"></i></button>
                 <button class="st-chatu8-icon-btn" id="st_chatu8_tishici_export_current_novelai" title="导出当前"><i class="fa-solid fa-upload"></i></button>
                 <button class="st-chatu8-icon-btn" id="st_chatu8_tishici_export_all_novelai" title="导出全部"><i class="fa-solid fa-file-export"></i></button>
                 <button class="st-chatu8-icon-btn" id="st_chatu8_tishici_import_novelai" title="导入"><i class="fa-solid fa-download"></i></button>
@@ -18,17 +20,20 @@
             <label for="fixedPrompt_novelai">固定正面提示词 <span class="st-chatu8-unsaved-warning" title="设置尚未保存" style="display: none;"><i class="fa-solid fa-triangle-exclamation"></i></span></label>
             <button class="st-chatu8-icon-btn" id="translate_fixedPrompt_novelai" title="翻译" style="align-self: flex-end; margin: 4px 0;"><i class="fa-solid fa-language"></i></button>
             <textarea id="fixedPrompt_novelai" class="st-chatu8-textarea" rows="4"></textarea>
+            <div id="novelai_fixedPrompt_tokens" class="st-chatu8-token-display">当前占用: 0 | 总占用: 0 / 512</div>
             <div id="fixedPrompt_novelai-results" class="ch-autocomplete-results"></div>
         </div>
         <div class="st-chatu8-field-col">
             <label for="fixedPrompt_end_novelai">后置固定正面提示词 <span class="st-chatu8-unsaved-warning" title="设置尚未保存" style="display: none;"><i class="fa-solid fa-triangle-exclamation"></i></span></label>
             <button class="st-chatu8-icon-btn" id="translate_fixedPrompt_end_novelai" title="翻译" style="align-self: flex-end; margin: 4px 0;"><i class="fa-solid fa-language"></i></button>
             <textarea id="fixedPrompt_end_novelai" class="st-chatu8-textarea" rows="4"></textarea>
+            <div id="novelai_fixedPrompt_end_tokens" class="st-chatu8-token-display">当前占用: 0 | 总占用: 0 / 512</div>
             <div id="fixedPrompt_end_novelai-results" class="ch-autocomplete-results"></div>
         </div>
         <div class="st-chatu8-field-col">
             <label for="negativePrompt_novelai">固定负面提示词 <span class="st-chatu8-unsaved-warning" title="设置尚未保存" style="display: none;"><i class="fa-solid fa-triangle-exclamation"></i></span></label>
             <textarea id="negativePrompt_novelai" class="st-chatu8-textarea" rows="4"></textarea>
+            <div id="novelai_negativePrompt_tokens" class="st-chatu8-token-display">当前占用: 0 / 512</div>
             <div id="negativePrompt_novelai-results" class="ch-autocomplete-results"></div>
         </div>
 
@@ -39,8 +44,10 @@
             <label for="prompt_replace_id_novelai">提示词替换</label>
             <div class="st-chatu8-profile-controls">
                 <select id="prompt_replace_id_novelai" class="st-chatu8-select"></select>
+                <button class="st-chatu8-icon-btn" id="prompt_replace_new_novelai" title="新建"><i class="fa-solid fa-plus"></i></button>
                 <button class="st-chatu8-icon-btn" id="prompt_replace_update_style_novelai" title="保存"><i class="fa-solid fa-save"></i></button>
                 <button class="st-chatu8-icon-btn" id="prompt_replace_save_style_novelai" title="另存为"><i class="fa-solid fa-file-export"></i></button>
+                <button class="st-chatu8-icon-btn" id="prompt_replace_rename_novelai" title="重命名"><i class="fa-solid fa-pen"></i></button>
                 <button class="st-chatu8-icon-btn" id="prompt_replace_export_current_novelai" title="导出当前"><i class="fa-solid fa-upload"></i></button>
                 <button class="st-chatu8-icon-btn" id="prompt_replace_export_all_novelai" title="导出全部"><i class="fa-solid fa-file-export"></i></button>
                 <button class="st-chatu8-icon-btn" id="prompt_replace_import_novelai" title="导入"><i class="fa-solid fa-download"></i></button>
@@ -85,6 +92,9 @@
                 <button class="st-chatu8-icon-btn" id="novelai_profile_new" title="新建">
                     <i class="fa-solid fa-plus"></i>
                 </button>
+                <button class="st-chatu8-icon-btn" id="novelai_profile_save" title="保存当前">
+                    <i class="fa-solid fa-save"></i>
+                </button>
                 <button class="st-chatu8-icon-btn danger" id="novelai_profile_delete" title="删除">
                     <i class="fa-solid fa-trash"></i>
                 </button>
@@ -95,7 +105,12 @@
         <h3>NovelAI 设置</h3>
         <div class="st-chatu8-field-col">
             <label for="novelaiApi">NovelAI API</label>
-            <input type="text" id="novelaiApi" class="st-chatu8-text-input">
+            <div style="position: relative; display: flex; align-items: center;">
+                <input type="password" id="novelaiApi" class="st-chatu8-text-input" style="padding-right: 2.2em;">
+                <button type="button" id="novelaiApiToggle" title="显示/隐藏 API Key" style="position: absolute; right: 0.4em; background: none; border: none; cursor: pointer; color: inherit; opacity: 0.6; padding: 0; font-size: 1em; line-height: 1;">
+                    <i class="fa-solid fa-eye"></i>
+                </button>
+            </div>
         </div>
         <div class="st-chatu8-field">
             <label for="novelaisite">站点</label>

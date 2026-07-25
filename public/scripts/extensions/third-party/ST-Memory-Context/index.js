@@ -1,9 +1,10 @@
-// ========================================================================
-// 记忆表格 v2.1.5
+﻿// ========================================================================
+// 记忆表格 v2.3.7
 // SillyTavern 记忆管理系统 - 提供表格化记忆、自动总结、批量填表等功能
 // ========================================================================
 (function () {
     'use strict';
+    /* global $, window, document, localStorage, SillyTavern, toastr, navigator, fetch */
 
     // ===== 初始化全局对象（必须在最开始，供 prompt_manager.js 使用）=====
     window.Gaigai = window.Gaigai || {};
@@ -15,7 +16,7 @@
     }
     window.GaigaiLoaded = true;
 
-    console.log('🚀 记忆表格 v2.1.5 启动');
+    console.log('🚀 记忆表格 v2.3.7 启动');
 
     // ===== 防止配置被后台同步覆盖的标志 =====
     window.isEditingConfig = false;
@@ -27,7 +28,7 @@
     window.Gaigai.isSwiping = false;
 
     // ==================== 全局常量定义 ====================
-    const V = 'v2.1.5';
+    const V = 'v2.3.7';
     const SK = 'gg_data';              // 数据存储键
     const UK = 'gg_ui';                // UI配置存储键
     const AK = 'gg_api';               // API配置存储键
@@ -45,8 +46,12 @@
         enabled: true,          // ✅ 默认开启实时填表
         filterTags: '',         // 黑名单标签（去除）
         filterTagsWhite: '',    // 白名单标签（仅留）
+        filterTagPresets: [],   // 标签过滤预设 [{id,name,black,white,createdAt,updatedAt}]
+        filterTagActivePresetId: '', // 当前激活的标签预设ID
         contextLimit: true,     // ✅ 默认开启隐藏楼层
         contextLimitCount: 30,  // ✅ 隐藏30楼
+        autoSummaryHideContext: false,
+        autoCalculateParams: true, // ✨ 默认开启智能计算联动
         tableInj: true,
         tablePos: 'system',
         tablePosType: 'system_end',
@@ -59,6 +64,11 @@
         manualSummaryTargetTables: [], // 🆕 手动总结控制台的目标表格索引（空数组表示全部）
         autoSummaryDelay: true,        // ✅ 开启延迟
         autoSummaryDelayCount: 4,      // ✅ 延迟4楼
+        autoBigSummary: false,         // ❌ 默认关闭大总结
+        autoBigSummaryFloor: 100,      // ✅ 100层触发大总结
+        autoBigSummaryFloorManual: false, // ✅ 手动覆盖大总结层数（智能联动不再改写）
+        autoBigSummaryDelay: false,    // ❌ 默认关闭大总结延迟
+        autoBigSummaryDelayCount: 6,   // ✅ 延迟6楼
         autoBackfill: false,           // ❌ 默认关闭批量填表（避免与实时填表冲突）
         autoBackfillFloor: 20,         // ✅ 预设20层
         autoBackfillPrompt: true,      // ✅ 默认静默发起（不弹窗确认）
@@ -66,14 +76,19 @@
         autoBackfillDelay: true,       // ✅ 开启延迟
         autoBackfillDelayCount: 6,     // ✅ 延迟6楼
         log: true,
+        minimalLogMode: true,          // ✅ 最小日志模式：仅输出权限命中与拦截结果
         pc: true,
         hideTag: true,
         filterHistory: true,
         cloudSync: true,
         syncWorldInfo: false,          // ❌ 默认关闭世界书同步
+        syncWorldInfoPanelCollapsed: false, // 📁 世界书分区折叠状态
         worldInfoVectorized: false,    // ❌ 默认关闭世界书自带向量化（已移除UI选项）
+        autoVectorizeSummary: false,   // ❌ 默认关闭总结后自动向量化（每聊隔离）
+        summaryRulePanelCollapsed: true, // 📁 记忆发送规则分区折叠状态（默认折叠）
         // ==================== 独立向量检索配置 ====================
         vectorEnabled: false,          // ❌ 默认关闭独立向量检索
+        vectorPanelCollapsed: false,   // 📁 向量化分区折叠状态
         vectorProvider: 'openai',      // 向量服务提供商
         vectorUrl: '',                 // 向量 API 地址
         vectorKey: '',                 // 向量 API 密钥
@@ -82,7 +97,9 @@
         vectorMaxCount: 10,            // 最大召回条数
         vectorSeparator: '===',        // 🆕 知识库文本切分符
         customTables: null,            // 用户自定义表格结构（格式同 DEFAULT_TABLES）
-        reverseView: false             // ❌ 默认关闭倒序显示（最新行在上）
+        reverseView: false,            // ❌ 默认关闭倒序显示（最新行在上）
+        reverseToc: false,             // 🆕 总结目录倒序显示开关
+        sinkHiddenRows: false          // 🆕 沉淀已隐藏行（绿色行沉底）
     };
 
     // ==================== API配置对象 ====================
@@ -94,12 +111,25 @@
         apiUrl: '',
         apiKey: '',
         model: 'gemini-2.5-pro',
-        temperature: 0.7,
+        temperature: 1,
         maxTokens: 65536,
-        summarySource: 'table',    // ✅ 默认为表格总结（最佳实践）
+        summarySource: 'chat',     // ✅ 默认总结聊天历史
         lastSummaryIndex: 0,
-        lastBackfillIndex: 0
+        lastBackfillIndex: 0,
+        lastBigSummaryIndex: 0,    // 🆕 大总结进度指针
+        useStream: true,           // ✅ 流式传输开关（默认开启）
+        profiles: [],              // ☁️ API 账号预设列表
+        activeProfileId: ''        // 当前激活预设ID（用于UI显示）
     };
+
+    const DEFAULT_API_TEMPERATURE = 1;
+    function normalizeApiTemperature(value) {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return DEFAULT_API_TEMPERATURE;
+        // 旧版本保存配置时会把温度硬写成 0.1；没有温度输入框时按默认值迁移回 1。
+        if (n === 0.1) return DEFAULT_API_TEMPERATURE;
+        return n;
+    }
 
     // ========================================================================
     // ⚠️ 提示词管理已迁移到 prompt_manager.js
@@ -159,10 +189,12 @@
     let deletedMsgIndex = -1; // ✅ 记录被删除的消息索引
     let processedMessages = new Set(); // ✅✅ 新增：防止重复处理同一消息
     let pendingTimers = {}; // ✅✅ 新增：追踪各楼层的延迟定时器，防止重Roll竞态
+    let processedMessageSignatures = {}; // ✅ 记录每层消息签名，拦截重复渲染导致的二次回滚
     let beforeGenerateSnapshotKey = null;
     let lastManualEditTime = 0; // ✨ 新增：记录用户最后一次手动编辑的时间
     let lastInternalSaveTime = 0;
     let isSummarizing = false;
+    let navSwitchStabilizeTimer = null; // 兼容第三方主题：切页时短暂禁用过渡，防止弹窗闪烁/跳动
     let isInitCooling = true; // ✨ 初始化冷却：防止刚加载页面时自动触发任务
     let saveChatDebounceTimer = null; // 🧹 性能优化：saveChat 防抖计时器
     let hideTagDebounceTimer = null; // 🧹 性能优化：hideMemoryTags 防抖计时器，防止 Regex 脚本冲突
@@ -209,7 +241,7 @@
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     padding: '20px', margin: 0
                 }
-            }).attr('style', function(i, s) { return s + 'z-index: 2147483647 !important;'; });
+            }).attr('style', function (i, s) { return s + 'z-index: 2147483647 !important;'; });
 
             const $dialog = $('<div>', {
                 css: {
@@ -533,7 +565,7 @@
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     padding: '20px', margin: 0
                 }
-            }).attr('style', function(i, s) { return s + 'z-index: 2147483647 !important;'; });
+            }).attr('style', function (i, s) { return s + 'z-index: 2147483647 !important;'; });
 
             const $dialog = $('<div>', {
                 css: {
@@ -630,7 +662,7 @@
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     padding: '20px', margin: 0
                 }
-            }).attr('style', function(i, s) { return s + 'z-index: 2147483647 !important;'; });
+            }).attr('style', function (i, s) { return s + 'z-index: 2147483647 !important;'; });
 
             const $dialog = $('<div>', {
                 css: {
@@ -758,7 +790,7 @@
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     padding: '20px', margin: 0
                 }
-            }).attr('style', function(i, s) { return s + 'z-index: 2147483647 !important;'; });
+            }).attr('style', function (i, s) { return s + 'z-index: 2147483647 !important;'; });
 
             const $dialog = $('<div>', {
                 css: {
@@ -1246,6 +1278,12 @@
 
         // ✨✨✨ 核心修复：增强版熔断保护 (防止空数据覆盖)
         save(force = false, immediate = false) {
+            // 🛡️[终极防空盾]：如果当前正在切换会话/加载数据，绝对禁止任何保存行为！
+            if (typeof isChatSwitching !== 'undefined' && isChatSwitching) {
+                console.log('🛡️ [保存拦截] 会话正在加载中，禁止保存以防将临时空表写入硬盘！');
+                return;
+            }
+
             const id = this.gid();
             if (!id) return;
             const ctx = this.ctx();
@@ -1303,7 +1341,8 @@
                 // ✅ 新增：保存当前 API 进度指针到这个角色的存档里
                 meta: {
                     lastSum: API_CONFIG.lastSummaryIndex,
-                    lastBf: API_CONFIG.lastBackfillIndex
+                    lastBf: API_CONFIG.lastBackfillIndex,
+                    lastBigSum: API_CONFIG.lastBigSummaryIndex // ✅ 新增大总结指针独立保存
                 },
                 // ✅ Per-Chat Configuration: Save critical feature toggles for this chat
                 config: {
@@ -1329,8 +1368,11 @@
                     masterSwitch: C.masterSwitch,
                     contextLimit: C.contextLimit,
                     contextLimitCount: C.contextLimitCount,
+                    autoSummaryHideContext: C.autoSummaryHideContext,
                     filterTags: C.filterTags,
                     filterTagsWhite: C.filterTagsWhite,
+                    filterTagPresets: C.filterTagPresets,
+                    filterTagActivePresetId: C.filterTagActivePresetId,
                     syncWorldInfo: C.syncWorldInfo,
                     worldInfoVectorized: C.worldInfoVectorized,
                     // ✅ 向量检索配置
@@ -1340,6 +1382,7 @@
                     vectorModel: C.vectorModel,
                     vectorThreshold: C.vectorThreshold,
                     vectorMaxCount: C.vectorMaxCount,
+                    autoVectorizeSummary: C.autoVectorizeSummary,
                     // ✅ 视图配置
                     reverseView: C.reverseView
                 }
@@ -1378,62 +1421,62 @@
                 // 备份执行函数
                 function performBackup() {
 
-                // 智能保存函数：自动处理空间不足问题
-                const performSave = () => {
-                    try {
-                        localStorage.setItem(backupKey, JSON.stringify(data));
-                    } catch (e) {
-                        // 检测是否为存储空间已满错误
-                        if (e.name === 'QuotaExceededError' || e.code === 22) {
-                            console.warn('⚠️ [存储空间已满] 触发紧急清理，删除所有旧备份...');
-                            // 紧急清理：删除所有本插件的旧备份
-                            let cleanedCount = 0;
-                            Object.keys(localStorage).forEach(key => {
-                                if (key.startsWith('gg_data_')) {
-                                    localStorage.removeItem(key);
-                                    cleanedCount++;
+                    // 智能保存函数：自动处理空间不足问题
+                    const performSave = () => {
+                        try {
+                            localStorage.setItem(backupKey, JSON.stringify(data));
+                        } catch (e) {
+                            // 检测是否为存储空间已满错误
+                            if (e.name === 'QuotaExceededError' || e.code === 22) {
+                                console.warn('⚠️ [存储空间已满] 触发紧急清理，删除所有旧备份...');
+                                // 紧急清理：删除所有本插件的旧备份
+                                let cleanedCount = 0;
+                                Object.keys(localStorage).forEach(key => {
+                                    if (key.startsWith('gg_data_')) {
+                                        localStorage.removeItem(key);
+                                        cleanedCount++;
+                                    }
+                                });
+                                console.log(`🧹 [紧急清理] 已删除 ${cleanedCount} 个旧备份，释放存储空间`);
+
+                                // 清理后再试一次
+                                try {
+                                    localStorage.setItem(backupKey, JSON.stringify(data));
+                                    console.log('✅ [紧急清理] 清理后保存成功');
+                                } catch (e2) {
+                                    console.error('❌ [紧急清理] 清理后仍无法保存备份:', e2);
+                                    // 即使备份失败，也不要抛出错误，因为主数据已经保存成功
                                 }
-                            });
-                            console.log(`🧹 [紧急清理] 已删除 ${cleanedCount} 个旧备份，释放存储空间`);
-
-                            // 清理后再试一次
-                            try {
-                                localStorage.setItem(backupKey, JSON.stringify(data));
-                                console.log('✅ [紧急清理] 清理后保存成功');
-                            } catch (e2) {
-                                console.error('❌ [紧急清理] 清理后仍无法保存备份:', e2);
-                                // 即使备份失败，也不要抛出错误，因为主数据已经保存成功
+                            } else {
+                                // 其他类型的错误，记录但不中断
+                                console.warn('⚠️ [备份保存] 保存备份时出错:', e);
                             }
-                        } else {
-                            // 其他类型的错误，记录但不中断
-                            console.warn('⚠️ [备份保存] 保存备份时出错:', e);
                         }
+                    };
+
+                    performSave();
+
+                    // 🧹 [常规清理] 只保留最近 15 个备份
+                    try {
+                        const allKeys = Object.keys(localStorage);
+                        const backups = allKeys
+                            .filter(k => k.startsWith(`gg_data_${id}_`))
+                            .map(k => {
+                                const ts = parseInt(k.split('_').pop());
+                                return { key: k, ts: ts };
+                            })
+                            .sort((a, b) => b.ts - a.ts); // 按时间戳降序排列
+
+                        // 删除超过15个的旧备份
+                        if (backups.length > 15) {
+                            backups.slice(15).forEach(backup => {
+                                localStorage.removeItem(backup.key);
+                            });
+                            console.log(`🧹 [备份清理] 已清理 ${backups.length - 15} 个旧备份，保留最近15个`);
+                        }
+                    } catch (cleanupError) {
+                        console.warn('⚠️ [备份清理] 清理失败:', cleanupError);
                     }
-                };
-
-                performSave();
-
-                // 🧹 [常规清理] 只保留最近 15 个备份
-                try {
-                    const allKeys = Object.keys(localStorage);
-                    const backups = allKeys
-                        .filter(k => k.startsWith(`gg_data_${id}_`))
-                        .map(k => {
-                            const ts = parseInt(k.split('_').pop());
-                            return { key: k, ts: ts };
-                        })
-                        .sort((a, b) => b.ts - a.ts); // 按时间戳降序排列
-
-                    // 删除超过15个的旧备份
-                    if (backups.length > 15) {
-                        backups.slice(15).forEach(backup => {
-                            localStorage.removeItem(backup.key);
-                        });
-                        console.log(`🧹 [备份清理] 已清理 ${backups.length - 15} 个旧备份，保留最近15个`);
-                    }
-                } catch (cleanupError) {
-                    console.warn('⚠️ [备份清理] 清理失败:', cleanupError);
-                }
                 } // 结束 performBackup 函数
 
             } catch (e) {
@@ -1530,6 +1573,7 @@
                 userRowHeights = {};
                 API_CONFIG.lastSummaryIndex = 0;
                 API_CONFIG.lastBackfillIndex = 0;
+                API_CONFIG.lastBigSummaryIndex = 0; // ✅ 切换会话时，大总结指针也重置为0
                 localStorage.setItem(AK, JSON.stringify(API_CONFIG));
 
                 console.log(`🔄 [会话切换] ID: ${id}，已重置所有状态`);
@@ -1649,24 +1693,34 @@
                 C.autoBackfillSilent = globalConfig.autoBackfillSilent !== undefined ? globalConfig.autoBackfillSilent : true;
                 C.autoSummaryPrompt = globalConfig.autoSummaryPrompt !== undefined ? globalConfig.autoSummaryPrompt : true;
                 C.autoSummarySilent = globalConfig.autoSummarySilent !== undefined ? globalConfig.autoSummarySilent : true;
+                C.autoBigSummaryFloorManual = globalConfig.autoBigSummaryFloorManual !== undefined ? globalConfig.autoBigSummaryFloorManual : false;
                 C.contextLimit = globalConfig.contextLimit !== undefined ? globalConfig.contextLimit : true;
                 C.contextLimitCount = globalConfig.contextLimitCount !== undefined ? globalConfig.contextLimitCount : 30;
+                C.autoSummaryHideContext = globalConfig.autoSummaryHideContext !== undefined ? globalConfig.autoSummaryHideContext : false;
                 C.filterTags = globalConfig.filterTags !== undefined ? globalConfig.filterTags : '';
                 C.filterTagsWhite = globalConfig.filterTagsWhite !== undefined ? globalConfig.filterTagsWhite : '';
+                C.filterTagPresets = Array.isArray(globalConfig.filterTagPresets) ? globalConfig.filterTagPresets : [];
+                C.filterTagActivePresetId = globalConfig.filterTagActivePresetId !== undefined ? globalConfig.filterTagActivePresetId : '';
                 C.syncWorldInfo = globalConfig.syncWorldInfo !== undefined ? globalConfig.syncWorldInfo : false;
+                C.syncWorldInfoPanelCollapsed = globalConfig.syncWorldInfoPanelCollapsed !== undefined ? globalConfig.syncWorldInfoPanelCollapsed : false;
                 C.worldInfoVectorized = globalConfig.worldInfoVectorized !== undefined ? globalConfig.worldInfoVectorized : false;
+                C.summaryRulePanelCollapsed = globalConfig.summaryRulePanelCollapsed !== undefined ? globalConfig.summaryRulePanelCollapsed : true;
                 // ✅ 向量检索配置
                 C.vectorEnabled = globalConfig.vectorEnabled !== undefined ? globalConfig.vectorEnabled : false;
+                C.vectorPanelCollapsed = globalConfig.vectorPanelCollapsed !== undefined ? globalConfig.vectorPanelCollapsed : false;
                 C.vectorUrl = globalConfig.vectorUrl !== undefined ? globalConfig.vectorUrl : '';
                 C.vectorKey = globalConfig.vectorKey !== undefined ? globalConfig.vectorKey : '';
                 C.vectorModel = globalConfig.vectorModel !== undefined ? globalConfig.vectorModel : 'BAAI/bge-m3';
                 C.vectorThreshold = globalConfig.vectorThreshold !== undefined ? globalConfig.vectorThreshold : 0.6;
                 C.vectorMaxCount = globalConfig.vectorMaxCount !== undefined ? globalConfig.vectorMaxCount : 3;
+                C.autoVectorizeSummary = globalConfig.autoVectorizeSummary !== undefined ? globalConfig.autoVectorizeSummary : false;
                 // ✅ 视图配置
                 C.reverseView = globalConfig.reverseView !== undefined ? globalConfig.reverseView : false;
+                C.reverseToc = globalConfig.reverseToc !== undefined ? globalConfig.reverseToc : false;
+                C.sinkHiddenRows = globalConfig.sinkHiddenRows !== undefined ? globalConfig.sinkHiddenRows : false;
 
                 if (globalApiConfig.summarySource !== undefined) API_CONFIG.summarySource = globalApiConfig.summarySource;
-                else API_CONFIG.summarySource = 'table';
+                else API_CONFIG.summarySource = 'chat';
 
                 console.log('🧹 [配置清洗] 内存状态已重置为全局/默认值，准备加载会话专属配置...');
             } catch (e) {
@@ -1697,6 +1751,7 @@
                 if (finalData.meta) {
                     if (finalData.meta.lastSum !== undefined) API_CONFIG.lastSummaryIndex = finalData.meta.lastSum;
                     if (finalData.meta.lastBf !== undefined) API_CONFIG.lastBackfillIndex = finalData.meta.lastBf;
+                    if (finalData.meta.lastBigSum !== undefined) API_CONFIG.lastBigSummaryIndex = finalData.meta.lastBigSum; // ✅ 新增恢复大总结指针
                     localStorage.setItem(AK, JSON.stringify(API_CONFIG));
                 }
 
@@ -1820,6 +1875,66 @@
         return hash;
     }
 
+    /**
+     * 计算文本哈希（用于消息签名）
+     * @param {string} text
+     * @returns {number}
+     */
+    function calculateTextHash(text) {
+        const source = String(text || '');
+        let hash = 0;
+        if (!source.length) return hash;
+        for (let i = 0; i < source.length; i++) {
+            hash = ((hash << 5) - hash) + source.charCodeAt(i);
+            hash |= 0;
+        }
+        return hash;
+    }
+
+    /**
+     * 读取当前正在显示的消息正文（优先当前分支 swipe）
+     * @param {Object} msg
+     * @returns {string}
+     */
+    function getRenderedMessageText(msg) {
+        if (!msg) return '';
+        const swipeId = Number(msg.swipe_id ?? 0);
+        if (Array.isArray(msg.swipes) && msg.swipes.length > swipeId) {
+            return String(msg.swipes[swipeId] ?? '');
+        }
+        return String(msg.mes ?? '');
+    }
+
+    /**
+     * 去除记忆指令标签，提取“可见正文”
+     * 作用：避免其他插件在后处理阶段改写/清理 Memory 标签时触发重复回滚。
+     * @param {string} text
+     * @returns {string}
+     */
+    function stripMemoryInstructionTags(text) {
+        return String(text || '')
+            .replace(/<(Memory|GaigaiMemory|memory|tableEdit|gaigaimemory|tableedit)>[\s\S]*?<\/\1>/gi, '')
+            .trim();
+    }
+
+    /**
+     * 生成消息处理签名
+     * 目标：同楼层重复渲染时跳过二次回滚，但不影响真实 Swipe / 重Roll。
+     * @param {Object} msg
+     * @returns {string}
+     */
+    function buildMessageProcessSignature(msg) {
+        if (!msg) return '';
+        const swipeId = Number(msg.swipe_id ?? 0);
+        const swipesLength = Array.isArray(msg.swipes) ? msg.swipes.length : 0;
+        const renderedVisibleText = stripMemoryInstructionTags(getRenderedMessageText(msg));
+        const textHash = calculateTextHash(renderedVisibleText);
+        const extra = (msg.extra && typeof msg.extra === 'object') ? msg.extra : {};
+        const generationHint = String(extra.gen_id ?? extra.generation_id ?? extra.swipe_generation_id ?? '');
+        const timeHint = String(msg.send_date ?? '');
+        return `${msg.is_user ? 'u' : 'a'}|${swipeId}|${swipesLength}|${textHash}|${generationHint}|${timeHint}`;
+    }
+
     function saveSnapshot(msgIndex) {
         try {
             const snapshot = {
@@ -1881,7 +1996,11 @@
                 // 只保留最近10个
                 if (numericKeys.length > 10) {
                     const toDelete = numericKeys.slice(10);
-                    toDelete.forEach(key => delete snapshotHistory[key.toString()]);
+                    toDelete.forEach(key => {
+                        if (key.toString() !== '-1') {
+                            delete snapshotHistory[key.toString()];
+                        }
+                    });
                     console.log(`🧹 [快照深度限制] 已清理 ${toDelete.length} 个过旧快照，保留最近10个`);
                 }
             } catch (trimError) {
@@ -2221,13 +2340,15 @@
                 position: 'fixed',
                 top: 0,
                 left: 0,
-                right: 0,
-                bottom: 0,
+                width: '100vw',
+                height: '100dvh',
                 background: 'rgba(0, 0, 0, 0.1)', // 几乎透明
                 zIndex: 10000005,
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                padding: 'max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left))',
+                boxSizing: 'border-box'
             }
         });
 
@@ -2372,7 +2493,7 @@
                 left: 0,
                 right: 0,
                 bottom: 0,
-                backgroundColor: C.reverseView ? themeColor : (isDark ? '#555' : '#ccc'),
+                backgroundColor: C.reverseView ? '#4caf50' : (isDark ? '#555' : '#ccc'),
                 borderRadius: '24px',
                 transition: 'background-color 0.3s',
                 cursor: 'pointer'
@@ -2399,13 +2520,83 @@
         $box.append($reverseContainer);
 
         // 倒序开关事件
-        $reverseCheckbox.on('change', function() {
+        $reverseCheckbox.on('change', function () {
             const isReversed = $(this).is(':checked');
             C.reverseView = isReversed;
 
             // 更新开关样式
-            $reverseSlider.css('backgroundColor', isReversed ? themeColor : (isDark ? '#555' : '#ccc'));
+            $reverseSlider.css('backgroundColor', isReversed ? '#4caf50' : (isDark ? '#555' : '#ccc'));
             $reverseKnob.css('left', isReversed ? '23px' : '3px');
+
+            // 保存配置到 localStorage
+            try { localStorage.setItem('gg_config', JSON.stringify(C)); } catch (err) { }
+
+            // 保存并刷新视图
+            m.save();
+            shw();
+        });
+
+        // 👻 沉底已隐藏行开关
+        const $sinkContainer = $('<div>', {
+            css: {
+                background: isDark ? 'rgba(255,255,255,0.05)' : '#f8f9fa',
+                padding: '12px',
+                borderRadius: '8px',
+                border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #eee',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+            }
+        });
+
+        const $sinkLabel = $('<div>', {
+            html: '<span style="font-size:12px; font-weight:600; color:var(--g-tc);">👻 沉淀已隐藏行</span><br><span style="font-size:10px; color:#999;">将变绿的记录自动排在表格最下方</span>',
+            css: { flex: 1 }
+        });
+
+        const $sinkToggle = $('<label>', {
+            css: { position: 'relative', display: 'inline-block', width: '44px', height: '24px', cursor: 'pointer' }
+        });
+
+        const $sinkCheckbox = $('<input>', {
+            type: 'checkbox',
+            checked: C.sinkHiddenRows,
+            css: { display: 'none' }
+        });
+
+        const $sinkSlider = $('<span>', {
+            css: {
+                position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                backgroundColor: C.sinkHiddenRows ? '#4caf50' : (isDark ? '#555' : '#ccc'), // 使用绿色代表隐藏色
+                borderRadius: '24px', transition: 'background-color 0.3s', cursor: 'pointer'
+            }
+        });
+
+        const $sinkKnob = $('<span>', {
+            css: {
+                position: 'absolute', height: '18px', width: '18px',
+                left: C.sinkHiddenRows ? '23px' : '3px', bottom: '3px',
+                backgroundColor: 'white', borderRadius: '50%', transition: 'left 0.3s',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            }
+        });
+
+        $sinkSlider.append($sinkKnob);
+        $sinkToggle.append($sinkCheckbox, $sinkSlider);
+        $sinkContainer.append($sinkLabel, $sinkToggle);
+        $box.append($sinkContainer); // 添加到倒序开关的下方
+
+        // 沉底开关事件
+        $sinkCheckbox.on('change', function () {
+            const isSinked = $(this).is(':checked');
+            C.sinkHiddenRows = isSinked;
+
+            // 更新开关样式 (使用绿色代表这和显隐相关)
+            $sinkSlider.css('backgroundColor', isSinked ? '#4caf50' : (isDark ? '#555' : '#ccc'));
+            $sinkKnob.css('left', isSinked ? '23px' : '3px');
+
+            // 保存配置到 localStorage
+            try { localStorage.setItem('gg_config', JSON.stringify(C)); } catch (err) { }
 
             // 保存并刷新视图
             m.save();
@@ -2451,6 +2642,37 @@
 
         $overlay.append($box);
         $('body').append($overlay);
+
+        // ✅ 视口自适应：在手机浏览器地址栏/底栏变化时保持“可视区域居中”
+        const positionViewOverlay = () => {
+            const vv = window.visualViewport;
+            if (vv) {
+                $overlay.css({
+                    top: `${vv.offsetTop}px`,
+                    left: `${vv.offsetLeft}px`,
+                    width: `${vv.width}px`,
+                    height: `${vv.height}px`,
+                    right: 'auto',
+                    bottom: 'auto'
+                });
+            } else {
+                $overlay.css({
+                    top: 0,
+                    left: 0,
+                    width: '100vw',
+                    height: '100dvh',
+                    right: 'auto',
+                    bottom: 'auto'
+                });
+            }
+        };
+
+        positionViewOverlay();
+        $(window).on('resize.viewSettings', positionViewOverlay);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', positionViewOverlay, { passive: true });
+            window.visualViewport.addEventListener('scroll', positionViewOverlay, { passive: true });
+        }
 
         // --- 逻辑绑定 ---
 
@@ -2513,6 +2735,11 @@
         // 窗口移除时清理事件
         $overlay.on('remove', () => {
             $(document).off('keydown.viewSettings');
+            $(window).off('resize.viewSettings');
+            if (window.visualViewport) {
+                window.visualViewport.removeEventListener('resize', positionViewOverlay);
+                window.visualViewport.removeEventListener('scroll', positionViewOverlay);
+            }
         });
     }
 
@@ -2635,6 +2862,9 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         if (!content) return content;
         let result = content;
 
+        // 辅助函数：转义正则特殊字符
+        const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
         // 1️⃣ 黑名单处理 (如果设置了)
         if (C.filterTags) {
             const tags = C.filterTags.split(/[,，]/).map(t => t.trim()).filter(t => t);
@@ -2643,6 +2873,10 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 if (t.startsWith('!--')) {
                     // 匹配 HTML 注释 <!--...-->
                     re = new RegExp('<' + t + '[\\s\\S]*?-->', 'gi');
+                } else if (t.startsWith('[') && t.endsWith(']')) {
+                    // 🆕 匹配方括号标签 [tag]...[/tag]
+                    const inner = escapeRegExp(t.slice(1, -1));
+                    re = new RegExp('\\[' + inner + '(?:\\s+[^\\]]*)?\\][\\s\\S]*?\\[\\/' + inner + '\\s*\\]', 'gi');
                 } else {
                     // 匹配成对标签 <tag>...</tag>
                     // 允许闭合标签中有空格 (e.g., </ details>)
@@ -2673,6 +2907,10 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     if (t.startsWith('!--')) {
                         // 白名单模式下注释标签通常不常用，但也做兼容
                         re = new RegExp('<' + t + '[\\s\\S]*?-->', 'gi');
+                    } else if (t.startsWith('[') && t.endsWith(']')) {
+                        // 🆕 匹配方括号标签 [tag]...[/tag]
+                        const inner = escapeRegExp(t.slice(1, -1));
+                        re = new RegExp('\\[' + inner + '(?:\\s+[^\\]]*)?\\]([\\s\\S]*?)(?:\\[\\/' + inner + '\\]|$)', 'gi');
                     } else {
                         // 提取标签内的内容（group 1）
                         re = new RegExp(`<${t}(?:\\s+[^>]*)?>([\\s\\S]*?)(?:<\\/${t}>|$)`, 'gi');
@@ -2713,6 +2951,61 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         cleanTx = cleanTx.replace(/\\n/g, ' ').replace(/\s+/g, ' ').replace(/Row\s+\(/g, 'Row(').trim();
 
         const cs = [];
+
+        // ==========================================
+        // 🌟 策略 S: 智能 Row 格式解析 (按列名和人名自动 Upsert)
+        // ==========================================
+        const rowRegex = /(?:Row)?\s*\(\s*(\d+)\s*,\s*(\{[\s\S]*?\})\s*\)/gi;
+        let rowMatch;
+        while ((rowMatch = rowRegex.exec(cleanTx)) !== null) {
+
+            // 检查匹配到的内容前面是不是 insert/update/delete
+            const matchStart = rowMatch.index;
+            const prefix = cleanTx.slice(Math.max(0, matchStart - 10), matchStart).toLowerCase();
+            if (prefix.endsWith('insert') || prefix.endsWith('update') || prefix.endsWith('delete')) {
+                continue; // 拦截：这是标准指令，跳过它，留给后面的策略A处理
+            }
+
+            try {
+                const ti = parseInt(rowMatch[1]);
+                const dObj = pob(rowMatch[2]); // 解析花括号里的对象
+                const sh = m.get(ti);
+
+                if (sh) {
+                    let mappedData = {};
+                    let primaryKeyValue = null;
+
+                    // 将中文列名映射为数字列索引
+                    Object.entries(dObj).forEach(([key, val]) => {
+                        let ci = -1;
+                        if (!isNaN(key)) {
+                            ci = parseInt(key); // 兼容直接写数字
+                        } else {
+                            // 忽略表头里的 # 号进行智能匹配
+                            ci = sh.c.findIndex(col => col.replace(/^#/, '').trim() === key.trim());
+                        }
+
+                        if (ci !== -1) {
+                            mappedData[ci] = val;
+                            if (ci === 0) primaryKeyValue = val; // 假设所有表的第0列都是“姓名/主键”
+                        }
+                    });
+
+                    // 如果找到了第0列(姓名)，自动判断是更新还是插入
+                    if (primaryKeyValue !== null) {
+                        const ri = sh.r.findIndex(r => r[0] == primaryKeyValue);
+                        if (ri !== -1) {
+                            cs.push({ t: 'update', ti: ti, ri: ri, d: mappedData });
+                        } else {
+                            cs.push({ t: 'insert', ti: ti, ri: null, d: mappedData });
+                        }
+                    } else if (Object.keys(mappedData).length > 0) {
+                        // 如果没写姓名，默认做插入处理
+                        cs.push({ t: 'insert', ti: ti, ri: null, d: mappedData });
+                    }
+                }
+            } catch (e) { console.warn('Row Parser Error:', e); }
+        }
 
         // ==========================================
         // 🟢 策略 A: 脚本格式解析 (insertRow(...))
@@ -2863,7 +3156,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         try {
             // Attempt to fix lazy formatting (e.g. 0: "val" -> "0": "val")
             const jsonStr = s.replace(/([{,]\s*)(\d+)(\s*:)/g, '$1"$2"$3')
-                             .replace(/'/g, '"'); // Try replacing single quotes (risky but helpful)
+                .replace(/'/g, '"'); // Try replacing single quotes (risky but helpful)
 
             const parsed = JSON.parse(jsonStr);
             Object.assign(d, parsed);
@@ -2925,9 +3218,214 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         });
     }
 
+    function extractPhoneSignal(chatArray) {
+        // 1. 在传入的数组中找（优先使用“本次请求”的上下文，避免被旧探针误判）
+        if (Array.isArray(chatArray)) {
+            // 倒序查找，找到最新附带信号的消息
+            for (let i = chatArray.length - 1; i >= 0; i--) {
+                if (chatArray[i] && chatArray[i].gaigaiPhoneSignal) {
+                    return chatArray[i].gaigaiPhoneSignal;
+                }
+            }
+        }
+
+        // 2. 🛡️ 兜底检查全局探针
+        // 解决独立 API 调用和 Fetch 拦截时，请求体的自定义属性被 JSON.parse 洗掉的问题
+        if (window.Gaigai && window.Gaigai.lastRequestData && Array.isArray(window.Gaigai.lastRequestData.chat)) {
+            const probeChat = window.Gaigai.lastRequestData.chat;
+            for (let i = probeChat.length - 1; i >= 0; i--) {
+                if (probeChat[i] && probeChat[i].gaigaiPhoneSignal) {
+                    console.log('📱 [权限探测] 从全局探针中成功找回手机信号！拦截生效。');
+                    return probeChat[i].gaigaiPhoneSignal;
+                }
+            }
+        }
+
+        // 3. 兜底：去酒馆最底层的全局主聊天记录里找
+        try {
+            const ctx = (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) ? SillyTavern.getContext() : null;
+            if (ctx && Array.isArray(ctx.chat)) {
+                for (let i = ctx.chat.length - 1; i >= 0; i--) {
+                    if (ctx.chat[i] && ctx.chat[i].gaigaiPhoneSignal) {
+                        return ctx.chat[i].gaigaiPhoneSignal;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('提取手机信号兜底失败:', e);
+        }
+
+        return null;
+    }
+
     function inj(ev) {
         // 🔴 全局主开关守卫
+        const phoneSignal = extractPhoneSignal(ev.chat);
         if (!C.masterSwitch) return;
+        const phoneAllowsSummary = !!phoneSignal && phoneSignal.allowSummary === true;
+        const phoneAllowsTable = !!phoneSignal && phoneSignal.allowTable === true;
+        const phoneAllowsPrompt = !!phoneSignal && phoneSignal.allowPrompt === true;
+        const getPrimaryTextFromMessage = (msg) => {
+            if (!msg || typeof msg !== 'object') return '';
+            if (typeof msg.content === 'string') return msg.content;
+            if (typeof msg.mes === 'string') return msg.mes;
+
+            if (Array.isArray(msg.parts)) {
+                const part = msg.parts.find(p => p && typeof p.text === 'string');
+                if (part) return part.text;
+            }
+
+            if (Array.isArray(msg.content)) {
+                const part = msg.content.find(p => p && typeof p.text === 'string');
+                if (part) return part.text;
+            }
+            return '';
+        };
+        const setPrimaryTextToMessage = (msg, text) => {
+            if (!msg || typeof msg !== 'object') return;
+            let written = false;
+
+            if (typeof msg.content === 'string') {
+                msg.content = text;
+                written = true;
+            }
+            if (typeof msg.mes === 'string') {
+                msg.mes = text;
+                written = true;
+            }
+
+            if (Array.isArray(msg.parts)) {
+                const idx = msg.parts.findIndex(p => p && typeof p.text === 'string');
+                if (idx !== -1) {
+                    msg.parts[idx] = Object.assign({}, msg.parts[idx], { text });
+                } else if (msg.parts.length > 0) {
+                    msg.parts[0] = Object.assign({}, msg.parts[0], { text });
+                } else {
+                    msg.parts.push({ text });
+                }
+                written = true;
+            }
+
+            if (Array.isArray(msg.content)) {
+                const idx = msg.content.findIndex(p => p && typeof p.text === 'string');
+                if (idx !== -1) {
+                    msg.content[idx] = Object.assign({}, msg.content[idx], { text });
+                    written = true;
+                }
+            }
+
+            if (!written) {
+                msg.content = text;
+            }
+        };
+        const cloneSplitMessage = (originalMsg, text) => {
+            const cloned = Object.assign({}, originalMsg);
+            setPrimaryTextToMessage(cloned, text);
+            return cloned;
+        };
+        const hasAnyMemoryVar = (text) => /\{\{MEMORY(?:_SUMMARY|_TABLE|_PROMPT)?\}\}|\{\{MEMORY_TABLE_.+?\}\}/i.test(String(text || ''));
+        const stripAllMemoryVars = (text) => String(text || '')
+            .replace(/\{\{MEMORY_TABLE_.+?\}\}/g, '')
+            .replace(/\{\{MEMORY(?:_SUMMARY|_TABLE|_PROMPT)?\}\}/g, '');
+        const normalizeAnchorText = (text) => String(text || '').replace(/\s+/g, ' ').trim();
+
+        // 读取世界书条目状态（enabled/disable），用于判断变量锚点是否来自关闭条目
+        const worldInfoAnchorEntries = (() => {
+            const collected = [];
+            try {
+                const wiRoot = window.world_info;
+                if (!wiRoot || typeof wiRoot !== 'object') return collected;
+
+                const books = Array.isArray(wiRoot) ? wiRoot : Object.values(wiRoot);
+                for (const book of books) {
+                    if (!book || typeof book !== 'object' || !book.entries || typeof book.entries !== 'object') continue;
+                    const entries = Object.values(book.entries);
+
+                    for (const entry of entries) {
+                        if (!entry || typeof entry !== 'object') continue;
+                        const rawContent = String(entry.content || '');
+                        if (!hasAnyMemoryVar(rawContent)) continue;
+
+                        collected.push({
+                            enabled: entry.enabled !== false && entry.disable !== true && entry.active !== false,
+                            normalizedContent: normalizeAnchorText(rawContent)
+                        });
+                    }
+                }
+            } catch (e) {
+                console.warn('⚠️ [锚点检测] 读取 world_info 状态失败:', e);
+            }
+            return collected;
+        })();
+
+        const worldInfoEntryMatchesMessage = (entryText, msgText) => {
+            if (!entryText || !msgText) return false;
+            if (msgText.includes(entryText) || entryText.includes(msgText)) return true;
+
+            // 去掉变量后再做一次弱匹配，兼容带包装文本的场景
+            const entrySkeleton = entryText
+                .replace(/\{\{memory_table_.+?\}\}/gi, '')
+                .replace(/\{\{memory(?:_summary|_table|_prompt)?\}\}/gi, '')
+                .trim();
+            return entrySkeleton.length >= 10 && msgText.includes(entrySkeleton);
+        };
+
+        const isAnchorBlockedByWorldInfoSwitch = (msgContent) => {
+            if (!worldInfoAnchorEntries.length) return false;
+            const normalizedMsg = normalizeAnchorText(msgContent);
+            if (!normalizedMsg) return false;
+
+            let hitEnabled = false;
+            let hitDisabled = false;
+
+            for (const entry of worldInfoAnchorEntries) {
+                if (!worldInfoEntryMatchesMessage(entry.normalizedContent, normalizedMsg)) continue;
+                if (entry.enabled) hitEnabled = true;
+                else hitDisabled = true;
+            }
+
+            return hitDisabled && !hitEnabled;
+        };
+
+        const escapeCssAttrValue = (value) => {
+            const raw = String(value || '');
+            if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+                return CSS.escape(raw);
+            }
+            return raw.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        };
+
+        // 检测预设条目开关状态（Prompt Manager 单条开关）
+        const getPromptToggleStateByIdentifier = (identifier) => {
+            if (!identifier || typeof document === 'undefined') return null;
+            const escaped = escapeCssAttrValue(identifier);
+            const selectors = [
+                `[data-identifier="${escaped}"] .prompt-manager-toggle-action`,
+                `[data-id="${escaped}"] .prompt-manager-toggle-action`,
+                `[data-prompt-id="${escaped}"] .prompt-manager-toggle-action`
+            ];
+
+            for (const selector of selectors) {
+                const node = document.querySelector(selector);
+                if (!node) continue;
+                if (node.classList.contains('fa-toggle-off')) return false;
+                if (node.classList.contains('fa-toggle-on')) return true;
+            }
+            return null;
+        };
+
+        const isAnchorBlockedByPromptSwitch = (msg) => {
+            if (!msg || !msg.identifier) return false;
+            const toggleState = getPromptToggleStateByIdentifier(msg.identifier);
+            return toggleState === false;
+        };
+
+        const isAnchorMessageAllowed = (msg, msgContent) => {
+            if (!hasAnyMemoryVar(msgContent)) return true;
+            if (isAnchorBlockedByPromptSwitch(msg)) return false;
+            if (isAnchorBlockedByWorldInfoSwitch(msgContent)) return false;
+            return true;
+        };
 
         // ✨✨✨ 1. [核心修复] 仅拦截总结/追溯生成的请求 (防止 Prompt 污染) ✨✨✨
         // 注意：批量填表 (autoBackfill) 期间用户在正常聊天，必须允许注入！
@@ -2938,7 +3436,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
             if (ev.chat && Array.isArray(ev.chat)) {
                 ev.chat.forEach(msg => {
-                    let c = msg.content || msg.mes || '';
+                    let c = getPrimaryTextFromMessage(msg);
                     if (!c) return;
 
                     let modified = false;
@@ -2951,8 +3449,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     });
 
                     if (modified) {
-                        if (msg.content) msg.content = c;
-                        if (msg.mes) msg.mes = c;
+                        setPrimaryTextToMessage(msg, c);
                     }
                 });
             }
@@ -2960,6 +3457,18 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             console.log('🧹 [总结/追溯模式] 已清洗所有记忆变量，防止双重注入。');
             return; // ⛔️ 仅在此模式下拦截
         }
+        if (phoneSignal && phoneSignal.allowPrompt === false && ev.chat && Array.isArray(ev.chat)) {
+            ev.chat.forEach(msg => {
+                let c = getPrimaryTextFromMessage(msg);
+                if (!c) return;
+                if (c.includes('{{MEMORY_PROMPT}}')) {
+                    c = c.split('{{MEMORY_PROMPT}}').join('');
+                    setPrimaryTextToMessage(msg, c);
+                }
+            });
+            console.log('[权限管控] 手机禁止了提示词注入，已清洗 {{MEMORY_PROMPT}} 残留');
+        }
+
         // ============================================================
         // 1. 准备数据组件 (拆解为原子部分，无论开关与否都准备，以备变量调用)
         // ============================================================
@@ -2972,9 +3481,11 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         let summaryMessages = [];
         let tableMessages = [];
 
-        // A. 准备总结数据 (如果有且未开启世界书同步)
-        // 互斥逻辑：开启世界书同步后，由酒馆的世界书系统负责发送总结，插件不再重复注入
-        if (m.sm.has() && !C.syncWorldInfo) {
+        // A. 准备总结数据
+        // 互斥逻辑：开启世界书同步 或 自动向量化时，插件都不再注入总结（变量也不例外）
+        // 目的：统一为“只发表格内容”，避免总结重复发送。
+        const shouldSuppressSummaryInjection = !!(C.syncWorldInfo || C.autoVectorizeSummary);
+        if (m.sm.has() && !shouldSuppressSummaryInjection) {
             // 1. 旧逻辑：合并字符串（用于兼容旧的文本变量替换）
             strSummary = '=== 📚 记忆总结（历史存档） ===\n\n' + m.sm.load() + '\n\n';
 
@@ -3036,9 +3547,23 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         // }
 
         // C. 准备提示词 (仅当开关开启时，才准备提示词，因为关了就不应该填表)
-        // 逻辑：如果开启了批量填表(autoBackfill)，强制屏蔽实时填表提示词，无论 C.enabled 是什么状态！
-        if (C.enabled && !C.autoBackfill && window.Gaigai.PromptManager.get('tablePrompt')) {
+        // 逻辑：如果开启了批量填表(autoBackfill)，或者检测到是手机专属聊天，强制屏蔽实时填表提示词！
+        if ((C.enabled || phoneAllowsPrompt) && !C.autoBackfill && window.Gaigai.PromptManager.get('tablePrompt')) {
             strPrompt = window.Gaigai.PromptManager.resolveVariables(window.Gaigai.PromptManager.get('tablePrompt'), m.ctx());
+        }
+        // 核心权限拦截：必须在所有变量扫描之前执行！
+        if (phoneSignal) {
+            if (phoneSignal.allowSummary === false) {
+                summaryMessages = [];
+                strSummary = '';
+            }
+            if (phoneSignal.allowTable === false) {
+                tableMessages = [];
+                strTable = '';
+            }
+            if (phoneSignal.allowPrompt === false) {
+                strPrompt = '';
+            }
         }
 
         // ============================================================
@@ -3057,7 +3582,91 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         }
 
         // ============================================================
-        // 3. ✨✨✨ 核心逻辑：变量扫描与锚点置换 ✨✨✨
+        // 2.5 ✨✨✨ 核心新增：独立表格变量预扫描 (提取特定表) ✨✨✨
+        // 必须在主扫描前进行，确保特定表被从 tableMessages 中优先剔除
+        // ============================================================
+        const normalizeTableAnchorName = (name) => String(name || '')
+            .normalize('NFKC')
+            .replace(/\s+/g, '')
+            .trim()
+            .toLowerCase();
+
+        const getTableNameFromSystemName = (name) => {
+            const m = String(name || '').match(/^SYSTEM\s*\(([\s\S]*?)\)\s*$/i);
+            return m ? m[1] : String(name || '');
+        };
+
+        for (let i = 0; i < ev.chat.length; i++) {
+            let msgContent = getPrimaryTextFromMessage(ev.chat[i]);
+            let modified = false;
+
+            // 开关关闭时，锚点不参与替换，回退默认注入位置
+            if (hasAnyMemoryVar(msgContent) && !isAnchorMessageAllowed(ev.chat[i], msgContent)) {
+                const cleaned = stripAllMemoryVars(msgContent);
+                setPrimaryTextToMessage(ev.chat[i], cleaned);
+                if (cleaned.trim() === '') ev.chat[i]._toDelete = true;
+                console.log('🚫 [锚点拦截] 检测到关闭条目，跳过变量锚点并回退默认注入');
+                continue;
+            }
+
+            // 匹配所有的 {{MEMORY_TABLE_xxx}}
+            const specificTableRegex = /\{\{MEMORY_TABLE_(.+?)\}\}/gi;
+            let match;
+
+            while ((match = specificTableRegex.exec(msgContent)) !== null) {
+                const fullTag = match[0];
+                const targetTableName = match[1].trim();
+                const targetTableKey = normalizeTableAnchorName(targetTableName);
+
+                const tableIndex = tableMessages.findIndex(msg => {
+                    const currentTableName = getTableNameFromSystemName(msg.name);
+                    return normalizeTableAnchorName(currentTableName) === targetTableKey;
+                });
+
+                if (tableIndex !== -1) {
+                    // ✅ 找到表，从总池子中抽出 (splice)
+                    const extractedTableMsg = tableMessages.splice(tableIndex, 1)[0];
+
+                    const varIndex = msgContent.indexOf(fullTag);
+                    const preText = msgContent.substring(0, varIndex).trim();
+                    const postText = msgContent.substring(varIndex + fullTag.length).trim();
+
+                    const newMessages = [];
+                    const originalMsg = ev.chat[i];
+
+                    if (preText) {
+                        newMessages.push(cloneSplitMessage(originalMsg, preText));
+                    }
+                    if (originalMsg.gaigaiPhoneSignal) {
+                        extractedTableMsg.gaigaiPhoneSignal = originalMsg.gaigaiPhoneSignal;
+                    }
+                    newMessages.push(extractedTableMsg);
+                    if (postText) {
+                        newMessages.push(cloneSplitMessage(originalMsg, postText));
+                    }
+
+                    // 原地拆分注入
+                    ev.chat.splice(i, 1, ...newMessages);
+
+                    console.log(`✨ [分裂注入] 表格 [${targetTableName}] 已单独注入并从总池剔除`);
+                    modified = true;
+                    break; // 拆分后结构改变，跳出 while，由 for 循环重新扫描
+                } else {
+                    // ❌ 没找到表（空表或名字错误），直接抹掉标签，防止漏给大变量
+                    msgContent = msgContent.replace(fullTag, '');
+                    setPrimaryTextToMessage(ev.chat[i], msgContent);
+                    console.log(`🧹 [变量清洗] ${fullTag} 已清除（未找到该表或该表为空）`);
+                    specificTableRegex.lastIndex = 0; // 字符串变了，重置正则索引
+                }
+            }
+            if (modified) {
+                i--; // 关键：防止同一条合并消息中的后续 {{MEMORY_TABLE_xxx}} 被跳过
+                continue;
+            }
+        }
+
+        // ============================================================
+        // 3. ✨✨✨ 核心逻辑：变量扫描与锚点置换 (修复多变量并存Bug版) ✨✨✨
         // ============================================================
 
         const varSmart = '{{MEMORY}}';          // 智能组合 (跟随开关)
@@ -3067,273 +3676,193 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
         let replacedSmart = false;
         let replacedPrompt = false;
-        let replacedSummary = false;  // ✅ 新增：标记 Summary 是否已通过变量替换
-        let replacedTable = false;    // ✅ 新增：标记 Table 是否已通过变量替换
+        let replacedSummary = false;  
+        let replacedTable = false;    
         let foundAnchor = false;
         let anchorIndex = -1;
 
-        // ✨ 新增：记录各变量的位置索引
-        let idxTableVar = -1;      // {{MEMORY_TABLE}} 的位置
-        let idxSummaryVar = -1;    // {{MEMORY_SUMMARY}} 的位置
-        let idxSmartVar = -1;      // {{MEMORY}} 的位置
+        let idxTableVar = -1;      
+        let idxSummaryVar = -1;    
+        let idxSmartVar = -1;      
 
-        // ✅ 1. 判定提示词管理 (Prompt Manager) 开关
-        // 只有开启了提示词管理，变量作为锚点才有效；否则视为“开关已关”，忽略变量位置
         let isPromptManagerOn = true;
         if (typeof SillyTavern !== 'undefined' && SillyTavern.power_user) {
             if (SillyTavern.power_user.prompt_manager_enabled === false) isPromptManagerOn = false;
         }
 
-        // ✅ 2. 判定是否启用锚点模式
-        // 【最终修复】强制设为 true。
-        // 这确保了只要预设中写了 {{MEMORY}}，插件就一定会把表格插在这个位置。
-        // 这不会影响 {{MEMORY_PROMPT}} 的清洗逻辑（它由 strPrompt 变量独立控制）。
         const allowAnchorMode = true;
-
-        // 记录被删除的消息数量，用于修正锚点索引
         let deletedCountBeforeAnchor = 0;
+        let hasAllowedSummaryAnchor = false;
+        let hasAllowedTableAnchor = false;
 
-        // ✅ 3. 扫描并清洗变量
+        // 预扫描：只统计“允许参与替换”的锚点，供 {{MEMORY}} 做全局去重决策
         for (let i = 0; i < ev.chat.length; i++) {
-            let msgContent = ev.chat[i].content || ev.chat[i].mes || '';
-            let modified = false;
+            const rawContent = getPrimaryTextFromMessage(ev.chat[i]);
+            if (!rawContent || !hasAnyMemoryVar(rawContent)) continue;
+            if (!isAnchorMessageAllowed(ev.chat[i], rawContent)) continue;
 
-            // 1️⃣ 优先处理长变量：{{MEMORY_PROMPT}} (特殊逻辑：根据条件决定锚点替换或清洗)
-            if (msgContent.includes(varPrompt)) {
-                // 检查是否满足锚点替换条件：提示词存在 且 提示词管理开关已开启
-                if (strPrompt && isPromptManagerOn) {
-                    // ✅ 条件满足：直接在锚点位置替换为实际提示词内容
-                    msgContent = msgContent.replace(varPrompt, strPrompt);
-                    replacedPrompt = true; // 标记已处理，阻止后续默认注入
+            if (rawContent.includes(varSum)) hasAllowedSummaryAnchor = true;
+            if (rawContent.includes(varTable)) hasAllowedTableAnchor = true;
+        }
 
-                    // 🎨 UI 增强：标记为提示词消息，使其在 Last Request/Probe 中显示为橙色 PROMPT
-                    ev.chat[i].isGaigaiPrompt = true;
+        // ✅ 3. 扫描并清洗变量 (核心修复：支持同一消息内存在任意顺序的多个变量)
+        for (let i = 0; i < ev.chat.length; i++) {
+            let msgContent = getPrimaryTextFromMessage(ev.chat[i]);
+            let splitted = false; // 标记是否发生了数组分裂
 
-                    console.log(`🎯 [锚点替换] 提示词已注入至 {{MEMORY_PROMPT}} 位置`);
-                } else {
-                    // ⚠️ 条件不满足：仅清空变量文本，不标记为已替换
-                    // 这样可以让默认注入逻辑（Step 5）在标准位置注入提示词
-                    msgContent = msgContent.replace(varPrompt, '');
-                    // 关键：不设置 replacedPrompt = true
-                    console.log(`🧹 [变量清洗] {{MEMORY_PROMPT}} 已清空 (将使用默认位置注入)`);
-                }
-                modified = true;
+            // 开关关闭时，锚点不参与替换，回退默认注入位置
+            if (hasAnyMemoryVar(msgContent) && !isAnchorMessageAllowed(ev.chat[i], msgContent)) {
+                const cleaned = stripAllMemoryVars(msgContent);
+                setPrimaryTextToMessage(ev.chat[i], cleaned);
+                if (cleaned.trim() === '') ev.chat[i]._toDelete = true;
+                console.log('🚫 [锚点拦截] 检测到关闭条目，已忽略变量锚点');
+                continue;
             }
 
-            // 2️⃣ 处理：{{MEMORY_SUMMARY}} (总结专属变量) - 原地拆分注入
-            if (msgContent.includes(varSum)) {
-                if (idxSummaryVar === -1) {
-                    idxSummaryVar = i;
-                    console.log(`🎯 [变量扫描] 发现 ${varSum} | 位置: #${i}`);
+            // 1️⃣ 处理长变量：{{MEMORY_PROMPT}} (纯文本替换，不破坏数组结构)
+            if (msgContent.includes(varPrompt)) {
+                if (strPrompt && isPromptManagerOn) {
+                    msgContent = msgContent.replace(varPrompt, strPrompt);
+                    replacedPrompt = true;
+                    ev.chat[i].isGaigaiPrompt = true;
+                    console.log(`🎯 [锚点替换] 提示词已注入至 {{MEMORY_PROMPT}} 位置`);
+                } else {
+                    msgContent = msgContent.replace(varPrompt, '');
+                    console.log(`🧹 [变量清洗] {{MEMORY_PROMPT}} 已清空`);
                 }
+                setPrimaryTextToMessage(ev.chat[i], msgContent);
+            }
 
-                // ✅ 安全检查：只有当有数据时才执行拆分注入
-                if (summaryMessages.length > 0) {
-                    // ✨ 原地拆分注入逻辑
+            // 2️⃣ 处理：{{MEMORY_SUMMARY}} 
+            if (msgContent.includes(varSum)) {
+                if (idxSummaryVar === -1) idxSummaryVar = i;
+
+                if (replacedSummary) {
+                    msgContent = msgContent.replace(varSum, '');
+                    setPrimaryTextToMessage(ev.chat[i], msgContent);
+                    console.log(`🧹 [去重清洗] ${varSum} 已在前文注入，当前占位符已清除`);
+                } else if (summaryMessages.length > 0) {
                     const varIndex = msgContent.indexOf(varSum);
                     const preText = msgContent.substring(0, varIndex).trim();
                     const postText = msgContent.substring(varIndex + varSum.length).trim();
-
-                    // 构建新消息队列
                     const newMessages = [];
                     const originalMsg = ev.chat[i];
 
-                    // 如果变量前有内容，创建前半段消息
-                    if (preText) {
-                        newMessages.push({
-                            role: originalMsg.role,
-                            content: preText,
-                            name: originalMsg.name
-                        });
-                    }
-
-                    // 插入预构建的总结消息数组（带有 isGaigaiData 和自定义 name）
+                    if (preText) newMessages.push(cloneSplitMessage(originalMsg, preText));
+                    if (originalMsg.gaigaiPhoneSignal) summaryMessages.forEach(m => m.gaigaiPhoneSignal = originalMsg.gaigaiPhoneSignal);
                     newMessages.push(...summaryMessages);
+                    if (postText) newMessages.push(cloneSplitMessage(originalMsg, postText));
 
-                    // 如果变量后有内容，创建后半段消息
-                    if (postText) {
-                        newMessages.push({
-                            role: originalMsg.role,
-                            content: postText,
-                            name: originalMsg.name
-                        });
-                    }
-
-                    // 原地替换：将 1 条消息替换为多条消息
                     ev.chat.splice(i, 1, ...newMessages);
-
-                    // 更新循环索引：跳过刚插入的消息
-                    i += newMessages.length - 1;
-
-                    // 标记已替换，防止后续重复注入
                     replacedSummary = true;
-
-                    console.log(`✨ [原地拆分注入] ${varSum} 已拆分为 ${newMessages.length} 条消息 (前:${preText?'有':'无'}, 数据:${summaryMessages.length}条, 后:${postText?'有':'无'})`);
-
-                    // 跳过后续的 modified 处理，因为已经完成替换
-                    continue;
+                    splitted = true;
+                    console.log(`✨ [原地拆分注入] ${varSum} 处理完成`);
                 } else {
-                    // 没有数据时，仅清除变量标签
                     msgContent = msgContent.replace(varSum, '');
+                    setPrimaryTextToMessage(ev.chat[i], msgContent);
                     replacedSummary = true;
-                    console.log(`🧹 [变量清洗] ${varSum} 已清除（无数据可注入）`);
-                    modified = true;
+                    console.log(`🧹 [变量清洗] ${varSum} 已清除`);
                 }
             }
 
-            // 3️⃣ 处理：{{MEMORY_TABLE}} (表格专属变量) - 原地拆分注入
-            if (msgContent.includes(varTable)) {
-                if (idxTableVar === -1) {
-                    idxTableVar = i;
-                    console.log(`🎯 [变量扫描] 发现 ${varTable} | 位置: #${i}`);
-                }
+            // ⚠️ 核心修复：如果发生了分裂，当前索引 i 的消息已经变成了切片。
+            // 我们必须让游标后退一步，让下一轮循环重新扫描这个切片，防止漏掉里面的其他变量(如 {{MEMORY_TABLE}})
+            if (splitted) {
+                i--;
+                continue;
+            }
 
-                // ✅ 安全检查：只有当有数据时才执行拆分注入
-                if (tableMessages.length > 0) {
-                    // ✨ 原地拆分注入逻辑
+            // 3️⃣ 处理：{{MEMORY_TABLE}}
+            if (msgContent.includes(varTable)) {
+                if (idxTableVar === -1) idxTableVar = i;
+
+                if (replacedTable) {
+                    msgContent = msgContent.replace(varTable, '');
+                    setPrimaryTextToMessage(ev.chat[i], msgContent);
+                    console.log(`🧹 [去重清洗] ${varTable} 已在前文注入，当前占位符已清除`);
+                } else if (tableMessages.length > 0) {
                     const varIndex = msgContent.indexOf(varTable);
                     const preText = msgContent.substring(0, varIndex).trim();
                     const postText = msgContent.substring(varIndex + varTable.length).trim();
-
-                    // 构建新消息队列
                     const newMessages = [];
                     const originalMsg = ev.chat[i];
 
-                    // 如果变量前有内容，创建前半段消息
-                    if (preText) {
-                        newMessages.push({
-                            role: originalMsg.role,
-                            content: preText,
-                            name: originalMsg.name
-                        });
-                    }
-
-                    // 插入预构建的表格消息数组（带有 isGaigaiData 和自定义 name）
+                    if (preText) newMessages.push(cloneSplitMessage(originalMsg, preText));
+                    if (originalMsg.gaigaiPhoneSignal) tableMessages.forEach(m => m.gaigaiPhoneSignal = originalMsg.gaigaiPhoneSignal);
                     newMessages.push(...tableMessages);
+                    if (postText) newMessages.push(cloneSplitMessage(originalMsg, postText));
 
-                    // 如果变量后有内容，创建后半段消息
-                    if (postText) {
-                        newMessages.push({
-                            role: originalMsg.role,
-                            content: postText,
-                            name: originalMsg.name
-                        });
-                    }
-
-                    // 原地替换：将 1 条消息替换为多条消息
                     ev.chat.splice(i, 1, ...newMessages);
-
-                    // 更新循环索引：跳过刚插入的消息
-                    i += newMessages.length - 1;
-
-                    // 标记已替换，防止后续重复注入
                     replacedTable = true;
-
-                    console.log(`✨ [原地拆分注入] ${varTable} 已拆分为 ${newMessages.length} 条消息 (前:${preText?'有':'无'}, 数据:${tableMessages.length}条, 后:${postText?'有':'无'})`);
-
-                    // 跳过后续的 modified 处理，因为已经完成替换
-                    continue;
+                    splitted = true;
+                    console.log(`✨ [原地拆分注入] ${varTable} 处理完成`);
                 } else {
-                    // 没有数据时，仅清除变量标签
                     msgContent = msgContent.replace(varTable, '');
+                    setPrimaryTextToMessage(ev.chat[i], msgContent);
                     replacedTable = true;
-                    console.log(`🧹 [变量清洗] ${varTable} 已清除（无数据可注入）`);
-                    modified = true;
+                    console.log(`🧹 [变量清洗] ${varTable} 已清除`);
                 }
             }
 
-            // 4️⃣ 最后处理短变量：{{MEMORY}} (智能变量) - 原地拆分注入
-            // 必须放最后，防止误伤上面的变量
-            if (msgContent.includes(varSmart)) {
-                // 记录第一次出现的位置
-                if (idxSmartVar === -1) {
-                    idxSmartVar = i;
-                    console.log(`🎯 [变量扫描] 发现 ${varSmart} | 位置: #${i}`);
-                }
+            if (splitted) {
+                i--;
+                continue;
+            }
 
-                // ✅ 安全检查：只有当有数据时才执行拆分注入
-                const hasData = (summaryMessages.length > 0) || (C.tableInj && tableMessages.length > 0);
+            // 4️⃣ 处理短变量：{{MEMORY}}
+            if (msgContent.includes(varSmart)) {
+                if (idxSmartVar === -1) idxSmartVar = i;
+
+                const shouldInjectSummaryViaSmart = summaryMessages.length > 0 && !replacedSummary && !hasAllowedSummaryAnchor;
+                const shouldInjectTableViaSmart = (C.tableInj || phoneAllowsTable) && tableMessages.length > 0 && !replacedTable && !hasAllowedTableAnchor;
+                const hasData = shouldInjectSummaryViaSmart || shouldInjectTableViaSmart;
 
                 if (hasData) {
-                    // ✨ 原地拆分注入逻辑
                     const varIndex = msgContent.indexOf(varSmart);
                     const preText = msgContent.substring(0, varIndex).trim();
                     const postText = msgContent.substring(varIndex + varSmart.length).trim();
-
-                    // 构建新消息队列
                     const newMessages = [];
                     const originalMsg = ev.chat[i];
 
-                    // 如果变量前有内容，创建前半段消息
-                    if (preText) {
-                        newMessages.push({
-                            role: originalMsg.role,
-                            content: preText,
-                            name: originalMsg.name
-                        });
-                    }
-
-                    // 插入预构建的总结和表格消息数组（带有 isGaigaiData 和自定义 name）
-                    // 根据 C.tableInj 开关决定是否注入表格
-                    if (summaryMessages.length > 0) {
+                    if (preText) newMessages.push(cloneSplitMessage(originalMsg, preText));
+                    
+                    if (shouldInjectSummaryViaSmart) {
+                        if (originalMsg.gaigaiPhoneSignal) summaryMessages.forEach(m => m.gaigaiPhoneSignal = originalMsg.gaigaiPhoneSignal);
                         newMessages.push(...summaryMessages);
                     }
-                    if (C.tableInj && tableMessages.length > 0) {
+                    if (shouldInjectTableViaSmart) {
+                        if (originalMsg.gaigaiPhoneSignal) tableMessages.forEach(m => m.gaigaiPhoneSignal = originalMsg.gaigaiPhoneSignal);
                         newMessages.push(...tableMessages);
                     }
 
-                    // 如果变量后有内容，创建后半段消息
-                    if (postText) {
-                        newMessages.push({
-                            role: originalMsg.role,
-                            content: postText,
-                            name: originalMsg.name
-                        });
-                    }
+                    if (postText) newMessages.push(cloneSplitMessage(originalMsg, postText));
 
-                    // 原地替换：将 1 条消息替换为多条消息
                     ev.chat.splice(i, 1, ...newMessages);
+                    if (shouldInjectSummaryViaSmart) replacedSummary = true;
+                    if (shouldInjectTableViaSmart) replacedTable = true;
+                    replacedSmart = true;
+                    splitted = true;
 
-                    // 更新循环索引：跳过刚插入的消息
-                    i += newMessages.length - 1;
-
-                    // 标记已替换，防止后续重复注入
-                    replacedSummary = true;
-                    replacedTable = true;
-
-                    // 记录锚点位置（用于兼容旧逻辑）
                     if (anchorIndex === -1) anchorIndex = i;
                     foundAnchor = true;
-
-                    console.log(`✨ [原地拆分注入] ${varSmart} 已拆分为 ${newMessages.length} 条消息 (前:${preText?'有':'无'}, 总结:${summaryMessages.length}条, 表格:${tableMessages.length}条, 后:${postText?'有':'无'})`);
-
-                    // 跳过后续的 modified 处理，因为已经完成替换
-                    continue;
+                    console.log(`✨ [原地拆分注入] ${varSmart} 处理完成 (Summary=${shouldInjectSummaryViaSmart}, Table=${shouldInjectTableViaSmart})`);
                 } else {
-                    // 没有数据时，仅清除变量标签
                     msgContent = msgContent.replace(varSmart, '');
-                    replacedSummary = true;
-                    replacedTable = true;
-                    console.log(`🧹 [变量清洗] ${varSmart} 已清除（无数据可注入）`);
-                    modified = true;
+                    setPrimaryTextToMessage(ev.chat[i], msgContent);
+                    console.log(`🧹 [去重清洗] ${varSmart} 无可注入数据或已由专用变量接管，已清除`);
                 }
             }
 
-            // 更新消息内容 & 标记幽灵气泡
-            if (modified) {
-                ev.chat[i].content = msgContent;
+            if (splitted) {
+                i--;
+                continue;
+            }
 
-                // ✅ [修复] 判定当前消息是否为锚点 (刚刚是否发现了变量)
-                // 只要该消息触发了任意一个变量索引记录，就视为锚点，必须保留
-                const isAnchor = (i === idxTableVar) || (i === idxSmartVar) || (i === idxSummaryVar) || (i === anchorIndex);
-
-                // 👻 幽灵气泡判定：只有当内容为空 且 不是锚点消息时，才删除
-                if (msgContent.trim() === '' && !isAnchor) {
-                    ev.chat[i]._toDelete = true;
-                } else if (msgContent.trim() === '' && isAnchor) {
-                    // 调试日志
-                    console.log(`🛡️ [锚点保护] 第 ${i} 楼是变量锚点，虽然内容为空但予以保留，等待注入。`);
-                }
+            // 👻 幽灵气泡判定：只有当内容为空 且 不是锚点消息时，才删除
+            // 因为执行到这里说明没有发生分裂，可以安全判定
+            const isAnchor = (i === idxTableVar) || (i === idxSmartVar) || (i === idxSummaryVar) || (i === anchorIndex);
+            if (msgContent.trim() === '' && !isAnchor) {
+                ev.chat[i]._toDelete = true;
             }
         }
 
@@ -3341,7 +3870,6 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         if (ev.chat.some(msg => msg._toDelete)) {
             ev.chat = ev.chat.filter((msg, index) => {
                 const keep = !msg._toDelete;
-                // 如果删除了变量位置之前的消息，所有索引需要减 1，保证位置准确
                 if (!keep) {
                     if (anchorIndex !== -1 && index < anchorIndex) deletedCountBeforeAnchor++;
                     if (idxSmartVar !== -1 && index < idxSmartVar) idxSmartVar--;
@@ -3353,7 +3881,6 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             console.log('👻 [清理] 已销毁空的 User 消息对象');
         }
 
-        // 修正锚点位置
         if (anchorIndex !== -1) {
             anchorIndex = anchorIndex - deletedCountBeforeAnchor;
         }
@@ -3393,8 +3920,8 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 summaryPos = idxSmartVar;
                 summaryStrategy = `⚓ 智能变量 {{MEMORY}} (位置 #${idxSmartVar})`;
             }
-            // Priority 3: 默认位置 (✅ [修复] 仅当 C.tableInj 开启时)
-            else if (C.tableInj) {
+            // Priority 3: 默认位置（全局注入或手机 App 单独授权时）
+            else if (C.tableInj || phoneAllowsSummary) {
                 summaryPos = getDefaultPosition();
                 summaryStrategy = `📍 默认位置 (Start a new Chat 前，#${summaryPos})`;
             }
@@ -3426,8 +3953,8 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 tableStrategy = `⚓ 智能变量 {{MEMORY}} (位置 #${idxSmartVar})`;
                 shouldInject = true; // 有变量锚点，强制注入
             }
-            // Priority 3: 默认位置 (✅ [修复] 仅当 C.tableInj 开启时)
-            else if (C.tableInj) {
+            // Priority 3: 默认位置（全局注入或手机 App 单独授权时）
+            else if (C.tableInj || phoneAllowsTable) {
                 tablePos = getDefaultPosition();
                 tableStrategy = `📍 默认位置 (Start a new Chat 前，#${tablePos})`;
                 shouldInject = true;
@@ -3527,7 +4054,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         const varsToClean = ['{{MEMORY}}', '{{MEMORY_SUMMARY}}', '{{MEMORY_TABLE}}', '{{MEMORY_PROMPT}}'];
         if (ev.chat && Array.isArray(ev.chat)) {
             ev.chat.forEach(msg => {
-                let c = msg.content || msg.mes || '';
+                let c = getPrimaryTextFromMessage(msg);
                 if (!c) return;
 
                 let modified = false;
@@ -3539,8 +4066,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 });
 
                 if (modified) {
-                    if (msg.content) msg.content = c;
-                    if (msg.mes) msg.mes = c;
+                    setPrimaryTextToMessage(msg, c);
                     console.log(`⚠️ [最后防线] 清洗了残留的变量名，防止泄漏给 AI`);
                 }
             });
@@ -3626,7 +4152,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         if (hideTagDebounceTimer) clearTimeout(hideTagDebounceTimer);
 
         // 4. 使用 requestIdleCallback (兼容性写法)
-        const runTask = window.requestIdleCallback || function(cb) { setTimeout(cb, 500); };
+        const runTask = window.requestIdleCallback || function (cb) { setTimeout(cb, 500); };
 
         hideTagDebounceTimer = setTimeout(() => {
             runTask(() => {
@@ -3729,17 +4255,32 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         // ✅ 优化后的默认背景：米白色+微噪点质感（不刺眼，更像纸）
         const bookBgImage = UI.bookBg
             ? `url("${UI.bookBg}")`
-            : `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E"), linear-gradient(to bottom, #fdfbf7, #f7f4ed)`;
+            : `linear-gradient(to bottom, #f9fbff, #f2f5fa)`;
 
         // 🌙【新增】定义深色纸张背景（深灰渐变 + 噪点）
         const bookBgImageDark = UI.bookBg
             ? `url("${UI.bookBg}")` // 如果用户自定义了图，就保持用户的
-            : `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E"), linear-gradient(to bottom, #2b2b2b, #1a1a1a)`;
+            : `linear-gradient(to bottom, #2b2b2b, #1a1a1a)`;
 
         // ✅ 🌙 Dark Mode: 动态变量定义 (深色毛玻璃版)
         const isDark = UI.darkMode;
+        const bg_header_glass = isDark ? `rgba(${rgbStr}, 0.48)` : `rgba(${rgbStr}, 0.56)`;
+        const bg_toolbar_glass = isDark ? `rgba(${rgbStr}, 0.16)` : `rgba(${rgbStr}, 0.20)`;
+        const bg_button_glass = isDark ? `rgba(${rgbStr}, 0.24)` : `rgba(${rgbStr}, 0.26)`;
+        const bg_button_hover = isDark ? `rgba(${rgbStr}, 0.34)` : `rgba(${rgbStr}, 0.34)`;
+        const bg_button_active = isDark ? `rgba(${rgbStr}, 0.46)` : `rgba(${rgbStr}, 0.44)`;
+        const bg_tab_idle = isDark ? `rgba(${rgbStr}, 0.20)` : `rgba(${rgbStr}, 0.16)`;
+        const book_surface = isDark ? '#20242b' : '#f6f8fc';
+        const book_ink = isDark ? '#dbe2ee' : '#2e3642';
+        const book_sub_ink = isDark ? '#bbc4d3' : '#5c6678';
+        const book_line = isDark ? 'rgba(219, 226, 238, 0.22)' : 'rgba(46, 54, 66, 0.18)';
+        const book_btn_bg = isDark ? 'rgba(219, 226, 238, 0.10)' : 'rgba(46, 54, 66, 0.08)';
+        const book_btn_hover = isDark ? 'rgba(219, 226, 238, 0.16)' : 'rgba(46, 54, 66, 0.14)';
+        const bg_book_content = isDark ? `rgba(${rgbStr}, 0.10)` : `rgba(${rgbStr}, 0.12)`;
+        const bg_book_content_hover = isDark ? `rgba(${rgbStr}, 0.14)` : `rgba(${rgbStr}, 0.18)`;
+        const bg_book_content_focus = isDark ? `rgba(${rgbStr}, 0.20)` : `rgba(${rgbStr}, 0.24)`;
         // 窗口背景：降低透明度到 0.75，让模糊效果透出来，颜色改为深灰黑
-        const bg_window = isDark ? 'rgba(25, 25, 25, 0.75)' : 'rgba(252, 252, 252, 0.85)';
+        const bg_window = isDark ? 'rgba(30, 30, 30, 0.75)' : 'rgba(255, 255, 255, 0.75)';
         // 面板背景：不再用实色，改为半透明黑，叠加在窗口上增加层次感
         const bg_panel = isDark ? 'rgba(0, 0, 0, 0.25)' : '#fcfcfc';
         const bg_header = UI.c;
@@ -3752,6 +4293,8 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         const bg_table_cell = isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.5)'; // 单元格极淡
         const bg_edit_focus = isDark ? 'rgba(60, 60, 60, 0.9)' : 'rgba(255, 249, 230, 0.95)';
         const bg_edit_hover = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 251, 240, 0.9)';
+        const bg_book_edit_focus = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.36)';
+        const bg_book_edit_hover = isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.18)';
         const bg_row_num = isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(200, 200, 200, 0.4)';
         const bg_summarized = isDark ? 'rgba(40, 167, 69, 0.25)' : 'rgba(40, 167, 69, 0.15)';
 
@@ -3785,6 +4328,23 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             display: flex !important; flex-direction: column !important;
             position: relative !important; margin: auto !important;
             transform: none !important; left: auto !important; top: auto !important;
+        }
+
+        /* 2.1 页面切换稳定器：兼容主题自带全局 transition/transform */
+        #gai-main-pop.gg-nav-switching,
+        #gai-main-pop.gg-nav-switching *,
+        #gai-main-pop.gg-nav-switching *::before,
+        #gai-main-pop.gg-nav-switching *::after {
+            transition: none !important;
+            animation: none !important;
+            scroll-behavior: auto !important;
+        }
+        #gai-main-pop.gg-nav-switching .g-w,
+        #gai-main-pop.gg-nav-switching .g-bd,
+        #gai-main-pop.gg-nav-switching .g-vw,
+        #gai-main-pop.gg-nav-switching .g-p,
+        #gai-main-pop.gg-nav-switching .g-hd {
+            transform: none !important;
         }
 
         /* 🌙 强制所有弹窗容器使用动态背景色 (覆盖 style.css 的固定白色) */
@@ -3839,7 +4399,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         }
 
         .g-tbl-wrap th {
-            background: ${bg_header} !important;
+            background: ${bg_header_glass} !important;
             color: ${color_text} !important;
             border-right: 1px solid ${color_border} !important;
             border-bottom: 1px solid ${color_border} !important;
@@ -3913,7 +4473,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             border-bottom: 2px solid ${UI.c} !important; 
         }
 
-        .g-t.act { background: ${UI.c} !important; filter: brightness(0.9); color: ${UI.tc} !important; font-weight: bold !important; border: none !important; box-shadow: inset 0 -2px 0 rgba(0,0,0,0.2) !important; }
+        /* 标签激活样式在后文统一定义（玻璃主题版） */
         .g-row.g-selected td { background-color: ${selectionBg} !important; }
         .g-row.g-selected { outline: 2px solid ${UI.c} !important; outline-offset: -2px !important; }
         .g-row {
@@ -3948,7 +4508,53 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             opacity: 1 !important;
         }
 
-        .g-hd { background: ${bg_header} !important; opacity: 0.98; border-bottom: 1px solid ${color_border} !important; padding: 0 16px !important; height: 50px !important; display: flex !important; align-items: center !important; justify-content: space-between !important; flex-shrink: 0 !important; border-radius: 12px 12px 0 0 !important; }
+        .g-hd { background: ${bg_header_glass} !important; opacity: 0.98; border-bottom: 1px solid ${color_border} !important; padding: 0 16px !important; height: 50px !important; display: flex !important; align-items: center !important; justify-content: space-between !important; flex-shrink: 0 !important; border-radius: 12px 12px 0 0 !important; backdrop-filter: blur(12px) saturate(140%) !important; -webkit-backdrop-filter: blur(12px) saturate(140%) !important; }
+
+        .g-tl-header {
+            background: ${bg_toolbar_glass} !important;
+            border: 1px solid ${color_border} !important;
+            border-radius: 10px !important;
+            padding: 8px !important;
+            backdrop-filter: blur(10px) saturate(125%) !important;
+            -webkit-backdrop-filter: blur(10px) saturate(125%) !important;
+        }
+
+        .g-toolbar-panel {
+            background: ${bg_toolbar_glass} !important;
+            border: 1px solid ${color_border} !important;
+            border-radius: 10px !important;
+            padding: 8px !important;
+            backdrop-filter: blur(10px) saturate(125%) !important;
+            -webkit-backdrop-filter: blur(10px) saturate(125%) !important;
+        }
+
+        .g-ts {
+            background: ${bg_toolbar_glass} !important;
+            border-top: 1px solid ${color_border} !important;
+            border-bottom: 1px solid ${color_border} !important;
+            border-radius: 10px !important;
+            backdrop-filter: blur(10px) saturate(125%) !important;
+            -webkit-backdrop-filter: blur(10px) saturate(125%) !important;
+        }
+
+        .g-t {
+            background: ${bg_tab_idle} !important;
+            color: ${color_text} !important;
+            border: 1px solid ${color_border} !important;
+            opacity: 0.92 !important;
+        }
+
+        .g-t:hover {
+            background: ${bg_button_hover} !important;
+        }
+
+        .g-t.act {
+            background: ${bg_header_glass} !important;
+            color: ${color_text} !important;
+            border: 1px solid ${color_border} !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+            opacity: 1 !important;
+        }
 
         /* ✨✨✨ 标题栏优化：增大字号、强制颜色跟随主题 ✨✨✨ */
         .g-hd h3 {
@@ -4030,6 +4636,10 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         
         .g-e:focus { outline: 2px solid ${bg_header} !important; outline-offset: -2px; background: ${bg_edit_focus} !important; /* 🌙 动态背景 */ box-shadow: 0 4px 12px ${shadowColor} !important; z-index: 10; position: relative; overflow-y: auto !important; align-items: flex-start !important; }
         .g-e:hover { background: ${bg_edit_hover} !important; /* 🌙 动态背景 */ box-shadow: inset 0 0 0 1px var(--g-c); }
+
+        /* 📖 总结笔记本：去除米黄色聚焦底，改为中性玻璃白 */
+        .g-book-view .g-e:hover { background: ${bg_book_edit_hover} !important; box-shadow: none !important; }
+        .g-book-view .g-e:focus { background: ${bg_book_edit_focus} !important; box-shadow: none !important; outline: 1px solid ${color_border} !important; outline-offset: -1px !important; }
         
         /* 1. 基础状态：强制背景色和文字颜色 */
         #gai-main-pop input[type="number"], #gai-main-pop input[type="text"], #gai-main-pop input[type="password"], #gai-main-pop select, #gai-main-pop textarea { 
@@ -4083,46 +4693,48 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             background: ${bg_input} !important;
         }
         
-        .g-col-num { position: sticky !important; left: 0 !important; z-index: 11 !important; background: ${bg_header} !important; border-right: 1px solid ${color_border} !important; }
+        .g-col-num { position: sticky !important; left: 0 !important; z-index: 11 !important; background: ${bg_header_glass} !important; border-right: 1px solid ${color_border} !important; }
         tbody .g-col-num { background: ${bg_row_num} !important; /* 🌙 动态背景 */ z-index: 9 !important; }
         
-        .g-tl button, .g-p button { background: ${bg_header} !important; color: ${color_text} !important; border: 1px solid ${color_border} !important; border-radius: 6px !important; padding: 6px 12px !important; font-size: var(--g-fs, 12px) !important; font-weight: 600 !important; cursor: pointer !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; white-space: nowrap !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; transition: none !important; }
-        .g-tl button:active, .g-p button:active { transform: none !important; }
+        .g-tl button, .g-p button { background: ${bg_button_glass} !important; color: ${color_text} !important; border: 1px solid ${color_border} !important; border-radius: 8px !important; padding: 6px 12px !important; font-size: var(--g-fs, 12px) !important; font-weight: 600 !important; cursor: pointer !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; white-space: nowrap !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; transition: background 0.2s, box-shadow 0.2s !important; backdrop-filter: blur(8px) saturate(120%) !important; -webkit-backdrop-filter: blur(8px) saturate(120%) !important; }
+        .g-tl button:hover, .g-p button:hover { background: ${bg_button_hover} !important; box-shadow: 0 4px 10px rgba(0,0,0,0.14) !important; }
+        .g-tl button:active, .g-p button:active { transform: none !important; background: ${bg_button_active} !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; }
 
         #gai-main-pop ::-webkit-scrollbar { width: 8px !important; height: 8px !important; }
         #gai-main-pop ::-webkit-scrollbar-thumb { background: ${bg_header} !important; border-radius: 10px !important; }
         #gai-main-pop ::-webkit-scrollbar-thumb:hover { background: ${bg_header} !important; filter: brightness(0.8); }
         
         @media (max-width: 600px) {
-            .g-w { width: 100vw !important; height: 85vh !important; bottom: 0 !important; border-radius: 12px 12px 0 0 !important; position: absolute !important; }
+            .g-w { width: 100vw !important; height: 85dvh !important; min-height: 85vh !important; bottom: auto !important; border-radius: 12px !important; position: relative !important; margin: auto !important; }
             .g-ts { flex-wrap: nowrap !important; overflow-x: auto !important; }
             .g-row-resizer { height: 12px !important; bottom: -6px !important; }
             .g-col-resizer { width: 20px !important; right: -10px !important; }
         }
 
-        /* 📖 优化的笔记本样式 (复古手账风) - 手机端修复版 */
+        /* 📖 优化的笔记本样式（中性灰白主题） */
         .g-book-view {
             width: 100%;
             height: 100%;
             display: flex;
             flex-direction: column;
-            background-color: #fdfbf7;
+            background-color: ${book_surface};
             background-image: ${bookBgImage} !important;
             background-size: cover !important;
             background-position: center !important;
             background-repeat: no-repeat !important;
-            box-shadow: inset 25px 0 30px -10px rgba(0,0,0,0.15);
+            box-shadow: none;
             padding: 30px 50px;
             box-sizing: border-box;
             font-family: "Georgia", "Songti SC", "SimSun", serif;
-            color: #4a3b32;
+            color: ${book_ink};
             position: relative;
+            overflow: hidden;
         }
 
         /* 头部：包含标题和翻页按钮 */
         .g-book-header {
             margin-bottom: 10px;
-            border-bottom: 2px solid #8d6e63;
+            border-bottom: 2px solid ${book_line};
             padding-bottom: 10px;
             display: flex;
             justify-content: space-between;
@@ -4135,7 +4747,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             font-size: 18px;
             font-weight: bold;
             letter-spacing: 1px;
-            color: #4a3b32;
+            color: ${book_ink};
             margin: 0;
             min-width: 100px;
         }
@@ -4145,7 +4757,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             overflow-y: auto;
             line-height: 1.8;
             font-size: 15px;
-            color: #4a3b32;
+            color: ${book_ink};
             outline: none;
             white-space: pre-wrap;
             text-align: justify;
@@ -4162,7 +4774,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             align-items: center;
             gap: 10px;
             font-size: 13px;
-            color: #5d4037;
+            color: ${book_sub_ink};
             margin: 0;
             padding: 0;
             border: none;
@@ -4171,11 +4783,11 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         }
 
         .g-book-btn {
-            border: none;
-            background: rgba(141, 110, 99, 0.1); /* 给按钮加点底色方便按 */
+            border: 1px solid ${book_line};
+            background: ${book_btn_bg};
             cursor: pointer;
             font-size: 13px;
-            color: #5d4037;
+            color: ${book_sub_ink};
             padding: 4px 10px;
             border-radius: 4px;
             transition: all 0.2s;
@@ -4183,7 +4795,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         }
 
         .g-book-btn:hover:not(:disabled) {
-            background: rgba(93, 64, 55, 0.15);
+            background: ${book_btn_hover};
             transform: translateY(-1px);
         }
 
@@ -4193,7 +4805,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             background: transparent;
         }
 
-        .g-book-page-num { font-weight: bold; font-family: monospace; color: #555; }
+        .g-book-page-num { font-weight: bold; font-family: monospace; color: ${book_sub_ink}; }
 
         .g-book-view .g-e {
             position: relative !important;
@@ -4206,11 +4818,18 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         .g-book-content.g-e {
             padding: 10px 20px !important;
             min-height: 200px !important;
+            box-shadow: none !important;
+            border-left: none !important;
+            border-right: none !important;
+            background: ${bg_book_content} !important;
+            border-radius: 8px !important;
         }
+        .g-book-content.g-e:hover { background: ${bg_book_content_hover} !important; }
+        .g-book-content.g-e:focus { background: ${bg_book_content_focus} !important; }
 
         .g-book-meta-container {
-            background: linear-gradient(to bottom, rgba(141, 110, 99, 0.08), transparent);
-            border-bottom: 1px solid rgba(141, 110, 99, 0.25);
+            background: linear-gradient(to bottom, ${book_btn_bg}, transparent);
+            border-bottom: 1px solid ${book_line};
             padding: 8px 12px;
             margin: -5px 0 15px 0 !important;
             border-radius: 4px;
@@ -4219,28 +4838,36 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         .g-book-meta-tags { display: flex; flex-wrap: wrap; gap: 8px; line-height: 1.5; }
         
         .g-book-meta-tag {
-            font-size: 11px; padding: 2px 8px; background: rgba(255, 255, 255, 0.5);
-            border-radius: 4px; color: #6d4c41; border: 1px solid rgba(141, 110, 99, 0.3);
+            font-size: 11px; padding: 2px 8px; background: ${book_btn_bg};
+            border-radius: 4px; color: ${book_sub_ink}; border: 1px solid ${book_line};
             font-family: "Georgia", "Songti SC", serif; display: inline-flex; align-items: center; gap: 4px;
         }
         
-        .g-book-meta-label { font-weight: 600; color: #8d6e63; font-size: 11px; }
+        .g-book-meta-label { font-weight: 600; color: ${book_sub_ink}; font-size: 11px; }
 
         .g-book-page-input {
             width: 45px; text-align: center; font-weight: bold; font-family: monospace;
-            color: #555; border: 1px solid #cbb0a1; border-radius: 4px; padding: 2px 0;
-            background: rgba(255, 255, 255, 0.8); font-size: 12px;
+            color: ${book_sub_ink}; border: 1px solid ${book_line}; border-radius: 4px; padding: 2px 0;
+            background: ${bg_button_glass}; font-size: 12px;
         }
 
         /* 📱 手机端最终修复：限制高度，强制内部滚动 */
         @media (max-width: 600px) {
+            /* 0. 遮罩容器：改为垂直居中，并给安全区留白 */
+            .g-ov {
+                align-items: center !important;
+                padding: max(8px, env(safe-area-inset-top)) 0 max(8px, env(safe-area-inset-bottom)) !important;
+            }
+
             /* 1. 弹窗固定大小，留出上下边距 */
             .g-w { 
                 width: 100vw !important; 
-                height: 85vh !important; /* 限制高度，不要撑满 */
-                bottom: 0 !important; 
-                border-radius: 12px 12px 0 0 !important; 
-                position: absolute !important; 
+                height: 85dvh !important; /* 限制高度，不要撑满 */
+                min-height: 85vh !important;
+                bottom: auto !important; 
+                border-radius: 12px !important; 
+                position: relative !important; 
+                margin: auto !important;
                 display: flex !important;
                 flex-direction: column !important;
                 overflow: hidden !important; /* 关键：禁止整个弹窗滚动 */
@@ -4503,7 +5130,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             }
             .g-tbl-wrap th {
                 border-color: rgba(255, 255, 255, 0.1) !important;
-                background: rgba(30, 30, 30, 0.9) !important; /* 表头稍微实一点 */
+                background: ${bg_header_glass} !important; /* 表头跟随主题玻璃色 */
             }
             /* 选中行 */
             .g-row.g-selected td {
@@ -4516,7 +5143,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 background-image: ${bookBgImageDark} !important;
                 background-color: #1a1a1a !important;
                 color: ${color_text} !important;
-                box-shadow: inset 0 0 50px rgba(0,0,0,0.8) !important;
+                box-shadow: none !important;
             }
             .g-book-btn {
                 background: rgba(255, 255, 255, 0.05) !important;
@@ -4539,18 +5166,23 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             width: 260px;
             background: ${bg_window};
             z-index: 100;
-            box-shadow: 4px 0 15px rgba(0,0,0,0.2);
+            box-shadow: none;
             transform: translateX(-100%);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s;
+            opacity: 0;
             display: flex;
             flex-direction: column;
             backdrop-filter: blur(10px);
             border-right: 1px solid ${color_border};
+            pointer-events: none;
         }
 
         /* 展开状态 */
         .g-book-toc-panel.active {
             transform: translateX(0);
+            opacity: 1;
+            box-shadow: 4px 0 15px rgba(0,0,0,0.2);
+            pointer-events: auto;
         }
 
         /* 目录头部 */
@@ -4653,11 +5285,28 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         $('<style id="gaigai-theme">').text(style).appendTo('head');
     }
 
+    function applyNavSwitchStabilizer($overlay) {
+        if (!$overlay || $overlay.length === 0) return;
+        if (navSwitchStabilizeTimer) {
+            clearTimeout(navSwitchStabilizeTimer);
+            navSwitchStabilizeTimer = null;
+        }
+        $overlay.addClass('gg-nav-switching');
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                navSwitchStabilizeTimer = setTimeout(() => {
+                    $overlay.removeClass('gg-nav-switching');
+                    navSwitchStabilizeTimer = null;
+                }, 320);
+            });
+        });
+    }
+
     function pop(ttl, htm, showBack = false) {
-        $('#gai-main-pop').remove();
+        const $prevMainPop = $('#gai-main-pop').first();
         thm(); // 重新应用样式
 
-        const $o = $('<div>', { id: 'gai-main-pop', class: 'g-ov' });
+        const $o = $('<div>', { id: 'gai-main-pop', class: 'g-ov gg-nav-switching' });
         const $p = $('<div>', { class: 'g-w' });
         const $h = $('<div>', { class: 'g-hd' });
 
@@ -4684,6 +5333,10 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             text: '×'
         }).on('click', () => {
             window.isEditingConfig = false; // 关闭弹窗时重置编辑标志
+            if (navSwitchStabilizeTimer) {
+                clearTimeout(navSwitchStabilizeTimer);
+                navSwitchStabilizeTimer = null;
+            }
             $o.remove();
             pageStack = [];
         });
@@ -4698,9 +5351,13 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
         // ❌ [已禁用] 点击遮罩关闭 - 防止编辑时误触
         // $o.on('click', e => { if (e.target === $o[0]) { $o.remove(); pageStack = []; } });
-        $(document).on('keydown.g', e => {
+        $(document).off('keydown.g').on('keydown.g', e => {
             if (e.key === 'Escape') {
                 window.isEditingConfig = false; // Esc关闭时也重置编辑标志
+                if (navSwitchStabilizeTimer) {
+                    clearTimeout(navSwitchStabilizeTimer);
+                    navSwitchStabilizeTimer = null;
+                }
                 $o.remove();
                 pageStack = [];
                 $(document).off('keydown.g');
@@ -4708,6 +5365,8 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         });
 
         $('body').append($o);
+        if ($prevMainPop.length > 0) $prevMainPop.remove();
+        applyNavSwitchStabilizer($o);
         return $p;
     }
 
@@ -4796,19 +5455,19 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         </div>
         <div class="g-toolbar-panel" id="gai-toolbar-panel"${panelStyle}>
             <div class="g-btn-group">
-                <button id="gai-btn-add" title="新增一行">➕ 新增</button>
-                <button id="gai-btn-del" title="删除选中行">🗑️ 删除</button>
-                <button id="gai-btn-toggle" title="切换选中行的已总结状态">👻 显/隐</button>
-                <button id="gai-btn-sum" title="AI智能总结">📝 总结</button>
-                <button id="gai-btn-back" title="追溯历史剧情填表">⚡ 追溯</button>
-                <button id="gai-btn-move" title="移动选中行到其他表格">🚀 移动</button>
-                <button id="gai-btn-export" title="导出JSON备份">📤 导出</button>
-                <button id="gai-btn-import" title="从JSON恢复数据">📥 导入</button>
-                <button id="gai-btn-view" title="视图设置">📏 视图</button>
-                <button id="gai-btn-cleanup" title="清理数据选项">🧹 清表</button>
-                <button id="gai-btn-theme" title="设置外观">🎨 主题</button>
-                <button id="gai-btn-config" title="插件设置">⚙️ 配置</button>
-            </div>
+            <button id="gai-btn-add" title="新增一行"><i class="fa-solid fa-plus"></i> 新增</button>
+            <button id="gai-btn-del" title="删除选中行"><i class="fa-solid fa-trash-can"></i> 删除</button>
+            <button id="gai-btn-export" title="导出JSON备份"><i class="fa-solid fa-file-export"></i> 导出</button>
+            <button id="gai-btn-import" title="从JSON恢复数据"><i class="fa-solid fa-file-import"></i> 导入</button>
+            <button id="gai-btn-move" title="移动选中行到其他表格"><i class="fa-solid fa-rocket"></i> 移动</button>
+            <button id="gai-btn-cleanup" title="清理数据选项"><i class="fa-solid fa-broom"></i> 清表</button>
+            <button id="gai-btn-view" title="视图设置"><i class="fa-solid fa-ruler-combined"></i> 视图</button>
+            <button id="gai-btn-theme" title="设置外观"><i class="fa-solid fa-palette"></i> 主题</button>
+            <button id="gai-btn-back" title="追溯历史剧情填表"><i class="fa-solid fa-bolt"></i> 追溯</button>
+            <button id="gai-btn-sum" title="AI智能总结"><i class="fa-solid fa-pen-to-square"></i> 总结</button>
+            <button id="gai-btn-toggle" title="切换选中行的已总结状态"><i class="fa-solid fa-ghost"></i> 显/隐</button>
+            <button id="gai-btn-config" title="插件设置"><i class="fa-solid fa-gear"></i> 配置</button>
+         </div>
         </div>
     `;
 
@@ -4888,7 +5547,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         // 1. 空数据状态
         if (!sheet.r || sheet.r.length === 0) {
             return `<div class="g-tbc" data-i="${tableIndex}" style="${v}">
-                <div class="g-book-view" style="justify-content:center; align-items:center; color:#8d6e63;">
+                <div class="g-book-view" style="justify-content:center; align-items:center; color:var(--g-tc);">
                     <i class="fa-solid fa-book-open" style="font-size:48px; margin-bottom:10px; opacity:0.5;"></i>
                     <div>暂无记忆总结</div>
                     <div style="font-size:12px; margin-top:5px;">(请点击上方"总结"按钮生成)</div>
@@ -4901,7 +5560,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         if (currentBookPage < 0) currentBookPage = 0;
 
         // ✨✨✨ 生成目录 HTML ✨✨✨
-        let tocItems = '';
+        let tocItemsArr = [];
         sheet.r.forEach((r, idx) => {
             const tTitle = r[0] || '无标题';
             const tContent = (r[1] || '').substring(0, 30);
@@ -4909,20 +5568,33 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             const tNote = r[2] ? `<div class="g-toc-meta">📌 ${esc(r[2])}</div>` : '';
             const activeClass = idx === currentBookPage ? ' active' : '';
 
-            tocItems += `
+            tocItemsArr.push(`
                 <div class="g-toc-item${activeClass}" data-page="${idx}" data-ti="${tableIndex}">
                     <div class="g-toc-title">${idx + 1}. ${esc(tTitle)}</div>
                     ${tNote}
                     <div class="g-toc-preview">${esc(tContentDisplay)}</div>
-                </div>`;
+                </div>`);
         });
+
+        // 根据配置决定是否倒序
+        if (C.reverseToc) {
+            tocItemsArr.reverse();
+        }
+        let tocItems = tocItemsArr.join('');
 
         const tocHtml = `
             <div class="g-toc-overlay" id="gai-toc-overlay-${tableIndex}"></div>
             <div class="g-book-toc-panel" id="gai-book-toc-${tableIndex}">
                 <div class="g-toc-header">
                     <span>📚 目录导航</span>
-                    <button id="gai-toc-close-${tableIndex}" style="background:none;border:none;cursor:pointer;font-size:20px;color:inherit;padding:0;">×</button>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <button class="g-toc-move-btn up" data-ti="${tableIndex}" style="background:rgba(0,0,0,0.1); border:none; border-radius:4px; cursor:pointer; font-size:11px; color:inherit; padding:4px 8px;" title="上移当前页">↑</button>
+                        <button class="g-toc-move-btn down" data-ti="${tableIndex}" style="background:rgba(0,0,0,0.1); border:none; border-radius:4px; cursor:pointer; font-size:11px; color:inherit; padding:4px 8px;" title="下移当前页">↓</button>
+                        <button class="g-toc-sort-btn" data-ti="${tableIndex}" style="background:rgba(0,0,0,0.1); border:none; border-radius:4px; cursor:pointer; font-size:11px; color:inherit; padding:4px 8px;" title="切换排序">
+                            ${C.reverseToc ? '🔽 倒序' : '🔼 正序'}
+                        </button>
+                        <button id="gai-toc-close-${tableIndex}" style="background:none;border:none;cursor:pointer;font-size:20px;color:inherit;padding:0;">×</button>
+                    </div>
                 </div>
                 <div class="g-toc-list">
                     ${tocItems}
@@ -5058,19 +5730,33 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             // ✅ Fix colspan: RowNum(1) + DataColumns(s.c.length)
             h += `<tr class="g-emp"><td colspan="${s.c.length + 1}">暂无数据</td></tr>`;
         } else {
-            // ✅ 倒序显示逻辑：根据 C.reverseView 决定渲染顺序
+            // ✅ 智能视图排序逻辑：支持沉底与倒序混合
             const renderRows = () => {
-                if (C.reverseView) {
-                    // 倒序渲染：从最后一行到第一行
-                    for (let ri = s.r.length - 1; ri >= 0; ri--) {
-                        renderRow(ri);
+                // 1. 生成原始索引数组
+                let indices = Array.from({ length: s.r.length }, (_, i) => i);
+
+                if (C.sinkHiddenRows) {
+                    // 2. 分离：未隐藏(白色) 和 已隐藏(绿色)
+                    let visible = indices.filter(ri => !isSummarized(ti, ri));
+                    let hidden = indices.filter(ri => isSummarized(ti, ri));
+
+                    // 3. 如果开启了倒序，各自块内倒序
+                    if (C.reverseView) {
+                        visible.reverse();
+                        hidden.reverse();
                     }
+
+                    // 4. 拼接：显示的在上，隐藏的在下
+                    indices = [...visible, ...hidden];
                 } else {
-                    // 正序渲染：从第一行到最后一行
-                    s.r.forEach((rw, ri) => {
-                        renderRow(ri);
-                    });
+                    // 如果没开启沉底，只处理倒序
+                    if (C.reverseView) {
+                        indices.reverse();
+                    }
                 }
+
+                // 5. 按计算好的顺序进行渲染
+                indices.forEach(ri => renderRow(ri));
             };
 
             // 渲染单行的函数（保持 data-r 为真实索引）
@@ -5311,6 +5997,88 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             $(`#gai-toc-overlay-${ti}`).removeClass('active');
         });
 
+        // 5. 切换目录排序
+        $('#gai-main-pop').off('click', '.g-toc-sort-btn').on('click', '.g-toc-sort-btn', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const ti = parseInt($(this).data('ti'));
+
+            // 切换状态并保存配置
+            C.reverseToc = !C.reverseToc;
+            try { localStorage.setItem('gg_config', JSON.stringify(C)); } catch (err) { }
+            if (typeof window.Gaigai.saveAllSettingsToCloud === 'function') {
+                window.Gaigai.saveAllSettingsToCloud().catch(() => { });
+            }
+
+            // 刷新视图
+            refreshBookView(ti);
+
+            // 刷新后 HTML 会被替换，目录面板会自动关闭，所以我们需要在短暂延迟后重新自动打开它
+            setTimeout(() => {
+                $(`#gai-book-toc-${ti}`).addClass('active');
+                $(`#gai-toc-overlay-${ti}`).addClass('active');
+            }, 50);
+        });
+
+        // 6. 移动目录页（上移/下移）
+        $('#gai-main-pop').off('click', '.g-toc-move-btn').on('click', '.g-toc-move-btn', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const $btn = $(this);
+            const ti = parseInt($btn.data('ti'));
+            const ri = currentBookPage;
+            let direction = $btn.hasClass('up') ? -1 : 1;
+
+            // 适配倒序：如果开启了倒序，视觉上的"上下"与底层数组的"前后"是相反的
+            if (C.reverseToc) {
+                direction = -direction;
+            }
+
+            const sh = m.get(ti);
+            if (!sh) return;
+
+            const success = sh.move(ri, direction);
+            if (!success) {
+                if (typeof toastr !== 'undefined') {
+                    toastr.warning('无法移动：已在边界', '提示', { timeOut: 1000 });
+                }
+                return;
+            }
+
+            // 同步修正当前正在阅读的页码，防止视觉跳脱
+            currentBookPage = ri + direction;
+
+            // 同步修正该页的隐藏(变绿)状态
+            if (summarizedRows[ti]) {
+                const hasCurrent = summarizedRows[ti].includes(ri);
+                const hasTarget = summarizedRows[ti].includes(ri + direction);
+
+                if (hasCurrent !== hasTarget) {
+                    if (hasCurrent) {
+                        summarizedRows[ti] = summarizedRows[ti].filter(x => x !== ri);
+                        summarizedRows[ti].push(ri + direction);
+                    }
+                    if (hasTarget) {
+                        summarizedRows[ti] = summarizedRows[ti].filter(x => x !== ri + direction);
+                        summarizedRows[ti].push(ri);
+                    }
+                    if (typeof saveSummarizedRows === 'function') saveSummarizedRows();
+                }
+            }
+
+            lastManualEditTime = Date.now();
+            m.save(true, true);
+
+            refreshBookView(ti);
+
+            // 视图刷新后，HTML被替换，我们需要在稍作延迟后重新为目录元素添加 active 类以保持目录打开
+            setTimeout(() => {
+                $('#gai-book-toc-' + ti).addClass('active');
+                $('#gai-toc-overlay-' + ti).addClass('active');
+            }, 50);
+        });
+
         // 辅助函数：刷新笔记本视图
         function refreshBookView(tableIndex) {
             const sheet = m.get(tableIndex);
@@ -5412,6 +6180,9 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             function finish() {
                 saveSummarizedRows();
                 m.save(false, true); // 手动总结完成后立即保存
+                if (typeof window.Gaigai.updateCurrentSnapshot === 'function') {
+                    window.Gaigai.updateCurrentSnapshot();
+                }
                 refreshTable(ti);
                 $overlay.remove();
             }
@@ -6499,7 +7270,9 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 lastManualEditTime = Date.now();
 
                 // 重置填表进度指针（不重置总结指针）
+                API_CONFIG.lastSummaryIndex = 0;
                 API_CONFIG.lastBackfillIndex = 0;
+                API_CONFIG.lastBigSummaryIndex = 0; // ✅ 切换会话时，大总结指针也重置为0
                 localStorage.setItem(AK, JSON.stringify(API_CONFIG));
 
                 // 同步到云端
@@ -6558,6 +7331,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 // 2. 重置总结进度
                 API_CONFIG.lastSummaryIndex = 0;
                 API_CONFIG.lastBackfillIndex = 0;
+                API_CONFIG.lastBigSummaryIndex = 0;
                 localStorage.setItem(AK, JSON.stringify(API_CONFIG));
 
                 // 异步触发云端同步
@@ -6694,6 +7468,14 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     finish('所有页面已设为隐藏');
                 });
 
+                const $btnShowAll = $('<button>', {
+                    html: '📖 将所有页面设为【显示/正常】',
+                    css: btnCss
+                }).on('click', () => {
+                    if (summarizedRows[ti]) summarizedRows[ti] = [];
+                    finish('所有页面已设为显示');
+                });
+
                 // 3. 指定范围输入区
                 const $rangeArea = $('<div>', { css: { display: 'flex', gap: '5px', marginTop: '5px', alignItems: 'center' } });
                 const $rangeInput = $('<input>', {
@@ -6711,25 +7493,31 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         color: UI.tc
                     }
                 });
-                const $rangeBtn = $('<button>', {
-                    text: '执行',
+                const $rangeHideBtn = $('<button>', {
+                    text: '隐藏',
                     css: {
-                        flex: '0 0 auto', // ✨ 按钮不伸缩
-                        padding: '6px 12px', // ✨ 减小内边距
-                        background: btnBg,
-                        color: btnColor,
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap' // ✨ 防止文字换行
+                        flex: '0 0 auto', padding: '6px 10px', background: btnBg, color: btnColor,
+                        border: 'none', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap'
                     }
                 }).on('click', () => {
                     const val = $rangeInput.val().trim();
                     if (!val) return;
-                    processRange(val);
+                    processRange(val, 'hide');
                 });
 
-                $rangeArea.append($rangeInput, $rangeBtn);
+                const $rangeShowBtn = $('<button>', {
+                    text: '显示',
+                    css: {
+                        flex: '0 0 auto', padding: '6px 10px', background: btnBg, color: btnColor,
+                        border: 'none', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap'
+                    }
+                }).on('click', () => {
+                    const val = $rangeInput.val().trim();
+                    if (!val) return;
+                    processRange(val, 'show');
+                });
+
+                $rangeArea.empty().append($rangeInput, $rangeHideBtn, $rangeShowBtn);
 
                 const $cancelBtn = $('<button>', {
                     text: '取消',
@@ -6753,7 +7541,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     else summarizedRows[ti].push(ri);
                 }
 
-                function processRange(str) {
+                function processRange(str, action = 'hide') {
                     if (!summarizedRows[ti]) summarizedRows[ti] = [];
                     const parts = str.split(/[,，]/);
                     let count = 0;
@@ -6763,8 +7551,12 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                             if (!isNaN(s) && !isNaN(e)) {
                                 for (let i = s; i <= e; i++) {
                                     if (i > 0 && i <= totalPages) {
-                                        if (!summarizedRows[ti].includes(i - 1)) {
-                                            summarizedRows[ti].push(i - 1);
+                                        const targetIdx = i - 1;
+                                        if (action === 'hide' && !summarizedRows[ti].includes(targetIdx)) {
+                                            summarizedRows[ti].push(targetIdx);
+                                            count++;
+                                        } else if (action === 'show' && summarizedRows[ti].includes(targetIdx)) {
+                                            summarizedRows[ti] = summarizedRows[ti].filter(idx => idx !== targetIdx);
                                             count++;
                                         }
                                     }
@@ -6773,19 +7565,27 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         } else {
                             const idx = parseInt(p);
                             if (!isNaN(idx) && idx > 0 && idx <= totalPages) {
-                                if (!summarizedRows[ti].includes(idx - 1)) {
-                                    summarizedRows[ti].push(idx - 1);
+                                const targetIdx = idx - 1;
+                                if (action === 'hide' && !summarizedRows[ti].includes(targetIdx)) {
+                                    summarizedRows[ti].push(targetIdx);
+                                    count++;
+                                } else if (action === 'show' && summarizedRows[ti].includes(targetIdx)) {
+                                    summarizedRows[ti] = summarizedRows[ti].filter(id => id !== targetIdx);
                                     count++;
                                 }
                             }
                         }
                     });
-                    finish(`已将指定范围内的 ${count} 篇设为隐藏`);
+                    const actionText = action === 'hide' ? '隐藏' : '显示';
+                    finish(`已将指定范围内的 ${count} 篇设为${actionText}`);
                 }
 
                 function finish(msg) {
                     saveSummarizedRows();
                     m.save(true, true); // 总结标记操作立即保存
+                    if (typeof window.Gaigai.updateCurrentSnapshot === 'function') {
+                        window.Gaigai.updateCurrentSnapshot();
+                    }
                     // 刷新总结视图
                     const renderBookUI = window.Gaigai.renderBookUI || (function () { }); // 防止未引用
                     // 重新渲染当前页
@@ -6796,7 +7596,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     if (typeof toastr !== 'undefined') toastr.success(msg);
                 }
 
-                $box.append($btnCurrent, $btnAll, $rangeArea, $cancelBtn);
+                $box.append($btnCurrent, $btnAll, $btnShowAll, $rangeArea, $cancelBtn);
                 $overlay.append($box);
                 $('body').append($overlay);
                 return;
@@ -6812,6 +7612,9 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 });
                 saveSummarizedRows();
                 m.save(true, true); // 总结标记切换立即保存
+                if (typeof window.Gaigai.updateCurrentSnapshot === 'function') {
+                    window.Gaigai.updateCurrentSnapshot();
+                }
                 refreshTable(ti);
                 // await customAlert(...) // 原有弹窗可移除
             } else if (selectedRow !== null) {
@@ -6821,6 +7624,9 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 else summarizedRows[ti].push(selectedRow);
                 saveSummarizedRows();
                 m.save(true, true); // 单行总结标记立即保存
+                if (typeof window.Gaigai.updateCurrentSnapshot === 'function') {
+                    window.Gaigai.updateCurrentSnapshot();
+                }
                 refreshTable(ti);
             } else {
                 // ✅ 批量显隐操作面板（当没有选中任何行时）
@@ -6915,6 +7721,9 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 function finish(msg) {
                     saveSummarizedRows();
                     m.save(true, true); // 批量总结标记立即保存
+                    if (typeof window.Gaigai.updateCurrentSnapshot === 'function') {
+                        window.Gaigai.updateCurrentSnapshot();
+                    }
                     refreshTable(ti);
                     $overlay.remove();
                     if (typeof toastr !== 'undefined') toastr.success(msg);
@@ -7008,8 +7817,8 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
             // 判断是否是本地地址
             const isLocalUrl = cleaned.includes('127.0.0.1') ||
-                              cleaned.includes('localhost') ||
-                              cleaned.includes('0.0.0.0');
+                cleaned.includes('localhost') ||
+                cleaned.includes('0.0.0.0');
 
             // 🔀 分支逻辑：
             // 1. 本地 build 反代 → 保留 /v1（走 custom 模式）
@@ -7060,11 +7869,11 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
     /* ==========================================
        智能双通道 API 请求函数 (全面防屏蔽版)
        ========================================== */
-    async function callIndependentAPI(prompt) {
+    async function callIndependentAPI(prompt, options = {}) {
         // 🔄 如果配置为使用酒馆 API，直接调用 callTavernAPI（使用酒馆的稳定接收端）
         if (!API_CONFIG.useIndependentAPI) {
             console.log('🔄 [API路由] 使用酒馆API模式，转发到 callTavernAPI（使用酒馆接收端）...');
-            return await callTavernAPI(prompt);
+            return await callTavernAPI(prompt, options);
         }
 
         console.log('🚀 [API-独立模式] 智能路由启动（使用自定义流式解析）...');
@@ -7088,8 +7897,8 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
             // 2. 提取 finish_reason
             const finishReason = chunk.choices?.[0]?.finish_reason ||
-                                chunk.candidates?.[0]?.finishReason ||
-                                '';
+                chunk.candidates?.[0]?.finishReason ||
+                '';
 
             // 3. 检查 Gemini 安全拦截 (无 content 但有 finishReason)
             if (finishReason === 'SAFETY' || finishReason === 'RECITATION' || finishReason === 'safety') {
@@ -7125,6 +7934,28 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             return { content, reasoning, finishReason, error: null };
         }
 
+        function cleanThinkingText(rawText, logPrefix = 'API清洗') {
+            if (!rawText) return rawText;
+
+            const original = String(rawText);
+            let cleaned = original
+                .replace(/<think>[\s\S]*?<\/think>/gi, '')
+                .replace(/^[\s\S]*?<\/think>/i, '')
+                .trim();
+
+            if (/<think>/i.test(cleaned)) {
+                console.warn(`⚠️ [${logPrefix}] 检测到未闭合 <think>，保留原文以避免误删后续内容`);
+                return cleaned || original;
+            }
+
+            return cleaned || original;
+        }
+
+        function appendTokenTruncationMarker(text, source) {
+            const marker = `[⚠️ 上游返回 finish_reason=length，已输出已接收内容；插件本次发送的 maxTokens=${maxTokens}，来源=${source}]`;
+            const base = String(text || '');
+            return base.includes('finish_reason=length') ? base : `${base}\n\n${marker}`;
+        }
 
         // ========================================
         // 🔧 Helper: Universal Streaming Reader (Fixed Version)
@@ -7226,7 +8057,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         const apiKey = API_CONFIG.apiKey.trim();  // 不做任何修改，保持原值（可能为空）
         // 如果用户没填或配置不存在，默认使用 8192 以防止报错
         const maxTokens = API_CONFIG.maxTokens || 8192;
-        const temperature = API_CONFIG.temperature || 0.5;
+        const temperature = normalizeApiTemperature(API_CONFIG.temperature);
         const provider = API_CONFIG.provider || 'openai';
 
         // ✅ URL 处理：使用统一工具函数（包含 0.0.0.0 -> 127.0.0.1 转换）
@@ -7251,6 +8082,20 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 content: m.role === 'system' ? ('[System]: ' + (m.content || '')) : (m.content || '')
             };
         });
+
+        const shouldForceMemoryPrefill = options?.forceMemoryPrefill === true;
+
+        // ✨ [预填充补丁] 仅填表场景：Gemini 且最后没有预填充时，强制追加
+        if (shouldForceMemoryPrefill && (model || '').toLowerCase().includes('gemini') && cleanMessages.length > 0) {
+            const lastMsg = cleanMessages[cleanMessages.length - 1];
+            if (lastMsg.role !== 'assistant' && lastMsg.role !== 'model') {
+                cleanMessages.push({
+                    role: 'assistant',
+                    content: '<Memory>\n'
+                });
+                console.log('✨ [预填充补丁] 填表场景 + Gemini：已为独立 API 自动追加 <Memory> 预填充');
+            }
+        }
 
         // 🔍 [Prefill 探针] 显示最后发送的消息结构
         console.log('📤 [消息探针] 准备发送的消息数量:', cleanMessages.length);
@@ -7315,7 +8160,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         temperature: temperature,
                         max_tokens: maxTokens,
                         maxOutputTokens: maxTokens, // ✅ Gemini严格要求的参数名
-                        stream: true, // ✅ 启用流式响应（Claude等提供商要求）
+                        stream: API_CONFIG.useStream !== false, // ✅ 根据配置决定是否启用流式传输
                         // 🛡️ 强力注入安全设置，防止空回
                         safety_settings: [
                             { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
@@ -7361,33 +8206,45 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         credentials: 'include'
                     });
 
-                    // ✅ [强制流式] 无论 content-type 如何，都使用流式读取（零延迟）
-                    if (proxyResponse.ok && proxyResponse.body) {
-                        console.log('🌊 [Gemini官方] 开始流式读取（强制模式）...');
+                    // ✅ [流式/非流式自适应] Gemini 官方响应处理
+                    if (proxyResponse.ok) {
+                        if (proxyPayload.stream && proxyResponse.body) {
+                            console.log('🌊 [Gemini官方] 开始流式读取（强制模式）...');
 
-                        const { fullText, fullReasoning, isTruncated } = await readUniversalStream(
-                            proxyResponse.body,
-                            '[Gemini官方]'
-                        );
+                            const { fullText, fullReasoning, isTruncated } = await readUniversalStream(
+                                proxyResponse.body,
+                                '[Gemini官方]'
+                            );
 
-                        // ✅ 优先返回：如果截断且有内容，直接返回（用户希望看到部分内容）
-                        if (isTruncated && fullText && fullText.length > 0) {
-                            console.warn('⚠️ [Gemini官方] Token截断但有内容，返回部分响应');
-                            return { success: true, summary: fullText };
+                            // ✅ 优先返回：如果截断且有内容，直接返回（用户希望看到部分内容）
+                            if (isTruncated && fullText && fullText.length > 0) {
+                                console.warn('⚠️ [Gemini官方] Token截断但有内容，返回部分响应');
+                                return { success: true, summary: appendTokenTruncationMarker(fullText, 'Gemini官方') };
+                            }
+
+                            // 如果有正常内容或思考内容，返回
+                            if (fullText && fullText.trim()) {
+                                console.log('✅ [Gemini官方] 成功');
+                                return { success: true, summary: fullText };
+                            }
+                            if (fullReasoning && fullReasoning.trim()) {
+                                console.warn('⚠️ [Gemini官方] 正文为空，返回思考内容');
+                                return { success: true, summary: fullReasoning };
+                            }
+
+                            // 真的完全没内容，抛出简洁错误
+                            throw new Error('API返回空内容');
+                        } else {
+                            // 非流式模式：直接解析 JSON
+                            console.log('📄 [Gemini官方] 使用非流式模式，解析 JSON...');
+                            const text = await proxyResponse.text();
+                            try {
+                                const data = JSON.parse(text);
+                                return parseApiResponse(data);
+                            } catch (e) {
+                                throw new Error(`Gemini非流式解析失败: ${e.message}`);
+                            }
                         }
-
-                        // 如果有正常内容或思考内容，返回
-                        if (fullText && fullText.trim()) {
-                            console.log('✅ [Gemini官方] 成功');
-                            return { success: true, summary: fullText };
-                        }
-                        if (fullReasoning && fullReasoning.trim()) {
-                            console.warn('⚠️ [Gemini官方] 正文为空，返回思考内容');
-                            return { success: true, summary: fullReasoning };
-                        }
-
-                        // 真的完全没内容，抛出简洁错误
-                        throw new Error('API返回空内容');
                     }
 
                     const errText = await proxyResponse.text();
@@ -7397,10 +8254,12 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 // 只有当：提供商是"网页反代" (proxy_only) 且 模型名含"gemini"时，才走 Makersuite 修复路径
                 // ✨ 修复：排除本地地址 (127.0.0.1/localhost)。
                 // 如果用户用 gcli 等本地转接工具，应该走下面的通用 OpenAI/Custom 协议，那里有完善的安全注入。
+                // ✅ 核心修复：如果 URL 包含 /v1，说明是 OpenAI 兼容接口（如中转站/公益站），不要强制走 Makersuite 协议
                 let isProxyGemini = (provider === 'proxy_only') &&
                     model.toLowerCase().includes('gemini') &&
                     !apiUrl.includes('127.0.0.1') &&
-                    !apiUrl.includes('localhost');
+                    !apiUrl.includes('localhost') &&
+                    !apiUrl.toLowerCase().includes('/v1'); // ✅ 新增：避开标准中转站
 
                 if (isProxyGemini) {
                     // === 分支 1: 针对网页端 Gemini 反代 (MakerSuite 三级重试逻辑) ===
@@ -7467,7 +8326,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                                 // ✅ 优先返回：如果截断且有内容，直接返回（用户希望看到部分内容）
                                 if (isTruncated && fullText && fullText.length > 0) {
                                     console.warn('⚠️ [Gemini反代] Token截断但有内容，返回部分响应');
-                                    return { success: true, summary: fullText };
+                                    return { success: true, summary: appendTokenTruncationMarker(fullText, 'Gemini反代') };
                                 }
 
                                 // 如果有正常内容或思考内容，返回
@@ -7543,11 +8402,17 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         let cleanUrl = apiUrl.replace(/\/v1\/?$/, '').replace(/\/chat\/completions\/?$/, '').replace(/\/+$/, '');
                         console.log(`📡 [尝试 1] MakerSuite 协议 + 纯净 URL: ${cleanUrl}`);
 
+                        const wantsStream = API_CONFIG.useStream !== false;
                         try {
-                            return await tryMakersuiteRequest(cleanUrl, true);
-                        } catch (streamError) {
-                            console.warn('⚠️ [尝试 1-流式] 失败，尝试非流式...', streamError.message);
-                            return await tryMakersuiteRequest(cleanUrl, false);
+                            console.log(`🚀 [自动降级] 第 1 次尝试：${wantsStream ? '流式' : '非流式'}请求`);
+                            return await tryMakersuiteRequest(cleanUrl, wantsStream);
+                        } catch (e1) {
+                            if (wantsStream) {
+                                console.warn('⚠️ [尝试 1-流式] 失败，降级尝试非流式...', e1.message);
+                                return await tryMakersuiteRequest(cleanUrl, false);
+                            } else {
+                                throw e1;
+                            }
                         }
 
                     } catch (e1) {
@@ -7558,11 +8423,17 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                             let v1Url = apiUrl.replace(/\/v1\/?$/, '').replace(/\/chat\/completions\/?$/, '').replace(/\/+$/, '') + '/v1';
                             console.log(`📡 [尝试 2] MakerSuite 协议 + V1 URL: ${v1Url}`);
 
+                            const wantsStream = API_CONFIG.useStream !== false;
                             try {
-                                return await tryMakersuiteRequest(v1Url, true);
-                            } catch (streamError) {
-                                console.warn('⚠️ [尝试 2-流式] 失败，尝试非流式...', streamError.message);
-                                return await tryMakersuiteRequest(v1Url, false);
+                                console.log(`🚀 [自动降级] 第 2 次尝试：${wantsStream ? '流式' : '非流式'}请求`);
+                                return await tryMakersuiteRequest(v1Url, wantsStream);
+                            } catch (e2) {
+                                if (wantsStream) {
+                                    console.warn('⚠️ [尝试 2-流式] 失败，降级尝试非流式...', e2.message);
+                                    return await tryMakersuiteRequest(v1Url, false);
+                                } else {
+                                    throw e2;
+                                }
                             }
 
                         } catch (e2) {
@@ -7620,7 +8491,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         messages: cleanMessages,
                         temperature: temperature,
                         max_tokens: maxTokens,
-                        stream: true, // ✅ 启用流式响应（Claude等提供商要求）
+                        stream: API_CONFIG.useStream !== false, // ✅ 根据配置决定是否启用流式传输
 
                         // 兼容性参数
                         mode: 'chat',
@@ -7671,57 +8542,56 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         credentials: 'include'
                     });
 
-                    // ✅ [强制流式] 无论 content-type 如何，都使用流式读取（零延迟）
-                    if (proxyResponse.ok && proxyResponse.body) {
-                        console.log('🌊 [后端代理] 开始流式读取（强制模式）...');
+                    // ✅ [流式/非流式自适应] 根据配置决定处理方式
+                    if (proxyResponse.ok) {
+                        if (proxyPayload.stream && proxyResponse.body) {
+                            console.log('🌊 [后端代理] 开始流式读取（强制模式）...');
 
-                        const { fullText: rawText, fullReasoning, isTruncated } = await readUniversalStream(
-                            proxyResponse.body,
-                            '[后端代理]'
-                        );
+                            const { fullText: rawText, fullReasoning, isTruncated } = await readUniversalStream(
+                                proxyResponse.body,
+                                '[后端代理]'
+                            );
 
-                        let fullText = rawText;
+                            let fullText = rawText;
 
-                        // ✅ 优先返回：如果截断且有内容，直接返回（用户希望看到部分内容）
-                        if (isTruncated && fullText && fullText.length > 0) {
-                            console.warn('⚠️ [后端代理] Token截断但有内容，返回部分响应');
-                            fullText += '\n\n[⚠️ 内容已因达到最大Token限制而截断]';
-                            return { success: true, summary: fullText };
-                        }
+                            // ✅ 优先返回：如果截断且有内容，直接返回（用户希望看到部分内容）
+                            if (isTruncated && fullText && fullText.length > 0) {
+                                console.warn('⚠️ [后端代理] Token截断但有内容，返回部分响应');
+                                return { success: true, summary: appendTokenTruncationMarker(fullText, '后端代理') };
+                            }
 
-                        // 清洗 <think> 标签
-                        if (fullText) {
-                            const beforeClean = fullText;
-                            let cleaned = fullText
-                                .replace(/<think>[\s\S]*?<\/think>/gi, '')
-                                .replace(/^[\s\S]*?<\/think>/i, '')
-                                .trim();
-
-                            cleaned = cleaned.replace(/<think>[\s\S]*/gi, '').trim();
-
-                            if (!cleaned && beforeClean.trim().length > 0) {
-                                console.warn('⚠️ [后端代理清洗] 清洗后内容为空，触发回退保护');
-                                fullText = beforeClean;
-                            } else {
-                                fullText = cleaned;
-                                if (beforeClean.length !== cleaned.length) {
-                                    console.log(`🧹 [后端代理清洗] 已移除 <think> 标签`);
+                            // 清洗 <think> 标签
+                            if (fullText) {
+                                const beforeClean = fullText;
+                                fullText = cleanThinkingText(fullText, '后端代理清洗');
+                                if (beforeClean.length !== fullText.length) {
+                                    console.log(`🧹 [后端代理清洗] 已移除闭合 <think> 标签`);
                                 }
                             }
-                        }
 
-                        // 如果有正常内容或思考内容，返回
-                        if (fullText && fullText.trim()) {
-                            console.log('✅ [后端代理] 成功');
-                            return { success: true, summary: fullText };
-                        }
-                        if (fullReasoning && fullReasoning.trim()) {
-                            console.warn('⚠️ [后端代理] 正文为空，返回思考内容');
-                            return { success: true, summary: fullReasoning };
-                        }
+                            // 如果有正常内容或思考内容，返回
+                            if (fullText && fullText.trim()) {
+                                console.log('✅ [后端代理] 成功');
+                                return { success: true, summary: fullText };
+                            }
+                            if (fullReasoning && fullReasoning.trim()) {
+                                console.warn('⚠️ [后端代理] 正文为空，返回思考内容');
+                                return { success: true, summary: fullReasoning };
+                            }
 
-                        // 真的完全没内容，抛出简洁错误
-                        throw new Error('API返回空内容');
+                            // 真的完全没内容，抛出简洁错误
+                            throw new Error('API返回空内容');
+                        } else {
+                            // 非流式模式：直接解析 JSON
+                            console.log('📄 [后端代理] 使用非流式模式，解析 JSON...');
+                            const text = await proxyResponse.text();
+                            try {
+                                const data = JSON.parse(text);
+                                return parseApiResponse(data);
+                            } catch (e) {
+                                throw new Error(`非流式解析失败: ${e.message}`);
+                            }
+                        }
                     }
 
                     // 2. 处理错误
@@ -7769,7 +8639,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                             messages: cleanMessages,
                             temperature: temperature,
                             max_tokens: maxTokens,
-                            stream: true
+                            stream: API_CONFIG.useStream !== false
                         };
 
                         console.log(`🌐 [后端代理-降级] 目标: ${v1Url} | 模式: openai | 模型: ${model}`);
@@ -7785,56 +8655,55 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                             credentials: 'include'
                         });
 
-                        // 4. 处理流式响应
-                        if (retryResponse.ok && retryResponse.body) {
-                            console.log('🌊 [后端代理-降级OpenAI] 重试成功，开始流式读取...');
+                        // 4. 处理流式/非流式响应
+                        if (retryResponse.ok) {
+                            if (retryPayload.stream && retryResponse.body) {
+                                console.log('🌊 [后端代理-降级OpenAI] 重试成功，开始流式读取...');
 
-                            const { fullText: rawText, fullReasoning, isTruncated } = await readUniversalStream(
-                                retryResponse.body,
-                                '[降级重试]'
-                            );
+                                const { fullText: rawText, fullReasoning, isTruncated } = await readUniversalStream(
+                                    retryResponse.body,
+                                    '[降级重试]'
+                                );
 
-                            let fullText = rawText;
+                                let fullText = rawText;
 
-                            // ✅ 优先返回：如果截断且有内容，直接返回
-                            if (isTruncated && fullText && fullText.length > 0) {
-                                console.warn('⚠️ [降级重试] Token截断但有内容，返回部分响应');
-                                fullText += '\n\n[⚠️ 内容已因达到最大Token限制而截断]';
-                                return { success: true, summary: fullText };
-                            }
+                                // ✅ 优先返回：如果截断且有内容，直接返回
+                                if (isTruncated && fullText && fullText.length > 0) {
+                                    console.warn('⚠️ [降级重试] Token截断但有内容，返回部分响应');
+                                    return { success: true, summary: appendTokenTruncationMarker(fullText, '降级重试') };
+                                }
 
-                            // 清洗 <think> 标签
-                            if (fullText) {
-                                const beforeClean = fullText;
-                                let cleaned = fullText
-                                    .replace(/<think>[\s\S]*?<\/think>/gi, '')
-                                    .replace(/^[\s\S]*?<\/think>/i, '')
-                                    .trim();
-
-                                cleaned = cleaned.replace(/<think>[\s\S]*/gi, '').trim();
-
-                                if (!cleaned && beforeClean.trim().length > 0) {
-                                    console.warn('⚠️ [降级重试清洗] 清洗后内容为空，触发回退保护');
-                                    fullText = beforeClean;
-                                } else {
-                                    fullText = cleaned;
-                                    if (beforeClean.length !== cleaned.length) {
-                                        console.log(`🧹 [降级重试清洗] 已移除 <think> 标签`);
+                                // 清洗 <think> 标签
+                                if (fullText) {
+                                    const beforeClean = fullText;
+                                    fullText = cleanThinkingText(fullText, '降级重试清洗');
+                                    if (beforeClean.length !== fullText.length) {
+                                        console.log(`🧹 [降级重试清洗] 已移除闭合 <think> 标签`);
                                     }
                                 }
-                            }
 
-                            // 如果有正常内容或思考内容，返回
-                            if (fullText && fullText.trim()) {
-                                console.log('✅ [后端代理-降级OpenAI] 成功');
-                                return { success: true, summary: fullText };
-                            }
-                            if (fullReasoning && fullReasoning.trim()) {
-                                console.warn('⚠️ [降级重试] 正文为空，返回思考内容');
-                                return { success: true, summary: fullReasoning };
-                            }
+                                // 如果有正常内容或思考内容，返回
+                                if (fullText && fullText.trim()) {
+                                    console.log('✅ [后端代理-降级OpenAI] 成功');
+                                    return { success: true, summary: fullText };
+                                }
+                                if (fullReasoning && fullReasoning.trim()) {
+                                    console.warn('⚠️ [降级重试] 正文为空，返回思考内容');
+                                    return { success: true, summary: fullReasoning };
+                                }
 
-                            throw new Error('API返回空内容');
+                                throw new Error('API返回空内容');
+                            } else {
+                                // 非流式模式：直接解析 JSON
+                                console.log('📄 [后端代理-降级] 使用非流式模式，解析 JSON...');
+                                const text = await retryResponse.text();
+                                try {
+                                    const data = JSON.parse(text);
+                                    return parseApiResponse(data);
+                                } catch (e) {
+                                    throw new Error(`降级非流式解析失败: ${e.message}`);
+                                }
+                            }
                         }
 
                         // 处理降级重试的错误响应
@@ -7872,8 +8741,10 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 let directUrl = apiUrl;
 
                 // 根据 Provider 智能拼接 endpoint
-                if (provider === 'gemini') {
-                    // Gemini 需要特殊处理：确保有 :generateContent
+                // ✅ 核心修复：如果是 Gemini 且 URL 不包含 /v1，才走原生 Google 协议的 URL 拼接
+                // 如果 URL 包含 /v1，说明是兼容接口（中转站），应走 OpenAI 格式的 /chat/completions
+                if (provider === 'gemini' && !apiUrl.toLowerCase().includes('/v1')) {
+                    // Gemini 原生协议需要特殊处理：确保有 :generateContent
                     if (!directUrl.includes(':generateContent')) {
                         // 如果 URL 包含模型名，则在后面添加 :generateContent
                         if (directUrl.includes('/models/')) {
@@ -7884,7 +8755,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         }
                     }
                 } else {
-                    // DeepSeek / Compatible 使用 /chat/completions
+                    // DeepSeek / Compatible / Gemini中转站 使用 /chat/completions
                     if (!directUrl.endsWith('/chat/completions') && !directUrl.includes('/chat/completions')) {
                         directUrl += '/chat/completions';
                     }
@@ -7905,7 +8776,9 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 };
 
                 // Gemini 特殊格式处理
-                if (provider === 'gemini') {
+                // ✅ 核心修复：如果是 Gemini 且 URL 不包含 /v1，才走原生 Google 协议
+                // 如果 URL 包含 /v1，说明是兼容接口（中转站），应跳过此块，走下方的 OpenAI 默认逻辑
+                if (provider === 'gemini' && !apiUrl.toLowerCase().includes('/v1')) {
                     requestBody = {
                         contents: cleanMessages.map(m => ({
                             role: m.role === 'user' ? 'user' : 'model',
@@ -7981,7 +8854,8 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 }
 
                 // 🔧 [Gemini 官方直连修复] 如果是官方域名，将 API Key 添加到 URL 参数
-                if (provider === 'gemini' && authHeader === undefined) {
+                // ✅ 核心修复：只有在 Gemini 官方协议（不含 /v1）且无 Authorization 头时才添加 key 参数
+                if (provider === 'gemini' && !apiUrl.toLowerCase().includes('/v1') && authHeader === undefined) {
                     // 检查 URL 中是否已经包含 API Key 参数
                     if (!directUrl.includes('key=') && !directUrl.includes('goog_api_key=')) {
                         // 智能拼接：判断 URL 是否已有其他参数
@@ -8126,7 +9000,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
                         // 如果检测到截断，在文本末尾添加视觉标记
                         if (isTruncated) {
-                            fullText += '\n\n[⚠️ 内容已因达到最大Token限制而截断]';
+                            fullText = appendTokenTruncationMarker(fullText, '浏览器直连流式');
                             console.warn('⚠️ [流式模式] 已在输出末尾添加截断标记');
                         }
 
@@ -8161,28 +9035,10 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         // 2️⃣ 清洗策略：无论来源如何，必须清洗掉 <think> 标签，只留正文
                         // 防止 DeepSeek/Gemini 在 content 里混合输出了思考标签
                         if (fullText) {
-                            const rawText = fullText; // 备份一份原始数据
-                            let cleaned = fullText
-                                .replace(/<think>[\s\S]*?<\/think>/gi, '')  // 移除标准成对
-                                .replace(/^[\s\S]*?<\/think>/i, '')         // 移除残缺开头
-                                .trim();
-
-                            // 针对截断情况的额外清洗（如果思考没闭合）
-                            cleaned = cleaned.replace(/<think>[\s\S]*/gi, '').trim();
-
-                            // ✨✨✨ 核心修复：如果清洗后变为空（说明全都是思考内容），则回退到原文
-                            // 这样虽然格式不对，但至少不会报“空内容”错误，用户能看到思考过程
-                            if (!cleaned && rawText.trim().length > 0) {
-                                console.warn('⚠️ [流式清洗] 清洗后内容为空（AI仅输出了思考内容），触发回退保护，保留原文');
-                                fullText = rawText;
-                            } else {
-                                fullText = cleaned;
-
-                                const beforeClean = rawText.length;
-                                const afterClean = fullText.length;
-                                if (beforeClean !== afterClean) {
-                                    console.log(`🧹 [清洗完成] 已移除 <think> 标签，清洗前: ${beforeClean} 字符，清洗后: ${afterClean} 字符`);
-                                }
+                            const rawText = fullText;
+                            fullText = cleanThinkingText(fullText, '流式清洗');
+                            if (rawText.length !== fullText.length) {
+                                console.log(`🧹 [清洗完成] 已移除闭合 <think> 标签，清洗前: ${rawText.length} 字符，清洗后: ${fullText.length} 字符`);
                             }
                         }
 
@@ -8254,43 +9110,50 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             } // attemptDirectRequest 函数结束
 
             // ♻️♻️♻️ [自动降级核心逻辑] ♻️♻️♻️
+            const wantsStream = API_CONFIG.useStream !== false;
             try {
-                // 第一次尝试：流式请求
-                console.log('🚀 [自动降级] 第 1 次尝试：流式请求');
-                return await attemptDirectRequest(true);
+                // 第一次尝试：根据配置决定流式或非流式
+                console.log(`🚀 [自动降级] 第 1 次尝试：${wantsStream ? '流式' : '非流式'}请求`);
+                return await attemptDirectRequest(wantsStream);
             } catch (firstError) {
-                console.error('❌ [自动降级] 流式请求失败:', firstError.message);
+                if (wantsStream) {
+                    console.error('❌ [自动降级] 流式请求失败:', firstError.message);
 
-                // 判断是否应该降级重试
-                const shouldRetry =
-                    firstError.message.includes('Stream response content is empty') ||
-                    firstError.message.includes('JSON parsing failed') ||
-                    firstError.message.includes('流式读取失败') ||
-                    firstError.message.includes('流式解析失败');
+                    // 判断是否应该降级重试
+                    const shouldRetry =
+                        firstError.message.includes('Stream response content is empty') ||
+                        firstError.message.includes('JSON parsing failed') ||
+                        firstError.message.includes('流式读取失败') ||
+                        firstError.message.includes('流式解析失败');
 
-                if (shouldRetry) {
-                    console.warn('⚠️ [自动降级] 检测到流式请求问题，正在自动降级为非流式 (Non-Stream) 重试...');
+                    if (shouldRetry) {
+                        console.warn('⚠️ [自动降级] 检测到流式请求问题，正在自动降级为非流式 (Non-Stream) 重试...');
 
-                    try {
-                        // 第二次尝试：非流式请求
-                        console.log('🔄 [自动降级] 第 2 次尝试：非流式请求');
-                        return await attemptDirectRequest(false);
-                    } catch (secondError) {
-                        console.error('❌ [自动降级] 非流式请求也失败:', secondError.message);
+                        try {
+                            // 第二次尝试：非流式请求
+                            console.log('🔄 [自动降级] 第 2 次尝试：非流式请求');
+                            return await attemptDirectRequest(false);
+                        } catch (secondError) {
+                            console.error('❌ [自动降级] 非流式请求也失败:', secondError.message);
 
-                        // 两次都失败，返回最后一次的错误
+                            // 两次都失败，返回最后一次的错误
+                            return {
+                                success: false,
+                                error: `流式和非流式请求均失败\n\n第1次(流式): ${firstError.message}\n\n第2次(非流式): ${secondError.message}`
+                            };
+                        }
+                    } else {
+                        // 不是流式问题，直接返回错误
+                        console.error('❌ [浏览器直连] 失败（非流式问题，不重试）:', firstError.message);
                         return {
                             success: false,
-                            error: `流式和非流式请求均失败\n\n第1次(流式): ${firstError.message}\n\n第2次(非流式): ${secondError.message}`
+                            error: firstError.message
                         };
                     }
                 } else {
-                    // 不是流式问题，直接返回错误
-                    console.error('❌ [浏览器直连] 失败（非流式问题，不重试）:', firstError.message);
-                    return {
-                        success: false,
-                        error: firstError.message
-                    };
+                    // 非流式请求失败，直接返回错误
+                    console.error('❌ [直连请求] 非流式请求失败:', firstError.message);
+                    return { success: false, error: firstError.message };
                 }
             }
         }
@@ -8352,7 +9215,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
     }
 
 
-    async function callTavernAPI(prompt) {
+    async function callTavernAPI(prompt, options = {}) {
         try {
             const context = m.ctx();
             if (!context) return { success: false, error: '无法访问酒馆上下文' };
@@ -8393,6 +9256,20 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             // ✅ 统一处理：确保 prompt 是数组格式
             if (!Array.isArray(prompt)) {
                 finalPrompt = [{ role: 'user', content: String(prompt) }];
+            }
+
+            const shouldForceMemoryPrefill = options?.forceMemoryPrefill === true;
+
+            // ✨ [预填充补丁] 仅填表场景：Gemini 且最后没有预填充时，强制追加
+            if (shouldForceMemoryPrefill && isGemini && finalPrompt.length > 0) {
+                const lastMsg = finalPrompt[finalPrompt.length - 1];
+                if (lastMsg.role !== 'assistant' && lastMsg.role !== 'model') {
+                    finalPrompt.push({
+                        role: 'assistant', // 注意：发送给酒馆后端的必须是 assistant
+                        content: '<Memory>\n'
+                    });
+                    console.log('✨[预填充补丁] 填表场景 + Gemini：已为酒馆 API 自动追加 <Memory> 预填充');
+                }
             }
 
             // 🔍 [Tavern API Prefill 探针] 显示发送给酒馆的消息
@@ -8544,13 +9421,10 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 // 移除思考过程 (带回退保护)
                 if (summary && summary.includes('</think>')) {
                     const raw = summary;
-                    const cleaned = summary
-                        .replace(/<think>[\s\S]*?<\/think>/gi, '')  // 移除标准成对
-                        .replace(/^[\s\S]*?<\/think>/i, '')         // 移除残缺开头
-                        .trim();
-                    // 如果清洗后为空，保留原文
-                    summary = cleaned || raw;
-                    console.log('🧹 [酒馆API] 已清理思考标签');
+                    summary = cleanThinkingText(summary, '酒馆API');
+                    if (raw.length !== summary.length) {
+                        console.log('🧹 [酒馆API] 已清理闭合思考标签');
+                    }
                 }
 
                 if (summary && summary.trim()) {
@@ -8854,6 +9728,72 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
     async function shapi() {
         await loadConfig(); // ✅ 强制刷新配置，确保读取到最新的 Provider 设置
         if (!API_CONFIG.summarySource) API_CONFIG.summarySource = 'chat';
+        if (!Array.isArray(API_CONFIG.profiles)) API_CONFIG.profiles = [];
+        if (typeof API_CONFIG.activeProfileId !== 'string') API_CONFIG.activeProfileId = '';
+
+        const escapeHtml = (t) => String(t || '').replace(/[&<>"']/g, c => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        }[c]));
+
+        // 预计算当前激活预设，避免弹窗打开后下拉框“先占位再跳变”
+        let profileChanged = false;
+        API_CONFIG.profiles = API_CONFIG.profiles
+            .filter(p => p && typeof p === 'object' && p.name)
+            .map(p => {
+                const hasId = typeof p.id === 'string' && p.id.trim();
+                if (!hasId) profileChanged = true;
+                return {
+                    id: hasId ? p.id : `ap_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+                    name: String(p.name || '').trim(),
+                    provider: String(p.provider || ''),
+                    url: String(p.url || '').trim(),
+                    key: String(p.key || '').trim(),
+                    model: String(p.model || '').trim()
+                };
+            });
+
+        const isSameApiProfileOnOpen = (a, b) =>
+            String(a?.provider || '') === String(b?.provider || '') &&
+            String(a?.url || '').trim() === String(b?.url || '').trim() &&
+            String(a?.key || '').trim() === String(b?.key || '').trim() &&
+            String(a?.model || '').trim() === String(b?.model || '').trim();
+
+        const currentApiOnOpen = {
+            provider: String(API_CONFIG.provider || ''),
+            url: String(API_CONFIG.apiUrl || '').trim(),
+            key: String(API_CONFIG.apiKey || '').trim(),
+            model: String(API_CONFIG.model || '').trim()
+        };
+        const matchedOnOpen = API_CONFIG.profiles.find(p => isSameApiProfileOnOpen(p, currentApiOnOpen)) || null;
+
+        if (!API_CONFIG.profiles.some(p => p.id === API_CONFIG.activeProfileId)) {
+            API_CONFIG.activeProfileId = '';
+            profileChanged = true;
+        }
+        if (!API_CONFIG.activeProfileId && matchedOnOpen) {
+            API_CONFIG.activeProfileId = matchedOnOpen.id;
+            profileChanged = true;
+        }
+        if (profileChanged) {
+            try { localStorage.setItem(AK, JSON.stringify(API_CONFIG)); } catch (e) { }
+        }
+
+        const activeProfileOnOpen = API_CONFIG.profiles.find(p => p.id === API_CONFIG.activeProfileId) || null;
+        const apiProfileOptionsHtml = [
+            '<option value="">-- 选择已保存的账号 --</option>',
+            ...API_CONFIG.profiles.map(p => {
+                const selected = p.id === API_CONFIG.activeProfileId ? ' selected' : '';
+                return `<option value="${escapeHtml(p.id)}"${selected}>${escapeHtml(p.name)}</option>`;
+            })
+        ].join('');
+        const activeHintTextOnOpen = activeProfileOnOpen
+            ? `当前使用预设：${activeProfileOnOpen.name}`
+            : '当前使用：自定义（未绑定预设）';
+        const activeHintOpacityOnOpen = activeProfileOnOpen ? '0.92' : '0.75';
 
         const h = `
     <div class="g-p">
@@ -8868,6 +9808,25 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
         <fieldset id="api-config-section" style="border:1px solid #ddd; padding:10px; border-radius:4px; margin-bottom:12px; ${API_CONFIG.useIndependentAPI ? '' : 'opacity:0.5; pointer-events:none;'}">
             <legend style="font-size:11px; font-weight:600;">独立API配置</legend>
+
+            <!-- ================= 新增：云端账号预设管理 ================= -->
+            <label style="display:flex; align-items:center; gap:5px;">
+                ☁️ 云端账号预设 
+                <span style="font-size:10px; color:var(--g-tc); opacity:0.6; font-weight:normal;">(保存在酒馆服务端)</span>
+            </label>
+            <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px; border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:12px;">
+                <select id="gg_api_profile_select" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px; font-size:11px; background:var(--g-bg, #fff); color:var(--g-tc);">
+                    ${apiProfileOptionsHtml}
+                </select>
+                <div id="gg_api_profile_active_hint" style="font-size:10px; color:var(--g-tc); opacity:${activeHintOpacityOnOpen}; margin-top:-2px;">
+                    ${activeHintTextOnOpen}
+                </div>
+                <div style="display:flex; gap:8px; width:100%;">
+                    <button id="gg_api_profile_save" style="flex:1; padding:6px 8px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px; font-weight:bold;">💾 存为预设</button>
+                    <button id="gg_api_profile_del" style="flex:1; padding:6px 8px; background:#dc3545; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px; font-weight:bold;">🗑️ 删除预设</button>
+                </div>
+            </div>
+            <!-- ================= 新增结束 ================= -->
 
             <label>API提供商：</label>
             <select id="gg_api_provider" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; margin-bottom:10px;">
@@ -8910,6 +9869,12 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             <label>最大输出长度 (Max Tokens)：</label>
             <input type="number" id="gg_api_max_tokens" value="${API_CONFIG.maxTokens || 8192}" placeholder="DeepSeek填8192，Gemini填65536" style="width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:10px;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
 
+            <label style="display:flex; align-items:center; gap:6px; margin-bottom:10px; cursor:pointer;">
+                <input type="checkbox" id="gg_api_use_stream" ${API_CONFIG.useStream !== false ? 'checked' : ''} style="transform: scale(1.1);">
+                <span>🌊 启用流式传输 (Stream)</span>
+                <span style="font-size:10px; opacity:0.7; font-weight:normal;">如果经常遇到输出截断，可取消勾选</span>
+            </label>
+
         </fieldset>
 
         <div style="display:flex; gap:10px;">
@@ -8936,6 +9901,197 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 }
             });
 
+            // ================= 云端账号预设管理逻辑（激活状态可视化版） =================
+            if (!Array.isArray(API_CONFIG.profiles)) API_CONFIG.profiles = [];
+            if (typeof API_CONFIG.activeProfileId !== 'string') API_CONFIG.activeProfileId = '';
+
+            const normalizeApiProfiles = () => {
+                let changed = false;
+                API_CONFIG.profiles = API_CONFIG.profiles
+                    .filter(p => p && typeof p === 'object' && p.name)
+                    .map(p => {
+                        const createdId = !p.id;
+                        const normalized = {
+                            id: String(p.id || `ap_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`),
+                            name: String(p.name || '').trim(),
+                            provider: String(p.provider || ''),
+                            url: String(p.url || '').trim(),
+                            key: String(p.key || '').trim(),
+                            model: String(p.model || '').trim()
+                        };
+                        if (createdId) changed = true;
+                        return normalized;
+                    });
+                if (!API_CONFIG.profiles.some(p => p.id === API_CONFIG.activeProfileId)) {
+                    API_CONFIG.activeProfileId = '';
+                    changed = true;
+                }
+                if (changed) {
+                    try { localStorage.setItem('gg_api', JSON.stringify(API_CONFIG)); } catch (e) { }
+                }
+            };
+
+            const readCurrentApiUi = () => ({
+                provider: String($('#gg_api_provider').val() || ''),
+                url: String($('#gg_api_url').val() || '').trim(),
+                key: String($('#gg_api_key').val() || '').trim(),
+                model: String($('#gg_api_model').val() || '').trim()
+            });
+
+            const isSameApiProfile = (a, b) =>
+                String(a?.provider || '') === String(b?.provider || '') &&
+                String(a?.url || '').trim() === String(b?.url || '').trim() &&
+                String(a?.key || '').trim() === String(b?.key || '').trim() &&
+                String(a?.model || '').trim() === String(b?.model || '').trim();
+
+            const findMatchingProfile = (target) => {
+                return API_CONFIG.profiles.find(p => isSameApiProfile(p, target)) || null;
+            };
+            let isApplyingApiProfileSelection = false;
+
+            const updateApiProfileHint = () => {
+                const $hint = $('#gg_api_profile_active_hint');
+                if (!$hint.length) return;
+                const active = API_CONFIG.profiles.find(p => p.id === API_CONFIG.activeProfileId);
+                if (active) {
+                    const current = readCurrentApiUi();
+                    const isModified = !isSameApiProfile(active, current);
+                    $hint.text(isModified ? `当前编辑预设：${active.name}（有未保存修改）` : `当前使用预设：${active.name}`).css('opacity', '0.92');
+                } else {
+                    $hint.text('当前使用：自定义（未绑定预设）').css('opacity', '0.75');
+                }
+            };
+
+            const reconcileActiveProfileFromUi = () => {
+                if (isApplyingApiProfileSelection) return;
+                const current = readCurrentApiUi();
+                const matched = findMatchingProfile(current);
+                const selectedId = String($('#gg_api_profile_select').val() || '');
+                if (selectedId && API_CONFIG.profiles.some(p => p.id === selectedId)) {
+                    API_CONFIG.activeProfileId = selectedId;
+                } else {
+                    API_CONFIG.activeProfileId = matched ? matched.id : '';
+                    $('#gg_api_profile_select').val(API_CONFIG.activeProfileId || '');
+                }
+                updateApiProfileHint();
+            };
+
+            function renderApiProfiles() {
+                normalizeApiProfiles();
+                const $sel = $('#gg_api_profile_select');
+                $sel.find('option:not(:first)').remove();
+                API_CONFIG.profiles.forEach((p) => {
+                    $sel.append(`<option value="${p.id}">${p.name}</option>`);
+                });
+                $sel.val(API_CONFIG.activeProfileId || '');
+                updateApiProfileHint();
+            }
+            renderApiProfiles();
+            reconcileActiveProfileFromUi();
+
+            // 1. 监听下拉框选择 -> 自动填入 URL 和 Key，并标记为当前激活预设
+            $('#gg_api_profile_select').on('change', function () {
+                const selectedId = String($(this).val() || '');
+                if (!selectedId) {
+                    API_CONFIG.activeProfileId = '';
+                    updateApiProfileHint();
+                    return;
+                }
+                const p = API_CONFIG.profiles.find(x => x.id === selectedId);
+                if (p) {
+                    isApplyingApiProfileSelection = true;
+                    try {
+                        if (p.provider) $('#gg_api_provider').val(p.provider).trigger('change');
+                        if (p.url !== undefined) $('#gg_api_url').val(p.url);
+                        if (p.key !== undefined) $('#gg_api_key').val(p.key);
+                        if (p.model !== undefined) {
+                            $('#gg_api_model').val(p.model);
+                            $('#gg_api_model_select').val('__manual__').hide();
+                            $('#gg_api_model').show();
+                        }
+                        API_CONFIG.activeProfileId = p.id;
+                        $('#gg_api_profile_select').val(p.id);
+                        updateApiProfileHint();
+                        if (typeof toastr !== 'undefined') toastr.success(`已加载账号: ${p.name}`);
+                    } finally {
+                        isApplyingApiProfileSelection = false;
+                    }
+                }
+            });
+
+            // 字段改动时保留当前选中的预设；未选择时才自动识别完全匹配的预设
+            $('#gg_api_provider, #gg_api_url, #gg_api_key, #gg_api_model')
+                .off('input.apiPreset change.apiPreset')
+                .on('input.apiPreset change.apiPreset', function () {
+                    if (isApplyingApiProfileSelection) return;
+                    reconcileActiveProfileFromUi();
+                });
+
+            // 2. 保存当前输入为云端预设
+            $('#gg_api_profile_save').on('click', async function () {
+                const name = prompt('请输入此 API 账号的备注名称\n（例如：OpenAI-主力、DeepSeek-备用）：');
+                if (!name || !name.trim()) return;
+
+                const current = readCurrentApiUi();
+                const now = Date.now();
+                const newProfile = {
+                    id: `ap_${now.toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+                    name: name.trim(),
+                    provider: current.provider,
+                    url: current.url,
+                    key: current.key,
+                    model: current.model
+                };
+
+                const existingIdx = API_CONFIG.profiles.findIndex(p => p.name === newProfile.name);
+                if (existingIdx >= 0) {
+                    if (confirm(`预设 "${newProfile.name}" 已存在，是否覆盖更新？`)) {
+                        newProfile.id = API_CONFIG.profiles[existingIdx].id || newProfile.id;
+                        API_CONFIG.profiles[existingIdx] = newProfile;
+                    } else return;
+                } else {
+                    API_CONFIG.profiles.push(newProfile);
+                }
+
+                API_CONFIG.activeProfileId = newProfile.id;
+                renderApiProfiles();
+                $('#gg_api_profile_select').val(newProfile.id);
+
+                try { localStorage.setItem('gg_api', JSON.stringify(API_CONFIG)); } catch (e) { }
+                if (typeof window.Gaigai.saveAllSettingsToCloud === 'function') {
+                    await window.Gaigai.saveAllSettingsToCloud();
+                }
+
+                if (typeof toastr !== 'undefined') toastr.success(`已保存云端预设: ${newProfile.name}`);
+            });
+
+            // 3. 删除当前选中的预设
+            $('#gg_api_profile_del').on('click', async function () {
+                const selectedId = String($('#gg_api_profile_select').val() || '');
+                if (!selectedId) {
+                    alert('请先在下拉框中选择一个要删除的预设');
+                    return;
+                }
+                const p = API_CONFIG.profiles.find(x => x.id === selectedId);
+                if (!p) return;
+
+                if (confirm(`确定要从酒馆云端删除预设 "${p.name}" 吗？此操作无法撤销。`)) {
+                    API_CONFIG.profiles = API_CONFIG.profiles.filter(x => x.id !== selectedId);
+                    if (API_CONFIG.activeProfileId === selectedId) API_CONFIG.activeProfileId = '';
+
+                    renderApiProfiles();
+                    $('#gg_api_profile_select').val('');
+                    updateApiProfileHint();
+
+                    try { localStorage.setItem('gg_api', JSON.stringify(API_CONFIG)); } catch (e) { }
+                    if (typeof window.Gaigai.saveAllSettingsToCloud === 'function') {
+                        await window.Gaigai.saveAllSettingsToCloud();
+                    }
+
+                    if (typeof toastr !== 'undefined') toastr.info(`已删除云端预设: ${p.name}`);
+                }
+            });
+            // ================= 逻辑结束 =================
             $('input[name="gg_api_mode"]').on('change', function () {
                 const isIndependent = $(this).val() === 'independent';
                 if (isIndependent) {
@@ -9342,8 +10498,33 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 API_CONFIG.apiKey = ($('#gg_api_key').val() || '');
                 API_CONFIG.model = ($('#gg_api_model').val() || '');
                 API_CONFIG.maxTokens = parseInt($('#gg_api_max_tokens').val()) || 8192;
-                API_CONFIG.temperature = 0.1;
+                API_CONFIG.useStream = $('#gg_api_use_stream').is(':checked');
+                API_CONFIG.temperature = normalizeApiTemperature(API_CONFIG.temperature);
                 API_CONFIG.enableAI = true;
+
+                const currentProfileData = {
+                    provider: API_CONFIG.provider,
+                    url: API_CONFIG.apiUrl,
+                    key: API_CONFIG.apiKey,
+                    model: API_CONFIG.model
+                };
+                const selectedProfileId = String($('#gg_api_profile_select').val() || API_CONFIG.activeProfileId || '');
+                const selectedProfile = API_CONFIG.profiles.find(p => p.id === selectedProfileId);
+                if (selectedProfile) {
+                    selectedProfile.provider = currentProfileData.provider;
+                    selectedProfile.url = currentProfileData.url;
+                    selectedProfile.key = currentProfileData.key;
+                    selectedProfile.model = currentProfileData.model;
+                    API_CONFIG.activeProfileId = selectedProfile.id;
+                } else {
+                    // 未绑定预设时，完全匹配某个预设才标记为该预设，否则保持自定义
+                    const matchedProfile = findMatchingProfile(currentProfileData);
+                    API_CONFIG.activeProfileId = matchedProfile ? matchedProfile.id : '';
+                }
+                $('#gg_api_profile_select').val(API_CONFIG.activeProfileId || '');
+                renderApiProfiles();
+                updateApiProfileHint();
+
                 try { localStorage.setItem(AK, JSON.stringify(API_CONFIG)); } catch (e) { }
                 try { localStorage.setItem('gg_timestamp', Date.now().toString()); } catch (e) { }
 
@@ -9369,6 +10550,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     let currentKey = ($('#gg_api_key').val() || '').trim();
                     const currentModel = ($('#gg_api_model').val() || '').trim();
                     const currentMaxTokens = parseInt($('#gg_api_max_tokens').val()) || 8192;
+                    const currentUseStream = $('#gg_api_use_stream').is(':checked');
                     const currentProvider = $('#gg_api_provider').val();
                     const currentMode = $('input[name="gg_api_mode"]:checked').val() === 'independent';
 
@@ -9398,6 +10580,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         apiKey: API_CONFIG.apiKey,
                         model: API_CONFIG.model,
                         maxTokens: API_CONFIG.maxTokens,
+                        useStream: API_CONFIG.useStream,
                         provider: API_CONFIG.provider,
                         useIndependentAPI: API_CONFIG.useIndependentAPI
                     };
@@ -9419,6 +10602,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         API_CONFIG.apiKey = currentKey;
                         API_CONFIG.model = currentModel;
                         API_CONFIG.maxTokens = currentMaxTokens;
+                        API_CONFIG.useStream = currentUseStream;
                         API_CONFIG.provider = currentProvider;
                         API_CONFIG.useIndependentAPI = currentMode;
 
@@ -9458,6 +10642,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         API_CONFIG.apiKey = backup.apiKey;
                         API_CONFIG.model = backup.model;
                         API_CONFIG.maxTokens = backup.maxTokens;
+                        API_CONFIG.useStream = backup.useStream;
                         API_CONFIG.provider = backup.provider;
                         API_CONFIG.useIndependentAPI = backup.useIndependentAPI;
 
@@ -9547,6 +10732,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             if (serverData.api) {
                 const currentSumIdx = API_CONFIG.lastSummaryIndex;
                 const currentBfIdx = API_CONFIG.lastBackfillIndex;
+                const currentBigSumIdx = API_CONFIG.lastBigSummaryIndex; // ✅ 备份大总结指针
                 const currentSumSrc = API_CONFIG.summarySource; // ✅ 新增备份：保护总结来源（会话独立配置）
 
                 Object.assign(API_CONFIG, serverData.api);
@@ -9557,6 +10743,9 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 }
                 if (currentBfIdx !== undefined && currentBfIdx > (serverData.api.lastBackfillIndex || 0)) {
                     API_CONFIG.lastBackfillIndex = currentBfIdx;
+                }
+                if (currentBigSumIdx !== undefined && currentBigSumIdx > (serverData.api.lastBigSummaryIndex || 0)) {
+                    API_CONFIG.lastBigSummaryIndex = currentBigSumIdx; // ✅ 恢复大总结指针
                 }
 
                 // ✅ 新增恢复：恢复总结来源（防止全局配置覆盖当前会话的独立设置）
@@ -9576,15 +10765,30 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             // ✅ 同步表格结构预设
             if (serverData.tablePresets) {
                 let syncedPresets = serverData.tablePresets;
+                const defaultTablePresetName = 'yuzuki-方案三-表格结构';
+                const legacyDefaultTablePresetName = '默认结构';
 
-                // 🛡️ 安全检查：确保至少有"默认结构"预设
-                if (!syncedPresets['默认结构'] && window.Gaigai.DEFAULT_TABLES) {
+                // 兼容旧键名：若云端仍是旧键，迁移到新键名
+                if (!syncedPresets[defaultTablePresetName] && syncedPresets[legacyDefaultTablePresetName]) {
+                    syncedPresets[defaultTablePresetName] = syncedPresets[legacyDefaultTablePresetName];
+                }
+                if (syncedPresets[legacyDefaultTablePresetName]) {
+                    delete syncedPresets[legacyDefaultTablePresetName];
+                }
+
+                // 🛡️ 安全检查：确保至少有默认结构预设（新命名）
+                if (!syncedPresets[defaultTablePresetName] && window.Gaigai.DEFAULT_TABLES) {
                     console.log('⚠️ [配置同步] 云端数据缺少默认预设，正在补充...');
-                    syncedPresets['默认结构'] = JSON.parse(JSON.stringify(window.Gaigai.DEFAULT_TABLES));
+                    syncedPresets[defaultTablePresetName] = JSON.parse(JSON.stringify(window.Gaigai.DEFAULT_TABLES));
                 }
 
                 localStorage.setItem('gg_table_presets', JSON.stringify(syncedPresets));
                 console.log('✅ [配置同步] 表格结构预设已恢复');
+            }
+
+            // ✅ 同步后统一执行一次 PromptManager 迁移，补齐四套内置默认方案
+            if (window.Gaigai.PromptManager && typeof window.Gaigai.PromptManager.initProfiles === 'function') {
+                window.Gaigai.PromptManager.initProfiles();
             }
 
             // 写入本地缓存
@@ -9646,21 +10850,36 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             delete cleanedApiConfig.lastBackfillIndex;
             const currentLibrary = {}; // 向量库已独立存储，此处设空
 
+            // ✅ 上传前先补齐默认方案，避免云端缺失四套内置预设
+            if (window.Gaigai.PromptManager && typeof window.Gaigai.PromptManager.initProfiles === 'function') {
+                window.Gaigai.PromptManager.initProfiles();
+            }
+
             // ✅ 读取表格结构预设
             let tablePresets = {};
             try {
                 const tp = localStorage.getItem('gg_table_presets');
                 if (tp) tablePresets = JSON.parse(tp);
-            } catch (e) {}
+            } catch (e) { }
+            const defaultTablePresetName = 'yuzuki-方案三-表格结构';
+            const legacyDefaultTablePresetName = '默认结构';
 
-            // 🛡️ 安全检查：确保至少有"默认结构"预设再上传
-            if (!tablePresets['默认结构'] && window.Gaigai.DEFAULT_TABLES) {
+            // 兼容旧键名：优先写入新键，避免后续再被补旧键
+            if (!tablePresets[defaultTablePresetName] && tablePresets[legacyDefaultTablePresetName]) {
+                tablePresets[defaultTablePresetName] = tablePresets[legacyDefaultTablePresetName];
+            }
+            if (tablePresets[legacyDefaultTablePresetName]) {
+                delete tablePresets[legacyDefaultTablePresetName];
+            }
+
+            // 🛡️ 安全检查：确保至少有默认结构预设（新命名）再上传
+            if (!tablePresets[defaultTablePresetName] && window.Gaigai.DEFAULT_TABLES) {
                 console.log('⚠️ [配置上传] 本地缺少默认预设，正在补充...');
-                tablePresets['默认结构'] = JSON.parse(JSON.stringify(window.Gaigai.DEFAULT_TABLES));
+                tablePresets[defaultTablePresetName] = JSON.parse(JSON.stringify(window.Gaigai.DEFAULT_TABLES));
                 // 同时写回本地，避免下次再触发
                 try {
                     localStorage.setItem('gg_table_presets', JSON.stringify(tablePresets));
-                } catch (e) {}
+                } catch (e) { }
             }
 
             const allSettings = {
@@ -9684,7 +10903,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 localStorage.setItem(CK, JSON.stringify(C));
                 localStorage.setItem(AK, JSON.stringify(API_CONFIG));
                 localStorage.setItem(UK, JSON.stringify(UI));
-            } catch (e) {}
+            } catch (e) { }
 
             // 5. 获取通行证
             let csrfToken = '';
@@ -9739,7 +10958,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
     }
 
     // 【全局单例】配置页表格选择按钮监听器（防止重复绑定）
-    (function() {
+    (function () {
         if (window._gg_config_table_selector_bound) return;
         window._gg_config_table_selector_bound = true;
 
@@ -9747,7 +10966,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         let lastClickTime = 0; // 记录上次点击时间
 
         // 暴露到全局，供内联事件调用
-        window._gg_openTableSelector = function(event) {
+        window._gg_openTableSelector = function (event) {
             // ✅ 修复1: 阻止事件冒泡和默认行为
             if (event) {
                 event.preventDefault();
@@ -9825,7 +11044,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     $('#gg_modal_cancel').on('click', function () { overlay.remove(); $(document).off('keydown.gg_modal'); $(document).off('click.gg_card'); isOpening = false; });
                     overlay.on('click', function (e) { if (e.target === overlay[0]) { overlay.remove(); $(document).off('keydown.gg_modal'); $(document).off('click.gg_card'); isOpening = false; } });
                     $(document).on('keydown.gg_modal', function (e) { if (e.key === 'Escape') { overlay.remove(); $(document).off('keydown.gg_modal'); $(document).off('click.gg_card'); isOpening = false; } });
-                    $(document).off('click.gg_card').on('click.gg_card', '.gg-choice-card', function(e) {
+                    $(document).off('click.gg_card').on('click.gg_card', '.gg-choice-card', function (e) {
                         // ✅ Fix: If the input itself is clicked, let the browser handle it natively
                         if ($(e.target).is('input')) return;
 
@@ -9891,10 +11110,22 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             : '';
 
         const h = `<div class="g-p" style="display: flex; flex-direction: column; gap: 12px;">
-        <h4 style="margin:0 0 4px 0;">⚙️ 插件配置</h4>
+        <h4 style="margin: 0 0 10px 0;">⚙️ 插件配置</h4>
 
         ${hibernateBanner}
         <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; border: 1px solid rgba(255,255,255,0.2);">
+            
+            <!-- ✅ 智能计算联动 (采用标准整行排版) -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div>
+                    <label style="font-weight: 600; display:block; color: #0d0d0d;">✨ 智能计算联动</label>
+                    <span style="font-size:10px; opacity:0.7;">勾选后，当手动填写隐藏楼层/小总结楼层处时，自动帮助填写其他楼层数值合理化</span>
+                </div>
+                <input type="checkbox" id="gg_c_auto_calc" ${C.autoCalculateParams ? 'checked' : ''} style="transform: scale(1.2);">
+            </div>
+            
+            <hr style="border: 0; border-top: 1px dashed rgba(0,0,0,0.1); margin: 5px 0 8px 0;">
+
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <div>
                     <label style="font-weight: 600; display:block;">💡 实时填表</label>
@@ -9968,12 +11199,8 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 <input type="checkbox" id="gg_c_table_inj" ${C.tableInj ? 'checked' : ''} style="transform: scale(1.2);">
             </div>
 
-            <div style="font-size: 11px; opacity: 0.8; margin-bottom: 4px;">👇 注入策略 (表格+总结)：</div>
-
-            <div style="background: rgba(0,0,0,0.03); padding: 6px 10px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.1); font-size: 11px; color: ${UI.tc}; opacity: 0.8; line-height: 1.5;">
-                插件中的所有内容将作为 <strong>系统 (System)</strong> 消息，自动插入到 <strong>聊天记录 (Chat History)</strong> 的上方。
-                <br>
-                💡 如需改变位置请点击上方i图标查看说明。
+            <div style="font-size: 11px; opacity: 0.8; line-height: 1.5;">
+                注入策略点击上方 i 图标查看。
             </div>
         </div>
 
@@ -10009,18 +11236,18 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     <!-- 🆕 表格选择按钮 -->
                     <button type="button" id="gg_open_table_selector" onclick="window._gg_openTableSelector(event)" style="width: 100%; padding: 12px; background: ${UI.c}; color: ${UI.tc}; border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; text-align: center; transition: all 0.2s; touch-action: manipulation;">
                         <span style="pointer-events: none;" id="gg_table_selector_text">${(() => {
-                            const dataTables = m.s.slice(0, -1);
-                            const selectedTables = C.autoSummaryTargetTables;
+                const dataTables = m.s.slice(0, -1);
+                const selectedTables = C.autoSummaryTargetTables;
 
-                            // ✅ 修正显示逻辑：undefined/null=默认全选, []=未选择, [1,2]=已选择X个
-                            if (selectedTables === undefined || selectedTables === null) {
-                                return `🎯 默认全选 ${dataTables.length} 个表格 (点击修改)`;
-                            } else if (Array.isArray(selectedTables) && selectedTables.length === 0) {
-                                return `⚠️ 未选择表格 (点击修改)`;
-                            } else {
-                                return `🎯 已选择 ${selectedTables.length} 个表格 (点击修改)`;
-                            }
-                        })()}</span>
+                // ✅ 修正显示逻辑：undefined/null=默认全选, []=未选择, [1,2]=已选择X个
+                if (selectedTables === undefined || selectedTables === null) {
+                    return `🎯 默认全选 ${dataTables.length} 个表格 (点击修改)`;
+                } else if (Array.isArray(selectedTables) && selectedTables.length === 0) {
+                    return `⚠️ 未选择表格 (点击修改)`;
+                } else {
+                    return `🎯 已选择 ${selectedTables.length} 个表格 (点击修改)`;
+                }
+            })()}</span>
                     </button>
 
                     <div style="font-size: 10px; color: ${UI.tc}; opacity: 0.6; margin-top: 8px; padding-left: 2px;">
@@ -10070,9 +11297,39 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         </div>
 
         <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; border: 1px solid rgba(255,255,255,0.2);">
-            <div style="font-weight: 600; color:var(--g-tc); margin-bottom: 8px;">🏷️ 标签过滤（串行双重过滤）</div>
-            <div style="font-size:10px; color:var(--g-tc); opacity:0.7; margin-bottom:6px;">过滤逻辑：先去黑后留白，可单选。例: <code style="background:rgba(0,0,0,0.1); padding:2px; color:var(--g-tc);">think, search</code>。若要过滤 <code style="background:rgba(0,0,0,0.1); padding:2px; color:var(--g-tc);">&lt;!--注释--&gt;</code>，请填入 <code style="background:rgba(0,0,0,0.1); padding:2px; color:var(--g-tc);">!--</code></div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <label style="font-weight: 600;">📚 自动大总结（聊天历史）</label>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 11px;">每</span>
+                    <input type="number" id="gg_c_big_sum_floor" value="${C.autoBigSummaryFloor}" min="50" style="width: 70px; text-align: center; border-radius: 4px; border:1px solid rgba(0,0,0,0.2);" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                    <span style="font-size: 11px;">层</span>
+                    <input type="checkbox" id="gg_c_big_sum" ${C.autoBigSummary ? 'checked' : ''} style="transform: scale(1.2);">
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; padding-left:8px; border-left:2px solid rgba(255,152,0,0.3); font-size:11px;">
+                <input type="checkbox" id="gg_c_auto_big_delay" ${C.autoBigSummaryDelay ? 'checked' : ''} style="margin:0;">
+                <label for="gg_c_auto_big_delay" style="cursor:pointer; display:flex; align-items:center; gap:4px; margin:0;">
+                    <span>⏱️ 延迟启动</span>
+                </label>
+                <span style="opacity:0.7;">|</span>
+                <span style="opacity:0.8;">滞后</span>
+                <input type="number" id="gg_c_auto_big_delay_count" value="${C.autoBigSummaryDelayCount || 6}" min="1" style="width:70px; text-align:center; padding:2px; border-radius:4px; border:1px solid rgba(0,0,0,0.2);" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                <span style="opacity:0.8;">层再执行</span>
+            </div>
+            <div style="font-size: 10px; color: ${UI.tc}; opacity: 0.7; padding: 8px; background: rgba(0,0,0,0.03); border-radius: 4px;">
+                💡 大总结会对指定跨度的楼层进行一次性总结，并自动清理该区间内的零散小总结
+            </div>
+        </div>
 
+        <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; border: 1px solid rgba(255,255,255,0.2);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                    <span style="font-weight: 600; color:var(--g-tc);">🏷️ 标签过滤</span>
+                    <i class="fa-solid fa-circle-info" id="gg_filter_info_icon" style="cursor: pointer; margin-left: 2px; color: #17a2b8; font-size: 14px;" title="点击查看过滤规则说明"></i>
+                </div>
+                <button id="gg_btn_ai_extract_tags" style="padding: 4px 8px !important; background: ${UI.c} !important; color: ${UI.tc} !important; border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 4px !important; font-size: 11px !important; font-weight: normal !important; height: auto !important; min-height: 0 !important; line-height: 1.2 !important; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.2); white-space: nowrap; margin-left: auto;">🤖 AI 智能诊断</button>
+            </div>
+            
             <div style="margin-bottom: 8px;">
                 <label style="font-size:11px; color:var(--g-tc); font-weight: 500; display: block; margin-bottom: 4px;">🚫 黑名单标签 (去除)</label>
                 <input type="text" id="gg_c_filter_tags" value="${esc(C.filterTags || '')}" placeholder="例: thinking, system" style="width:100%; padding:5px; border:1px solid rgba(0,0,0,0.1); border-radius:4px; font-size:11px; font-family:monospace; color:var(--g-tc);" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
@@ -10087,8 +11344,6 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     <span class="gg-quick-tag" data-tag="!--" style="background: rgba(0,0,0,0.08); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-family: monospace; color:var(--g-tc); transition: background 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.15)'" onmouseout="this.style.background='rgba(0,0,0,0.08)'">!--</span>
                     <span id="gg_clear_filter_tags" style="background: rgba(211,47,47,0.1); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; color:#d32f2f; transition: background 0.2s;" onmouseover="this.style.background='rgba(211,47,47,0.2)'" onmouseout="this.style.background='rgba(211,47,47,0.1)'" title="清空">🗑️</span>
                 </div>
-
-                <div style="font-size:9px; color:#d63031; margin-top:2px;">删除这些标签及其内部的所有文字</div>
             </div>
 
             <div>
@@ -10100,43 +11355,119 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     <span class="gg-quick-tag-white" data-tag="statusbar" style="background: rgba(0,0,0,0.08); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-family: monospace; color:var(--g-tc); transition: background 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.15)'" onmouseout="this.style.background='rgba(0,0,0,0.08)'">statusbar</span>
                     <span id="gg_clear_filter_tags_white" style="background: rgba(211,47,47,0.1); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; color:#d32f2f; transition: background 0.2s;" onmouseover="this.style.background='rgba(211,47,47,0.2)'" onmouseout="this.style.background='rgba(211,47,47,0.1)'" title="清空">🗑️</span>
                 </div>
-                <div style="font-size:9px; color:#27ae60; margin-top:2px;">仅提取这些标签内的文字（若未找到则保留黑名单处理后的结果）</div>
+            </div>
+
+            <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed rgba(0,0,0,0.12);">
+                <label style="font-size:11px; color:var(--g-tc); font-weight: 600; display: block; margin-bottom: 6px;">💾 标签过滤预设</label>
+
+                <div style="display:flex; gap:6px; margin-bottom:6px;">
+                    <select id="gg_filter_preset_select" style="flex:1; min-width:0; padding:5px; border:1px solid rgba(0,0,0,0.1); border-radius:4px; font-size:11px; color:var(--g-tc);">
+                        <option value="">(选择预设)</option>
+                        ${(() => {
+                const presets = Array.isArray(C.filterTagPresets) ? C.filterTagPresets : [];
+                return presets.map(p => {
+                    const selected = (p && p.id === C.filterTagActivePresetId) ? ' selected' : '';
+                    return `<option value="${esc(p.id || '')}"${selected}>${esc(p.name || '(未命名预设)')}</option>`;
+                }).join('');
+            })()}
+                    </select>
+                    <button id="gg_filter_preset_delete" style="padding:5px 8px; border:1px solid rgba(211,47,47,0.35); border-radius:4px; background: rgba(211,47,47,0.08); color:#d32f2f; font-size:11px; cursor:pointer;">删除</button>
+                </div>
+
+                <div style="display:flex; gap:6px; align-items:center;">
+                    <input type="text" id="gg_filter_preset_name" placeholder="输入预设名称后点保存" style="flex:1; min-width:0; padding:5px; border:1px solid rgba(0,0,0,0.1); border-radius:4px; font-size:11px; font-family:monospace; color:var(--g-tc);" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                    <button id="gg_filter_preset_save" style="padding:5px 8px; border:1px solid rgba(76,175,80,0.35); border-radius:4px; background: rgba(76,175,80,0.12); color:#2e7d32; font-size:11px; cursor:pointer;">保存</button>
+                </div>
+
+                <div style="font-size:10px; color:var(--g-tc); opacity:0.72; margin-top:6px;">
+                    切换预设会立即应用黑/白标签；保存会覆盖同名预设。
+                </div>
             </div>
         </div>
 
-        <div style="background: rgba(76, 175, 80, 0.1); border: 1px solid rgba(76, 175, 80, 0.3); border-radius: 6px; padding: 10px; margin-top: 10px;">
-            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight: 600;">
-                <input type="checkbox" id="gg_c_sync_wi" ${C.syncWorldInfo ? 'checked' : ''}>
-                <span>🌏 同步到世界书</span>
-            </label>
-            <div style="font-size: 10px; color: #666; margin-top: 6px; margin-left: 22px; line-height: 1.4;">
-                将总结内容自动写入名为 <strong>[Memory_Context_Auto]</strong> 的世界书（常驻条目，触发词：总结/summary/前情提要/memory）
+        <div class="gg-sync-vector-zone">
+            <div class="gg-config-card gg-summary-rule-card ${C.summaryRulePanelCollapsed ? 'gg-card-collapsed' : ''}">
+                <div class="gg-config-card-header">
+                    <div class="gg-config-card-title">📌 记忆总结（默认设置）</div>
+                    <button
+                        type="button"
+                        id="gg_toggle_summary_rule_panel"
+                        class="gg-config-card-toggle"
+                        aria-expanded="${C.summaryRulePanelCollapsed ? 'false' : 'true'}"
+                        aria-controls="gg_summary_rule_panel_body"
+                    >${C.summaryRulePanelCollapsed ? '>' : '<'}</button>
+                </div>
+                <div id="gg_summary_rule_panel_body" class="gg-config-card-body">
+                    <div class="gg-summary-default-option">
+                        <span class="gg-summary-fake-checkbox" aria-hidden="true">✓</span>
+                        <span>记忆总结（默认发送）</span>
+                        <span class="gg-summary-default-state">已开启（默认）</span>
+                    </div>
+                    <div class="gg-summary-rule-tip">
+                        若需世界书/向量化发送记忆总结，请在对应区域配置；配置后，默认选项将被覆盖。
+                    </div>
+                </div>
             </div>
 
-            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight: 500; margin-top: 8px;">
-                <input type="checkbox" id="gg_c_vector_enabled" ${C.vectorEnabled ? 'checked' : ''}>
-                <span>🔍 启用插件独立向量检索</span>
-            </label>
-            <div style="font-size: 10px; color: #666; margin-top: 4px; margin-left: 22px; line-height: 1.4;">
-                使用外部 API 实现语义检索，不依赖酒馆（点击下方"💠 向量化"按钮配置详细参数）
-            </div>
+            <div class="gg-sync-vector-grid">
+                <div class="gg-config-card gg-worldbook-card ${C.syncWorldInfoPanelCollapsed ? 'gg-card-collapsed' : ''}">
+                    <div class="gg-config-card-header">
+                        <div class="gg-config-card-title">🌏 世界书总结</div>
+                        <button
+                            type="button"
+                            id="gg_toggle_worldbook_panel"
+                            class="gg-config-card-toggle"
+                            aria-expanded="${C.syncWorldInfoPanelCollapsed ? 'false' : 'true'}"
+                            aria-controls="gg_worldbook_panel_body"
+                        >${C.syncWorldInfoPanelCollapsed ? '>' : '<'}</button>
+                    </div>
 
-            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight: 500; margin-top: 8px;">
-                <input type="checkbox" id="gg_c_auto_vectorize" ${C.autoVectorizeSummary ? 'checked' : ''}>
-                <span>⚡ 总结后自动向量化</span>
-            </label>
-            <div style="font-size: 10px; color: #666; margin-top: 4px; margin-left: 22px; line-height: 1.4;">
-                总结完成后,自动将内容同步到专属向量书并执行向量化<br>
-                (注:勾选后,总结表中已被向量化的内容将自动标记为隐藏/绿色)
-            </div>
+                    <div id="gg_worldbook_panel_body" class="gg-config-card-body">
+                        <label class="gg-cfg-option gg-cfg-option-strong">
+                            <input type="checkbox" id="gg_c_sync_wi" ${C.syncWorldInfo ? 'checked' : ''}>
+                            <span>同步到世界书</span>
+                        </label>
+                        <div class="gg-cfg-hint">
+                            默认世界书名称以 <strong>[Memory_Context_]</strong> 开头；勾选后将不发送记忆总结，改由世界书发送。
+                        </div>
 
-            ${window.Gaigai.WI.getSettingsUI(m.wiConfig)}
+                        ${window.Gaigai.WI.getSettingsUI(m.wiConfig)}
 
-            <!-- ✨✨✨ 新增：手动覆盖按钮区域 ✨✨✨ -->
-            <div style="margin-top: 8px; border-top: 1px dashed rgba(0,0,0,0.1); padding-top: 8px; display: flex; align-items: center; justify-content: flex-end;">
-                <button id="gg_btn_force_sync_wi" style="background: #ff9800; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-                    <i class="fa-solid fa-arrows-rotate"></i> 强制用总结表覆盖世界书
-                </button>
+                        <div class="gg-world-sync-actions">
+                            <button id="gg_btn_force_sync_wi" style="background: #ff9800; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                <i class="fa-solid fa-arrows-rotate"></i> 强制用总结表覆盖世界书
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="gg-config-card gg-vector-card ${C.vectorPanelCollapsed ? 'gg-card-collapsed' : ''}">
+                    <div class="gg-config-card-header">
+                        <div class="gg-config-card-title">💠 向量化总结</div>
+                        <button
+                            type="button"
+                            id="gg_toggle_vector_panel"
+                            class="gg-config-card-toggle"
+                            aria-expanded="${C.vectorPanelCollapsed ? 'false' : 'true'}"
+                            aria-controls="gg_vector_panel_body"
+                        >${C.vectorPanelCollapsed ? '>' : '<'}</button>
+                    </div>
+
+                    <div id="gg_vector_panel_body" class="gg-config-card-body">
+                        <label class="gg-cfg-option">
+                            <input type="checkbox" id="gg_c_vector_enabled" ${C.vectorEnabled ? 'checked' : ''}>
+                            <span>🔍 启用向量化</span>
+                        </label>
+
+                        <label class="gg-cfg-option">
+                            <input type="checkbox" id="gg_c_auto_vectorize" ${C.autoVectorizeSummary ? 'checked' : ''}>
+                            <span>⚡ 总结后自动向量化</span>
+                        </label>
+                        <div class="gg-cfg-hint">
+                            勾选后将不发送记忆总结，改由向量化发送。
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -10200,8 +11531,8 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
         setTimeout(() => {
             // ✅✅✅ [修复] 强制同步 UI 状态与内存配置
-            // 优先读取 API_CONFIG.summarySource，如果未定义则默认为 'table' (与定义保持一致)
-            const currentSummarySource = API_CONFIG.summarySource || 'table';
+            // 优先读取 API_CONFIG.summarySource，如果未定义则默认为 'chat' (与定义保持一致)
+            const currentSummarySource = API_CONFIG.summarySource || 'chat';
 
             // 1. 先重置所有选中状态
             $('input[name="cfg-sum-src"]').prop('checked', false);
@@ -10211,14 +11542,68 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             if ($targetRadio.length > 0) {
                 $targetRadio.prop('checked', true);
             } else {
-                // 兜底：如果值不对，默认选中 table
-                $('input[name="cfg-sum-src"][value="table"]').prop('checked', true);
+                // 兜底：如果值不对，默认选中 chat
+                $('input[name="cfg-sum-src"][value="chat"]').prop('checked', true);
             }
 
             // 3. 触发 change 事件以更新关联 UI (如显示/隐藏子选项)
             $('input[name="cfg-sum-src"]:checked').trigger('change');
 
             console.log(`✅ [配置面板] 总结模式 UI 已同步为: ${currentSummarySource}`);
+            // ✅ 用户手动修改过大总结层数时，智能联动不再改写该值
+            let bigSummaryFloorManualOverride = !!C.autoBigSummaryFloorManual;
+
+            // ==================== 世界书/向量化分区折叠状态 ====================
+            const persistPanelFoldState = () => {
+                try {
+                    localStorage.setItem(CK, JSON.stringify(C));
+                    localStorage.setItem('gg_timestamp', Date.now().toString());
+                } catch (e) {
+                    console.error('❌ [折叠状态] localStorage 写入失败:', e);
+                }
+            };
+
+            const setPanelCollapsed = ($card, $toggleBtn, collapsed, configKey) => {
+                if (collapsed) {
+                    $card.addClass('gg-card-collapsed');
+                    $toggleBtn.attr('aria-expanded', 'false');
+                    $toggleBtn.text('>');
+                } else {
+                    $card.removeClass('gg-card-collapsed');
+                    $toggleBtn.attr('aria-expanded', 'true');
+                    $toggleBtn.text('<');
+                }
+                C[configKey] = collapsed;
+            };
+
+            const $worldbookCard = $('.gg-worldbook-card');
+            const $vectorCard = $('.gg-vector-card');
+            const $summaryRuleCard = $('.gg-summary-rule-card');
+            const $toggleWorldbook = $('#gg_toggle_worldbook_panel');
+            const $toggleVector = $('#gg_toggle_vector_panel');
+            const $toggleSummaryRule = $('#gg_toggle_summary_rule_panel');
+
+            setPanelCollapsed($worldbookCard, $toggleWorldbook, !!C.syncWorldInfoPanelCollapsed, 'syncWorldInfoPanelCollapsed');
+            setPanelCollapsed($vectorCard, $toggleVector, !!C.vectorPanelCollapsed, 'vectorPanelCollapsed');
+            setPanelCollapsed($summaryRuleCard, $toggleSummaryRule, !!C.summaryRulePanelCollapsed, 'summaryRulePanelCollapsed');
+
+            $toggleWorldbook.off('click').on('click', function () {
+                const nextCollapsed = !$worldbookCard.hasClass('gg-card-collapsed');
+                setPanelCollapsed($worldbookCard, $toggleWorldbook, nextCollapsed, 'syncWorldInfoPanelCollapsed');
+                persistPanelFoldState();
+            });
+
+            $toggleVector.off('click').on('click', function () {
+                const nextCollapsed = !$vectorCard.hasClass('gg-card-collapsed');
+                setPanelCollapsed($vectorCard, $toggleVector, nextCollapsed, 'vectorPanelCollapsed');
+                persistPanelFoldState();
+            });
+
+            $toggleSummaryRule.off('click').on('click', function () {
+                const nextCollapsed = !$summaryRuleCard.hasClass('gg-card-collapsed');
+                setPanelCollapsed($summaryRuleCard, $toggleSummaryRule, nextCollapsed, 'summaryRulePanelCollapsed');
+                persistPanelFoldState();
+            });
 
             // ✅✅✅ 新增：重置追溯进度
 
@@ -10336,7 +11721,8 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         <div style="margin-bottom: 12px;">如需调整表格里面的内容在上下文的位置，用户需手动将对应的变量，新增条目插入到预设中：</div>
                         <div style="margin-bottom: 8px;">• 全部内容(表格+总结)：<code style="background:${codeBg}; color:${accentColor}; padding:2px 6px; border-radius:3px; font-weight:bold;">{{MEMORY}}</code> (跟随实时填表开关)</div>
                         <div style="margin-bottom: 8px;">• 表格插入变量(不含总结表)：<code style="background:${codeBg}; color:${accentColor}; padding:2px 6px; border-radius:3px; font-weight:bold;">{{MEMORY_TABLE}}</code> (强制发送表格内容)</div>
-                        <div style="margin-bottom: 8px;">• 总结插入变量(不含其他表格)：<code style="background:${codeBg}; color:${accentColor}; padding:2px 6px; border-radius:3px; font-weight:bold;">{{MEMORY_SUMMARY}}</code> (强制发送总结内容)</div>
+                        <div style="margin-bottom: 8px;">• 单表插入变量：<code style="background:${codeBg}; color:${accentColor}; padding:2px 6px; border-radius:3px; font-weight:bold;">{{MEMORY_TABLE_xxx}}</code> (xxx=表格名，例如 <code style="background:${codeBg}; color:${accentColor}; padding:2px 6px; border-radius:3px; font-weight:bold;">{{MEMORY_TABLE_主线剧情}}</code>)</div>
+                        <div style="margin-bottom: 8px;">• 总结插入变量(不含其他表格)：<code style="background:${codeBg}; color:${accentColor}; padding:2px 6px; border-radius:3px; font-weight:bold;">{{MEMORY_SUMMARY}}</code> (默认发送总结；若开启同步世界书或自动向量化则不发送)</div>
                         <div>• 实时填表提示词插入变量：<code style="background:${codeBg}; color:${accentColor}; padding:2px 6px; border-radius:3px; font-weight:bold;">{{MEMORY_PROMPT}}</code></div>
                     `
                 });
@@ -10516,6 +11902,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 C.autoBackfillDelayCount = parseInt($('#gg_c_auto_bf_delay_count').val()) || 5;
                 C.contextLimit = $('#gg_c_limit_on').is(':checked');
                 C.contextLimitCount = parseInt($('#gg_c_limit_count').val());
+                C.autoCalculateParams = $('#gg_c_auto_calc').is(':checked');
                 C.tableInj = $('#gg_c_table_inj').is(':checked');
                 C.autoSummary = $('#gg_c_auto_sum').is(':checked');
                 C.autoSummaryFloor = parseInt($('#gg_c_auto_floor').val());
@@ -10524,8 +11911,27 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 C.autoSummaryDelay = $('#gg_c_auto_sum_delay').is(':checked');
                 C.autoSummaryDelayCount = parseInt($('#gg_c_auto_sum_delay_count').val()) || 5;
                 C.autoSummaryHideContext = $('#gg_c_auto_sum_hide').is(':checked');
+                C.autoBigSummary = $('#gg_c_big_sum').is(':checked');
+                C.autoBigSummaryFloor = parseInt($('#gg_c_big_sum_floor').val()) || 100;
+                C.autoBigSummaryFloorManual = !!bigSummaryFloorManualOverride;
+                C.autoBigSummaryDelay = $('#gg_c_auto_big_delay').is(':checked');
+                C.autoBigSummaryDelayCount = parseInt($('#gg_c_auto_big_delay_count').val()) || 6;
                 C.filterTags = $('#gg_c_filter_tags').val();
                 C.filterTagsWhite = $('#gg_c_filter_tags_white').val();
+                if (!Array.isArray(C.filterTagPresets)) C.filterTagPresets = [];
+                C.filterTagPresets = C.filterTagPresets
+                    .filter(p => p && typeof p === 'object' && p.id && p.name)
+                    .map(p => ({
+                        id: String(p.id),
+                        name: String(p.name),
+                        black: String(p.black || ''),
+                        white: String(p.white || ''),
+                        createdAt: p.createdAt || Date.now(),
+                        updatedAt: p.updatedAt || Date.now()
+                    }));
+                if (!C.filterTagPresets.some(p => p.id === C.filterTagActivePresetId)) {
+                    C.filterTagActivePresetId = '';
+                }
                 C.syncWorldInfo = $('#gg_c_sync_wi').is(':checked');
                 C.vectorEnabled = $('#gg_c_vector_enabled').is(':checked');
                 C.autoVectorizeSummary = $('#gg_c_auto_vectorize').is(':checked');
@@ -10557,14 +11963,14 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 // 2. 存入 localStorage
                 try {
                     localStorage.setItem('gg_config', JSON.stringify(C));
-                } catch (e) {}
+                } catch (e) { }
 
                 // 3. 实时反馈
                 console.log(`💠 [设置] 独立向量检索已${C.vectorEnabled ? '开启' : '关闭'}`);
 
                 // 4. 尝试同步到云端
                 if (typeof saveAllSettingsToCloud === 'function') {
-                    saveAllSettingsToCloud().catch(() => {});
+                    saveAllSettingsToCloud().catch(() => { });
                 }
             });
 
@@ -10631,7 +12037,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             });
 
             // 🆕 隐藏楼层与总结后隐藏的互斥逻辑
-            $('#gg_c_limit_on').on('change', function() {
+            $('#gg_c_limit_on').on('change', function () {
                 const isChecked = $(this).is(':checked');
 
                 if (isChecked) {
@@ -10646,7 +12052,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 m.save(false, true);
             });
 
-            $('#gg_c_auto_sum_hide').on('change', function() {
+            $('#gg_c_auto_sum_hide').on('change', function () {
                 const isChecked = $(this).is(':checked');
 
                 if (isChecked) {
@@ -10659,6 +12065,309 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
                 syncUIToConfig();
                 m.save(false, true);
+            });
+
+            // ✨ 智能计算开关保存
+            $('#gg_c_auto_calc').on('change', function () {
+                C.autoCalculateParams = $(this).is(':checked');
+                // 重新开启智能联动时，清除手动覆盖状态，恢复自动计算
+                if (C.autoCalculateParams) {
+                    bigSummaryFloorManualOverride = false;
+                }
+                syncUIToConfig();
+                if (C.autoCalculateParams) {
+                    runSmartCalculation('summary', $('#gg_c_auto_floor').val());
+                }
+                m.save(false, true);
+            });
+
+            // ✨ 核心联动计算引擎
+            function runSmartCalculation(source, value) {
+                if (!$('#gg_c_auto_calc').is(':checked')) return;
+                const v = parseInt(value);
+                if (isNaN(v) || v <= 0) return;
+
+                if (source === 'limit') {
+                    // 场景2：使用隐藏楼层
+                    // 用户输入：隐藏后保留层数（如 25）
+                    // 批量填表 = 保留层数 - 5
+                    $('#gg_c_auto_bf_floor').val(Math.max(5, v - 5));
+                    // 批量填表滞后 = 2 楼
+                    $('#gg_c_auto_bf_delay_count').val(2);
+                    // 保留用户设置的小总结楼层，不因隐藏楼层调整而覆盖
+                    // 小总结滞后 = 3 楼
+                    $('#gg_c_auto_sum_delay_count').val(3);
+                    // 大总结 = 100 楼（固定值）
+                    if (!bigSummaryFloorManualOverride) {
+                        $('#gg_c_big_sum_floor').val(100);
+                    }
+                    // 大总结滞后 = 4 楼
+                    $('#gg_c_auto_big_delay_count').val(4);
+                } else if (source === 'summary') {
+                    // 场景1：使用上下文管理（隐藏楼层关闭）
+                    if (!$('#gg_c_limit_on').is(':checked')) {
+                        // 大总结 = 自动总结 × 5，但智能联动最高封顶 100
+                        if (!bigSummaryFloorManualOverride) {
+                            const smartBigFloor = Math.min(100, Math.max(50, v * 5));
+                            $('#gg_c_big_sum_floor').val(smartBigFloor);
+                        }
+                        // 大总结滞后 = 5 楼
+                        $('#gg_c_auto_big_delay_count').val(5);
+                    }
+                }
+                syncUIToConfig();
+            }
+
+            // ✨ 绑定输入事件
+            $('#gg_c_limit_count').on('input', function () { runSmartCalculation('limit', $(this).val()); });
+            $('#gg_c_auto_floor').on('input', function () { runSmartCalculation('summary', $(this).val()); });
+            $('#gg_c_big_sum_floor').on('change', function () {
+                if (!$('#gg_c_auto_calc').is(':checked')) return;
+                bigSummaryFloorManualOverride = true;
+                syncUIToConfig();
+                m.save(false, true);
+            });
+
+            // ==================== 标签过滤预设：保存/切换/删除 ====================
+            const normalizeFilterPresetList = (raw) => {
+                if (!Array.isArray(raw)) return [];
+                return raw
+                    .filter(p => p && typeof p === 'object' && p.id && p.name)
+                    .map(p => ({
+                        id: String(p.id),
+                        name: String(p.name),
+                        black: String(p.black || ''),
+                        white: String(p.white || ''),
+                        createdAt: p.createdAt || Date.now(),
+                        updatedAt: p.updatedAt || Date.now()
+                    }));
+            };
+
+            const getFilterPresetList = () => {
+                C.filterTagPresets = normalizeFilterPresetList(C.filterTagPresets);
+                return C.filterTagPresets;
+            };
+
+            const renderFilterPresetSelector = () => {
+                const $select = $('#gg_filter_preset_select');
+                if (!$select.length) return;
+
+                const presets = getFilterPresetList();
+                const options = ['<option value="">(选择预设)</option>'];
+                presets.forEach(p => {
+                    const selected = p.id === C.filterTagActivePresetId ? ' selected' : '';
+                    options.push(`<option value="${esc(p.id)}"${selected}>${esc(p.name)}</option>`);
+                });
+                $select.html(options.join(''));
+            };
+
+            const persistFilterPresetState = async () => {
+                syncUIToConfig();
+                m.save(false, true);
+                if (typeof saveAllSettingsToCloud === 'function') {
+                    saveAllSettingsToCloud().catch(() => { });
+                }
+            };
+
+            const applyFilterPresetById = async (presetId, showToast = true) => {
+                const presets = getFilterPresetList();
+                const preset = presets.find(p => p.id === presetId);
+                if (!preset) return false;
+
+                $('#gg_c_filter_tags').val(preset.black || '');
+                $('#gg_c_filter_tags_white').val(preset.white || '');
+                $('#gg_filter_preset_name').val(preset.name || '');
+
+                C.filterTagActivePresetId = preset.id;
+                $('#gg_filter_preset_select').val(preset.id);
+
+                await persistFilterPresetState();
+                if (showToast && typeof toastr !== 'undefined') toastr.success(`已应用标签预设：${preset.name}`);
+                return true;
+            };
+
+            // 初始化预设选择器
+            renderFilterPresetSelector();
+            if (C.filterTagActivePresetId) {
+                const active = getFilterPresetList().find(p => p.id === C.filterTagActivePresetId);
+                if (active) $('#gg_filter_preset_name').val(active.name || '');
+                else C.filterTagActivePresetId = '';
+            }
+
+            // 切换预设：立即应用
+            $('#gg_filter_preset_select').off('change').on('change', async function () {
+                const presetId = String($(this).val() || '');
+                if (!presetId) {
+                    C.filterTagActivePresetId = '';
+                    $('#gg_filter_preset_name').val('');
+                    await persistFilterPresetState();
+                    return;
+                }
+                await applyFilterPresetById(presetId, true);
+            });
+
+            // 保存预设：同名覆盖；若下拉已选中则直接更新该预设
+            $('#gg_filter_preset_save').off('click').on('click', async function () {
+                const name = String($('#gg_filter_preset_name').val() || '').trim();
+                if (!name) {
+                    if (typeof toastr !== 'undefined') toastr.warning('请输入预设名称');
+                    return;
+                }
+
+                const black = String($('#gg_c_filter_tags').val() || '').trim();
+                const white = String($('#gg_c_filter_tags_white').val() || '').trim();
+                const now = Date.now();
+                const presets = getFilterPresetList();
+                const selectedId = String($('#gg_filter_preset_select').val() || '');
+                let target = null;
+
+                if (selectedId) {
+                    target = presets.find(p => p.id === selectedId) || null;
+                }
+                if (!target) {
+                    target = presets.find(p => p.name === name) || null;
+                }
+
+                if (target) {
+                    target.name = name;
+                    target.black = black;
+                    target.white = white;
+                    target.updatedAt = now;
+                } else {
+                    target = {
+                        id: `ftp_${now.toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+                        name,
+                        black,
+                        white,
+                        createdAt: now,
+                        updatedAt: now
+                    };
+                    presets.unshift(target);
+                }
+
+                C.filterTagPresets = presets;
+                C.filterTagActivePresetId = target.id;
+                renderFilterPresetSelector();
+                $('#gg_filter_preset_select').val(target.id);
+
+                await persistFilterPresetState();
+                if (typeof toastr !== 'undefined') toastr.success(`标签预设已保存：${name}`);
+            });
+
+            // 删除预设
+            $('#gg_filter_preset_delete').off('click').on('click', async function () {
+                const selectedId = String($('#gg_filter_preset_select').val() || '');
+                if (!selectedId) {
+                    if (typeof toastr !== 'undefined') toastr.info('请先选择要删除的预设');
+                    return;
+                }
+
+                const presets = getFilterPresetList();
+                const target = presets.find(p => p.id === selectedId);
+                if (!target) return;
+
+                const ok = await customConfirm(`确定删除标签预设「${target.name}」吗？`, '删除确认');
+                if (!ok) return;
+
+                C.filterTagPresets = presets.filter(p => p.id !== selectedId);
+                if (C.filterTagActivePresetId === selectedId) C.filterTagActivePresetId = '';
+
+                renderFilterPresetSelector();
+                $('#gg_filter_preset_name').val('');
+
+                await persistFilterPresetState();
+                if (typeof toastr !== 'undefined') toastr.success(`已删除预设：${target.name}`);
+            });
+
+            // 🤖 AI 智能诊断提取标签
+            $('#gg_btn_ai_extract_tags').on('click', async function () {
+                const $btn = $(this);
+                const oldHtml = $btn.html();
+
+                try {
+                    const ctx = m.ctx();
+                    if (!ctx || !ctx.chat || ctx.chat.length === 0) {
+                        await window.Gaigai.customAlert('聊天记录为空，无法诊断。', '错误');
+                        return;
+                    }
+
+                    let lastAiMsg = null;
+                    for (let i = ctx.chat.length - 1; i >= 0; i--) {
+                        if (!ctx.chat[i].is_user && ctx.chat[i].role !== 'system') {
+                            lastAiMsg = ctx.chat[i];
+                            break;
+                        }
+                    }
+
+                    if (!lastAiMsg) {
+                        await window.Gaigai.customAlert('未找到 AI 的回复记录。', '错误');
+                        return;
+                    }
+
+                    const swipeId = lastAiMsg.swipe_id ?? 0;
+                    let rawText = '';
+                    if (lastAiMsg.swipes && lastAiMsg.swipes.length > swipeId) {
+                        rawText = lastAiMsg.swipes[swipeId];
+                    } else {
+                        rawText = lastAiMsg.mes || lastAiMsg.content || '';
+                    }
+
+                    if (!rawText.includes('<') && !rawText.includes('[')) {
+                        await window.Gaigai.customAlert('最后一条 AI 回复中未检测到明显的 XML (<>) 或方括号 ([]) 标签格式，无需提取。', '诊断结果');
+                        return;
+                    }
+
+                    $btn.html('<i class="fa-solid fa-spinner fa-spin"></i> 诊断中...').prop('disabled', true);
+
+                    const prompt = window.Gaigai.PromptManager.AI_TAG_DIAGNOSTIC_PROMPT.replace('{{RAW_TEXT}}', rawText);
+
+                    const messages = [{ role: 'user', content: prompt }];
+                    const API_CONFIG = window.Gaigai.config;
+                    let result;
+                    if (API_CONFIG.useIndependentAPI) {
+                        result = await window.Gaigai.tools.callIndependentAPI(messages);
+                    } else {
+                        result = await window.Gaigai.tools.callTavernAPI(messages);
+                    }
+
+                    if (!result.success || !result.summary) {
+                        throw new Error(result.error || 'AI 返回为空');
+                    }
+
+                    let jsonStr = result.summary;
+                    const jsonMatch = jsonStr.match(/\{.*\}/s);
+                    if (jsonMatch) jsonStr = jsonMatch[0];
+
+                    const parsed = JSON.parse(jsonStr);
+
+                    if ((!parsed.blacklist || parsed.blacklist.length === 0) && (!parsed.whitelist || parsed.whitelist.length === 0)) {
+                        await window.Gaigai.customAlert('AI 诊断完毕：文本中无需过滤的标签。', '诊断结果');
+                        return;
+                    }
+
+                    let msg = '🤖 **AI 诊断结果：**\n\n';
+                    if (parsed.reasoning) msg += `💡 **AI 分析思路：**\n${parsed.reasoning}\n\n`;
+                    if (parsed.blacklist && parsed.blacklist.length > 0) msg += `🚫 建议加入黑名单 (去除)：${parsed.blacklist.join(', ')}\n`;
+                    if (parsed.whitelist && parsed.whitelist.length > 0) msg += `✅ 建议加入白名单 (仅留)：${parsed.whitelist.join(', ')}\n`;
+                    msg += '\n是否立即应用到输入框？(原有内容将被覆盖)';
+
+                    if (await window.Gaigai.customConfirm(msg, '诊断完成')) {
+                        if (parsed.blacklist) $('#gg_c_filter_tags').val(parsed.blacklist.join(', '));
+                        if (parsed.whitelist) $('#gg_c_filter_tags_white').val(parsed.whitelist.join(', '));
+
+                        $('#gg_c_filter_tags, #gg_c_filter_tags_white').css('background', 'rgba(76, 175, 80, 0.2)');
+                        setTimeout(() => { $('#gg_c_filter_tags, #gg_c_filter_tags_white').css('background', ''); }, 1000);
+
+                        syncUIToConfig();
+                        if (typeof toastr !== 'undefined') toastr.success('标签规则已更新并保存');
+                    }
+
+                } catch (error) {
+                    console.error('AI提取标签失败:', error);
+                    await window.Gaigai.customAlert('AI 分析失败，可能未配置API或模型不支持 JSON 格式输出。\n错误信息：' + error.message, '诊断失败');
+                } finally {
+                    $btn.html(oldHtml).prop('disabled', false);
+                }
             });
 
             $('#gg_save_cfg').on('click', async function () {
@@ -10764,7 +12473,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
             // ==================== 快速添加标签功能 ====================
             // 点击标签快速添加到输入框
-            $('.gg-quick-tag').off('click').on('click', function() {
+            $('.gg-quick-tag').off('click').on('click', function () {
                 const tag = $(this).data('tag');
                 const $input = $('#gg_c_filter_tags');
                 let currentValue = $input.val().trim();
@@ -10785,8 +12494,27 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 }, 200);
             });
 
+            // i 图标点击事件 - 显示过滤规则说明
+            $('#gg_filter_info_icon').off('click').on('click', async function () {
+                await window.Gaigai.customAlert(
+                    '🏷️ 标签过滤规则说明\n\n' +
+                    '【过滤逻辑】\n' +
+                    '先去黑后留白，可单选。\n\n' +
+                    '【黑名单 (去除)】\n' +
+                    '删除这些标签及其内部的所有文字。\n' +
+                    '例: think\n\n' +
+                    '【白名单 (仅留)】\n' +
+                    '仅提取这些标签内的文字（若未找到则保留黑名单处理后的结果）。\n' +
+                    '例: content, message\n\n' +
+                    '【特殊格式】\n' +
+                    '• 方括号标签：如需过滤 [xx]标签，请完整填入 [xx]\n' +
+                    '• HTML注释：过滤注释填入 !--',
+                    '过滤规则说明'
+                );
+            });
+
             // 清空按钮
-            $('#gg_clear_filter_tags').off('click').on('click', function() {
+            $('#gg_clear_filter_tags').off('click').on('click', function () {
                 $('#gg_c_filter_tags').val('');
 
                 // 视觉反馈
@@ -10798,7 +12526,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
             // ==================== 白名单快速添加标签功能 ====================
             // Whitelist Quick Tags
-            $('.gg-quick-tag-white').off('click').on('click', function() {
+            $('.gg-quick-tag-white').off('click').on('click', function () {
                 const tag = $(this).data('tag');
                 const $input = $('#gg_c_filter_tags_white');
                 let currentValue = $input.val().trim();
@@ -10817,7 +12545,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             });
 
             // Whitelist Clear Button
-            $('#gg_clear_filter_tags_white').off('click').on('click', function() {
+            $('#gg_clear_filter_tags_white').off('click').on('click', function () {
                 $('#gg_c_filter_tags_white').val('');
 
                 // Visual feedback
@@ -10914,6 +12642,14 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     const mg = x.chat[i];
                     if (!mg) return; // 消息可能被删了
 
+                    // 🛡️ 重复渲染拦截：同一楼层 + 同一分支 + 同一内容，不重复回滚/写表
+                    const currentSignature = buildMessageProcessSignature(mg);
+                    if (!window.Gaigai.isSwiping && processedMessageSignatures[msgKey] === currentSignature) {
+                        console.log(`⏭️ [重复渲染拦截] 第 ${i} 楼签名未变化，跳过重复处理（兼容二次请求插件）`);
+                        return;
+                    }
+                    processedMessageSignatures[msgKey] = currentSignature;
+
                     console.log(`⚡ [核心计算] 开始处理第 ${i} 楼 (Swipe: ${mg.swipe_id || 0})`);
 
 
@@ -11005,7 +12741,6 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                             // 这通常发生在重Roll时丢失了上一个状态，继续写入会导致数据重复叠加
                             if (i > 0) {
                                 console.error(`🛑 [熔断] 第 ${i} 楼找不到前序快照，已停止自动写入以防止数据污染/重复。`);
-                                return; // 强制终止本次处理
                             }
                         }
 
@@ -11021,17 +12756,6 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                                 tx = mg.swipes[swipeId];
                             } else {
                                 tx = mg.mes || ''; // 兜底
-                            }
-
-                            // 🛡️ 第一道防线：深层聊天 + 空表 = 加载失败
-                            // 计算当前内存中的总行数
-                            const currentTotalRows = m.s.reduce((acc, sheet) => acc + (sheet.r ? sheet.r.length : 0), 0);
-
-                            // 如果聊天已经进行到一定深度 (>2)，但表格依然完全为空，判定为加载异常。
-                            // 这里的 >2 是为了允许真正的新开局（i=0或1）进行正常的初始化写入。
-                            if (i > 2 && currentTotalRows === 0) {
-                                console.warn(`🛑 [熔断保护] 检测到聊天进行中(第${i}层)但表格完全为空，判定为加载失败。停止写入以防止数据丢失。`);
-                                return;
                             }
 
                             // 解析并执行指令
@@ -11129,7 +12853,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                             // 计算目标结束点 (Target End Floor)
                             // 如果开启延迟：结束点 = 上次位置 + 间隔 (只处理这一段，后面的留作缓冲)
                             // 如果关闭延迟：结束点 = 当前位置 (处理所有未记录的内容，保持旧逻辑)
-                            const targetEndIndex = (C.autoBackfillDelay === true) ? (lastBfIndex + bfInterval) : currentCount;
+                            const targetEndIndex = Math.min(lastBfIndex + bfInterval, currentCount); // 强制严格按设定的步长切分，解决多1层问题
 
                             console.log(`⚡ [Auto Backfill] 触发! 填表范围: ${lastBfIndex}-${targetEndIndex}`);
 
@@ -11176,6 +12900,32 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         }
                     }
 
+                    // 先计算大总结是否到期。大总结到期时，本轮不再启动小总结，
+                    // 避免 0-100 与 80-100 这类边界区间同时生成。
+                    let autoBigSummaryTask = null;
+                    if (C.autoBigSummary) {
+                        const pendingBigEnd = (window.Gaigai && typeof window.Gaigai.pendingBigSummaryEnd === 'number')
+                            ? window.Gaigai.pendingBigSummaryEnd
+                            : 0;
+                        const lastBigIndex = Math.max(API_CONFIG.lastBigSummaryIndex || 0, pendingBigEnd);
+                        const currentCount = x.chat.length;
+                        const newBigMsgCount = currentCount - lastBigIndex;
+                        const bigInterval = C.autoBigSummaryFloor || 100;
+                        const bigDelay = C.autoBigSummaryDelay ? (parseInt(C.autoBigSummaryDelayCount) || 6) : 0;
+                        const bigThreshold = bigInterval + bigDelay;
+
+                        if (newBigMsgCount >= bigThreshold) {
+                            autoBigSummaryTask = {
+                                lastBigIndex,
+                                currentCount,
+                                bigInterval,
+                                bigDelay,
+                                bigThreshold,
+                                targetEndIndex: Math.min(lastBigIndex + bigInterval, currentCount)
+                            };
+                        }
+                    }
+
                     // ============================================================
                     // 模块 B: 自动总结
                     // ============================================================
@@ -11191,72 +12941,120 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         const sumThreshold = sumInterval + sumDelay;
 
                         if (newMsgCount >= sumThreshold) {
-                            // 🛡️ UI 冲突检测：检查是否有插件弹窗正在显示
-                            if ($('.g-ov').length > 0) {
-                                console.log('⏸️ [自动总结] 检测到插件弹窗打开，跳过本次触发以防止覆盖用户界面');
-                                return;
-                            }
-
-                            // 计算目标结束点 (Target End Floor)
-                            // 如果开启延迟：结束点 = 上次位置 + 间隔 (只处理这一段，后面的留作缓冲)
-                            // 如果关闭延迟：结束点 = 当前位置 (处理所有未记录的内容，保持旧逻辑)
-                            const targetEndIndex = C.autoSummaryDelay ? (lastIndex + sumInterval) : currentCount;
-
-                            if (hasBackfilledThisTurn) {
-                                console.log(`🚦 [防撞车] 总结任务顺延。`);
+                            if (autoBigSummaryTask || window.Gaigai.isBigSummaryRunning || (window.Gaigai.pendingBigSummaryEnd || 0) > lastIndex) {
+                                console.log('⏸️ [自动总结] 自动大总结已到期或正在执行，跳过本轮小总结以避免区间重叠');
                             } else {
-                                console.log(`🤖 [Auto Summary] 触发逻辑! 当前:${currentCount}, 上次:${lastIndex}, 间隔:${sumInterval}, 延迟:${sumDelay}, 阈值:${sumThreshold}, 目标结束点:${targetEndIndex}`);
+                                // 🛡️ UI 冲突检测：检查是否有插件弹窗正在显示
+                                if ($('.g-ov').length > 0) {
+                                    console.log('⏸️ [自动总结] 检测到插件弹窗打开，跳过本次触发以防止覆盖用户界面');
+                                    return;
+                                }
 
-                                // ✨ 发起模式逻辑（与完成模式一致）：勾选=静默，未勾选=弹窗
-                                if (!C.autoSummaryPrompt) {
-                                    // 弹窗模式（未勾选时）
-                                    showAutoTaskConfirm('summary', currentCount, lastIndex, sumThreshold).then(result => {
-                                        if (result.action === 'confirm') {
-                                            if (result.postpone > 0) {
-                                                // 用户选择顺延
-                                                API_CONFIG.lastSummaryIndex = currentCount - sumThreshold + result.postpone;
-                                                localStorage.setItem(AK, JSON.stringify(API_CONFIG));
+                                // 计算目标结束点 (Target End Floor)
+                                // 如果开启延迟：结束点 = 上次位置 + 间隔 (只处理这一段，后面的留作缓冲)
+                                // 如果关闭延迟：结束点 = 当前位置 (处理所有未记录的内容，保持旧逻辑)
+                                const targetEndIndex = Math.min(lastIndex + sumInterval, currentCount); // 强制严格按设定的步长切分，解决多1层问题
 
-                                                // ✅✅✅ 修复：同步到云端，防止 loadConfig 回滚
-                                                if (typeof saveAllSettingsToCloud === 'function') {
-                                                    saveAllSettingsToCloud().catch(err => {
-                                                        console.warn('⚠️ [总结顺延] 云端同步失败:', err);
-                                                    });
-                                                }
+                                if (hasBackfilledThisTurn) {
+                                    console.log(`🚦 [防撞车] 总结任务顺延。`);
+                                } else {
+                                    console.log(`🤖 [Auto Summary] 触发逻辑! 当前:${currentCount}, 上次:${lastIndex}, 间隔:${sumInterval}, 延迟:${sumDelay}, 阈值:${sumThreshold}, 目标结束点:${targetEndIndex}`);
 
-                                                m.save(false, true); // ✅ 修复：立即同步进度到聊天记录
-                                                console.log(`⏰ [自动总结] 顺延 ${result.postpone} 楼，新触发点：${API_CONFIG.lastSummaryIndex + sumThreshold}`);
-                                                if (typeof toastr !== 'undefined') {
-                                                    toastr.info(`自动总结已顺延 ${result.postpone} 楼`, '记忆表格');
+                                    // ✨ 发起模式逻辑（与完成模式一致）：勾选=静默，未勾选=弹窗
+                                    if (!C.autoSummaryPrompt) {
+                                        // 弹窗模式（未勾选时）
+                                        showAutoTaskConfirm('summary', currentCount, lastIndex, sumThreshold).then(result => {
+                                            if (result.action === 'confirm') {
+                                                if (result.postpone > 0) {
+                                                    // 用户选择顺延
+                                                    API_CONFIG.lastSummaryIndex = currentCount - sumThreshold + result.postpone;
+                                                    localStorage.setItem(AK, JSON.stringify(API_CONFIG));
+
+                                                    // ✅✅✅ 修复：同步到云端，防止 loadConfig 回滚
+                                                    if (typeof saveAllSettingsToCloud === 'function') {
+                                                        saveAllSettingsToCloud().catch(err => {
+                                                            console.warn('⚠️ [总结顺延] 云端同步失败:', err);
+                                                        });
+                                                    }
+
+                                                    m.save(false, true); // ✅ 修复：立即同步进度到聊天记录
+                                                    console.log(`⏰ [自动总结] 顺延 ${result.postpone} 楼，新触发点：${API_CONFIG.lastSummaryIndex + sumThreshold}`);
+                                                    if (typeof toastr !== 'undefined') {
+                                                        toastr.info(`自动总结已顺延 ${result.postpone} 楼`, '记忆表格');
+                                                    }
+                                                } else {
+                                                    if (window.Gaigai.isBigSummaryRunning || (window.Gaigai.pendingBigSummaryEnd || 0) > lastIndex) {
+                                                        console.log('⏸️ [自动总结] 确认执行时检测到大总结占用，取消本轮小总结');
+                                                        return;
+                                                    }
+                                                    // 立即执行（传入目标结束点、模式、静默参数和表格范围）
+                                                    window.Gaigai.SummaryManager.callAIForSummary(
+                                                        null,
+                                                        targetEndIndex,
+                                                        null,
+                                                        C.autoSummarySilent,
+                                                        false,
+                                                        false,
+                                                        C.autoSummaryTargetTables,  // 🆕 传入配置的表格范围
+                                                        false,
+                                                        true
+                                                    );
                                                 }
                                             } else {
-                                                // 立即执行（传入目标结束点、模式、静默参数和表格范围）
-                                                window.Gaigai.SummaryManager.callAIForSummary(
-                                                    null,
-                                                    targetEndIndex,
-                                                    null,
-                                                    C.autoSummarySilent,
-                                                    false,
-                                                    false,
-                                                    C.autoSummaryTargetTables  // 🆕 传入配置的表格范围
-                                                );
+                                                console.log(`🚫 [自动总结] 用户取消`);
                                             }
-                                        } else {
-                                            console.log(`🚫 [自动总结] 用户取消`);
+                                        });
+                                    } else {
+                                        if (window.Gaigai.isBigSummaryRunning || (window.Gaigai.pendingBigSummaryEnd || 0) > lastIndex) {
+                                            console.log('⏸️ [自动总结] 执行前检测到大总结占用，取消本轮小总结');
+                                            return;
                                         }
-                                    });
-                                } else {
-                                    // 静默模式（勾选时）：直接执行
-                                    window.Gaigai.SummaryManager.callAIForSummary(
-                                        null,
-                                        targetEndIndex,
-                                        null,
-                                        C.autoSummarySilent,
-                                        false,
-                                        false,
-                                        C.autoSummaryTargetTables  // 🆕 传入配置的表格范围
-                                    );
+                                        // 静默模式（勾选时）：直接执行
+                                        window.Gaigai.SummaryManager.callAIForSummary(
+                                            null,
+                                            targetEndIndex,
+                                            null,
+                                            C.autoSummarySilent,
+                                            false,
+                                            false,
+                                            C.autoSummaryTargetTables,  // 🆕 传入配置的表格范围
+                                            false,
+                                            true
+                                        );
+                                    }
                                 }
+                            }
+                        }
+                    }
+
+                    // ============================================================
+                    // 模块 C: 自动大总结
+                    // ============================================================
+                    if (autoBigSummaryTask) {
+                        if ($('.g-ov').length > 0) {
+                            console.log('⏸️ [自动大总结] 检测到插件弹窗打开，跳过本次触发');
+                            return;
+                        }
+
+                        const { lastBigIndex, currentCount, bigInterval, bigDelay, bigThreshold, targetEndIndex } = autoBigSummaryTask;
+                        console.log(`📚 [Auto Big Summary] 触发! 当前:${currentCount}, 上次:${lastBigIndex}, 间隔:${bigInterval}, 延迟:${bigDelay}, 阈值:${bigThreshold}, 目标:${targetEndIndex}`);
+
+                        if (window.Gaigai.SummaryManager && typeof window.Gaigai.SummaryManager.runBigSummary === 'function') {
+                            // 防重入：大总结执行期间，阻止同区间/后续消息重复触发
+                            if (window.Gaigai.isBigSummaryRunning) {
+                                console.log('⏳ [自动大总结] 上一轮任务仍在执行，跳过本次重复触发');
+                            } else {
+                                window.Gaigai.isBigSummaryRunning = true;
+                                window.Gaigai.pendingBigSummaryEnd = targetEndIndex;
+
+                                Promise.resolve(window.Gaigai.SummaryManager.runBigSummary(lastBigIndex, targetEndIndex))
+                                    .catch(err => {
+                                        console.error('❌ [自动大总结] 执行失败:', err);
+                                    })
+                                    .finally(() => {
+                                        window.Gaigai.isBigSummaryRunning = false;
+                                        window.Gaigai.pendingBigSummaryEnd = 0;
+                                    });
                             }
                         }
                     }
@@ -11310,6 +13108,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             clearTimeout(pendingTimers[key]);
             delete pendingTimers[key];
         });
+        processedMessageSignatures = {};
         console.log('🔒 [ochat] 会话切换锁已启用');
 
         // ✨ [防串味] 重置世界书状态
@@ -11374,6 +13173,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             isRegenerating = false;
             deletedMsgIndex = -1;
             processedMessages.clear();
+            processedMessageSignatures = {};
 
             // 9. 📂 [恢复快照库] 从仓库取出新会话的快照
             if (m.id && window.GaigaiSnapshotStore[m.id]) {
@@ -11420,9 +13220,13 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
                 // 策略 A：如果我们有这一楼的快照（说明是切回了已存在的分支）
                 if (snapshotHistory[targetKey]) {
-                    console.log(`⚡ [ochat] 检测到已知分支，正在回档至 [${targetKey}]...`);
-                    // 强制回档！让表格回到那一楼的样子
-                    restoreSnapshot(targetKey, true);
+                    // ✅ 增加模式判断：批量填表模式下不回滚
+                    if (C.enabled && !C.autoBackfill) {
+                        console.log(`⚡ [ochat] 检测到已知分支，正在回档至 [${targetKey}]...`);
+                        restoreSnapshot(targetKey, true);
+                    } else {
+                        console.log(`⏭️ [ochat] 当前为批量/非实时模式，跳过分支回档保护数据。`);
+                    }
                 }
                 // 策略 B：如果没有这一楼的快照（说明可能是刚加载，或者快照丢了）
                 // 我们尝试找找上一楼的，或者相信 m.load() 从硬盘读出来的数据
@@ -11513,69 +13317,355 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
         }, 200); // 延迟 200ms，等待 SillyTavern 上下文完全切换
     }
 
-    // ✨✨✨ 核心逻辑：智能切分法 (防呆增强版) ✨✨✨
-    function applyContextLimit(chat) {
-        // 1. 安全检查
-        const limit = parseInt(C.contextLimitCount) || 30;
-        if (!C.contextLimit || !chat || chat.length <= limit) return chat;
-
-        console.log(`✂️ [隐藏楼层] 智能裁剪开始，目标保留: ${limit} 条`);
-
-        // 2. 识别"受保护区域" (Protected Zone)
-        // 逻辑：酒馆的 Prefill (Assistant起手式) 永远位于 Prompt 的【最后一条】。
-        // 我们强制把最后一条消息排除在"可裁剪名单"之外，无论它是谁，无论它说什么。
-        const lastMsgIndex = chat.length - 1;
-
-        // 3. 筛选可裁剪的索引
-        let dialogueMsgIndices = [];
-        chat.forEach((msg, index) => {
-            // ✅ 新增：定义过滤关键词（针对预设注入的指令）
-            const content = msg.content || msg.mes || '';
-            const isInstruction = content.includes('thinking标签') ||
-                                  content.includes('<writing-style>') ||
-                                  content.includes('<must-read-materials>');
-
-            // 条件A: 不能是 System (系统指令)
-            // 条件B: 不能是 Last Message (预设 Prefill / 正在进行的对话)
-            // 条件C: 不能是前2条消息 (越狱握手/触发消息，如 Kemini 的 Handshake)
-            // ✅ 条件D: 不能是预设指令 (新增 !isInstruction)
-            if (msg.role !== 'system' && index !== lastMsgIndex && index > 1 && !isInstruction) {
-                dialogueMsgIndices.push(index);
-            }
-        });
-
-        // 4. 计算需要移除的数量
-        const totalDialogue = dialogueMsgIndices.length;
-        const toKeep = limit; // 用户设置的保留条数
-        const toSkip = Math.max(0, totalDialogue - toKeep); // 需要删掉多少条旧的
-
-        if (toSkip === 0) return chat;
-
-        // 5. 确定移除名单
-        const indicesToRemove = new Set(dialogueMsgIndices.slice(0, toSkip));
-
-        // [额外保险]：如果倒数第二条也是 Assistant（罕见情况），也保下来
-        if (chat.length > 1) {
-            const secondLastIndex = chat.length - 2;
-            const secondLastMsg = chat[secondLastIndex];
-            if (secondLastMsg.role === 'assistant' || secondLastMsg.role === 'model') {
-                 if (indicesToRemove.has(secondLastIndex)) {
-                     indicesToRemove.delete(secondLastIndex);
-                     console.log('🛡️ [隐藏楼层] 额外保护倒数第二条 Assistant 消息');
-                 }
-            }
-        }
-
-        // 6. 执行裁剪
-        const newChat = chat.filter((msg, index) => !indicesToRemove.has(index));
-
-        console.log(`✅ [隐藏楼层] 裁剪完成。原始: ${chat.length}, 剩余: ${newChat.length} (已严格保护末尾 Prefill)`);
-        return newChat;
-    }
-
     // ============================================================
     // 🔥 独立向量检索函数 (用于 Hook 和 Fetch Hijack)
     // ============================================================
+    function injectVectorIntoChatArray(chat, vectorText) {
+        if (!Array.isArray(chat) || !vectorText) {
+            return false;
+        }
+
+        let injected = false;
+        const startChatRegex = /\[Start a new chat\]/i;
+
+        const walkAndReplace = (node) => {
+            if (!node) return;
+
+            if (Array.isArray(node)) {
+                node.forEach(walkAndReplace);
+                return;
+            }
+
+            if (typeof node !== 'object') {
+                return;
+            }
+
+            for (const key in node) {
+                if (typeof node[key] === 'string') {
+                    if (node[key].includes('{{VECTOR_MEMORY}}')) {
+                        node[key] = node[key].replace(/\{\{VECTOR_MEMORY\}\}/g, vectorText);
+                        node.isGaigaiVector = true;
+                        if (!node.name) node.name = 'SYSTEM (Merged)';
+                        console.log(`🎯 [向量注入-Hook] 在 ${key} 中替换了 {{VECTOR_MEMORY}}`);
+                        injected = true;
+                    } else if (startChatRegex.test(node[key])) {
+                        node[key] = node[key].replace(startChatRegex, (match) => `${vectorText}\n\n${match}`);
+                        node.isGaigaiVector = true;
+                        if (!node.name) node.name = 'SYSTEM (Merged)';
+                        console.log(`🎯 [向量注入-Hook] 在 ${key} 的 [Start a new Chat] 前插入向量内容`);
+                        injected = true;
+                    }
+                } else if (node[key] && typeof node[key] === 'object') {
+                    walkAndReplace(node[key]);
+                }
+            }
+        };
+
+        walkAndReplace(chat);
+        if (injected) {
+            return true;
+        }
+
+        const alreadyInjected = chat.some((msg) => {
+            if (!msg || typeof msg !== 'object') return false;
+
+            const content = typeof msg.content === 'string'
+                ? msg.content
+                : (msg.parts && msg.parts[0] ? msg.parts[0].text : '');
+
+            return msg.isGaigaiVector === true || (vectorText && typeof content === 'string' && content.includes(vectorText));
+        });
+
+        if (alreadyInjected) {
+            console.log('ℹ️ [向量注入-Hook] 检测到已有向量消息，跳过重复注入');
+            return true;
+        }
+
+        const vectorMessage = {
+            role: 'system',
+            content: '【系统检索到的历史记忆片段】\n\n' + vectorText,
+            isGaigaiVector: true,
+            name: 'SYSTEM (向量化)'
+        };
+
+        let insertIndex = 0;
+        for (let i = chat.length - 1; i >= 0; i--) {
+            if (chat[i] && chat[i].role === 'system') {
+                insertIndex = i + 1;
+                break;
+            }
+        }
+
+        chat.splice(insertIndex, 0, vectorMessage);
+        console.log('✅ [向量注入-Hook] 已将向量内容作为独立 system 消息插入到 chat 数组');
+        return true;
+    }
+
+    function cloneForProbe(obj) {
+        try {
+            return structuredClone(obj);
+        } catch (e) {
+            return JSON.parse(JSON.stringify(obj));
+        }
+    }
+
+    function createVectorInjectionMeta(overrides = {}) {
+        return Object.assign({
+            mode: 'none',
+            merged: false,
+            verified: false,
+            alreadyPresent: false,
+            markerPresent: false,
+            arrayKey: '',
+            targetPath: '',
+            targetIndex: -1,
+            contentLength: 0,
+            replacementCount: 0
+        }, overrides);
+    }
+
+    function requestBodyContainsVectorMarker(node) {
+        if (!node) return false;
+
+        if (Array.isArray(node)) {
+            return node.some(item => requestBodyContainsVectorMarker(item));
+        }
+
+        if (typeof node === 'object') {
+            if (node.isGaigaiVector === true) {
+                return true;
+            }
+            for (const key in node) {
+                if (requestBodyContainsVectorMarker(node[key])) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    function requestBodyContainsVectorText(node, vectorText) {
+        if (!node || !vectorText) return false;
+
+        if (typeof node === 'string') {
+            return node.includes(vectorText);
+        }
+
+        if (Array.isArray(node)) {
+            return node.some(item => requestBodyContainsVectorText(item, vectorText));
+        }
+
+        if (typeof node === 'object') {
+            for (const key in node) {
+                if (requestBodyContainsVectorText(node[key], vectorText)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    function detectPrimaryRequestArray(bodyObj) {
+        if (!bodyObj || typeof bodyObj !== 'object') return null;
+        if (Array.isArray(bodyObj.messages)) return { key: 'messages', array: bodyObj.messages, isGemini: false };
+        if (Array.isArray(bodyObj.prompt)) return { key: 'prompt', array: bodyObj.prompt, isGemini: false };
+        if (Array.isArray(bodyObj.contents)) return { key: 'contents', array: bodyObj.contents, isGemini: true };
+        return null;
+    }
+
+    function injectVectorIntoRequestBody(bodyObj, vectorText) {
+        const meta = createVectorInjectionMeta({
+            contentLength: vectorText ? vectorText.length : 0
+        });
+
+        if (!bodyObj || !vectorText) {
+            return { injected: false, meta };
+        }
+
+        const target = detectPrimaryRequestArray(bodyObj);
+        if (!target || !Array.isArray(target.array)) {
+            console.warn('⚠️ [向量注入] 未检测到标准的 messages/prompt/contents 结构，跳过注入');
+            return { injected: false, meta };
+        }
+
+        if (requestBodyContainsVectorMarker(target.array)) {
+            meta.mode = 'preexisting_marker';
+            meta.alreadyPresent = true;
+            meta.markerPresent = true;
+            meta.verified = true;
+            meta.arrayKey = target.key;
+            console.log('ℹ️ [向量注入] 目标数组已带 isGaigaiVector 标记，跳过重复注入');
+            return { injected: true, meta };
+        }
+
+        if (requestBodyContainsVectorText(target.array, vectorText)) {
+            meta.mode = 'preexisting';
+            meta.alreadyPresent = true;
+            meta.verified = true;
+            meta.arrayKey = target.key;
+            console.log('ℹ️ [向量注入] 目标数组已包含向量内容，跳过重复注入');
+            return { injected: true, meta };
+        }
+
+        let injected = false;
+        const startChatRegex = /\[Start a new chat\]/i;
+
+        const markMetaFromPath = (path, mode, merged) => {
+            if (!meta.targetPath) {
+                meta.mode = mode;
+                meta.merged = merged;
+                meta.targetPath = path;
+                const match = path.match(/\[(\d+)\]/);
+                if (match) {
+                    meta.targetIndex = Number(match[1]);
+                }
+            }
+            meta.replacementCount += 1;
+        };
+
+        const walkAndReplace = (node, path, mode = 'variable') => {
+            if (injected) return;
+            if (!node || typeof node !== 'object') return;
+
+            if (Array.isArray(node)) {
+                for (let index = 0; index < node.length; index++) {
+                    walkAndReplace(node[index], `${path}[${index}]`, mode);
+                    if (injected) return;
+                }
+                return;
+            }
+
+            for (const key in node) {
+                if (injected) return;
+                const nextPath = path ? `${path}.${key}` : key;
+                if (typeof node[key] === 'string') {
+                    if (mode === 'variable' && node[key].includes('{{VECTOR_MEMORY}}')) {
+                        node[key] = node[key].replace(/\{\{VECTOR_MEMORY\}\}/g, vectorText);
+                        node.isGaigaiVector = true;
+                        if (!node.name) node.name = 'SYSTEM (Merged)';
+                        console.log(`🎯 [智能注入-变量替换] 在 ${nextPath} 中找到并替换 {{VECTOR_MEMORY}} 标签`);
+                        injected = true;
+                        markMetaFromPath(nextPath, 'variable_replace', true);
+                        return;
+                    } else if (mode === 'fallback' && startChatRegex.test(node[key])) {
+                        node[key] = node[key].replace(startChatRegex, (match) => `${vectorText}\n\n${match}`);
+                        node.isGaigaiVector = true;
+                        if (!node.name) node.name = 'SYSTEM (Merged)';
+                        console.log(`🎯 [智能注入-兜底插入] 在 ${nextPath} 的 [Start a new Chat] 前插入向量内容`);
+                        injected = true;
+                        markMetaFromPath(nextPath, 'start_chat_insert', true);
+                        return;
+                    }
+                } else if (node[key] && typeof node[key] === 'object') {
+                    walkAndReplace(node[key], nextPath, mode);
+                }
+            }
+        };
+
+        walkAndReplace(target.array, target.key, 'variable');
+        if (!injected) {
+            walkAndReplace(target.array, target.key, 'fallback');
+        }
+
+        const ensureStandaloneInsert = () => {
+            if (target.isGemini) {
+                target.array.unshift({
+                    role: 'user',
+                    parts: [{ text: '【系统检索到的历史记忆片段 (System Context)】\n\n' + vectorText }],
+                    isGaigaiVector: true
+                });
+                meta.mode = 'array_insert_gemini';
+                meta.merged = false;
+                meta.arrayKey = target.key;
+                meta.targetIndex = 0;
+                meta.targetPath = `${target.key}[0].parts[0].text`;
+            } else {
+                const newMsg = {
+                    role: 'system',
+                    content: '【系统检索到的历史记忆片段】\n\n' + vectorText,
+                    isGaigaiVector: true
+                };
+
+                let insertIndex = 0;
+                for (let i = target.array.length - 1; i >= 0; i--) {
+                    if (target.array[i] && target.array[i].role === 'system') {
+                        insertIndex = i + 1;
+                        break;
+                    }
+                }
+
+                target.array.splice(insertIndex, 0, newMsg);
+                meta.mode = 'array_insert';
+                meta.merged = false;
+                meta.arrayKey = target.key;
+                meta.targetIndex = insertIndex;
+                meta.targetPath = `${target.key}[${insertIndex}].content`;
+            }
+
+            meta.replacementCount += 1;
+            console.log('✅ [智能注入-终极兜底] 已将向量内容作为独立消息插入到数组');
+            return true;
+        };
+
+        meta.arrayKey = target.key;
+        meta.markerPresent = requestBodyContainsVectorMarker(target.array);
+        meta.verified = meta.markerPresent || requestBodyContainsVectorText(target.array, vectorText);
+
+        if (!meta.verified) {
+            const fallbackInjected = ensureStandaloneInsert();
+            injected = injected || fallbackInjected;
+            meta.markerPresent = requestBodyContainsVectorMarker(target.array);
+            meta.verified = meta.markerPresent || requestBodyContainsVectorText(target.array, vectorText);
+        }
+
+        return { injected: injected || meta.verified, meta };
+    }
+
+    function updateVectorProbeFromBody(bodyObj, vectorText, injectionMeta) {
+        try {
+            const finalBody = cloneForProbe(bodyObj);
+            const target = detectPrimaryRequestArray(finalBody);
+            let debugChat = target && Array.isArray(target.array) ? target.array : [];
+
+            let markedCount = 0;
+            debugChat.forEach((msg, idx) => {
+                const content = msg.content ||
+                    (msg.parts && msg.parts[0] ? msg.parts[0].text : '') ||
+                    msg.text ||
+                    '';
+
+                if (vectorText && typeof content === 'string' && content.includes(vectorText)) {
+                    msg.role = 'system';
+                    msg.isGaigaiVector = true;
+
+                    if (content.length > vectorText.length + 500) {
+                        msg.name = 'SYSTEM (Merged)';
+                        console.log(`🏷️ [探针] 消息 #${idx} 已标记为 SYSTEM (Merged) - 检测到压缩合并 (${content.length} > ${vectorText.length + 500})`);
+                    } else {
+                        msg.name = 'SYSTEM (向量化)';
+                        console.log(`🏷️ [探针] 消息 #${idx} 已标记为 SYSTEM (向量化) - 纯向量注入`);
+                    }
+
+                    delete msg.is_user;
+                    markedCount++;
+                }
+            });
+
+            const vectorInjection = createVectorInjectionMeta(injectionMeta || {});
+            window.Gaigai.lastRequestData = {
+                chat: debugChat,
+                timestamp: Date.now(),
+                model: API_CONFIG.model || 'Unknown',
+                vectorInjection
+            };
+            console.log(`✅ [探针] 已更新 lastRequestData (标记了 ${markedCount} 条向量消息, 模式: ${vectorInjection.mode}, 已验证: ${vectorInjection.verified})`);
+        } catch (probeError) {
+            console.error('❌ [探针] 更新失败:', probeError);
+        }
+    }
+
     /**
      * 执行向量检索并替换 {{VECTOR_MEMORY}} 变量
      * @param {Object} data - 包含 .chat 数组的对象，或直接是 chat 数组
@@ -11608,6 +13698,32 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
             // 3. 正常执行检索
             if (isVectorReady && chatData.chat && chatData.chat.length > 0) {
+                // 兼容 OpenAI/Gemini/多模态结构，统一抽取可检索文本
+                const extractTextFromNode = (node) => {
+                    if (node === null || node === undefined) return '';
+                    if (typeof node === 'string') return node;
+                    if (typeof node === 'number' || typeof node === 'boolean') return String(node);
+
+                    if (Array.isArray(node)) {
+                        return node.map(extractTextFromNode).filter(Boolean).join('\n');
+                    }
+
+                    if (typeof node === 'object') {
+                        if (typeof node.text === 'string') return node.text;
+                        if (typeof node.mes === 'string') return node.mes;
+                        if (typeof node.content === 'string') return node.content;
+                        if (Array.isArray(node.content)) return extractTextFromNode(node.content);
+                        if (Array.isArray(node.parts)) return extractTextFromNode(node.parts);
+
+                        const partType = String(node.type || '').toLowerCase();
+                        if (partType === 'image_url' || partType === 'input_image' || node.image_url || node.inline_data) {
+                            return '[图片]';
+                        }
+                    }
+
+                    return '';
+                };
+
                 // === 增强版：多轮上下文检索 ===
                 let userQuery = '';
 
@@ -11620,19 +13736,26 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 for (let i = chatData.chat.length - 1; i >= 0 && collectedMessages.length < depth; i--) {
                     const msg = chatData.chat[i];
 
-                    // 1. 跳过系统指令
-                    if (msg.role === 'system') continue;
+                    const role = String(msg?.role || '').toLowerCase();
+                    const name = String(msg?.name || '').toLowerCase();
+                    const isSystem = msg?.is_system === true ||
+                        role === 'system' ||
+                        role === 'system_instruction' ||
+                        name === 'system';
 
-                    // 2. 判定是否为有效消息 (User 或 Assistant)
-                    const isUser = msg.is_user === true ||
-                                   msg.role === 'user' ||
-                                   (msg.name !== 'System' && msg.role !== 'assistant');
+                    // 1. 跳过系统/工具类指令消息，避免把超长提示词送去做 embedding
+                    if (isSystem || role === 'tool' || role === 'function') continue;
 
-                    const isAssistant = !isUser && (msg.role === 'assistant' || msg.name !== 'System');
+                    // 2. 判定是否为有效消息 (User 或 Assistant/Model)
+                    const isUser = msg?.is_user === true || role === 'user' || role === 'human';
+                    const isAssistant = msg?.is_user === false || role === 'assistant' || role === 'model' || role === 'ai';
 
                     if (isUser || isAssistant) {
-                        // 尝试获取内容
-                        let candidateText = msg.mes || msg.content || msg.text || '';
+                        // 尝试获取内容（兼容字符串/数组/对象消息）
+                        let candidateText = extractTextFromNode(msg?.mes ?? msg?.content ?? msg?.parts ?? msg?.text ?? '');
+                        if (typeof candidateText !== 'string') {
+                            candidateText = String(candidateText || '');
+                        }
 
                         // ✅ 新增：执行清洗，去除 Memory 标签和用户黑名单标签(如 think)
                         candidateText = window.Gaigai.cleanMemoryTags(candidateText);
@@ -11656,12 +13779,20 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     console.log(`✅ [向量检索] 已收集 ${collectedMessages.length} 条消息作为检索上下文`);
                 }
 
+                // 防止向量服务报 413：限制检索查询长度（硅基 Embedding 常见上限 8192 tokens）
+                const MAX_VECTOR_QUERY_CHARS = 6000;
+                if (userQuery.length > MAX_VECTOR_QUERY_CHARS) {
+                    console.warn(`⚠️ [向量检索] 查询过长(${userQuery.length})，已截断至 ${MAX_VECTOR_QUERY_CHARS} 字符以避免 413`);
+                    userQuery = userQuery.slice(-MAX_VECTOR_QUERY_CHARS);
+                }
+
                 if (userQuery.trim()) {
                     console.log(`🔍 [向量检索] 正在检索: "${userQuery.substring(0, 20)}..."`);
 
-                    // 🛡️ 创建超时 Promise (10秒宽限期，考虑 Rerank 和网络延迟)
+                    // 🛡️ 创建超时 Promise (20秒宽限期，移动端/中转站偶发较慢)
+                    const vectorSearchTimeoutMs = 20000;
                     const timeoutPromise = new Promise((_, reject) => {
-                        setTimeout(() => reject(new Error('向量检索超时 (10秒)')), 10000);
+                        setTimeout(() => reject(new Error(`向量检索超时 (${Math.round(vectorSearchTimeoutMs / 1000)}秒)`)), vectorSearchTimeoutMs);
                     });
 
                     let results;
@@ -11673,7 +13804,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         ]);
                     } catch (searchError) {
                         // 🛡️ 关键：静默处理，不影响主聊天流程
-                        console.warn('⚠️ [向量检索] 执行异常或超时，已跳过，不影响聊天:', searchError);
+                        console.warn('⚠️ [向量检索] 执行异常或超时，已跳过，不影响聊天。注意：后台检索请求可能仍会继续完成，但本次发送不会再等待它。', searchError);
                         return ''; // 直接返回空字符串，让聊天继续
                     }
 
@@ -12117,7 +14248,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
             class: 'drawer-toggle'
         });
 
-        $icon.on('mousedown touchstart', function(e) {
+        $icon.on('mousedown touchstart', function (e) {
             // 1. 按下时：重置标记，启动计时器
             isLongPress = false;
 
@@ -12128,7 +14259,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 C.masterSwitch = !C.masterSwitch;
 
                 // 保存配置
-                try { localStorage.setItem('gg_config', JSON.stringify(C)); } catch(e){}
+                try { localStorage.setItem('gg_config', JSON.stringify(C)); } catch (e) { }
                 m.save(false, true);
                 if (typeof saveAllSettingsToCloud === 'function') saveAllSettingsToCloud();
                 console.log(`✅ [长按开关] 配置已保存，masterSwitch = ${C.masterSwitch}`);
@@ -12165,46 +14296,46 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
             }, 800); // 800毫秒判定为长按
         })
-        .on('mouseup touchend mouseleave touchcancel', function(e) {
-            // 2. 松开/移出时：清除计时器
-            clearTimeout(pressTimer);
+            .on('mouseup touchend mouseleave touchcancel', function (e) {
+                // 2. 松开/移出时：清除计时器
+                clearTimeout(pressTimer);
 
-            // 如果不是长按（即短点击）且是 mouseup/touchend 事件
-            if (!isLongPress && (e.type === 'mouseup' || e.type === 'touchend')) {
-                e.preventDefault();
+                // 如果不是长按（即短点击）且是 mouseup/touchend 事件
+                if (!isLongPress && (e.type === 'mouseup' || e.type === 'touchend')) {
+                    e.preventDefault();
 
-                console.log(`🖱️ [短按图标] 检测到短按事件，当前 masterSwitch = ${C.masterSwitch}`);
+                    console.log(`🖱️ [短按图标] 检测到短按事件，当前 masterSwitch = ${C.masterSwitch}`);
 
-                // 检查全局主开关状态
-                if (C.masterSwitch) {
-                    console.log('✅ [短按图标] 插件已启用，正在打开配置面板...');
+                    // 检查全局主开关状态
+                    if (C.masterSwitch) {
+                        console.log('✅ [短按图标] 插件已启用，正在打开配置面板...');
 
-                    // ✅ 清除可能存在的旧 toast 通知
-                    if (typeof toastr !== 'undefined') {
-                        toastr.clear();
-                    }
+                        // ✅ 清除可能存在的旧 toast 通知
+                        if (typeof toastr !== 'undefined') {
+                            toastr.clear();
+                        }
 
-                    shw(); // 正常打开
-                } else {
-                    console.log('⚠️ [短按图标] 插件处于休眠状态，显示警告提示');
+                        shw(); // 正常打开
+                    } else {
+                        console.log('⚠️ [短按图标] 插件处于休眠状态，显示警告提示');
 
-                    // 提醒用户
-                    if (typeof toastr !== 'undefined') {
-                        toastr.clear(); // 清除旧通知
-                        toastr.warning('⚠️ 插件已休眠 (长按图标开启)', '未启用', {
-                            timeOut: 3000,
-                            progressBar: true
-                        });
+                        // 提醒用户
+                        if (typeof toastr !== 'undefined') {
+                            toastr.clear(); // 清除旧通知
+                            toastr.warning('⚠️ 插件已休眠 (长按图标开启)', '未启用', {
+                                timeOut: 3000,
+                                progressBar: true
+                            });
+                        }
                     }
                 }
-            }
-            return false;
-        })
-        .on('contextmenu', (e) => {
-            // 4. 禁用右键菜单（防止长按弹出浏览器菜单）
-            e.preventDefault();
-            return false;
-        });
+                return false;
+            })
+            .on('contextmenu', (e) => {
+                // 4. 禁用右键菜单（防止长按弹出浏览器菜单）
+                e.preventDefault();
+                return false;
+            });
 
         // 4. 组装 (复刻酒馆标准结构)
         $toggle.append($icon);        // 图标放入 toggle 层
@@ -12242,207 +14373,356 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 x.eventSource.on(x.event_types.CHAT_CHANGED, function () { ochat(); });
 
                 // 监听提示词准备事件（用于注入记忆表格）
-                // 🔥 [核心修复] 使用 Hook 系统或 Fetch Hijack 解决异步竞态条件
-                if (window.hooks && typeof window.hooks.addFilter === 'function') {
-                    // Modern SillyTavern: 使用 Hook 系统
-                    console.log('✅ [初始化] 使用 Modern Hook 系统注册 chat_completion_prompt_ready (支持异步等待)');
-                    window.hooks.addFilter('chat_completion_prompt_ready', async (chat) => {
-                        // Hook Filter 接收 chat 数组，需要包装成 opmt 期望的格式
-                        await opmt({ chat: chat });
-                        // 向量检索在 opmt 之后单独执行
-                        await executeVectorSearch(chat);
-                        return chat; // Filter 必须返回修改后的数据
-                    });
-                } else {
-                    // Legacy SillyTavern: 使用 Fetch Hijack + 智能注入
+                // ============================================================
+                // ️ 终极稳妥版：防污染、深克隆，保护酒馆底层数据
+                // ============================================================
 
-                    // 注册传统事件监听器（用于表格注入等功能）
+                // 辅助函数：安全深拷贝（优先使用原生的 structuredClone，失败则用 JSON 兜底）
+                const safeDeepClone = (obj) => {
+                    try {
+                        return structuredClone(obj);
+                    } catch (e) {
+                        // 如果原生的 structuredClone 报错（比如有DOM节点或函数），则使用 JSON 降级深拷贝
+                        return JSON.parse(JSON.stringify(obj));
+                    }
+                };
+
+                if (window.hooks && typeof window.hooks.addFilter === 'function') {
+                    // 1. Modern SillyTavern: 使用 Hook 系统 (支持异步等待)
+                    console.log('✅ [初始化] 使用 Modern Hook 系统注册 chat_completion_prompt_ready');
+
+                    window.hooks.addFilter('chat_completion_prompt_ready', async (chat) => {
+                        // ️ 稳妥版：彻底深拷贝 chat 数组，斩断所有 extra 等嵌套对象的引用！
+                        let safeChat = safeDeepClone(chat);
+
+                        let dataWrapper = { chat: safeChat };
+                        await opmt(dataWrapper);
+                        // 向量注入统一下沉到 fetch 最终请求体阶段执行，避免 Hook 与 Fetch 双注入。
+
+                        // 返回完全隔离并被插件修改过的新 chat 数组
+                        return dataWrapper.chat;
+                    });
+
+                    if (!window.Gaigai.__fetchHijacked) {
+                        const originalFetch = window.fetch;
+                        window.fetch = async function (...args) {
+                            const url = args[0] ? args[0].toString() : '';
+                            const C = window.Gaigai.config_obj;
+                            const isPhoneInternalApiRequest = (() => {
+                                if (args[1]?.stPhoneInternalApi === true) return true;
+                                const headers = args[1]?.headers;
+                                if (!headers) return false;
+                                if (typeof Headers !== 'undefined' && headers instanceof Headers) {
+                                    return headers.get('X-ST-Phone-Internal-API') === '1';
+                                }
+                                if (Array.isArray(headers)) {
+                                    return headers.some(([key, value]) => String(key || '').toLowerCase() === 'x-st-phone-internal-api' && String(value) === '1');
+                                }
+                                if (typeof headers === 'object') {
+                                    return Object.entries(headers).some(([key, value]) => String(key || '').toLowerCase() === 'x-st-phone-internal-api' && String(value) === '1');
+                                }
+                                return false;
+                            })();
+
+                            const isTextGeneration = (
+                                !isPhoneInternalApiRequest &&
+                                !url.includes('xiaomimimo.com') &&
+                                (url.includes('/api/backends/chat-completions/generate') ||
+                                    url.includes('/v1/chat/completions') ||
+                                    (url.includes('/generate') && !url.includes('/api/sd/') && !url.includes('/api/tts/') && !url.includes('/api/images/')))
+                            );
+
+                            if (!C || !C.masterSwitch || !isTextGeneration || window.isSummarizing || !args[1] || typeof args[1].body !== 'string') {
+                                return originalFetch.apply(this, args);
+                            }
+
+                            try {
+                                const bodyObj = JSON.parse(args[1].body);
+                                const requestChat = Array.isArray(bodyObj.messages)
+                                    ? bodyObj.messages
+                                    : (Array.isArray(bodyObj.prompt)
+                                        ? bodyObj.prompt
+                                        : (Array.isArray(bodyObj.contents) ? bodyObj.contents : null));
+
+                                const phoneSignal = extractPhoneSignal(requestChat);
+                                const hasMemoryVars = /\{\{MEMORY(?:_SUMMARY|_TABLE|_PROMPT)?\}\}|\{\{MEMORY_TABLE_.+?\}\}/.test(args[1].body);
+                                const hasGaigaiInjectedMarkers = /"isGaigaiData"\s*:\s*true|"isGaigaiPrompt"\s*:\s*true/.test(args[1].body);
+                                if ((phoneSignal || hasMemoryVars) && !hasGaigaiInjectedMarkers && Array.isArray(requestChat)) {
+                                    const key = Array.isArray(bodyObj.messages)
+                                        ? 'messages'
+                                        : (Array.isArray(bodyObj.prompt) ? 'prompt' : 'contents');
+                                    const safeBodyChat = safeDeepClone(requestChat);
+                                    const safeBodyEvent = { chat: safeBodyChat };
+                                    await opmt(safeBodyEvent);
+                                    bodyObj[key] = safeBodyEvent.chat;
+                                    args[1].body = JSON.stringify(bodyObj);
+                                    console.log(phoneSignal
+                                        ? '[Fetch Hijack-Modern] phone request memory injection fallback applied'
+                                        : '[Fetch Hijack-Modern] MEMORY variable body injection fallback applied');
+                                }
+
+                                const requestChatAfterOpmt = Array.isArray(bodyObj.messages)
+                                    ? bodyObj.messages
+                                    : (Array.isArray(bodyObj.prompt)
+                                        ? bodyObj.prompt
+                                        : (Array.isArray(bodyObj.contents) ? bodyObj.contents : requestChat));
+
+                                if (phoneSignal && phoneSignal.allowVector === false) {
+                                    return originalFetch.apply(this, args);
+                                }
+
+                                const vectorText = await executeVectorSearch(
+                                    (Array.isArray(requestChatAfterOpmt) && requestChatAfterOpmt.length > 0)
+                                        ? requestChatAfterOpmt
+                                        : (SillyTavern.getContext()?.chat || [])
+                                );
+
+                                if (!vectorText) {
+                                    return originalFetch.apply(this, args);
+                                }
+
+                                const { injected, meta } = injectVectorIntoRequestBody(bodyObj, vectorText);
+
+                                if (injected) {
+                                    args[1].body = JSON.stringify(bodyObj);
+                                    updateVectorProbeFromBody(bodyObj, vectorText, meta);
+                                    console.log('✅ [Fetch Hijack-Modern] 已在最终请求体兜底注入向量内容');
+                                }
+                            } catch (e) {
+                                console.warn('⚠️ [Fetch Hijack-Modern] 请求体兜底注入失败，已跳过:', e);
+                            }
+
+                            return originalFetch.apply(this, args);
+                        };
+
+                        window.Gaigai.__fetchHijacked = true;
+                        console.log('✅ [Fetch Hijack-Modern] window.fetch 已成功劫持');
+                    } else {
+                        console.log('ℹ️ [Fetch Hijack-Modern] 已检测到 fetch 拦截，跳过重复劫持');
+                    }
+
+                } else {
+                    // 2. Legacy SillyTavern: 使用传统事件监听器
+                    console.log('✅ [初始化] 使用旧版事件注册 CHAT_COMPLETION_PROMPT_READY');
+
                     x.eventSource.on(x.event_types.CHAT_COMPLETION_PROMPT_READY, function (ev) {
-                        opmt(ev); // 处理快照和表格注入
+                        // ️ 稳妥版：优先选择“确实带 chat 数组”的事件载体
+                        const detailHasChat = !!(ev && ev.detail && Array.isArray(ev.detail.chat));
+                        const eventHasChat = !!(ev && Array.isArray(ev.chat));
+                        const data = detailHasChat ? ev.detail : (eventHasChat ? ev : (ev.detail || ev));
+
+                        // 如果当前版本事件结构特殊，回退到原始处理，避免直接跳过注入
+                        if (!data || !Array.isArray(data.chat)) {
+                            opmt(ev);
+                            return;
+                        }
+
+                        // 彻底深拷贝 chat 数组
+                        let safeChat = safeDeepClone(data.chat);
+
+                        // 关键：构造一个合成对象传给 opmt，覆盖掉 chat 属性
+                        // 这样既保留了 data 里的其他属性，又避开了 opmt 内部读取 ev.detail 的覆盖问题！
+                        const safeEvent = { ...data, chat: safeChat };
+                        opmt(safeEvent);
+
+                        // 关键回写：确保酒馆后续发送请求使用的是“已注入后的副本 chat”
+                        data.chat = safeEvent.chat;
+                        if (ev && ev.detail && typeof ev.detail === 'object') {
+                            ev.detail.chat = safeEvent.chat;
+                        }
+                        if (ev && typeof ev === 'object') {
+                            ev.chat = safeEvent.chat;
+                        }
                     });
 
                     // 🔥 劫持 window.fetch 以在发送请求前强制等待向量检索
-                    const originalFetch = window.fetch;
-                    window.fetch = async function(...args) {
-                        const url = args[0] ? args[0].toString() : '';
-
-                        // Safe check: Ensure body is a string before calling includes (skips FormData/File uploads)
-                        if (args[1] && typeof args[1].body === 'string' && args[1].body.includes("API连接测试是否成功")) {
-                            console.log('🧪 [Fetch Hijack] Detected API connection test, skipping vector search.');
-                            return originalFetch.apply(this, args);
-                        }
-
-                        // 检查是否是生成请求
-                        if ((url.includes('/api/backends/chat-completions/generate') ||
-                            url.includes('/generate') ||
-                            url.includes('/v1/chat/completions')) &&
-                            !window.isSummarizing) {
-                            console.log('🛑 [Fetch Hijack] 生成请求已拦截，暂停以执行向量检索...');
-
-                            try {
-                                // ✅ 【关键修复】先执行隐藏，再执行向量检索
-                                if (C.contextLimit && window.Gaigai.applyContextLimitHiding) {
-                                    console.log('🔍 [Fetch Hijack] 先执行留N层隐藏...');
-                                    await window.Gaigai.applyContextLimitHiding();
+                    if (!window.Gaigai.__fetchHijacked) {
+                        const originalFetch = window.fetch;
+                        window.fetch = async function (...args) {
+                            const url = args[0] ? args[0].toString() : '';
+                            const isPhoneInternalApiRequest = (() => {
+                                if (args[1]?.stPhoneInternalApi === true) return true;
+                                const headers = args[1]?.headers;
+                                if (!headers) return false;
+                                if (typeof Headers !== 'undefined' && headers instanceof Headers) {
+                                    return headers.get('X-ST-Phone-Internal-API') === '1';
                                 }
-
-                                if (C.autoSummaryHideContext && window.Gaigai.applyNativeHiding) {
-                                    console.log('🔍 [Fetch Hijack] 先执行已总结隐藏...');
-                                    await window.Gaigai.applyNativeHiding();
+                                if (Array.isArray(headers)) {
+                                    return headers.some(([key, value]) => String(key || '').toLowerCase() === 'x-st-phone-internal-api' && String(value) === '1');
                                 }
+                                if (typeof headers === 'object') {
+                                    return Object.entries(headers).some(([key, value]) => String(key || '').toLowerCase() === 'x-st-phone-internal-api' && String(value) === '1');
+                                }
+                                return false;
+                            })();
 
-                                // 在发送前获取当前 chat 状态
-                                const ctx = SillyTavern.getContext();
-                                if (ctx && ctx.chat) {
-                                    // 🔥 强制等待向量检索完成，并获取向量内容文本
-                                    const vectorText = await executeVectorSearch(ctx.chat);
-                                    console.log(`✅ [Fetch Hijack] 向量检索完成，内容长度: ${vectorText.length}`);
+                            // 🔴 全局主开关守卫
+                            const C = window.Gaigai.config_obj;
+                            if (!C || !C.masterSwitch) {
+                                return originalFetch.apply(this, args);
+                            }
 
-                                    // 🔥 CRITICAL: 智能注入 - 直接修改请求体
-                                    if (args[1] && args[1].body && vectorText) {
-                                        // 🛡️ SAFETY: 防止双重注入 - 如果请求体已包含向量内容，跳过
-                                        if (args[1].body.includes(vectorText)) {
-                                            console.warn('⚠️ [Fetch Hijack] 检测到向量内容已存在，跳过注入防止重复');
-                                            console.log('▶️ [Fetch Hijack] 直接放行请求');
+                            // Safe check: Ensure body is a string before calling includes (skips FormData/File uploads)
+                            if (args[1] && typeof args[1].body === 'string' && args[1].body.includes("API连接测试是否成功")) {
+                                console.log('🧪 [Fetch Hijack] Detected API connection test, skipping vector search.');
+                                return originalFetch.apply(this, args);
+                            }
+
+                            // 检查是否是文本生成请求，严格排除画图(sd)、语音(tts)等无关请求
+                            const isTextGeneration = (
+                                !isPhoneInternalApiRequest &&
+                                !url.includes('xiaomimimo.com') &&
+                                (url.includes('/api/backends/chat-completions/generate') ||
+                                    url.includes('/v1/chat/completions') ||
+                                    (url.includes('/generate') && !url.includes('/api/sd/') && !url.includes('/api/tts/') && !url.includes('/api/images/')))
+                            );
+
+                            if (isTextGeneration && !window.isSummarizing) {
+                                console.log('🛑 [Fetch Hijack] 生成请求已拦截，暂停以执行向量检索...');
+
+                                try {
+                                    // 兜底修复：若事件链路未生效，直接在请求体层执行一次 opmt 注入
+                                    if (args[1] && typeof args[1].body === 'string') {
+                                        const hasMemoryVars = /\{\{MEMORY(?:_SUMMARY|_TABLE|_PROMPT)?\}\}|\{\{MEMORY_TABLE_.+?\}\}/.test(args[1].body);
+                                        const hasGaigaiInjectedMarkers = /"isGaigaiData"\s*:\s*true|"isGaigaiPrompt"\s*:\s*true|"isGaigaiVector"\s*:\s*true/.test(args[1].body);
+
+                                        if (!hasGaigaiInjectedMarkers) {
+                                            try {
+                                                const bodyObjForOpmt = JSON.parse(args[1].body);
+                                                const hasMessages = Array.isArray(bodyObjForOpmt.messages);
+                                                const hasPromptArray = Array.isArray(bodyObjForOpmt.prompt);
+                                                const hasContentsArray = Array.isArray(bodyObjForOpmt.contents);
+
+                                                if (hasMessages || hasPromptArray || hasContentsArray) {
+                                                    const key = hasMessages ? 'messages' : (hasPromptArray ? 'prompt' : 'contents');
+                                                    const safeBodyChat = safeDeepClone(bodyObjForOpmt[key]);
+                                                    const safeBodyEvent = { chat: safeBodyChat };
+                                                    await opmt(safeBodyEvent);
+                                                    bodyObjForOpmt[key] = safeBodyEvent.chat;
+                                                    args[1].body = JSON.stringify(bodyObjForOpmt);
+
+                                                    if (hasMemoryVars) {
+                                                        console.log('✅ [Fetch Hijack] 已在请求体层完成 MEMORY 变量替换与表格/总结注入');
+                                                    } else {
+                                                        console.log('✅ [Fetch Hijack] 请求体未检测到 MEMORY 变量，已执行默认位置兜底注入');
+                                                    }
+                                                } else {
+                                                    console.warn('⚠️ [Fetch Hijack] 请求体未找到 messages/prompt/contents 数组，跳过 opmt 兜底注入');
+                                                }
+                                            } catch (e) {
+                                                console.error('❌ [Fetch Hijack] opmt 请求体兜底注入失败:', e);
+                                            }
+                                        } else {
+                                            console.log('ℹ️ [Fetch Hijack] 请求体已包含 Gaigai 注入标记，跳过 opmt 兜底注入');
+                                        }
+                                    }
+
+                                    // ✅ 【关键修复】先执行隐藏，再执行向量检索
+                                    if (C.contextLimit && window.Gaigai.applyContextLimitHiding) {
+                                        console.log('🔍 [Fetch Hijack] 先执行留N层隐藏...');
+                                        await window.Gaigai.applyContextLimitHiding();
+                                        if (typeof window.Gaigai.updateCurrentSnapshot === 'function') {
+                                            window.Gaigai.updateCurrentSnapshot();
+                                        }
+                                    }
+
+                                    if (C.autoSummaryHideContext && window.Gaigai.applyNativeHiding) {
+                                        console.log('🔍 [Fetch Hijack] 先执行已总结隐藏...');
+                                        await window.Gaigai.applyNativeHiding();
+                                        if (typeof window.Gaigai.updateCurrentSnapshot === 'function') {
+                                            window.Gaigai.updateCurrentSnapshot();
+                                        }
+                                    }
+
+                                    // 在发送前获取当前 chat 状态
+                                    const ctx = SillyTavern.getContext();
+                                    if (ctx && ctx.chat) {
+                                        let requestChat = null;
+                                        if (args[1] && typeof args[1].body === 'string') {
+                                            try {
+                                                const requestBody = JSON.parse(args[1].body);
+                                                if (Array.isArray(requestBody.messages)) {
+                                                    requestChat = requestBody.messages;
+                                                } else if (Array.isArray(requestBody.contents)) {
+                                                    requestChat = requestBody.contents;
+                                                } else if (Array.isArray(requestBody.prompt)) {
+                                                    requestChat = requestBody.prompt;
+                                                }
+                                            } catch (e) {
+                                                // ignore parse error
+                                            }
+                                        }
+
+                                        // 优先识别“当前请求”上的手机权限信号，避免被旧探针污染
+                                        let phoneSignal = extractPhoneSignal(requestChat);
+                                        if (!phoneSignal && window.Gaigai && window.Gaigai.lastRequestData && Array.isArray(window.Gaigai.lastRequestData.chat)) {
+                                            phoneSignal = extractPhoneSignal(window.Gaigai.lastRequestData.chat);
+                                        }
+                                        if (phoneSignal && phoneSignal.allowVector === false) {
+                                            console.log('[权限管控] 手机禁止了向量化，跳过。');
                                             return originalFetch.apply(this, args);
                                         }
 
-                                        try {
-                                            let bodyObj = JSON.parse(args[1].body);
-                                            let injected = false; // 标记是否已注入
+                                        // 向量检索必须基于酒馆楼层（ctx.chat），避免预设把超长 system 合并进 user 后污染检索输入。
+                                        // 仅在拿不到楼层时，才回退到请求体上下文。
+                                        const hasCtxChat = Array.isArray(ctx.chat) && ctx.chat.length > 0;
+                                        const vectorContextChat = hasCtxChat
+                                            ? ctx.chat
+                                            : ((Array.isArray(requestChat) && requestChat.length > 0) ? requestChat : []);
+                                        const vectorSource = hasCtxChat ? 'ctx.chat' : 'requestBody(fallback)';
 
-                                            // 使用正则表达式匹配 [Start a new Chat]（不区分大小写）
-                                            const startChatRegex = /\[Start a new chat\]/i;
+                                        // 🔥 强制等待向量检索完成，并获取向量内容文本
+                                        const vectorText = await executeVectorSearch(vectorContextChat);
+                                        console.log(`🧭 [Fetch Hijack] 向量检索上下文来源: ${vectorSource}`);
+                                        console.log(`✅ [Fetch Hijack] 向量检索完成，内容长度: ${vectorText.length}`);
 
-                                            // 第一轮：专门替换 {{VECTOR_MEMORY}} 变量
-                                            const replaceVariable = (obj) => {
-                                                for (let key in obj) {
-                                                    if (typeof obj[key] === 'string') {
-                                                        if (obj[key].includes('{{VECTOR_MEMORY}}')) {
-                                                            obj[key] = obj[key].replace(/\{\{VECTOR_MEMORY\}\}/g, vectorText);
-                                                            console.log(`🎯 [智能注入-变量替换] 在 ${key} 中找到并替换 {{VECTOR_MEMORY}} 标签`);
-                                                            injected = true;
-                                                        }
-                                                    } else if (typeof obj[key] === 'object' && obj[key] !== null) {
-                                                        replaceVariable(obj[key]);
-                                                    }
+                                        // 🔥 CRITICAL: 智能注入 - 直接修改请求体
+                                        if (args[1] && args[1].body && vectorText) {
+                                            try {
+                                                let bodyObj = JSON.parse(args[1].body);
+                                                const { injected, meta } = injectVectorIntoRequestBody(bodyObj, vectorText);
+
+                                                if (injected) {
+                                                    // 更新请求体
+                                                    args[1].body = JSON.stringify(bodyObj);
+                                                    console.log('✅ [Fetch Hijack] 智能注入完成');
+                                                    updateVectorProbeFromBody(bodyObj, vectorText, meta);
+                                                } else if (vectorText) {
+                                                    console.warn('⚠️ [Fetch Hijack] 未找到注入点，向量内容未被使用');
                                                 }
-                                            };
 
-                                            // 第二轮：兜底策略 - 在 [Start a new Chat] 前插入
-                                            const injectFallback = (obj) => {
-                                                for (let key in obj) {
-                                                    if (typeof obj[key] === 'string') {
-                                                        if (startChatRegex.test(obj[key])) {
-                                                            obj[key] = obj[key].replace(startChatRegex, (match) => {
-                                                                return vectorText + '\n\n' + match;
-                                                            });
-                                                            console.log(`🎯 [智能注入-兜底插入] 在 ${key} 的 [Start a new Chat] 前插入向量内容`);
-                                                            injected = true;
-                                                        }
-                                                    } else if (typeof obj[key] === 'object' && obj[key] !== null) {
-                                                        injectFallback(obj[key]);
-                                                    }
-                                                }
-                                            };
-
-                                            // 执行两轮扫描：先变量替换，后兜底插入
-                                            replaceVariable(bodyObj);
-                                            if (!injected) {
-                                                injectFallback(bodyObj);
+                                            } catch (parseError) {
+                                                console.error('❌ [Fetch Hijack] 解析请求体失败:', parseError);
+                                                console.error('请求体内容:', args[1].body.substring(0, 500));
                                             }
-
-                                            if (injected) {
-                                                // 更新请求体
-                                                args[1].body = JSON.stringify(bodyObj);
-                                                console.log('✅ [Fetch Hijack] 智能注入完成');
-
-                                                // 🔥 CRITICAL: 强制更新探针数据，确保向量内容显示为 SYSTEM
-                                                try {
-                                                    const finalBody = JSON.parse(args[1].body);
-                                                    let debugChat = [];
-
-                                                    // 提取 chat 数组（兼容多种 API 格式）
-                                                    if (finalBody.messages) {
-                                                        debugChat = finalBody.messages;
-                                                    } else if (finalBody.contents) {
-                                                        debugChat = finalBody.contents;
-                                                    } else if (finalBody.prompt) {
-                                                        debugChat = Array.isArray(finalBody.prompt)
-                                                            ? finalBody.prompt
-                                                            : [{role: 'user', content: finalBody.prompt}];
-                                                    }
-
-                                                    // 🔥 强制标记包含向量内容的消息为 SYSTEM
-                                                    let markedCount = 0;
-                                                    debugChat.forEach((msg, idx) => {
-                                                        let content = msg.content ||
-                                                                     (msg.parts && msg.parts[0] ? msg.parts[0].text : '') ||
-                                                                     (msg.text) ||
-                                                                     '';
-
-                                                        // 如果消息包含向量文本，强制设置为 SYSTEM
-                                                        if (vectorText && content.includes(vectorText)) {
-                                                            // 强制覆盖角色属性
-                                                            msg.role = 'system';
-                                                            msg.isGaigaiVector = true;
-
-                                                            // ✅ 智能命名：判断是否为合并消息
-                                                            if (content.length > vectorText.length + 500) {
-                                                                // 内容长度远大于向量文本，说明是酒馆压缩后的合并消息
-                                                                msg.name = 'SYSTEM (Merged)';
-                                                                console.log(`🏷️ [探针] 消息 #${idx} 已标记为 SYSTEM (Merged) - 检测到压缩合并 (${content.length} > ${vectorText.length + 500})`);
-                                                            } else {
-                                                                // 内容长度接近向量文本，说明是纯向量消息
-                                                                msg.name = 'SYSTEM (向量化)';
-                                                                console.log(`🏷️ [探针] 消息 #${idx} 已标记为 SYSTEM (向量化) - 纯向量注入`);
-                                                            }
-
-                                                            // 确保没有其他角色标记
-                                                            delete msg.is_user;
-
-                                                            markedCount++;
-                                                        }
-                                                    });
-
-                                                    // 保存到全局探针（覆盖 opmt 中的设置）
-                                                    window.Gaigai.lastRequestData = {
-                                                        chat: debugChat,
-                                                        timestamp: Date.now(),
-                                                        model: API_CONFIG.model || 'Unknown'
-                                                    };
-                                                    console.log(`✅ [探针] 已更新 lastRequestData (标记了 ${markedCount} 条向量消息)`);
-
-                                                } catch (probeError) {
-                                                    console.error('❌ [探针] 更新失败:', probeError);
-                                                }
-
-                                            } else if (vectorText) {
-                                                console.warn('⚠️ [Fetch Hijack] 未找到注入点，向量内容未被使用');
-                                            }
-
-                                        } catch (parseError) {
-                                            console.error('❌ [Fetch Hijack] 解析请求体失败:', parseError);
-                                            console.error('请求体内容:', args[1].body.substring(0, 500));
                                         }
                                     }
+                                } catch (e) {
+                                    console.error('❌ [Fetch Hijack] 向量检索过程出错:', e);
                                 }
-                            } catch (e) {
-                                console.error('❌ [Fetch Hijack] 向量检索过程出错:', e);
+
+                                console.log('▶️ [Fetch Hijack] 向量检索完成，恢复请求发送');
                             }
 
-                            console.log('▶️ [Fetch Hijack] 向量检索完成，恢复请求发送');
-                        }
+                            // 继续执行原始请求（使用原始或修改后的参数）
+                            return originalFetch.apply(this, args);
+                        };
 
-                        // 继续执行原始请求（使用原始或修改后的参数）
-                        return originalFetch.apply(this, args);
-                    };
-
-                    console.log('✅ [Fetch Hijack] window.fetch 已成功劫持');
+                        window.Gaigai.__fetchHijacked = true;
+                        console.log('✅ [Fetch Hijack] window.fetch 已成功劫持');
+                    } else {
+                        console.log('ℹ️ [Fetch Hijack] 已检测到 fetch 拦截，跳过重复劫持');
+                    }
                 }
-
+                // ============================================================
                 // 监听 Swipe 事件 (切换回复)
                 x.eventSource.on(x.event_types.MESSAGE_SWIPED, function (id) {
+                    // 🛡️[Swipe拦截] 忽略酒馆初始化/加载聊天时自动触发的假 Swipe
+                    if (typeof isChatSwitching !== 'undefined' && isChatSwitching) {
+                        console.log('🛡️ [Swipe拦截] 会话正在加载中，忽略初始化触发的假分支切换。');
+                        return;
+                    }
+
                     console.log(`↔️ [Swipe触发] 第 ${id} 楼正在切换分支...`);
 
                     // 🚩 设置Swipe标志，通知后续的omsg跳过智能保护
@@ -12469,10 +14749,13 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     }
 
                     if (targetBaseKey) {
-                        // ✅ 强制回滚 (Force=true)，无视智能保护
-                        // Swipe 意味着用户明确想要撤销，所以必须强制执行
-                        restoreSnapshot(targetBaseKey, true);
-                        console.log(`↺ [Swipe] 成功强制回档至基准线: 快照 [${targetBaseKey}]`);
+                        // ✅ 核心修复：只有在开启实时填表且非批量填表时，才允许 Swipe 回档
+                        if (C.enabled && !C.autoBackfill) {
+                            restoreSnapshot(targetBaseKey, true);
+                            console.log(`↺ [Swipe] 成功强制回档至基准线: 快照[${targetBaseKey}]`);
+                        } else {
+                            console.log(`⏭️ [Swipe] 当前为批量/非实时模式，跳过快照回档以保护表格数据。`);
+                        }
                     } else {
                         console.warn(`⚠️ [Swipe] 警告: 找不到上一楼的快照，无法回滚。`);
                     }
@@ -12483,6 +14766,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                         delete snapshotHistory[key];
                         console.log(`🗑️ [Swipe] 已销毁第 ${id} 楼的旧分支快照`);
                     }
+                    delete processedMessageSignatures[key];
 
                     // 4. 💾 [第四步：立即持久化]
                     m.save(true, true);
@@ -12513,7 +14797,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 });
 
                 // ✅✅✅ [暴力修复] 直接监听 DOM 点击事件，确保 Swipe 立即触发回滚
-                $(document).on('click', '.swipe_left, .swipe_right', function(e) {
+                $(document).on('click', '.swipe_left, .swipe_right', function (e) {
                     console.log('🖱️ [DOM监听] 检测到 Swipe 按钮点击，强制启动回滚流程...');
 
                     // 1. 设置全局标志位，通知后续的 omsg 不要拦截
@@ -12538,13 +14822,17 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
                     // 4. 立即执行回滚
                     if (targetBaseKey) {
-                        // Force = true (无视智能保护)
-                        const success = restoreSnapshot(targetBaseKey, true);
-                        if (success) {
-                            console.log(`↺ [DOM Swipe] 已强制回滚至快照 [${targetBaseKey}]`);
+                        // ✅ 核心修复：同样增加模式判断
+                        if (C.enabled && !C.autoBackfill) {
+                            const success = restoreSnapshot(targetBaseKey, true);
+                            if (success) {
+                                console.log(`↺ [DOM Swipe] 已强制回滚至快照 [${targetBaseKey}]`);
+                            }
+                        } else {
+                            console.log(`⏭️[DOM Swipe] 当前为批量/非实时模式，跳过快照回档。`);
                         }
                     } else {
-                         console.warn(`⚠️ [DOM Swipe] 找不到上一楼 [${prevKey}] 的快照，无法回滚`);
+                        console.warn(`⚠️ [DOM Swipe] 找不到上一楼 [${prevKey}] 的快照，无法回滚`);
                     }
 
                     // 5. 立即清理当前楼层的脏快照
@@ -12552,6 +14840,7 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     if (snapshotHistory[currentKey]) {
                         delete snapshotHistory[currentKey];
                     }
+                    delete processedMessageSignatures[currentKey];
 
                     // 6. 立即保存并刷新 UI
                     m.save(true, true);
@@ -12635,17 +14924,20 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 console.log('✅ [Loader] debug_manager.js 加载成功 (优先加载)');
 
                 // 🚀 [优先级2] 调试模块就绪后，开始加载业务模块
-                // 动态加载 prompt_manager.js
+                // 动态加载内置方案数据包（可选）+ prompt_manager.js
+                const promptBundleUrl = `${EXTENSION_PATH}/builtin_preset_bundle.js`;
                 const promptManagerUrl = `${EXTENSION_PATH}/prompt_manager.js`;
-                $.getScript(promptManagerUrl)
-                    .done(function () {
-                        console.log('✅ [Loader] prompt_manager.js 加载成功');
 
-                        // 🆕 加载 io_manager.js
-                        const ioManagerUrl = `${EXTENSION_PATH}/io_manager.js`;
-                        $.getScript(ioManagerUrl)
-                            .done(function () {
-                                console.log('✅ [Loader] io_manager.js 加载成功');
+                const loadPromptManager = function () {
+                    $.getScript(promptManagerUrl)
+                        .done(function () {
+                            console.log('✅ [Loader] prompt_manager.js 加载成功');
+
+                            // 🆕 加载 io_manager.js
+                            const ioManagerUrl = `${EXTENSION_PATH}/io_manager.js`;
+                            $.getScript(ioManagerUrl)
+                                .done(function () {
+                                    console.log('✅ [Loader] io_manager.js 加载成功');
 
                                 // 🆕 加载 backfill_manager.js
                                 const backfillManagerUrl = `${EXTENSION_PATH}/backfill_manager.js`;
@@ -12697,8 +14989,19 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                                                                     console.error(`📍 尝试加载的 URL: ${vectorManagerUrl}`);
                                                                 }
 
-                                                                // 所有依赖加载完后，再启动主初始化流程
-                                                                setTimeout(tryInit, 500);
+                                                                // 📱 加载手机插件适配模块
+                                                                const phoneAdapterUrl = `${EXTENSION_PATH}/phone-adapter.js`;
+                                                                $.getScript(phoneAdapterUrl)
+                                                                    .done(function () {
+                                                                        console.log('✅ [Loader] phone-adapter.js 加载成功');
+                                                                        // 所有依赖加载完后，再启动主初始化流程
+                                                                        setTimeout(tryInit, 500);
+                                                                    })
+                                                                    .fail(function () {
+                                                                        console.warn('⚠️ [Loader] phone-adapter.js 加载失败（可选模块，继续初始化）');
+                                                                        // 即使加载失败，也继续初始化
+                                                                        setTimeout(tryInit, 500);
+                                                                    });
                                                             })
                                                             .fail(function (jqxhr, settings, exception) {
                                                                 console.error('❌ [Loader] vector_manager.js 加载失败！');
@@ -12748,16 +15051,27 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                                 console.error(`💡 提示：请检查文件是否存在，或控制台 Network 面板查看具体错误`);
                                 // 即使加载失败，也继续初始化（降级模式）
                                 setTimeout(tryInit, 500);
-                            });
+                                });
+                        })
+                        .fail(function (jqxhr, settings, exception) {
+                            console.error('❌ [Loader] prompt_manager.js 加载失败！请检查文件夹名称是否为 ST-Memory-Context');
+                            console.error(`📍 尝试加载的 URL: ${promptManagerUrl}`);
+                            console.error(`📍 HTTP 状态码: ${jqxhr.status}`);
+                            console.error(`📍 错误详情:`, exception);
+                            console.error(`💡 提示：请检查 EXTENSION_PATH 是否正确，当前值为: ${EXTENSION_PATH}`);
+                            // 即使加载失败，也继续初始化（降级模式）
+                            setTimeout(tryInit, 500);
+                        });
+                };
+
+                $.getScript(promptBundleUrl)
+                    .done(function () {
+                        console.log('✅ [Loader] builtin_preset_bundle.js 加载成功');
+                        loadPromptManager();
                     })
-                    .fail(function (jqxhr, settings, exception) {
-                        console.error('❌ [Loader] prompt_manager.js 加载失败！请检查文件夹名称是否为 ST-Memory-Context');
-                        console.error(`📍 尝试加载的 URL: ${promptManagerUrl}`);
-                        console.error(`📍 HTTP 状态码: ${jqxhr.status}`);
-                        console.error(`📍 错误详情:`, exception);
-                        console.error(`💡 提示：请检查 EXTENSION_PATH 是否正确，当前值为: ${EXTENSION_PATH}`);
-                        // 即使加载失败，也继续初始化（降级模式）
-                        setTimeout(tryInit, 500);
+                    .fail(function () {
+                        console.warn('⚠️ [Loader] builtin_preset_bundle.js 加载失败，回退到 prompt_manager 内置默认常量');
+                        loadPromptManager();
                     });
             })
             .fail(function (jqxhr, settings, exception) {
@@ -12768,15 +15082,28 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                 console.error(`💡 提示：调试模块加载失败，将无法捕获后续错误日志`);
 
                 // 即使调试模块失败，也尝试加载业务模块（降级模式）
+                const promptBundleUrl = `${EXTENSION_PATH}/builtin_preset_bundle.js`;
                 const promptManagerUrl = `${EXTENSION_PATH}/prompt_manager.js`;
-                $.getScript(promptManagerUrl)
+                const loadPromptManagerFallback = function () {
+                    $.getScript(promptManagerUrl)
+                        .done(function () {
+                            console.log('✅ [Loader] prompt_manager.js 加载成功 (降级模式)');
+                            // 继续加载其他模块...
+                            setTimeout(tryInit, 500);
+                        })
+                        .fail(function () {
+                            console.error('❌ [Loader] 严重错误：核心模块加载失败，插件无法启动');
+                        });
+                };
+
+                $.getScript(promptBundleUrl)
                     .done(function () {
-                        console.log('✅ [Loader] prompt_manager.js 加载成功 (降级模式)');
-                        // 继续加载其他模块...
-                        setTimeout(tryInit, 500);
+                        console.log('✅ [Loader] builtin_preset_bundle.js 加载成功 (降级模式)');
+                        loadPromptManagerFallback();
                     })
                     .fail(function () {
-                        console.error('❌ [Loader] 严重错误：核心模块加载失败，插件无法启动');
+                        console.warn('⚠️ [Loader] builtin_preset_bundle.js 加载失败 (降级模式)，回退到内置常量');
+                        loadPromptManagerFallback();
                     });
             });
     }
@@ -12889,8 +15216,12 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     当前版本: v${cleanVer}
                     <span style="margin: 0 8px; opacity: 0.5;">|</span>
                     <a href="https://pcnsnlcapni4.feishu.cn/wiki/AfPuwMlCSieXbckthFUc5bQYnMe" target="_blank" style="text-decoration:none; color:var(--g-tc); border-bottom:1px dashed var(--g-tc);">
-                       📖 详细使用说明书
+                        详细使用说明书
                     </a>
+                    <span style="margin: 0 8px; opacity: 0.5;">|</span>
+                    <span id="gg_btn_copy_config" style="cursor:pointer; color:var(--g-tc); border-bottom:1px dashed var(--g-tc); transition:opacity 0.2s;" onmouseover="this.style.opacity=0.7" onmouseout="this.style.opacity=1" title="一键复制核心配置信息，方便向作者反馈问题">
+                        复制当前配置
+                    </span>
                 </div>
                 <div id="update-status" style="background:rgba(0,0,0,0.05); padding:6px; border-radius:4px; font-size:11px; display:flex; align-items:center; justify-content:center; gap:8px; color:var(--g-tc);">
                     ⏳ 正在连接 GitHub 检查更新...
@@ -12899,22 +15230,14 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
 
             <div style="flex:1; overflow-y:auto; background:rgba(255,255,255,0.4); border-radius:8px; padding:15px; font-size:13px; line-height:1.6; border:1px solid rgba(255,255,255,0.3);">
 
-                <!--⚠️ 备份警告 -->
-                <div style="background:rgba(255, 165, 0, 0.1); border:1px solid rgba(255, 140, 0, 0.3); border-radius:6px; padding:8px; margin-bottom:15px; color:#d35400; font-size:11px; display:flex; align-items:center; gap:6px;">
-                    ⚠️
-                    <strong>安全提醒：</strong>更新插件前，请点击【📥 导出】备份数据！
-                </div>
-
                 <!-- ✅ 第一部分：本次更新日志 (高亮显示) -->
                 <div style="margin-bottom:20px; border-bottom:1px dashed rgba(0,0,0,0.1); padding-bottom:15px;">
                     <h4 style="margin-top:0; margin-bottom:10px; color:var(--g-tc); display:flex; align-items:center; gap:6px;">
                         📢 本次更新内容 (v${cleanVer})
                     </h4>
                     <ul style="margin:0; padding-left:20px; font-size:12px; color:var(--g-tc); opacity:0.9;">
-                        <li><strong>⚠️重要通知⚠️：</strong>从1.7.5版本前更新的用户，必须进入【提示词区】上方的【表格结构编辑区】，手动将表格【恢复默认】。</li>
-                        <li><strong>优化：</strong>优化隐藏楼层功能，调用酒馆原生隐藏逻辑。</li>
-                        <li><strong>新增：</strong>新增以总结楼层的指针进度为基准，调用隐藏楼层的功能</li>
-                        <li><strong>新增：</strong>新增总结优化分批功能</li>
+                        <li><strong>优化默认设置：</strong>自动总结的初始来源改为“聊天历史”，更适合多数用户的默认使用场景。</li>
+                    </ul>
                 </div>
 
                 <!-- 📘 第二部分：功能指南 -->
@@ -12990,6 +15313,133 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
                     localStorage.removeItem('gg_notice_ver');
                 }
             });
+            $('#gg_btn_copy_config').on('click', function() {
+                const ctx = m.ctx();
+                const currentFloorCount = (ctx && Array.isArray(ctx.chat)) ? ctx.chat.length : 0;
+                const summaryPointer = API_CONFIG.lastSummaryIndex || 0;
+                const backfillPointer = API_CONFIG.lastBackfillIndex || 0;
+                const summaryProgress = Math.min(summaryPointer, currentFloorCount);
+                const backfillProgress = Math.min(backfillPointer, currentFloorCount);
+                const providerKey = String(API_CONFIG.provider || '');
+                const providerNameMap = {
+                    proxy_only: 'OpenAI 兼容模式/反代(如build)',
+                    openai: 'OpenAI 官方',
+                    compatible: '兼容中转/代理',
+                    local: '本地/内网（本地反代）',
+                    claude: 'Claude 官方',
+                    deepseek: 'DeepSeek 官方',
+                    siliconflow: '硅基流动 (SiliconFlow)',
+                    gemini: 'Google Gemini 官方'
+                };
+                const providerDisplayName = providerNameMap[providerKey] || providerKey || '未设置';
+                const promptManager = window.Gaigai && window.Gaigai.PromptManager ? window.Gaigai.PromptManager : null;
+                let currentPromptProfileName = '未知';
+                let currentTablePresetName = '未知';
+                let activePromptProfileId = '';
+
+                try {
+                    let cfg = null;
+                    const rawCfg = localStorage.getItem('gg_config');
+                    if (rawCfg) cfg = JSON.parse(rawCfg);
+                    if (!cfg && window.Gaigai && window.Gaigai.config_obj) cfg = window.Gaigai.config_obj;
+                    if (cfg && typeof cfg === 'object') {
+                        activePromptProfileId = String(cfg.activePromptProfileId || '').trim();
+                    }
+                } catch (e) {
+                    console.warn('⚠️ [配置复制] 读取 active 状态失败:', e);
+                }
+
+                currentTablePresetName = (window.Gaigai && window.Gaigai.config_obj && window.Gaigai.config_obj.activeTablePresetName)
+                    ? window.Gaigai.config_obj.activeTablePresetName
+                    : '未保存/自定义';
+
+                if (promptManager) {
+                    try {
+                        const profilesData = promptManager.getProfilesData ? promptManager.getProfilesData() : null;
+                        if (profilesData && profilesData.profiles) {
+                            let targetProfileId = activePromptProfileId || profilesData.currentProfileId || 'default';
+                            if (!profilesData.profiles[targetProfileId]) {
+                                const charName = promptManager.getCurrentCharacterName ? promptManager.getCurrentCharacterName() : '';
+                                if (charName && profilesData.charBindings && profilesData.charBindings[charName]) {
+                                    targetProfileId = profilesData.charBindings[charName];
+                                }
+                            }
+                            const targetProfile = profilesData.profiles[targetProfileId] || profilesData.profiles.default;
+                            if (targetProfile && targetProfile.name) {
+                                currentPromptProfileName = targetProfile.name;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('⚠️ [配置复制] 获取提示词方案名失败:', e);
+                    }
+
+                }
+                const configText = `
+=== 记忆表格 (Memory Context) 运行配置 ===
+版本: v${cleanVer}
+API模式: ${API_CONFIG.useIndependentAPI ? '独立API (' + providerDisplayName + ')' : '酒馆API'}
+独立API供应商: ${API_CONFIG.useIndependentAPI ? providerDisplayName : 'N/A'}
+流式模式: ${API_CONFIG.useIndependentAPI ? (API_CONFIG.useStream !== false ? '流式' : '非流式') : 'N/A'}
+使用模型: ${API_CONFIG.useIndependentAPI ? (API_CONFIG.model || '未设置') : 'N/A'}
+最大输出: ${API_CONFIG.useIndependentAPI ? ((API_CONFIG.maxTokens || 8192) + ' tokens') : 'N/A'}
+
+【进度状态】
+当前楼层数: ${currentFloorCount}
+总结指针: ${summaryPointer}
+填表指针: ${backfillPointer}
+总结进度: ${summaryProgress}/${currentFloorCount}
+填表进度: ${backfillProgress}/${currentFloorCount}
+提示词方案: ${currentPromptProfileName}
+表格结构方案: ${currentTablePresetName}
+
+【填表设置】
+实时填表: ${C.enabled ? '开启' : '关闭'}
+批量填表: ${C.autoBackfill ? '开启 (每' + C.autoBackfillFloor + '层触发)' : '关闭'}
+注入表格: ${C.tableInj ? '开启' : '关闭'}
+隐藏楼层: ${C.contextLimit ? '开启 (留' + C.contextLimitCount + '层)' : '关闭'}
+
+【总结设置】
+自动总结: ${C.autoSummary ? '开启 (每' + C.autoSummaryFloor + '层触发)' : '关闭'}
+总结来源: ${API_CONFIG.summarySource === 'table' ? '仅表格' : '聊天历史'}
+大总结: ${C.autoBigSummary ? '开启 (每' + C.autoBigSummaryFloor + '层触发)' : '关闭'}
+总结后隐藏: ${C.autoSummaryHideContext ? '开启' : '关闭'}
+
+【标签过滤】
+黑名单(去除): ${C.filterTags ? C.filterTags : '未设置'}
+白名单(仅留): ${C.filterTagsWhite ? C.filterTagsWhite : '未设置'}
+
+【外部联动】
+世界书同步: ${C.syncWorldInfo ? '开启' : '关闭'}
+独立向量化: ${C.vectorEnabled ? '开启' : '关闭'} (总结后自动: ${C.autoVectorizeSummary ? '开启' : '关闭'})
+====================================
+`.trim();
+
+                const fallbackCopyTextToClipboard = (text) => {
+                    const textArea = document.createElement("textarea");
+                    textArea.value = text;
+                    textArea.style.position = "fixed";
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    try {
+                        document.execCommand('copy');
+                        if (typeof toastr !== 'undefined') toastr.success('✅ 核心配置信息已复制到剪贴板，可直接粘贴给作者。');
+                        else alert('✅ 核心配置信息已复制到剪贴板');
+                    } catch (err) {
+                        alert('❌ 复制失败，请重试');
+                    }
+                    document.body.removeChild(textArea);
+                };
+
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(configText).then(() => {
+                        if (typeof toastr !== 'undefined') toastr.success('✅ 核心配置信息已复制到剪贴板，可直接粘贴给作者。');
+                        else alert('✅ 核心配置信息已复制到剪贴板');
+                    }).catch(() => fallbackCopyTextToClipboard(configText));
+                } else {
+                    fallbackCopyTextToClipboard(configText);
+                }
+            });
             checkForUpdates(cleanVer);
         }, 100);
 
@@ -13061,3 +15511,6 @@ updateRow(1, 0, {4: "王五销毁了图纸..."})
     }
 
 })();
+
+
+

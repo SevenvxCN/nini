@@ -9,6 +9,13 @@
             </div>
         </div>
         <div class="st-chatu8-field">
+            <label for="helpTipsEnabled">设置项答疑提示</label>
+            <div class="st-chatu8-toggle">
+                <input id="helpTipsEnabled" type="checkbox"/>
+                <span class="st-chatu8-slider"></span>
+            </div>
+        </div>
+        <div class="st-chatu8-field">
             <label for="mode">模式</label>
             <select id="mode" class="st-chatu8-select">
                 <option value="sd">SD</option>
@@ -88,6 +95,20 @@
             </div>
         </div>
         <div class="st-chatu8-field">
+            <label for="randomYushe">随机提示词预设</label>
+            <div class="st-chatu8-toggle">
+                <input id="randomYushe" type="checkbox"/>
+                <span class="st-chatu8-slider"></span>
+            </div>
+        </div>
+        <div class="st-chatu8-field">
+            <label for="aiAutonomousResolution">AI自主分辨率</label>
+            <div class="st-chatu8-toggle">
+                <input id="aiAutonomousResolution" type="checkbox"/>
+                <span class="st-chatu8-slider"></span>
+            </div>
+        </div>
+        <div class="st-chatu8-field">
             <label for="imageGenInterval">生图间隔时间（毫秒）</label>
             <input type="number" id="imageGenInterval" class="st-chatu8-text-input" min="0" step="100" placeholder="0">
         </div>
@@ -98,6 +119,15 @@
                 <option value="left">靠左</option>
                 <option value="center">居中</option>
                 <option value="right">靠右</option>
+            </select>
+        </div>
+        <div class="st-chatu8-field">
+            <label for="imageSizeScale">图片显示大小</label>
+            <select id="imageSizeScale" class="st-chatu8-select">
+                <option value="100">自适应（100%）</option>
+                <option value="75">3/4 大小（75%）</option>
+                <option value="50">1/2 大小（50%）</option>
+                <option value="25">1/4 大小（25%）</option>
             </select>
         </div>
     </div>
@@ -142,6 +172,13 @@
             </div>
         </div>
         <div class="st-chatu8-field">
+            <label for="vibeJiuguanchucun">缓存 Vibe 到酒馆</label>
+            <div class="st-chatu8-toggle">
+                <input id="vibeJiuguanchucun" type="checkbox"/>
+                <span class="st-chatu8-slider"></span>
+            </div>
+        </div>
+        <div class="st-chatu8-field">
             <label for="convertToJpegStorage">转JPEG储存节省70%空间(噪点明显增加)</label>
             <div class="st-chatu8-toggle">
                 <input id="convertToJpegStorage" type="checkbox"/>
@@ -152,6 +189,7 @@
             <label>操作</label>
             <div>
                 <button id="sync-server-images-btn" class="st-chatu8-btn">同步服务器图片</button>
+                <button id="migrate-vibe-storage-btn" class="st-chatu8-btn">迁移 Vibe 到酒馆</button>
                 <button id="Clear-Cache" class="st-chatu8-btn danger">清除图片缓存</button>
                 <button id="migrate-database-btn" class="st-chatu8-btn">数据迁移</button>
             </div>

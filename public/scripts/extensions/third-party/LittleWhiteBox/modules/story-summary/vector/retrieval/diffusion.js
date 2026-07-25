@@ -30,10 +30,8 @@
 //   github.com/networkx/networkx — algorithms/link_analysis/pagerank_alg.py
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { xbLog } from '../../../../core/debug-core.js';
-import { getContext } from '../../../../../../../extensions.js';
-
 const MODULE_ID = 'diffusion';
+const NOOP_LOGGER = { info() {} };
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Configuration
@@ -265,7 +263,7 @@ function collectPairsFromIndex(index, pairSet, N) {
  * @param {Set<string>} excludeEntities
  * @returns {{ neighbors: object[][], edgeCount: number, channelStats: object, buildTime: number }}
  */
-function buildGraph(allAtoms, stateVectors = [], excludeEntities = new Set()) {
+function buildGraph(allAtoms, stateVectors = [], excludeEntities = new Set(), logger = NOOP_LOGGER) {
     const N = allAtoms.length;
     const T0 = performance.now();
 
@@ -396,7 +394,7 @@ function buildGraph(allAtoms, stateVectors = [], excludeEntities = new Set()) {
 
     const buildTime = Math.round(performance.now() - T0);
 
-    xbLog.info(MODULE_ID,
+    logger.info(MODULE_ID,
         `Graph: ${N} nodes, ${edgeCount} edges ` +
         `(candidate_by_what=${pairSetByWhat.size} candidate_by_r_sem=${pairSetByRSem.size}) ` +
         `(what=${channelStats.what} r_sem=${channelStats.rSem} who=${channelStats.who} where=${channelStats.where}) ` +
@@ -700,8 +698,9 @@ function postVerify(pi, atomIds, atomById, seedAtomIds, vectorMap, queryVector) 
  * @returns {object[]} Additional L0 atoms for l0Selected
  *   Each: { atomId, floor, atom, finalScore, pprScore, pprNormalized, cosine }
  */
-export function diffuseFromSeeds(seeds, allAtoms, stateVectors, queryVector, metrics) {
+export function diffuseFromSeeds(seeds, allAtoms, stateVectors, queryVector, metrics, options = {}) {
     const T0 = performance.now();
+    const logger = options?.logger || NOOP_LOGGER;
 
     // ─── Early exits ─────────────────────────────────────────────────
 
@@ -711,12 +710,13 @@ export function diffuseFromSeeds(seeds, allAtoms, stateVectors, queryVector, met
     }
 
     // Align with entity-lexicon hard rule: exclude name1 from graph features.
-    const { name1 } = getContext();
+    const { name1 } = options || {};
     const excludeEntities = new Set();
     if (name1) excludeEntities.add(normalize(name1));
 
     // ─── 1. Build atom index ─────────────────────────────────────────
 
+    const T_Index = performance.now();
     const atomById = new Map();
     const atomIds = [];
     const idToIdx = new Map();
@@ -729,6 +729,7 @@ export function diffuseFromSeeds(seeds, allAtoms, stateVectors, queryVector, met
     }
 
     const N = allAtoms.length;
+    const indexTime = Math.round(performance.now() - T_Index);
 
     // Validate seeds against atom index
     const validSeeds = seeds.filter(s => idToIdx.has(s.atomId));
@@ -741,7 +742,7 @@ export function diffuseFromSeeds(seeds, allAtoms, stateVectors, queryVector, met
 
     // ─── 2. Build graph ──────────────────────────────────────────────
 
-    const graph = buildGraph(allAtoms, stateVectors, excludeEntities);
+    const graph = buildGraph(allAtoms, stateVectors, excludeEntities, logger);
 
     if (graph.edgeCount === 0) {
         fillMetrics(metrics, {
@@ -758,19 +759,24 @@ export function diffuseFromSeeds(seeds, allAtoms, stateVectors, queryVector, met
             edgeDensity: graph.edgeDensity,
             reweightWhoUsed: graph.reweightWhoUsed,
             reweightWhereUsed: graph.reweightWhereUsed,
+            indexTime,
             time: graph.buildTime,
         });
-        xbLog.info(MODULE_ID, 'No graph edges — skipping diffusion');
+        logger.info(MODULE_ID, 'No graph edges - skipping diffusion');
         return [];
     }
 
     // ─── 3. Build seed vector ────────────────────────────────────────
 
+    const T_Seed = performance.now();
     const s = buildSeedVector(validSeeds, idToIdx, N);
+    const seedVectorTime = Math.round(performance.now() - T_Seed);
 
     // ─── 4. Column normalize ─────────────────────────────────────────
 
+    const T_Normalize = performance.now();
     const { columns, dangling } = columnNormalize(graph.neighbors, N);
+    const normalizeTime = Math.round(performance.now() - T_Normalize);
 
     // ─── 5. PPR Power Iteration ──────────────────────────────────────
 
@@ -786,14 +792,18 @@ export function diffuseFromSeeds(seeds, allAtoms, stateVectors, queryVector, met
 
     // ─── 6. Post-verification ────────────────────────────────────────
 
+    const T_VectorMap = performance.now();
     const vectorMap = new Map();
     for (const sv of (stateVectors || [])) {
         vectorMap.set(sv.atomId, sv.vector);
     }
+    const vectorMapTime = Math.round(performance.now() - T_VectorMap);
 
+    const T_PostVerify = performance.now();
     const { diffused, gateStats } = postVerify(
         pi, atomIds, atomById, seedAtomIds, vectorMap, queryVector
     );
+    const postVerifyTime = Math.round(performance.now() - T_PostVerify);
 
     // ─── 7. Metrics ──────────────────────────────────────────────────
 
@@ -813,13 +823,19 @@ export function diffuseFromSeeds(seeds, allAtoms, stateVectors, queryVector, met
         edgeDensity: graph.edgeDensity,
         reweightWhoUsed: graph.reweightWhoUsed,
         reweightWhereUsed: graph.reweightWhereUsed,
+        indexTime,
         buildTime: graph.buildTime,
+        seedVectorTime,
+        normalizeTime,
         iterations,
         convergenceError: finalError,
+        pprTime,
         pprActivated,
         cosineGatePassed: gateStats.passed,
         cosineGateFiltered: gateStats.filtered,
         cosineGateNoVector: gateStats.noVector,
+        vectorMapTime,
+        postVerifyTime,
         postGatePassRate: pprActivated > 0
             ? Math.round((gateStats.passed / pprActivated) * 100)
             : 0,
@@ -830,14 +846,15 @@ export function diffuseFromSeeds(seeds, allAtoms, stateVectors, queryVector, met
         time: totalTime,
     });
 
-    xbLog.info(MODULE_ID,
+    logger.info(MODULE_ID,
         `Diffusion: ${validSeeds.length} seeds → ` +
         `graph(${N}n/${graph.edgeCount}e) → ` +
         `PPR(${iterations}it, ε=${finalError.toExponential(1)}, ${pprTime}ms) → ` +
         `${pprActivated} activated → ` +
         `gate(${gateStats.passed}\u2713/${gateStats.filtered}\u2717` +
         `${gateStats.noVector ? `/${gateStats.noVector}?` : ''}) → ` +
-        `${diffused.length} final (${totalTime}ms)`
+        `${diffused.length} final ` +
+        `(index=${indexTime}ms graph=${graph.buildTime}ms seed=${seedVectorTime}ms normalize=${normalizeTime}ms ppr=${pprTime}ms vectorMap=${vectorMapTime}ms post=${postVerifyTime}ms total=${totalTime}ms)`
     );
 
     return diffused;
@@ -890,6 +907,13 @@ function fillMetricsEmpty(metrics) {
         edgeDensity: 0,
         reweightWhoUsed: 0,
         reweightWhereUsed: 0,
+        indexTime: 0,
+        buildTime: 0,
+        seedVectorTime: 0,
+        normalizeTime: 0,
+        pprTime: 0,
+        vectorMapTime: 0,
+        postVerifyTime: 0,
         postGatePassRate: 0,
         time: 0,
     };
@@ -923,6 +947,13 @@ function fillMetrics(metrics, data) {
         edgeDensity: data.edgeDensity || 0,
         reweightWhoUsed: data.reweightWhoUsed || 0,
         reweightWhereUsed: data.reweightWhereUsed || 0,
+        indexTime: data.indexTime || 0,
+        buildTime: data.buildTime || 0,
+        seedVectorTime: data.seedVectorTime || 0,
+        normalizeTime: data.normalizeTime || 0,
+        pprTime: data.pprTime || 0,
+        vectorMapTime: data.vectorMapTime || 0,
+        postVerifyTime: data.postVerifyTime || 0,
         time: data.time || 0,
     };
 }

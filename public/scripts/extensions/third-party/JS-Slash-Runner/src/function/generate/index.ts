@@ -3,8 +3,19 @@ import { handlePresetPath } from '@/function/generate/generate';
 import { handleCustomPath } from '@/function/generate/generateRaw';
 import { processUserInputWithImages } from '@/function/generate/inputProcessor';
 import { generateResponse } from '@/function/generate/responseGenerator';
-import { detail, GenerateConfig, GenerateRawConfig, Overrides } from '@/function/generate/types';
+import {
+  detail,
+  GenerateConfig,
+  GenerateRawConfig,
+  GenerateToolCallResult,
+  Overrides,
+  PlaceholderPrompt,
+  RolePrompt,
+} from '@/function/generate/types';
 import { normalizeBaseURL, setupImageArrayProcessing, unblockGeneration } from '@/function/generate/utils';
+import { InjectionPrompt } from '@/function/inject';
+import { getPreset, isPresetPlaceholderPrompt, PresetPrompt } from '@/function/preset';
+import { substitudeMacros } from '@/function/util';
 import {
   deactivateSendButtons,
   event_types,
@@ -151,6 +162,76 @@ export function fromGenerateConfig(config: GenerateConfig): detail.GenerateParam
     inject: config.injects,
     max_chat_history: typeof config.max_chat_history === 'number' ? config.max_chat_history : undefined,
     custom_api: config.custom_api,
+    tools: config.tools,
+    tool_choice: config.tool_choice,
+    json_schema: config.json_schema,
+  };
+}
+
+function toOrderedPrompt(prompt: PresetPrompt): PlaceholderPrompt | RolePrompt {
+  if (isPresetPlaceholderPrompt(prompt)) {
+    return _.snakeCase(prompt.id) as PlaceholderPrompt;
+  }
+  return {
+    role: prompt.role,
+    content: substitudeMacros(prompt.content!),
+  };
+}
+
+function toInChatPrompt(prompt: PresetPrompt): Omit<InjectionPrompt, 'id'> {
+  // Assert (prompt.position.type === 'in_chat' && prompt.content is string)
+  prompt.content = substitudeMacros(prompt.content!);
+  return {
+    position: 'in_chat',
+    depth: prompt.position!.depth!,
+    role: prompt.role,
+    content: substitudeMacros(prompt.content),
+  };
+}
+
+export function convertGenerateWithCustomPreset(config: GenerateConfig): GenerateRawConfig {
+  const preset = getPreset(config.preset_name ?? 'in_use');
+  const prompts = preset.prompts.filter(prompt => prompt.enabled);
+  const [in_chat, ordered] = _.partition(prompts, prompt => prompt.position?.type === 'in_chat');
+
+  const ordered_prompts = ordered
+    .map(toOrderedPrompt)
+    .filter(prompt => typeof prompt === 'string' || prompt.content.trim() !== '');
+
+  const injects = _.concat(
+    config.injects ?? [],
+    _(in_chat)
+      .sortBy(['position.depth', 'position.order'])
+      .map(toInChatPrompt)
+      .filter(prompt => prompt.content.trim() !== '')
+      .value(),
+  );
+
+  const custom_api = { ...config.custom_api };
+  const setValidly = (param: string, value: number | undefined, min: number | null =null, max: number | null =null) => {
+    if (typeof value !== 'number') {
+      return;
+    }
+    if (min !== null) {
+      value = Math.max(min, value);
+    }
+    if (max !== null) {
+      value = Math.min(max, value);
+    }
+    _.set(custom_api, param, value);
+  }
+  setValidly('max_tokens', preset.settings.max_completion_tokens);
+  setValidly('temperature', preset.settings.temperature, 0, 2);
+  setValidly('frequency_penalty', preset.settings.frequency_penalty, -2, 2);
+  setValidly('presence_penalty', preset.settings.presence_penalty, -2, 2);
+  setValidly('top_p', preset.settings.top_p, 0, 1);
+  setValidly('top_k', preset.settings.top_k, 0, 100);
+
+  return {
+    ...config,
+    ordered_prompts,
+    injects,
+    custom_api,
   };
 }
 
@@ -172,6 +253,9 @@ export function fromGenerateRawConfig(config: GenerateRawConfig): detail.Generat
     inject: config.injects,
     order: config.ordered_prompts,
     custom_api: config.custom_api,
+    tools: config.tools,
+    tool_choice: config.tool_choice,
+    json_schema: config.json_schema,
   };
 }
 
@@ -201,7 +285,10 @@ async function iframeGenerate({
   stream = false,
   bindToStopButton = true,
   custom_api = undefined,
-}: detail.GenerateParams = {}): Promise<string> {
+  tools = undefined,
+  tool_choice = undefined,
+  json_schema = undefined,
+}: detail.GenerateParams = {}): Promise<string | GenerateToolCallResult> {
   const generationId = generation_id || uuidv4();
 
   if (generationControllers.has(generationId)) {
@@ -270,6 +357,7 @@ async function iframeGenerate({
 
     await eventSource.emit(event_types.GENERATE_AFTER_DATA, generate_data, false);
     // 4. 根据 stream 参数决定生成方式
+    const toolOptions = tools?.length ? { tools, tool_choice } : undefined;
     const result = await generateResponse(
       generate_data,
       stream,
@@ -277,6 +365,8 @@ async function iframeGenerate({
       imageProcessingSetup,
       abortController,
       custom_api,
+      toolOptions,
+      json_schema,
     );
 
     return result;
@@ -299,12 +389,16 @@ async function iframeGenerate({
   }
 }
 
-export async function generate(config: GenerateConfig) {
+export async function generate(config: GenerateConfig): Promise<string | GenerateToolCallResult> {
+  if (config.preset_name && config.preset_name !== 'in_use') {
+    const converted_config = convertGenerateWithCustomPreset(config);
+    return await generateRaw(converted_config);
+  }
   const converted_config = fromGenerateConfig(config);
   return await iframeGenerate(converted_config);
 }
 
-export async function generateRaw(config: GenerateRawConfig) {
+export async function generateRaw(config: GenerateRawConfig): Promise<string | GenerateToolCallResult> {
   const converted_config = fromGenerateRawConfig(config);
   return await iframeGenerate(converted_config);
 }

@@ -1,5 +1,6 @@
 import { resolve as _resolve } from 'path';
 import TerserPlugin from 'terser-webpack-plugin';
+import MonacoWebpackPlugin from 'monaco-editor-webpack-plugin';
 
 const serverConfig = {
     devtool: 'source-map',
@@ -24,7 +25,7 @@ const serverConfig = {
                         options: {
                             sourceMaps: true,
                         },
-                    }
+                    },
                 ],
                 exclude: /node_modules/,
             },
@@ -34,11 +35,31 @@ const serverConfig = {
                 options: {
                     cacheDirectory: true,
                     presets: [
-                        ['@babel/preset-env', { "modules": false }],
+                        ['@babel/preset-env', { 'modules': false }],
                     ],
                     sourceMaps: true,
                 },
                 loader: 'babel-loader',
+            },
+            {
+                test: /\.css$/,
+                oneOf: [
+                    {
+                        include: /node_modules[\\/]monaco-editor/,
+                        use: ['style-loader', 'css-loader'],
+                    },
+                    {
+                        exclude: /node_modules[\\/]monaco-editor/,
+                        use: [
+                            'style-loader',
+                            {
+                                loader: 'css-loader',
+                                options: {
+                                },
+                            },
+                        ],
+                    },
+                ],
             },
         ],
     },
@@ -57,13 +78,20 @@ const serverConfig = {
             }),
         ],
     },
-    plugins: [],
-    externals: function({ context, request }, callback) {
+    plugins: [
+        new MonacoWebpackPlugin({
+            languages: ['javascript'],
+        }),
+    ],
+    externals: function ({ context, request }, callback) {
+        if (request.includes('node_modules') || context.includes('node_modules')) {
+            return callback();
+        }
         if (request.startsWith('../../') || request.includes('libs/')) {
-            if(context.search(/(\/|\\)src\1/) > 0)
+            if (context.search(/(\/|\\)src\1/) > 0)
                 return callback(null, request.substring(3));
             return callback(null, request);
-        } else if(request.startsWith('https://') || request.startsWith('http://')) {
+        } else if (request.startsWith('https://') || request.startsWith('http://')) {
             return callback(null, request);
         }
         callback();

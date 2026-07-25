@@ -8,28 +8,31 @@
         </div>
         <div class="st-chatu8-field-col">
             <label for="st-chatu8-banana-api-key">API Key</label>
-            <input type="text" id="st-chatu8-banana-api-key" class="st-chatu8-text-input" placeholder="在此输入您的 API Key">
+            <div style="position: relative; display: flex; align-items: center;">
+                <input type="password" id="st-chatu8-banana-api-key" class="st-chatu8-text-input" placeholder="在此输入您的 API Key" style="padding-right: 2.2em;">
+                <button type="button" id="st-chatu8-banana-api-key-toggle" title="显示/隐藏 API Key" style="position: absolute; right: 0.4em; background: none; border: none; cursor: pointer; color: inherit; opacity: 0.6; padding: 0; font-size: 1em; line-height: 1;">
+                    <i class="fa-solid fa-eye"></i>
+                </button>
+            </div>
+        </div>
+        <div class="st-chatu8-field">
+            <label for="st-chatu8-banana-model-select">图像模型</label>
+            <div class="st-chatu8-profile-controls">
+                <select id="st-chatu8-banana-model-select" class="st-chatu8-select"></select>
+                <button class="st-chatu8-icon-btn" id="st-chatu8-banana-fetch-models" title="获取模型列表（同时填充图像/修图/视频三个下拉框）"><i class="fa-solid fa-rotate"></i></button>
+            </div>
         </div>
         <div class="st-chatu8-grid-2">
             <div class="st-chatu8-field">
-                <label for="st-chatu8-banana-model-select">图像模型选择</label>
+                <label for="st-chatu8-banana-edit-model-select">修图模型</label>
                 <div class="st-chatu8-profile-controls">
-                    <select id="st-chatu8-banana-model-select" class="st-chatu8-select">
-                        <option value="gemini-2.5-flash-image">gemini-2.5-flash-image</option>
-                        <option value="imagen-4.0-generate-001">imagen-4.0-generate-001</option>
-                        <option value="imagen-4.0-ultra-generate-001">imagen-4.0-ultra-generate-001</option>
-                    </select>
-                    <button class="st-chatu8-icon-btn" id="st-chatu8-banana-fetch-models" title="获取模型列表"><i class="fa-solid fa-rotate"></i></button>
+                    <select id="st-chatu8-banana-edit-model-select" class="st-chatu8-select"></select>
                 </div>
             </div>
             <div class="st-chatu8-field">
-                <label for="st-chatu8-banana-video-model-select">视频模型选择</label>
+                <label for="st-chatu8-banana-video-model-select">视频模型</label>
                 <div class="st-chatu8-profile-controls">
-                    <select id="st-chatu8-banana-video-model-select" class="st-chatu8-select">
-                        <option value="gemini-2.5-flash-image">gemini-2.5-flash-image</option>
-                        <option value="imagen-4.0-generate-001">imagen-4.0-generate-001</option>
-                        <option value="imagen-4.0-ultra-generate-001">imagen-4.0-ultra-generate-001</option>
-                    </select>
+                    <select id="st-chatu8-banana-video-model-select" class="st-chatu8-select"></select>
                 </div>
             </div>
         </div>
@@ -42,6 +45,26 @@
                 <option value="4:3">4:3</option>
                 <option value="3:4">3:4</option>
             </select>
+        </div>
+        <div class="st-chatu8-field">
+            <label for="st-chatu8-banana-use-grok-format">Grok 原生格式</label>
+            <label class="st-chatu8-toggle" for="st-chatu8-banana-use-grok-format" title="开启后使用 Grok 的 /v1/images/generations 端点。仅发送 { model, prompt, n, response_format }，将忽略对话预设/参考图，且不支持修图与视频模式。">
+                <input id="st-chatu8-banana-use-grok-format" type="checkbox"/>
+                <span class="st-chatu8-slider"></span>
+            </label>
+        </div>
+        <div class="st-chatu8-banana-replace-help">
+            <details>
+                <summary><i class="fa-solid fa-circle-info"></i> Grok 原生格式说明</summary>
+                <div class="st-chatu8-help-content">
+                    <ul>
+                        <li>适用于 <code>grok-imagine-*</code> 等通过 <code>/v1/images/generations</code> 端点生图的模型。</li>
+                        <li>开启后将<strong>忽略对话预设与参考图</strong>，仅发送 <code>{ model, prompt, n, response_format }</code>。</li>
+                        <li><strong>不支持修图与视频模式</strong>（这两类仍走多模态 chat/completions 路径）。</li>
+                        <li>Grok 当前固定输出分辨率，<strong>长宽比设置对它无效</strong>。</li>
+                    </ul>
+                </div>
+            </details>
         </div>
         <div class="st-chatu8-grid-2">
             <div class="st-chatu8-field">
@@ -63,6 +86,8 @@
             <label for="st-chatu8-banana-prompt-replace-id">替换规则预设</label>
             <div class="st-chatu8-profile-controls">
                 <select id="st-chatu8-banana-prompt-replace-id" class="st-chatu8-select"></select>
+                <button class="st-chatu8-icon-btn" id="st-chatu8-banana-prompt-replace-new" title="新建"><i class="fa-solid fa-plus"></i></button>
+                <button class="st-chatu8-icon-btn" id="st-chatu8-banana-prompt-replace-rename" title="重命名"><i class="fa-solid fa-pen"></i></button>
                 <button class="st-chatu8-icon-btn" id="st-chatu8-banana-prompt-replace-save" title="保存"><i class="fa-solid fa-save"></i></button>
                 <button class="st-chatu8-icon-btn" id="st-chatu8-banana-prompt-replace-save-as" title="另存为"><i class="fa-solid fa-file-export"></i></button>
                 <button class="st-chatu8-icon-btn" id="st-chatu8-banana-prompt-replace-import" title="导入"><i class="fa-solid fa-download"></i></button>
@@ -107,6 +132,8 @@
             <label for="st-chatu8-banana-conversation-preset-id">对话预设</label>
             <div class="st-chatu8-profile-controls">
                 <select id="st-chatu8-banana-conversation-preset-id" class="st-chatu8-select"></select>
+                <button class="st-chatu8-icon-btn" id="st-chatu8-banana-conversation-new" title="新建"><i class="fa-solid fa-plus"></i></button>
+                <button class="st-chatu8-icon-btn" id="st-chatu8-banana-conversation-rename" title="重命名"><i class="fa-solid fa-pen"></i></button>
                 <button class="st-chatu8-icon-btn" id="st-chatu8-banana-conversation-save" title="保存"><i class="fa-solid fa-save"></i></button>
                 <button class="st-chatu8-icon-btn" id="st-chatu8-banana-conversation-save-as" title="另存为"><i class="fa-solid fa-file-export"></i></button>
                 <button class="st-chatu8-icon-btn" id="st-chatu8-banana-conversation-import" title="导入"><i class="fa-solid fa-download"></i></button>

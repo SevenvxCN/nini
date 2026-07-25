@@ -40,7 +40,10 @@ const state = {
     clear() {
         this.messageVariables.clear();
         this.caches.template.clear();
+        this.caches.regex.clear();
         this.caches.dom.clear();
+        this.variableHistory.clear();
+        this.pendingUpdates.clear();
     },
     getElement(selector, parent = document) {
         const key = `${parent === document ? 'doc' : 'el'}-${selector}`;
@@ -614,12 +617,9 @@ class TemplateProcessor {
 function buildWrappedHtml(content) {
     const origin = (typeof location !== 'undefined' && location.origin) ? location.origin : '';
     const baseTag = `<base href="${origin}/">`;
-    const wrapperToggle = !!(extension_settings && extension_settings[EXT_ID] && extension_settings[EXT_ID].wrapperIframe);
     
     // 内联脚本：wrapper + base + template extras
-    const scripts = wrapperToggle
-        ? `<script>${getWrapperScript()}${getIframeBaseScript()}${getTemplateExtrasScript()}</script>`
-        : `<script>${getIframeBaseScript()}${getTemplateExtrasScript()}</script>`;
+    const scripts = `<script>${getWrapperScript()}${getIframeBaseScript()}${getTemplateExtrasScript()}</script>`;
     
     const vhFix = `<style>html,body{height:auto!important;min-height:0!important;max-height:none!important}[style*="100vh"]{height:auto!important;min-height:600px!important}[style*="height:100%"]{height:auto!important;min-height:100%!important}</style>`;
     const reset = `<style>html,body{margin:0;padding:0;background:transparent}</style>`;

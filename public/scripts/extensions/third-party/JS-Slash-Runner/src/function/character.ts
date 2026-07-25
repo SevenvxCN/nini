@@ -53,8 +53,23 @@ export function getCharacterNames(): string[] {
   return characters.map(character => character.name);
 }
 
+/**
+ * 获取角色卡头像 id 列表
+ */
+export function getCharacterIds(): string[] {
+  return characters.map(character => character.avatar);
+}
+
 export function getCurrentCharacterName(): string | null {
   return name2 === '' ? null : name2;
+}
+
+/**
+ * 获取当前角色卡头像 id
+ */
+export function getCurrentCharacterId(): string | null {
+  const current_character = RawCharacter.find({ name: 'current' });
+  return current_character?.avatar ?? null;
 }
 
 function toCharacter(character: v1CharData): Character {
@@ -311,8 +326,10 @@ export async function replaceCharacter(
   const store = useCharacterSettingsStore();
   const is_current = character_name === store.name;
 
+  // TODO: 可以直接更新 `target` 里的内容
+  await getOneCharacter(character_name + '.png');
+
   if (is_current) {
-    await getOneCharacter(character_name + '.png');
     if (character.extensions?.tavern_helper !== undefined) {
       store.forceReload();
     }

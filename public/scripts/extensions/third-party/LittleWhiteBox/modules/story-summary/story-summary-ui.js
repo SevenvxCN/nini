@@ -4,6 +4,87 @@
 (function () {
     'use strict';
 
+    function normalizeApiBaseUrl(url) {
+        return String(url || '').trim().replace(/\/+$/, '');
+    }
+
+    function normalizeApiPrefix(prefix) {
+        const raw = String(prefix || '').trim();
+        if (!raw) return '';
+        return `/${raw.replace(/^\/+/, '').replace(/\/+$/, '')}`;
+    }
+
+    function hasExplicitApiVersion(url) {
+        const baseUrl = normalizeApiBaseUrl(url);
+        return /\/v\d[\w.-]*$/i.test(baseUrl);
+    }
+
+    function getDefaultApiPrefix(provider) {
+        const key = String(provider || '').trim().toLowerCase();
+        if (key === 'google' || key === 'gemini') return '/v1beta';
+        return '/v1';
+    }
+
+    function resolveApiBaseUrl(url, defaultPrefix = '') {
+        const baseUrl = normalizeApiBaseUrl(url);
+        const prefix = normalizeApiPrefix(defaultPrefix);
+        if (!baseUrl || !prefix || hasExplicitApiVersion(baseUrl)) return baseUrl;
+        if (baseUrl.toLowerCase().endsWith(prefix.toLowerCase())) return baseUrl;
+        return `${baseUrl}${prefix}`;
+    }
+
+    function joinApiUrl(baseUrl, path) {
+        const normalizedBase = normalizeApiBaseUrl(baseUrl);
+        const normalizedPath = String(path || '').startsWith('/') ? String(path || '') : `/${String(path || '')}`;
+        return normalizedBase ? `${normalizedBase}${normalizedPath}` : normalizedPath;
+    }
+
+    function getModelListCandidateUrls(url, defaultPrefix = '') {
+        const baseUrl = normalizeApiBaseUrl(url);
+        if (!baseUrl) return [];
+
+        const candidates = [joinApiUrl(baseUrl, '/models')];
+        const resolvedBase = resolveApiBaseUrl(baseUrl, defaultPrefix);
+        if (resolvedBase && resolvedBase !== baseUrl) {
+            candidates.push(joinApiUrl(resolvedBase, '/models'));
+        }
+
+        return [...new Set(candidates)];
+    }
+
+    async function tryParseModelIds(url, fetchOptions = {}) {
+        try {
+            const res = await fetch(url, fetchOptions);
+            if (!res.ok) return null;
+            const data = await res.json();
+            return data?.data?.map(m => m?.id).filter(Boolean) || null;
+        } catch {
+            return null;
+        }
+    }
+
+    const DEFAULT_MEMORY_PROMPT_TEMPLATE = `以上是还留在眼前的对话
+以下是脑海里的记忆：
+• [定了的事] 这些是不会变的
+• [其他人的事] 别人的经历，当前角色可能不知晓
+• 其余部分是过往经历的回忆碎片
+
+请内化这些记忆：
+{$剧情记忆}
+这些记忆是真实的，请自然地记住它们。`;
+
+    const EMPTY_BUILTIN_SUMMARY_PROMPTS = Object.freeze({
+        summarySystemPrompt: '',
+        summaryAssistantDocPrompt: '',
+        summaryAssistantAskSummaryPrompt: '',
+        summaryAssistantAskContentPrompt: '',
+        summaryMetaProtocolStartPrompt: '',
+        summaryUserJsonFormatPrompt: '',
+        summaryAssistantCheckPrompt: '',
+        summaryUserConfirmPrompt: '',
+        summaryAssistantPrefillPrompt: '',
+    });
+
     // ═══════════════════════════════════════════════════════════════════════════
     // DOM Helpers
     // ═══════════════════════════════════════════════════════════════════════════
@@ -48,12 +129,123 @@
     })();
 
     const PROVIDER_DEFAULTS = {
-        st: { url: '', needKey: false, canFetch: false, needManualModel: false },
-        openai: { url: 'https://api.openai.com', needKey: true, canFetch: true, needManualModel: false },
-        google: { url: 'https://generativelanguage.googleapis.com', needKey: true, canFetch: false, needManualModel: true },
-        claude: { url: 'https://api.anthropic.com', needKey: true, canFetch: false, needManualModel: true },
-        custom: { url: '', needKey: true, canFetch: true, needManualModel: false }
+        st: { url: '', needKey: false, canFetch: false },
+        openai: { url: 'https://api.openai.com', needKey: true, canFetch: true },
+        google: { url: 'https://generativelanguage.googleapis.com', needKey: true, canFetch: false },
+        claude: { url: 'https://api.anthropic.com', needKey: true, canFetch: false }
     };
+    const VECTOR_PROVIDER_DEFAULTS = {
+        siliconflow: { url: 'https://api.siliconflow.cn/v1', needKey: true, canFetch: true },
+        openrouter: { url: 'https://openrouter.ai/api/v1', needKey: true, canFetch: true },
+        custom: { url: '', needKey: true, canFetch: true }
+    };
+
+    const VECTOR_API_SUPPORTED_PROVIDERS = {
+        l0: ['siliconflow', 'openrouter', 'custom'],
+        embedding: ['siliconflow', 'custom'],
+        rerank: ['siliconflow', 'custom'],
+    };
+
+    const VECTOR_API_DEFAULT_MODELS = {
+        l0: 'Qwen/Qwen3-8B',
+        embedding: 'BAAI/bge-m3',
+        rerank: 'BAAI/bge-reranker-v2-m3',
+    };
+
+    const VECTOR_MODEL_FILTERS = {
+        embedding: {
+            include: [
+                'embedding', 'embed', 'bge-m3', 'bge-large', 'bge-base', 'e5-', 'multilingual-e5',
+                'jina-embeddings', 'text-embedding', 'voyage', 'gte-', 'gte_', 'gte.'
+            ],
+            exclude: [
+                'rerank', 'reranker', 'chat', 'instruct', 'reasoner', 'vl', 'vision',
+                'tts', 'speech', 'audio', 'whisper', 'transcription', 'image', 'sdxl', 'moderation'
+            ],
+        },
+        rerank: {
+            include: [
+                'rerank', 'reranker', 'bge-reranker', 'jina-reranker', 'cohere-rerank'
+            ],
+            exclude: [
+                'embedding', 'embed', 'chat', 'instruct', 'reasoner', 'vl', 'vision',
+                'tts', 'speech', 'audio', 'whisper', 'transcription', 'image', 'sdxl', 'moderation'
+            ],
+        },
+        l0: {
+            include: [],
+            exclude: [
+                'embedding', 'embed', 'rerank', 'reranker', 'tts', 'speech', 'audio',
+                'whisper', 'transcription', 'stt', 'image', 'sdxl', 'flux', 'wanx',
+                'midjourney', 'moderation'
+            ],
+        },
+    };
+
+    function setStatusText(el, message, kind = '') {
+        if (!el) return;
+        el.textContent = message || '';
+        el.style.color = kind === 'error'
+            ? '#ef4444'
+            : kind === 'success'
+                ? '#22c55e'
+                : kind === 'loading'
+                    ? '#f59e0b'
+                    : '';
+    }
+
+    function filterVectorModelsByPurpose(prefix, models) {
+        const rule = VECTOR_MODEL_FILTERS[prefix];
+        if (!rule || !Array.isArray(models)) return [];
+
+        const normalized = [...new Set(models.filter(Boolean).map(m => String(m).trim()).filter(Boolean))];
+        const matched = normalized.filter(modelId => {
+            const lower = modelId.toLowerCase();
+            if (rule.exclude.some(keyword => lower.includes(keyword))) return false;
+            if (!rule.include.length) return true;
+            return rule.include.some(keyword => lower.includes(keyword));
+        });
+
+        return matched.length ? matched : normalized;
+    }
+
+    function createDefaultProviderProfile(provider, model = '') {
+        const pv = VECTOR_PROVIDER_DEFAULTS[provider] || VECTOR_PROVIDER_DEFAULTS.custom;
+        return {
+            url: pv.url || '',
+            key: '',
+            model: model || '',
+            modelCache: [],
+        };
+    }
+
+    function normalizeProviderProfiles(prefix, apiCfg = {}) {
+        const supported = VECTOR_API_SUPPORTED_PROVIDERS[prefix] || ['custom'];
+        const model = apiCfg.model || VECTOR_API_DEFAULT_MODELS[prefix] || '';
+        const out = {};
+        supported.forEach(provider => {
+            const raw = apiCfg.providers?.[provider] || {};
+            const defaults = createDefaultProviderProfile(provider, model);
+            out[provider] = {
+                url: String(raw.url || defaults.url || '').trim(),
+                key: String(raw.key || '').trim(),
+                model: String(raw.model || defaults.model || '').trim(),
+                modelCache: Array.isArray(raw.modelCache) ? raw.modelCache.filter(Boolean) : [],
+            };
+        });
+
+        const currentProvider = String(apiCfg.provider || supported[0] || 'custom').toLowerCase();
+        if (out[currentProvider]) {
+            if (apiCfg.url && !out[currentProvider].url) out[currentProvider].url = String(apiCfg.url).trim();
+            if (apiCfg.key && !out[currentProvider].key) out[currentProvider].key = String(apiCfg.key).trim();
+            if (apiCfg.model && !out[currentProvider].model) out[currentProvider].model = String(apiCfg.model).trim();
+            if (Array.isArray(apiCfg.modelCache) && !out[currentProvider].modelCache.length) {
+                out[currentProvider].modelCache = apiCfg.modelCache.filter(Boolean);
+            }
+        }
+
+        return out;
+    }
 
     const SECTION_META = {
         keywords: { title: '编辑关键词', hint: '每行一个关键词，格式：关键词|权重（核心/重要/一般）' },
@@ -78,6 +270,7 @@
         { start: '<thinking>', end: '</thinking>' },
         { start: '```', end: '```' },
     ];
+    const VALID_TRIGGER_TIMINGS = new Set(['after_ai', 'before_user']);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // State
@@ -87,15 +280,51 @@
         api: { provider: 'st', url: '', key: '', model: '', modelCache: [] },
         gen: { temperature: null, top_p: null, top_k: null, presence_penalty: null, frequency_penalty: null },
         trigger: { enabled: false, interval: 20, timing: 'before_user', role: 'system', useStream: true, maxPerRun: 100, wrapperHead: '', wrapperTail: '', forceInsertAtEnd: false },
-        ui: { hideSummarized: true, keepVisibleCount: 6 },
+        ui: { hideSummarized: true, keepVisibleCount: 6, useVectorBoundary: true },
+        prompts: {
+            memoryTemplate: '',
+        },
         textFilterRules: [...DEFAULT_FILTER_RULES],
-        vector: { enabled: false, engine: 'online', local: { modelId: 'bge-small-zh' }, online: { provider: 'siliconflow', url: '', key: '', model: '' } }
+        vector: {
+            enabled: false,
+            engine: 'online',
+            l0Concurrency: 10,
+            l0Api: {
+                provider: 'siliconflow', url: 'https://api.siliconflow.cn/v1', key: '', model: 'Qwen/Qwen3-8B', modelCache: [],
+                providers: {
+                    siliconflow: createDefaultProviderProfile('siliconflow', 'Qwen/Qwen3-8B'),
+                    openrouter: createDefaultProviderProfile('openrouter', 'Qwen/Qwen3-8B'),
+                    custom: createDefaultProviderProfile('custom', 'Qwen/Qwen3-8B'),
+                }
+            },
+            embeddingApi: {
+                provider: 'siliconflow', url: 'https://api.siliconflow.cn/v1', key: '', model: 'BAAI/bge-m3', modelCache: [],
+                providers: {
+                    siliconflow: createDefaultProviderProfile('siliconflow', 'BAAI/bge-m3'),
+                    custom: createDefaultProviderProfile('custom', 'BAAI/bge-m3'),
+                }
+            },
+            rerankApi: {
+                provider: 'siliconflow', url: 'https://api.siliconflow.cn/v1', key: '', model: 'BAAI/bge-reranker-v2-m3', modelCache: [],
+                providers: {
+                    siliconflow: createDefaultProviderProfile('siliconflow', 'BAAI/bge-reranker-v2-m3'),
+                    custom: createDefaultProviderProfile('custom', 'BAAI/bge-reranker-v2-m3'),
+                }
+            }
+        }
     };
 
     let summaryData = { keywords: [], events: [], characters: { main: [], relationships: [] }, arcs: [], facts: [] };
+    let builtInSummaryPrompts = { ...EMPTY_BUILTIN_SUMMARY_PROMPTS };
     let localGenerating = false;
     let vectorGenerating = false;
     let anchorGenerating = false;
+    let cleanActionState = {
+        canRollback: false,
+        rollbackTargetSummarizedUpTo: 0,
+        rollbackWillClearAll: false,
+        summarizedUpTo: 0,
+    };
     let relationChart = null;
     let relationChartFullscreen = null;
     let currentEditSection = null;
@@ -104,6 +333,17 @@
     let allLinks = [];
     let activeRelationTooltip = null;
     let lastRecallLogText = '';
+    let modelListFetchedThisIframe = false;
+    let configSaveSeq = 0;
+    let summaryModelFetchSeq = 0;
+    let pendingSummaryModelFetchRequestId = '';
+    let summaryModelFetchTimeoutId = null;
+    let timelineHasRenderedEvents = false;
+    let currentTimelineChatId = '';
+    let settingsSaveTimeoutId = null;
+    let panelConfigLoadedFromServer = false;
+    let settingsOpenedWithServerConfig = false;
+    const pendingConfigSaveRequests = new Map();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // Messaging
@@ -113,9 +353,139 @@
         window.parent.postMessage({ source: 'LittleWhiteBox-StoryFrame', type, ...data }, PARENT_ORIGIN);
     }
 
+    function isBusyLike() {
+        return !!(localGenerating || vectorGenerating || anchorGenerating);
+    }
+
+    function nextConfigSaveRequestId() {
+        configSaveSeq += 1;
+        return `summary-config-save-${Date.now()}-${configSaveSeq}`;
+    }
+
+    function nextSummaryModelFetchRequestId() {
+        summaryModelFetchSeq += 1;
+        return `summary-model-fetch-${Date.now()}-${summaryModelFetchSeq}`;
+    }
+
+    function resetSummaryModelFetchUi() {
+        if (summaryModelFetchTimeoutId) {
+            clearTimeout(summaryModelFetchTimeoutId);
+            summaryModelFetchTimeoutId = null;
+        }
+        $('btn-connect').disabled = false;
+        $('btn-connect').textContent = '连接 / 拉取模型列表';
+    }
+
+    function resetSettingsSaveUi() {
+        if (settingsSaveTimeoutId) {
+            clearTimeout(settingsSaveTimeoutId);
+            settingsSaveTimeoutId = null;
+        }
+        const btn = $('settings-save');
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '保存';
+        }
+    }
+
+    function normalizeVectorConfigUI(raw = null) {
+        const base = JSON.parse(JSON.stringify(config.vector));
+        const legacyOnline = raw?.online || {};
+        const sharedKey = String(legacyOnline.key || '').trim();
+        const sharedUrl = String(legacyOnline.url || '').trim();
+
+        if (raw) {
+            base.enabled = !!raw.enabled;
+            base.engine = 'online';
+            base.l0Concurrency = Math.max(1, Math.min(50, Number(raw.l0Concurrency) || 10));
+            Object.assign(base.l0Api, {
+                provider: raw.l0Api?.provider || legacyOnline.provider || base.l0Api.provider,
+                url: raw.l0Api?.url || sharedUrl || base.l0Api.url,
+                key: raw.l0Api?.key || sharedKey || base.l0Api.key,
+                model: raw.l0Api?.model || base.l0Api.model,
+                modelCache: Array.isArray(raw.l0Api?.modelCache) ? raw.l0Api.modelCache : [],
+                providers: normalizeProviderProfiles('l0', raw.l0Api || {}),
+            });
+            Object.assign(base.embeddingApi, {
+                provider: raw.embeddingApi?.provider || base.embeddingApi.provider,
+                url: raw.embeddingApi?.url || sharedUrl || base.embeddingApi.url,
+                key: raw.embeddingApi?.key || sharedKey || base.embeddingApi.key,
+                model: raw.embeddingApi?.model || legacyOnline.model || base.embeddingApi.model,
+                modelCache: Array.isArray(raw.embeddingApi?.modelCache) ? raw.embeddingApi.modelCache : [],
+                providers: normalizeProviderProfiles('embedding', raw.embeddingApi || {}),
+            });
+            Object.assign(base.rerankApi, {
+                provider: raw.rerankApi?.provider || base.rerankApi.provider,
+                url: raw.rerankApi?.url || sharedUrl || base.rerankApi.url,
+                key: raw.rerankApi?.key || sharedKey || base.rerankApi.key,
+                model: raw.rerankApi?.model || base.rerankApi.model,
+                modelCache: Array.isArray(raw.rerankApi?.modelCache) ? raw.rerankApi.modelCache : [],
+                providers: normalizeProviderProfiles('rerank', raw.rerankApi || {}),
+            });
+        }
+
+        return base;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // Config Management
     // ═══════════════════════════════════════════════════════════════════════════
+
+    function normalizeTriggerTiming(value) {
+        return VALID_TRIGGER_TIMINGS.has(value) ? value : 'before_user';
+    }
+
+    function normalizeTriggerConfig() {
+        if (config.trigger.timing === 'manual') {
+            config.trigger.timing = 'before_user';
+            config.trigger.enabled = false;
+        } else {
+            config.trigger.timing = normalizeTriggerTiming(config.trigger.timing);
+        }
+    }
+
+    function syncAutoSummaryControls() {
+        const en = $('trigger-enabled');
+        const timing = $('trigger-timing');
+        const autoSummaryOptions = $('auto-summary-options');
+        if (!en || !timing) return;
+
+        timing.value = normalizeTriggerTiming(timing.value || config.trigger.timing);
+        en.disabled = false;
+        en.parentElement.style.opacity = '1';
+        if (autoSummaryOptions) {
+            autoSummaryOptions.classList.toggle('hidden', !en.checked);
+        }
+    }
+
+    function syncVectorBoundaryControl(vectorEnabled = config.vector?.enabled, hideEnabled = config.ui.hideSummarized) {
+        const input = $('use-vector-boundary');
+        const label = $('lbl-vector-boundary');
+        const info = $('vector-boundary-info');
+        const container = $('container-vector-boundary');
+        if (!input || !label || !container) return;
+
+        const enabled = !!vectorEnabled && !!hideEnabled;
+        input.checked = config.ui.useVectorBoundary !== false;
+        input.disabled = !enabled;
+        container.classList.toggle('is-disabled', !enabled);
+        label.classList.toggle('is-disabled', !enabled);
+
+        const title = !vectorEnabled
+            ? '需先启用向量功能'
+            : !hideEnabled
+                ? '需先开启“隐藏已总结”'
+                : '开：按最新向量楼层作为隐藏计算锚点\n关：按最新的大总结楼层作为隐藏计算锚点\n提示：若您的第三方模型 API 支持 Context Caching（上下文缓存），关闭此项可提高缓存命中率；开启此项则影响命中，但语义和上下文更自然';
+        label.title = title;
+        if (info) {
+            info.title = title;
+            info.onclick = e => {
+                e.preventDefault();
+                e.stopPropagation();
+                alert(title);
+            };
+        }
+    }
 
     function loadConfig() {
         try {
@@ -123,38 +493,67 @@
             if (s) {
                 const p = JSON.parse(s);
                 Object.assign(config.api, p.api || {});
+                normalizeSummaryApiConfigUI(config.api);
+                config.api.modelCache = [];
                 Object.assign(config.gen, p.gen || {});
                 Object.assign(config.trigger, p.trigger || {});
                 Object.assign(config.ui, p.ui || {});
+                config.ui.useVectorBoundary = p.ui?.useVectorBoundary !== false;
+                config.prompts.memoryTemplate = String(p.prompts?.memoryTemplate || config.prompts.memoryTemplate || '').trim();
                 config.textFilterRules = Array.isArray(p.textFilterRules)
                     ? p.textFilterRules
                     : (Array.isArray(p.vector?.textFilterRules) ? p.vector.textFilterRules : [...DEFAULT_FILTER_RULES]);
-                if (p.vector) config.vector = p.vector;
-                if (config.trigger.timing === 'manual' && config.trigger.enabled) {
-                    config.trigger.enabled = false;
-                    saveConfig();
-                }
+                if (p.vector) config.vector = normalizeVectorConfigUI(p.vector);
+                normalizeTriggerConfig();
             }
         } catch { }
     }
 
     function applyConfig(cfg) {
         if (!cfg) return;
+        const currentApiKey = String(config.api?.key || '').trim();
+        const currentInputKey = String($('api-key')?.value || '').trim();
         Object.assign(config.api, cfg.api || {});
+        normalizeSummaryApiConfigUI(config.api);
+        if (!String(config.api.key || '').trim() && (currentInputKey || currentApiKey)) {
+            config.api.key = currentInputKey || currentApiKey;
+        }
+        config.api.modelCache = [];
         Object.assign(config.gen, cfg.gen || {});
         Object.assign(config.trigger, cfg.trigger || {});
         Object.assign(config.ui, cfg.ui || {});
+        config.ui.useVectorBoundary = cfg.ui?.useVectorBoundary !== false;
+        config.prompts.memoryTemplate = String(cfg.prompts?.memoryTemplate || config.prompts.memoryTemplate || '').trim();
         config.textFilterRules = Array.isArray(cfg.textFilterRules)
             ? cfg.textFilterRules
             : (Array.isArray(cfg.vector?.textFilterRules)
                 ? cfg.vector.textFilterRules
                 : (Array.isArray(config.textFilterRules) ? config.textFilterRules : [...DEFAULT_FILTER_RULES]));
-        if (cfg.vector) config.vector = cfg.vector;
-        if (config.trigger.timing === 'manual') config.trigger.enabled = false;
+        if (cfg.vector) config.vector = normalizeVectorConfigUI(cfg.vector);
+        normalizeTriggerConfig();
+        syncVectorBoundaryControl(config.vector?.enabled, config.ui.hideSummarized);
         localStorage.setItem('summary_panel_config', JSON.stringify(config));
     }
 
-    function saveConfig() {
+    function normalizeSummaryApiConfigUI(apiCfg = {}) {
+        if (String(apiCfg.provider || '').toLowerCase() === 'custom') {
+            apiCfg.provider = 'openai';
+        }
+        if (!PROVIDER_DEFAULTS[apiCfg.provider]) {
+            apiCfg.provider = 'st';
+        }
+        return apiCfg;
+    }
+
+    function applyBuiltInSummaryPrompts(prompts) {
+        const next = prompts && typeof prompts === 'object' ? prompts : {};
+        builtInSummaryPrompts = {
+            ...EMPTY_BUILTIN_SUMMARY_PROMPTS,
+            ...next,
+        };
+    }
+
+    function saveConfig(options = {}) {
         try {
             const settingsOpen = $('settings-modal')?.classList.contains('active');
             if (settingsOpen) {
@@ -162,12 +561,44 @@
                 config.textFilterRules = collectFilterRules();
             }
             if (!config.vector) {
-                config.vector = { enabled: false, engine: 'online', online: { provider: 'siliconflow', key: '', model: 'BAAI/bge-m3' } };
+                config.vector = {
+                    enabled: false,
+                    engine: 'online',
+                    l0Concurrency: 10,
+                    l0Api: { provider: 'siliconflow', url: 'https://api.siliconflow.cn/v1', key: '', model: 'Qwen/Qwen3-8B', modelCache: [] },
+                    embeddingApi: { provider: 'siliconflow', url: 'https://api.siliconflow.cn/v1', key: '', model: 'BAAI/bge-m3', modelCache: [] },
+                    rerankApi: { provider: 'siliconflow', url: 'https://api.siliconflow.cn/v1', key: '', model: 'BAAI/bge-reranker-v2-m3', modelCache: [] }
+                };
             }
-            localStorage.setItem('summary_panel_config', JSON.stringify(config));
-            postMsg('SAVE_PANEL_CONFIG', { config });
+            const requestId = nextConfigSaveRequestId();
+            const statusId = options.statusId || 'api-connect-status';
+            const statusEl = $(statusId);
+            const timeoutMs = Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : 0;
+            if (statusEl && options.loadingMessage) {
+                setStatusText(statusEl, options.loadingMessage, 'loading');
+            }
+
+            return new Promise(resolve => {
+                let timeoutId = null;
+                if (timeoutMs > 0) {
+                    timeoutId = setTimeout(() => {
+                        pendingConfigSaveRequests.delete(requestId);
+                        setStatusText(statusEl, `${options.errorPrefix || '保存失败：'}请求超时（>${Math.round(timeoutMs / 1000)}s）`, 'error');
+                        resolve(false);
+                    }, timeoutMs);
+                }
+                pendingConfigSaveRequests.set(requestId, {
+                    resolve,
+                    statusId,
+                    successMessage: options.successMessage || '配置已保存',
+                    errorPrefix: options.errorPrefix || '保存失败：',
+                    timeoutId,
+                });
+                postMsg('SAVE_PANEL_CONFIG', { config, requestId });
+            });
         } catch (e) {
             console.error('saveConfig error:', e);
+            return Promise.resolve(false);
         }
     }
 
@@ -175,15 +606,165 @@
     // Vector Config UI
     // ═══════════════════════════════════════════════════════════════════════════
 
+    function getVectorApiConfig(prefix) {
+        const provider = $(`${prefix}-api-provider`)?.value || 'siliconflow';
+        const providers = normalizeProviderProfiles(prefix, config.vector?.[`${prefix}Api`] || {});
+        providers[provider] = {
+            url: $(`${prefix}-api-url`)?.value?.trim() || '',
+            key: $(`${prefix}-api-key`)?.value?.trim() || '',
+            model: $(`${prefix}-api-model-text`)?.value?.trim() || '',
+            modelCache: Array.isArray(config.vector?.[`${prefix}Api`]?.providers?.[provider]?.modelCache)
+                ? [...config.vector[`${prefix}Api`].providers[provider].modelCache]
+                : [],
+        };
+        return {
+            provider,
+            url: providers[provider]?.url || '',
+            key: providers[provider]?.key || '',
+            model: providers[provider]?.model || '',
+            modelCache: Array.isArray(providers[provider]?.modelCache) ? [...providers[provider].modelCache] : [],
+            providers,
+        };
+    }
+
+    function loadVectorApiConfig(prefix, cfg) {
+        const next = cfg || {};
+        const provider = next.provider || 'siliconflow';
+        const profiles = normalizeProviderProfiles(prefix, next);
+        const profile = profiles[provider] || createDefaultProviderProfile(provider, VECTOR_API_DEFAULT_MODELS[prefix]);
+        $(`${prefix}-api-provider`).value = provider;
+        $(`${prefix}-api-url`).value = profile.url || '';
+        $(`${prefix}-api-key`).value = profile.key || '';
+        $(`${prefix}-api-model-text`).value = profile.model || '';
+
+        const cache = Array.isArray(profile.modelCache) ? profile.modelCache : [];
+        setSelectOptions($(`${prefix}-api-model-select`), cache, '请选择');
+        $(`${prefix}-api-model-select`).value = cache.includes(profile.model) ? profile.model : '';
+        updateVectorProviderUI(prefix, provider);
+    }
+
+    function saveCurrentVectorApiProfile(prefix, providerOverride = null) {
+        const apiCfg = config.vector[`${prefix}Api`] ||= {};
+        const provider = providerOverride || $(`${prefix}-api-provider`)?.value || apiCfg.provider || 'siliconflow';
+        apiCfg.providers = normalizeProviderProfiles(prefix, apiCfg);
+        apiCfg.providers[provider] = {
+            url: $(`${prefix}-api-url`)?.value?.trim() || '',
+            key: $(`${prefix}-api-key`)?.value?.trim() || '',
+            model: $(`${prefix}-api-model-text`)?.value?.trim() || '',
+            modelCache: Array.isArray(apiCfg.providers?.[provider]?.modelCache) ? [...apiCfg.providers[provider].modelCache] : [],
+        };
+        apiCfg.provider = provider;
+        apiCfg.url = apiCfg.providers[provider].url;
+        apiCfg.key = apiCfg.providers[provider].key;
+        apiCfg.model = apiCfg.providers[provider].model;
+        apiCfg.modelCache = [...apiCfg.providers[provider].modelCache];
+    }
+
+    function updateVectorProviderUI(prefix, provider) {
+        const pv = VECTOR_PROVIDER_DEFAULTS[provider] || VECTOR_PROVIDER_DEFAULTS.custom;
+        const apiCfg = config.vector?.[`${prefix}Api`] || {};
+        apiCfg.providers = normalizeProviderProfiles(prefix, apiCfg);
+        const profile = apiCfg.providers[provider] || createDefaultProviderProfile(provider, VECTOR_API_DEFAULT_MODELS[prefix]);
+        const cache = Array.isArray(profile.modelCache) ? profile.modelCache : [];
+        const hasModelCache = cache.length > 0;
+
+        $(`${prefix}-api-url-row`).classList.toggle('hidden', false);
+        $(`${prefix}-api-key-row`).classList.toggle('hidden', !pv.needKey);
+        $(`${prefix}-api-model-manual-row`).classList.toggle('hidden', false);
+        $(`${prefix}-api-model-select-row`).classList.toggle('hidden', !hasModelCache);
+        $(`${prefix}-api-connect-row`).classList.toggle('hidden', !pv.canFetch);
+        $(`${prefix}-api-connect-status`).classList.toggle('hidden', !pv.canFetch);
+
+        const urlInput = $(`${prefix}-api-url`);
+        if (urlInput) {
+            if (provider === 'custom') {
+                urlInput.readOnly = false;
+                urlInput.placeholder = 'https://your-openai-compatible-api/v1';
+                urlInput.value = profile.url || '';
+            } else {
+                urlInput.value = pv.url || '';
+                urlInput.readOnly = true;
+                urlInput.placeholder = pv.url || '';
+            }
+        }
+        $(`${prefix}-api-key`).value = profile.key || '';
+        $(`${prefix}-api-model-text`).value = profile.model || '';
+        setSelectOptions($(`${prefix}-api-model-select`), cache, '请选择');
+        $(`${prefix}-api-model-select`).value = cache.includes(profile.model) ? profile.model : '';
+    }
+
+    async function saveVectorApiSection(prefix) {
+        saveCurrentVectorApiProfile(prefix);
+        await saveConfig({
+            statusId: `${prefix}-api-connect-status`,
+            loadingMessage: '保存中...',
+            successMessage: '此组配置已保存',
+        });
+    }
+
+    async function fetchVectorModels(prefix) {
+        const provider = $(`${prefix}-api-provider`).value;
+        const pv = VECTOR_PROVIDER_DEFAULTS[provider] || VECTOR_PROVIDER_DEFAULTS.custom;
+        const statusEl = $(`${prefix}-api-connect-status`);
+        const btn = $(`${prefix}-btn-connect`);
+        if (!pv.canFetch) {
+            statusEl.textContent = '当前渠道不支持自动拉取模型';
+            return;
+        }
+
+        const baseUrl = $(`${prefix}-api-url`).value.trim();
+        const apiKey = $(`${prefix}-api-key`).value.trim();
+        if (!apiKey) {
+            statusEl.textContent = '请先填写 API KEY';
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = '连接中...';
+        statusEl.textContent = '连接中...';
+
+        try {
+            let models = null;
+            for (const url of getModelListCandidateUrls(baseUrl, getDefaultApiPrefix(provider))) {
+                models = await tryParseModelIds(url, {
+                    headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' }
+                });
+                if (models?.length) break;
+            }
+            if (!models?.length) throw new Error('未获取到模型列表');
+
+            const allModels = [...new Set(models)];
+            const filteredModels = filterVectorModelsByPurpose(prefix, allModels);
+
+            const apiCfg = config.vector[`${prefix}Api`] ||= {};
+            apiCfg.providers = normalizeProviderProfiles(prefix, apiCfg);
+            apiCfg.providers[provider] ||= createDefaultProviderProfile(provider, VECTOR_API_DEFAULT_MODELS[prefix]);
+            apiCfg.providers[provider].modelCache = filteredModels;
+            setSelectOptions($(`${prefix}-api-model-select`), apiCfg.providers[provider].modelCache, '请选择');
+            $(`${prefix}-api-model-select-row`).classList.remove('hidden');
+            if (!$(`${prefix}-api-model-text`).value.trim()) {
+                $(`${prefix}-api-model-text`).value = filteredModels[0];
+                $(`${prefix}-api-model-select`).value = filteredModels[0];
+            }
+            statusEl.textContent = filteredModels.length === allModels.length
+                ? `拉取成功：${filteredModels.length} 个模型`
+                : `拉取成功：共 ${allModels.length} 个，已筛出 ${filteredModels.length} 个适合当前用途的模型`;
+        } catch (e) {
+            statusEl.textContent = '拉取失败：' + (e.message || '请检查 URL 和 KEY');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '连接 / 拉取模型列表';
+        }
+    }
+
     function getVectorConfig() {
         return {
             enabled: $('vector-enabled')?.checked || false,
             engine: 'online',
-            online: {
-                provider: 'siliconflow',
-                key: $('vector-api-key')?.value?.trim() || '',
-                model: 'BAAI/bge-m3',
-            },
+            l0Concurrency: Math.max(1, Math.min(50, Number($('vector-l0-concurrency')?.value) || 10)),
+            l0Api: getVectorApiConfig('l0'),
+            embeddingApi: getVectorApiConfig('embedding'),
+            rerankApi: getVectorApiConfig('rerank'),
         };
     }
 
@@ -191,11 +772,11 @@
         if (!cfg) return;
         $('vector-enabled').checked = !!cfg.enabled;
         $('vector-config-area').classList.toggle('hidden', !cfg.enabled);
-
-        if (cfg.online?.key) {
-            $('vector-api-key').value = cfg.online.key;
-        }
-
+        syncVectorBoundaryControl(cfg.enabled, config.ui.hideSummarized);
+        $('vector-l0-concurrency').value = String(Math.max(1, Math.min(50, Number(cfg.l0Concurrency) || 10)));
+        loadVectorApiConfig('l0', cfg.l0Api || {});
+        loadVectorApiConfig('embedding', cfg.embeddingApi || {});
+        loadVectorApiConfig('rerank', cfg.rerankApi || {});
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -274,14 +855,6 @@
         if (!el) return;
         const count = $('filter-rules-list')?.querySelectorAll('.filter-rule-item')?.length || 0;
         el.textContent = count;
-    }
-
-
-    function updateOnlineStatus(status, message) {
-        const dot = $('online-api-status').querySelector('.status-dot');
-        const text = $('online-api-status').querySelector('.status-text');
-        dot.className = 'status-dot ' + status;
-        text.textContent = message;
     }
 
     function updateVectorStats(stats) {
@@ -385,18 +958,49 @@
     function initVectorUI() {
         $('vector-enabled').onchange = e => {
             $('vector-config-area').classList.toggle('hidden', !e.target.checked);
+            syncVectorBoundaryControl(e.target.checked, config.ui.hideSummarized);
         };
+        syncVectorBoundaryControl(config.vector?.enabled, config.ui.hideSummarized);
 
-        $('btn-test-vector-api').onclick = () => {
-            saveConfig(); // 先保存新 Key 到 localStorage
-            postMsg('VECTOR_TEST_ONLINE', {
-                provider: 'siliconflow',
-                config: {
-                    key: $('vector-api-key').value.trim(),
-                    model: 'BAAI/bge-m3',
-                }
-            });
-        };
+        ['l0', 'embedding', 'rerank'].forEach(prefix => {
+            $(`${prefix}-api-key-toggle`).onclick = () => {
+                const input = $(`${prefix}-api-key`);
+                const btn = $(`${prefix}-api-key-toggle`);
+                if (!input || !btn) return;
+                const show = input.type === 'password';
+                input.type = show ? 'text' : 'password';
+                btn.textContent = show ? '隐藏' : '显示';
+            };
+
+            $(`${prefix}-api-provider`).onchange = e => {
+                const target = config.vector[`${prefix}Api`] ||= {};
+                const previousProvider = target.provider || 'siliconflow';
+                saveCurrentVectorApiProfile(prefix, previousProvider);
+                target.providers = normalizeProviderProfiles(prefix, target);
+                target.provider = e.target.value;
+                target.providers[e.target.value] ||= createDefaultProviderProfile(e.target.value, VECTOR_API_DEFAULT_MODELS[prefix]);
+                updateVectorProviderUI(prefix, e.target.value);
+            };
+
+            $(`${prefix}-api-model-select`).onchange = e => {
+                if (e.target.value) $(`${prefix}-api-model-text`).value = e.target.value;
+            };
+
+            $(`${prefix}-btn-connect`).onclick = () => fetchVectorModels(prefix);
+            $(`${prefix}-btn-save`).onclick = () => saveVectorApiSection(prefix);
+            $(`${prefix}-btn-test`).onclick = () => {
+                const btn = $(`${prefix}-btn-test`);
+                if (btn) btn.disabled = true;
+                setStatusText($(`${prefix}-api-connect-status`), '测试中...', 'loading');
+                saveConfig();
+                const cfg = getVectorConfig();
+                postMsg('VECTOR_TEST_ONLINE', {
+                    target: prefix,
+                    provider: cfg[`${prefix}Api`].provider,
+                    config: cfg[`${prefix}Api`],
+                });
+            };
+        });
 
         $('btn-add-filter-rule').onclick = addFilterRule;
 
@@ -441,19 +1045,58 @@
         initAnchorUI();
         postMsg('REQUEST_ANCHOR_STATS');
     }
+
+    function updateVectorOnlineStatus(target, status, message) {
+        const prefix = target || 'embedding';
+        const btn = $(`${prefix}-btn-test`);
+        if (btn) btn.disabled = false;
+        setStatusText(
+            $(`${prefix}-api-connect-status`),
+            message || '',
+            status === 'error' ? 'error' : status === 'success' ? 'success' : 'loading'
+        );
+    }
+
+    function initSummaryIOUI() {
+        $('btn-copy-summary').onclick = () => {
+            $('btn-copy-summary').disabled = true;
+            $('summary-io-status').textContent = '复制中...';
+            postMsg('SUMMARY_COPY');
+        };
+
+        $('btn-import-summary').onclick = async () => {
+            const text = await showConfirmInput(
+                '覆盖导入记忆包',
+                '导入会覆盖当前聊天已有的总结资料，并立即清空向量、锚点、总结边界。请把记忆包粘贴到下面。',
+                '继续导入',
+                '取消',
+                '在这里粘贴记忆包 JSON'
+            );
+            if (text == null) return;
+            if (!String(text).trim()) {
+                $('summary-io-status').textContent = '导入失败: 记忆包内容为空';
+                return;
+            }
+            $('btn-import-summary').disabled = true;
+            $('summary-io-status').textContent = '导入中...';
+            postMsg('SUMMARY_IMPORT_TEXT', { text });
+        };
+    }
     // ═══════════════════════════════════════════════════════════════════════════
     // Settings Modal
     // ═══════════════════════════════════════════════════════════════════════════
 
     function updateProviderUI(provider) {
-        const pv = PROVIDER_DEFAULTS[provider] || PROVIDER_DEFAULTS.custom;
+        const pv = PROVIDER_DEFAULTS[provider] || PROVIDER_DEFAULTS.openai;
         const isSt = provider === 'st';
+        const hasModelCache = modelListFetchedThisIframe && Array.isArray(config.api.modelCache) && config.api.modelCache.length > 0;
 
         $('api-url-row').classList.toggle('hidden', isSt);
         $('api-key-row').classList.toggle('hidden', !pv.needKey);
-        $('api-model-manual-row').classList.toggle('hidden', isSt || !pv.needManualModel);
-        $('api-model-select-row').classList.toggle('hidden', isSt || pv.needManualModel || !config.api.modelCache.length);
+        $('api-model-manual-row').classList.toggle('hidden', isSt);
+        $('api-model-select-row').classList.toggle('hidden', isSt || !hasModelCache);
         $('api-connect-row').classList.toggle('hidden', isSt || !pv.canFetch);
+        $('api-connect-status').classList.toggle('hidden', isSt || !pv.canFetch);
 
         const urlInput = $('api-url');
         if (!urlInput.value && pv.url) urlInput.value = pv.url;
@@ -478,26 +1121,32 @@
         $('trigger-wrapper-head').value = config.trigger.wrapperHead || '';
         $('trigger-wrapper-tail').value = config.trigger.wrapperTail || '';
         $('trigger-insert-at-end').checked = !!config.trigger.forceInsertAtEnd;
+        fillBuiltInSummaryPromptFields();
+        $('memory-prompt-template').value = config.prompts.memoryTemplate || '';
+        $('api-connect-status').textContent = '';
 
-        const en = $('trigger-enabled');
-        if (config.trigger.timing === 'manual') {
-            en.checked = false;
-            en.disabled = true;
-            en.parentElement.style.opacity = '.5';
-        } else {
-            en.disabled = false;
-            en.parentElement.style.opacity = '1';
-        }
+        syncAutoSummaryControls();
 
         if (config.api.modelCache.length) {
-            setHtml($('api-model-select'), config.api.modelCache.map(m =>
-                `<option value="${m}"${m === config.api.model ? ' selected' : ''}>${m}</option>`
-            ).join(''));
+            setSelectOptions($('api-model-select'), config.api.modelCache, '请选择');
+            $('api-model-select').value = config.api.modelCache.includes(config.api.model) ? config.api.model : '';
+        } else {
+            setSelectOptions($('api-model-select'), [], '请选择');
         }
 
         updateProviderUI(config.api.provider);
         if (config.vector) loadVectorConfig(config.vector);
         renderFilterRules(Array.isArray(config.textFilterRules) ? config.textFilterRules : DEFAULT_FILTER_RULES);
+        settingsOpenedWithServerConfig = panelConfigLoadedFromServer;
+        if (!settingsOpenedWithServerConfig) {
+            postMsg('REQUEST_PANEL_CONFIG');
+            setStatusText($('api-connect-status'), '正在读取服务器配置，请稍候再保存', 'loading');
+        }
+        const saveBtn = $('settings-save');
+        if (saveBtn) {
+            saveBtn.disabled = !settingsOpenedWithServerConfig;
+            saveBtn.textContent = settingsOpenedWithServerConfig ? '保存' : '等待配置...';
+        }
 
         // Initialize sub-options visibility
         const autoSummaryOptions = $('auto-summary-options');
@@ -520,97 +1169,122 @@
         postMsg('SETTINGS_OPENED');
     }
 
-    function closeSettings(save) {
-        if (save) {
-            const pn = id => { const v = $(id).value; return v === '' ? null : parseFloat(v); };
-            const provider = $('api-provider').value;
-            const pv = PROVIDER_DEFAULTS[provider] || PROVIDER_DEFAULTS.custom;
+    function collectSettingsFormToConfig() {
+        const pn = id => { const v = $(id).value; return v === '' ? null : parseFloat(v); };
+        const provider = $('api-provider').value;
 
-            config.api.provider = provider;
-            config.api.url = $('api-url').value;
-            config.api.key = $('api-key').value;
-            config.api.model = provider === 'st' ? '' : pv.needManualModel ? $('api-model-text').value : $('api-model-select').value;
+        config.api.provider = provider;
+        config.api.url = $('api-url').value;
+        config.api.key = $('api-key').value;
+        config.api.model = provider === 'st' ? '' : $('api-model-text').value.trim();
+        config.api.modelCache = [];
 
-            config.gen.temperature = pn('gen-temp');
-            config.gen.top_p = pn('gen-top-p');
-            config.gen.top_k = pn('gen-top-k');
-            config.gen.presence_penalty = pn('gen-presence');
-            config.gen.frequency_penalty = pn('gen-frequency');
+        config.gen.temperature = pn('gen-temp');
+        config.gen.top_p = pn('gen-top-p');
+        config.gen.top_k = pn('gen-top-k');
+        config.gen.presence_penalty = pn('gen-presence');
+        config.gen.frequency_penalty = pn('gen-frequency');
 
-            const timing = $('trigger-timing').value;
-            config.trigger.timing = timing;
-            config.trigger.role = $('trigger-role').value || 'system';
-            config.trigger.enabled = timing === 'manual' ? false : $('trigger-enabled').checked;
-            config.trigger.interval = Math.max(1, Math.min(30, parseInt($('trigger-interval').value) || 20));
-            config.trigger.useStream = $('trigger-stream').checked;
-            config.trigger.maxPerRun = parseInt($('trigger-max-per-run').value) || 100;
-            config.trigger.wrapperHead = $('trigger-wrapper-head').value;
-            config.trigger.wrapperTail = $('trigger-wrapper-tail').value;
-            config.trigger.forceInsertAtEnd = $('trigger-insert-at-end').checked;
-            config.textFilterRules = collectFilterRules();
+        const timing = $('trigger-timing').value;
+        config.trigger.timing = normalizeTriggerTiming(timing);
+        config.trigger.role = $('trigger-role').value || 'system';
+        config.trigger.enabled = $('trigger-enabled').checked;
+        config.trigger.interval = Math.max(1, Math.min(30, parseInt($('trigger-interval').value) || 20));
+        config.trigger.useStream = $('trigger-stream').checked;
+        config.trigger.maxPerRun = parseInt($('trigger-max-per-run').value) || 100;
+        config.trigger.wrapperHead = $('trigger-wrapper-head').value;
+        config.trigger.wrapperTail = $('trigger-wrapper-tail').value;
+        config.trigger.forceInsertAtEnd = $('trigger-insert-at-end').checked;
+        config.prompts.memoryTemplate = $('memory-prompt-template').value;
+        config.textFilterRules = collectFilterRules();
+        config.vector = getVectorConfig();
+    }
 
-            config.vector = getVectorConfig();
-            saveConfig();
+    function fillBuiltInSummaryPromptFields() {
+        $('summary-system-prompt').value = builtInSummaryPrompts.summarySystemPrompt;
+        $('summary-assistant-doc-prompt').value = builtInSummaryPrompts.summaryAssistantDocPrompt;
+        $('summary-assistant-ask-summary-prompt').value = builtInSummaryPrompts.summaryAssistantAskSummaryPrompt;
+        $('summary-assistant-ask-content-prompt').value = builtInSummaryPrompts.summaryAssistantAskContentPrompt;
+        $('summary-meta-protocol-start-prompt').value = builtInSummaryPrompts.summaryMetaProtocolStartPrompt;
+        $('summary-user-json-format-prompt').value = builtInSummaryPrompts.summaryUserJsonFormatPrompt;
+        $('summary-assistant-check-prompt').value = builtInSummaryPrompts.summaryAssistantCheckPrompt;
+        $('summary-user-confirm-prompt').value = builtInSummaryPrompts.summaryUserConfirmPrompt;
+        $('summary-assistant-prefill-prompt').value = builtInSummaryPrompts.summaryAssistantPrefillPrompt;
+    }
+
+    async function saveSettings() {
+        if (!settingsOpenedWithServerConfig) {
+            postMsg('REQUEST_PANEL_CONFIG');
+            setStatusText($('api-connect-status'), '服务器配置尚未加载完成，请关闭设置后重开再保存', 'error');
+            return false;
         }
+        collectSettingsFormToConfig();
+        const btn = $('settings-save');
+        const statusEl = $('api-connect-status');
+        resetSettingsSaveUi();
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = '保存中...';
+        }
+        if (statusEl) setStatusText(statusEl, '保存中...', 'loading');
+        const savePromise = saveConfig({
+            statusId: 'api-connect-status',
+            loadingMessage: '保存中...',
+            successMessage: '配置已保存',
+            timeoutMs: 5000,
+        });
+        const saved = await savePromise;
+        resetSettingsSaveUi();
+        return saved;
+    }
 
+    function closeSettings() {
+        resetSettingsSaveUi();
+        settingsOpenedWithServerConfig = false;
         $('settings-modal').classList.remove('active');
         postMsg('SETTINGS_CLOSED');
     }
 
     async function fetchModels() {
         const btn = $('btn-connect');
+        const statusEl = $('api-connect-status');
         const provider = $('api-provider').value;
 
         if (!PROVIDER_DEFAULTS[provider]?.canFetch) {
-            alert('当前渠道不支持自动拉取模型');
+            statusEl.textContent = '当前渠道不支持自动拉取模型';
             return;
         }
 
-        let baseUrl = $('api-url').value.trim().replace(/\/+$/, '');
+        const baseUrl = $('api-url').value.trim();
         const apiKey = $('api-key').value.trim();
 
         if (!apiKey) {
-            alert('请先填写 API KEY');
+            statusEl.textContent = '请先填写 API KEY';
             return;
         }
 
+        const requestId = nextSummaryModelFetchRequestId();
+        pendingSummaryModelFetchRequestId = requestId;
         btn.disabled = true;
         btn.textContent = '连接中...';
-
-        try {
-            const tryFetch = async url => {
-                const res = await fetch(url, {
-                    headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' }
-                });
-                return res.ok ? (await res.json())?.data?.map(m => m?.id).filter(Boolean) || null : null;
-            };
-
-            if (baseUrl.endsWith('/v1')) baseUrl = baseUrl.slice(0, -3);
-
-            let models = await tryFetch(`${baseUrl}/v1/models`);
-            if (!models) models = await tryFetch(`${baseUrl}/models`);
-            if (!models?.length) throw new Error('未获取到模型列表');
-
-            config.api.modelCache = [...new Set(models)];
-            const sel = $('api-model-select');
-            setSelectOptions(sel, config.api.modelCache);
-            $('api-model-select-row').classList.remove('hidden');
-
-            if (!config.api.model && models.length) {
-                config.api.model = models[0];
-                sel.value = models[0];
-            } else if (config.api.model) {
-                sel.value = config.api.model;
-            }
-
-            saveConfig();
-            alert(`成功获取 ${models.length} 个模型`);
-        } catch (e) {
-            alert('连接失败：' + (e.message || '请检查 URL 和 KEY'));
-        } finally {
-            btn.disabled = false;
-            btn.textContent = '连接 / 拉取模型列表';
+        statusEl.textContent = '连接中...';
+        if (summaryModelFetchTimeoutId) {
+            clearTimeout(summaryModelFetchTimeoutId);
         }
+        summaryModelFetchTimeoutId = setTimeout(() => {
+            if (pendingSummaryModelFetchRequestId !== requestId) return;
+            pendingSummaryModelFetchRequestId = '';
+            resetSummaryModelFetchUi();
+            setStatusText(statusEl, '拉取失败：请求超时（>5s）', 'error');
+        }, 5000);
+
+        postMsg('FETCH_SUMMARY_MODELS', {
+            requestId,
+            provider,
+            url: baseUrl,
+            apiKey,
+            timeoutMs: 5000,
+        });
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -625,11 +1299,65 @@
             : '<div class="empty">暂无关键词</div>');
     }
 
-    function renderTimeline(ev) {
+    function getTimelineScrollState() {
+        const el = $('timeline-list');
+        if (!el) return { scrollTop: 0, scrollHeight: 0, clientHeight: 0, wasAtBottom: true };
+        const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+        return {
+            scrollTop: el.scrollTop,
+            scrollHeight: el.scrollHeight,
+            clientHeight: el.clientHeight,
+            wasAtBottom: distanceToBottom <= 24,
+        };
+    }
+
+    function restoreTimelineScroll(state, mode = 'auto') {
+        const el = $('timeline-list');
+        if (!el) return;
+        requestAnimationFrame(() => {
+            const preserve = () => {
+                const delta = el.scrollHeight - state.scrollHeight;
+                el.scrollTop = Math.max(0, state.scrollTop + delta);
+            };
+            if (mode === 'preserve') {
+                preserve();
+                return;
+            }
+            if (!timelineHasRenderedEvents || state.wasAtBottom) {
+                el.scrollTop = el.scrollHeight;
+                return;
+            }
+            preserve();
+        });
+    }
+
+    function getCssVar(name, fallback) {
+        const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return value || fallback;
+    }
+
+    function getRelationTheme() {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        return {
+            text: getCssVar('--txt', isDark ? '#e0e0e0' : '#333'),
+            textMuted: getCssVar('--txt3', isDark ? '#9a9a9a' : '#888'),
+            panel: getCssVar('--bg2', isDark ? '#1e1e1e' : '#fff'),
+            border: getCssVar('--bdr', isDark ? '#3a3a3a' : '#ddd'),
+            line: getCssVar('--bdr', isDark ? 'rgba(224,224,224,.32)' : '#d8d8d8'),
+            lineFocus: getCssVar('--txt3', isDark ? 'rgba(224,224,224,.58)' : '#aaa'),
+            nodeBorder: isDark ? getCssVar('--bg', '#121212') : '#fff',
+            nodeShadow: isDark ? 'rgba(0,0,0,.38)' : 'rgba(0,0,0,.1)',
+            tooltipShadow: isDark ? '0 8px 22px rgba(0,0,0,.38)' : '0 4px 12px rgba(0,0,0,.15)',
+        };
+    }
+
+    function renderTimeline(ev, options = {}) {
+        const scrollState = getTimelineScrollState();
         summaryData.events = ev || [];
         const c = $('timeline-list');
         if (!ev?.length) {
             setHtml(c, '<div class="empty">暂无事件记录</div>');
+            timelineHasRenderedEvents = false;
             return;
         }
         setHtml(c, ev.map(e => {
@@ -647,6 +1375,8 @@
                 </div>
             </div>`;
         }).join(''));
+        restoreTimelineScroll(scrollState, options.scrollMode || 'auto');
+        timelineHasRenderedEvents = true;
     }
 
     function getCharName(c) {
@@ -666,6 +1396,7 @@
         const mobile = innerWidth <= 768;
         const fc = TREND_COLORS[fromTrend] || '#888';
         const tc = TREND_COLORS[toTrend] || '#888';
+        const theme = getRelationTheme();
 
         setHtml(tip, `<div style="line-height:1.8">
             ${fromLabel ? `<div><small>${h(from)}→${h(to)}：</small> <span style="color:${fc}">${h(fromLabel)}</span> <span style="font-size:10px;color:${fc}">[${h(fromTrend)}]</span></div>` : ''}
@@ -673,8 +1404,8 @@
         </div>`);
 
         tip.style.cssText = mobile
-            ? 'position:absolute;left:8px;bottom:8px;background:#fff;color:#333;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:12px;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.15);max-width:calc(100% - 16px)'
-            : `position:absolute;left:${Math.max(80, Math.min(x, container.clientWidth - 80))}px;top:${Math.max(60, y)}px;transform:translate(-50%,-100%);background:#fff;color:#333;padding:10px 16px;border:1px solid #ddd;border-radius:6px;font-size:12px;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,.15);max-width:280px`;
+            ? `position:absolute;left:8px;bottom:8px;background:${theme.panel};color:${theme.text};padding:10px 14px;border:1px solid ${theme.border};border-radius:6px;font-size:12px;z-index:100;box-shadow:${theme.tooltipShadow};max-width:calc(100% - 16px)`
+            : `position:absolute;left:${Math.max(80, Math.min(x, container.clientWidth - 80))}px;top:${Math.max(60, y)}px;transform:translate(-50%,-100%);background:${theme.panel};color:${theme.text};padding:10px 16px;border:1px solid ${theme.border};border-radius:6px;font-size:12px;z-index:1000;box-shadow:${theme.tooltipShadow};max-width:280px`;
 
         container.style.position = 'relative';
         container.appendChild(tip);
@@ -685,6 +1416,7 @@
         summaryData.characters = data || { main: [], relationships: [] };
         const dom = $('relation-chart');
         if (!relationChart) relationChart = echarts.init(dom);
+        const theme = getRelationTheme();
 
         const rels = data?.relationships || [];
         const allNames = new Set((data?.main || []).map(getCharName));
@@ -716,8 +1448,8 @@
                 id: name, name, symbol: 'circle',
                 symbolSize: Math.min(36, Math.max(16, deg * 3 + 12)),
                 draggable: true,
-                itemStyle: { color: col, borderColor: '#fff', borderWidth: 2, shadowColor: 'rgba(0,0,0,.1)', shadowBlur: 6, shadowOffsetY: 2 },
-                label: { show: true, position: 'right', distance: 5, color: '#333', fontSize: 11, fontWeight },
+                itemStyle: { color: col, borderColor: theme.nodeBorder, borderWidth: 2, shadowColor: theme.nodeShadow, shadowBlur: 6, shadowOffsetY: 2 },
+                label: { show: true, position: 'right', distance: 5, color: theme.text, fontSize: 11, fontWeight },
                 degree: deg
             };
         });
@@ -737,14 +1469,14 @@
             return {
                 source: r.from, target: r.to, fromName: r.from, toName: r.to,
                 fromLabel: r.fromLabel, toLabel: r.toLabel, fromTrend: r.fromTrend, toTrend: r.toTrend,
-                lineStyle: { width: 1, color: '#d8d8d8', curveness: 0, opacity: 1 },
+                lineStyle: { width: 1, color: theme.line, curveness: 0, opacity: 1 },
                 label: {
                     show: true, position: 'middle', distance: 0,
                     formatter: '{a|◀}{b|▶}',
                     rich: { a: { color: fc, fontSize: 10 }, b: { color: tc, fontSize: 10 } },
                     align: 'center', verticalAlign: 'middle', offset: [0, -0.1]
                 },
-                emphasis: { lineStyle: { width: 1.5, color: '#aaa' }, label: { fontSize: 11 } }
+                emphasis: { lineStyle: { width: 1.5, color: theme.lineFocus }, label: { fontSize: 11 } }
             };
         });
 
@@ -995,6 +1727,9 @@
             const modal = $('confirm-modal');
             const titleEl = $('confirm-title');
             const msgEl = $('confirm-message');
+            const inputWrap = $('confirm-input-wrap');
+            const inputEl = $('confirm-input');
+            const actionList = $('confirm-action-list');
             const okBtn = $('confirm-ok');
             const cancelBtn = $('confirm-cancel');
             const closeBtn = $('confirm-close');
@@ -1002,24 +1737,146 @@
 
             titleEl.textContent = title;
             msgEl.textContent = message;
+            inputWrap.classList.add('hidden');
+            actionList.classList.add('hidden');
+            inputEl.value = '';
+            okBtn.classList.remove('hidden');
             okBtn.textContent = okText;
             cancelBtn.textContent = cancelText;
 
             const close = (result) => {
                 modal.classList.remove('active');
+                postMsg('CONFIRM_CLOSED');
                 okBtn.onclick = null;
                 cancelBtn.onclick = null;
-                closeBtn.onclick = null;
+                if (closeBtn) closeBtn.onclick = null;
                 backdrop.onclick = null;
                 resolve(result);
             };
 
             okBtn.onclick = () => close(true);
             cancelBtn.onclick = () => close(false);
-            closeBtn.onclick = () => close(false);
+            if (closeBtn) closeBtn.onclick = () => close(false);
             backdrop.onclick = () => close(false);
 
             modal.classList.add('active');
+            postMsg('CONFIRM_OPENED');
+        });
+    }
+
+    function showConfirmInput(title, message, okText = '执行', cancelText = '取消', placeholder = '') {
+        return new Promise(resolve => {
+            const modal = $('confirm-modal');
+            const titleEl = $('confirm-title');
+            const msgEl = $('confirm-message');
+            const inputWrap = $('confirm-input-wrap');
+            const inputEl = $('confirm-input');
+            const actionList = $('confirm-action-list');
+            const okBtn = $('confirm-ok');
+            const cancelBtn = $('confirm-cancel');
+            const closeBtn = $('confirm-close');
+            const backdrop = $('confirm-backdrop');
+
+            titleEl.textContent = title;
+            msgEl.textContent = message;
+            inputWrap.classList.remove('hidden');
+            actionList.classList.add('hidden');
+            inputEl.placeholder = placeholder || '';
+            inputEl.value = '';
+            okBtn.classList.remove('hidden');
+            okBtn.textContent = okText;
+            cancelBtn.textContent = cancelText;
+
+            const close = (result) => {
+                modal.classList.remove('active');
+                postMsg('CONFIRM_CLOSED');
+                inputWrap.classList.add('hidden');
+                inputEl.value = '';
+                okBtn.onclick = null;
+                cancelBtn.onclick = null;
+                if (closeBtn) closeBtn.onclick = null;
+                backdrop.onclick = null;
+                resolve(result);
+            };
+
+            okBtn.onclick = () => close(inputEl.value);
+            cancelBtn.onclick = () => close(null);
+            if (closeBtn) closeBtn.onclick = () => close(null);
+            backdrop.onclick = () => close(null);
+
+            modal.classList.add('active');
+            postMsg('CONFIRM_OPENED');
+            setTimeout(() => inputEl.focus(), 0);
+        });
+    }
+
+    function showCleanActionMenu() {
+        return new Promise(resolve => {
+            const modal = $('confirm-modal');
+            const titleEl = $('confirm-title');
+            const msgEl = $('confirm-message');
+            const inputWrap = $('confirm-input-wrap');
+            const inputEl = $('confirm-input');
+            const actionList = $('confirm-action-list');
+            const rollbackBtn = $('confirm-action-rollback');
+            const clearBtn = $('confirm-action-clear');
+            const rollbackDesc = $('confirm-action-rollback-desc');
+            const clearDesc = $('confirm-action-clear-desc');
+            const okBtn = $('confirm-ok');
+            const cancelBtn = $('confirm-cancel');
+            const closeBtn = $('confirm-close');
+            const backdrop = $('confirm-backdrop');
+            const busy = isBusyLike();
+
+            titleEl.textContent = '清理总结数据';
+            msgEl.textContent = '请选择要执行的清理操作。';
+            inputWrap.classList.add('hidden');
+            inputEl.value = '';
+            actionList.classList.remove('hidden');
+            okBtn.classList.add('hidden');
+            cancelBtn.textContent = '退出';
+
+            if (busy) {
+                rollbackBtn.disabled = true;
+                clearBtn.disabled = true;
+                rollbackDesc.textContent = '当前有任务运行中，暂时不能执行。';
+                clearDesc.textContent = '当前有任务运行中，暂时不能执行。';
+            } else {
+                rollbackBtn.disabled = !cleanActionState.canRollback;
+                clearBtn.disabled = false;
+                rollbackDesc.textContent = cleanActionState.canRollback
+                    ? (cleanActionState.rollbackWillClearAll
+                        ? '撤销最近一次总结，当前总结数据会被清空。聊天记录不会删除。'
+                        : `撤销最近一次总结，已总结楼层将回退到 ${cleanActionState.rollbackTargetSummarizedUpTo} 楼。聊天记录不会删除。`)
+                    : '当前没有可回退的总结快照。';
+                clearDesc.textContent = '删除本聊天的全部总结数据，聊天记录不会删除。';
+            }
+
+            const close = (result) => {
+                modal.classList.remove('active');
+                postMsg('CONFIRM_CLOSED');
+                actionList.classList.add('hidden');
+                okBtn.classList.remove('hidden');
+                rollbackBtn.onclick = null;
+                clearBtn.onclick = null;
+                cancelBtn.onclick = null;
+                if (closeBtn) closeBtn.onclick = null;
+                backdrop.onclick = null;
+                resolve(result);
+            };
+
+            rollbackBtn.onclick = () => {
+                if (!rollbackBtn.disabled) close('rollback');
+            };
+            clearBtn.onclick = () => {
+                if (!clearBtn.disabled) close('clear');
+            };
+            cancelBtn.onclick = () => close(null);
+            if (closeBtn) closeBtn.onclick = () => close(null);
+            backdrop.onclick = () => close(null);
+
+            modal.classList.add('active');
+            postMsg('CONFIRM_OPENED');
         });
     }
 
@@ -1370,7 +2227,7 @@
         postMsg('UPDATE_SECTION', { section, data: parsed });
 
         if (section === 'keywords') renderKeywords(parsed);
-        else if (section === 'events') { renderTimeline(parsed); $('stat-events').textContent = parsed.length; }
+        else if (section === 'events') { renderTimeline(parsed, { scrollMode: 'preserve' }); $('stat-events').textContent = parsed.length; }
         else if (section === 'characters') renderRelations(parsed);
         else if (section === 'arcs') renderArcs(parsed);
         else if (section === 'facts') renderFacts(parsed);
@@ -1400,14 +2257,28 @@
                 if (d.stats) {
                     updateStats(d.stats);
                     $('summarized-count').textContent = d.stats.hiddenCount ?? 0;
+                    cleanActionState.summarizedUpTo = d.stats.summarizedUpTo ?? 0;
                 }
-                if (d.hideSummarized !== undefined) $('hide-summarized').checked = d.hideSummarized;
+                if (d.hideSummarized !== undefined) {
+                    $('hide-summarized').checked = d.hideSummarized;
+                    config.ui.hideSummarized = d.hideSummarized;
+                }
                 if (d.keepVisibleCount !== undefined) $('keep-visible-count').value = d.keepVisibleCount;
+                if (d.useVectorBoundary !== undefined) config.ui.useVectorBoundary = d.useVectorBoundary !== false;
+                syncVectorBoundaryControl(d.vectorEnabled, d.hideSummarized ?? config.ui.hideSummarized);
+                cleanActionState.canRollback = !!d.canRollback;
+                cleanActionState.rollbackTargetSummarizedUpTo = Number(d.rollbackTargetSummarizedUpTo || 0);
+                cleanActionState.rollbackWillClearAll = !!d.rollbackWillClearAll;
                 break;
 
             case 'SUMMARY_FULL_DATA':
                 if (d.payload) {
                     const p = d.payload;
+                    const nextChatId = typeof p.chatId === 'string' ? p.chatId : '';
+                    if (nextChatId !== currentTimelineChatId) {
+                        currentTimelineChatId = nextChatId;
+                        timelineHasRenderedEvents = false;
+                    }
                     if (p.keywords) renderKeywords(p.keywords);
                     if (p.events) renderTimeline(p.events);
                     if (p.characters) renderRelations(p.characters);
@@ -1430,6 +2301,7 @@
                 $('stat-pending').textContent = t;
                 $('summarized-count').textContent = 0;
                 summaryData = { keywords: [], events: [], characters: { main: [], relationships: [] }, arcs: [], facts: [] };
+                currentTimelineChatId = '';
                 renderKeywords([]);
                 renderTimeline([]);
                 renderRelations(null);
@@ -1439,7 +2311,62 @@
             }
 
             case 'LOAD_PANEL_CONFIG':
+                panelConfigLoadedFromServer = true;
+                applyBuiltInSummaryPrompts(d.builtInSummaryPrompts);
                 if (d.config) applyConfig(d.config);
+                if ($('settings-modal')?.classList.contains('active') && !settingsOpenedWithServerConfig) {
+                    openSettings();
+                }
+                break;
+
+            case 'PANEL_CONFIG_SAVE_RESULT': {
+                const pending = pendingConfigSaveRequests.get(d.requestId || '');
+                if (pending) {
+                    pendingConfigSaveRequests.delete(d.requestId || '');
+                    if (pending.timeoutId) clearTimeout(pending.timeoutId);
+                    const statusEl = $(pending.statusId);
+                    if (d.success) {
+                        if (d.config) applyConfig(d.config);
+                        setStatusText(statusEl, pending.successMessage, 'success');
+                        pending.resolve(true);
+                    } else {
+                        setStatusText(statusEl, `${pending.errorPrefix}${d.error || '未知错误'}`, 'error');
+                        pending.resolve(false);
+                    }
+                } else if (d.success && d.config) {
+                    applyConfig(d.config);
+                }
+                break;
+            }
+
+            case 'SUMMARY_MODELS': {
+                if (!d.requestId || d.requestId !== pendingSummaryModelFetchRequestId) break;
+                pendingSummaryModelFetchRequestId = '';
+                resetSummaryModelFetchUi();
+
+                const models = Array.isArray(d.models) ? [...new Set(d.models.filter(Boolean))] : [];
+                config.api.modelCache = models;
+                modelListFetchedThisIframe = models.length > 0;
+                setSelectOptions($('api-model-select'), config.api.modelCache, '请选择');
+                $('api-model-select-row').classList.toggle('hidden', !models.length);
+
+                if (!config.api.model && models.length) {
+                    config.api.model = models[0];
+                    $('api-model-text').value = models[0];
+                    $('api-model-select').value = models[0];
+                } else if (config.api.model) {
+                    $('api-model-select').value = config.api.model;
+                }
+
+                setStatusText($('api-connect-status'), `拉取成功：${models.length} 个模型`, 'success');
+                break;
+            }
+
+            case 'SUMMARY_MODELS_ERROR':
+                if (!d.requestId || d.requestId !== pendingSummaryModelFetchRequestId) break;
+                pendingSummaryModelFetchRequestId = '';
+                resetSummaryModelFetchUi();
+                setStatusText($('api-connect-status'), '拉取失败：' + (d.message || '请检查 URL 和 KEY'), 'error');
                 break;
 
             case 'VECTOR_CONFIG':
@@ -1447,7 +2374,7 @@
                 break;
 
             case 'VECTOR_ONLINE_STATUS':
-                updateOnlineStatus(d.status, d.message);
+                updateVectorOnlineStatus(d.target, d.status, d.message);
                 break;
 
             case 'VECTOR_STATS':
@@ -1496,6 +2423,27 @@
                     $('vector-io-status').textContent = `导出成功: ${d.filename} (${(d.size / 1024 / 1024).toFixed(2)}MB)`;
                 } else {
                     $('vector-io-status').textContent = '导出失败: ' + (d.error || '未知错误');
+                }
+                break;
+
+            case 'SUMMARY_COPY_RESULT':
+                $('btn-copy-summary').disabled = false;
+                if (d.success) {
+                    $('summary-io-status').textContent = `复制成功: ${d.events || 0} 条事件, ${d.facts || 0} 条世界状态`;
+                } else {
+                    $('summary-io-status').textContent = '复制失败: ' + (d.error || '未知错误');
+                }
+                break;
+
+            case 'SUMMARY_IMPORT_RESULT':
+                $('btn-import-summary').disabled = false;
+                if (d.success) {
+                    const c = d.counts || {};
+                    $('summary-io-status').textContent = `导入成功: ${c.events || 0} 条事件, ${c.facts || 0} 条世界状态，已覆盖当前总结资料并清空向量/锚点，请重新生成向量。`;
+                    postMsg('REQUEST_VECTOR_STATS');
+                    postMsg('REQUEST_ANCHOR_STATS');
+                } else {
+                    $('summary-io-status').textContent = '导入失败: ' + (d.error || '未知错误');
                 }
                 break;
 
@@ -1558,10 +2506,10 @@
 
         // Settings modal
         $('btn-settings').onclick = openSettings;
-        $('settings-backdrop').onclick = () => closeSettings(false);
-        $('settings-close').onclick = () => closeSettings(false);
-        $('settings-cancel').onclick = () => closeSettings(false);
-        $('settings-save').onclick = () => closeSettings(true);
+        $('settings-backdrop').onclick = closeSettings;
+        $('settings-close').onclick = closeSettings;
+        $('settings-cancel').onclick = closeSettings;
+        $('settings-save').onclick = saveSettings;
 
         // Settings tabs
         $$('.settings-tab').forEach(tab => {
@@ -1586,26 +2534,29 @@
 
         // API provider change
         $('api-provider').onchange = e => {
-            const pv = PROVIDER_DEFAULTS[e.target.value];
+            const pv = PROVIDER_DEFAULTS[e.target.value] || PROVIDER_DEFAULTS.openai;
             $('api-url').value = '';
+            modelListFetchedThisIframe = false;
             if (!pv.canFetch) config.api.modelCache = [];
             updateProviderUI(e.target.value);
         };
 
         $('btn-connect').onclick = fetchModels;
-        $('api-model-select').onchange = e => { config.api.model = e.target.value; };
+        $('api-model-text').oninput = e => { config.api.model = e.target.value.trim(); };
+        $('api-model-select').onchange = e => {
+            const value = e.target.value || '';
+            if (value) {
+                $('api-model-text').value = value;
+                config.api.model = value;
+            }
+        };
+        $('btn-reset-memory-prompt-template').onclick = () => {
+            $('memory-prompt-template').value = DEFAULT_MEMORY_PROMPT_TEMPLATE;
+        };
 
         // Trigger timing
-        $('trigger-timing').onchange = e => {
-            const en = $('trigger-enabled');
-            if (e.target.value === 'manual') {
-                en.checked = false;
-                en.disabled = true;
-                en.parentElement.style.opacity = '.5';
-            } else {
-                en.disabled = false;
-                en.parentElement.style.opacity = '1';
-            }
+        $('trigger-timing').onchange = () => {
+            syncAutoSummaryControls();
         };
 
         // 总结间隔范围校验
@@ -1617,8 +2568,19 @@
 
         // Main actions
         $('btn-clear').onclick = async () => {
-            if (await showConfirm('清空数据', '确定要清空本聊天的所有总结、关键词及人物关系数据吗？此操作不可撤销。')) {
-                postMsg('REQUEST_CLEAR');
+            const action = await showCleanActionMenu();
+            if (action === 'rollback') {
+                const currentUpTo = cleanActionState.summarizedUpTo || 0;
+                const rollbackMessage = cleanActionState.rollbackWillClearAll
+                    ? '确定回退上一次总结吗？这会清空当前总结数据，但聊天记录不会删除。'
+                    : `确定回退上一次总结吗？将把已总结楼层从 ${currentUpTo} 回退到 ${cleanActionState.rollbackTargetSummarizedUpTo}。聊天记录不会删除。`;
+                if (await showConfirm('回退一次', rollbackMessage, '回退', '取消')) {
+                    postMsg('REQUEST_ROLLBACK_ONCE');
+                }
+            } else if (action === 'clear') {
+                if (await showConfirm('清空全部', '确定要清空本聊天的所有总结、关键词及人物关系数据吗？聊天记录不会删除。此操作不可撤销。', '清空', '取消')) {
+                    postMsg('REQUEST_CLEAR');
+                }
             }
         };
         $('btn-generate').onclick = () => {
@@ -1635,7 +2597,15 @@
         };
 
         // Hide summarized
-        $('hide-summarized').onchange = e => postMsg('TOGGLE_HIDE_SUMMARIZED', { enabled: e.target.checked });
+        $('hide-summarized').onchange = e => {
+            config.ui.hideSummarized = e.target.checked;
+            syncVectorBoundaryControl(config.vector?.enabled, config.ui.hideSummarized);
+            postMsg('TOGGLE_HIDE_SUMMARIZED', { enabled: e.target.checked });
+        };
+        $('use-vector-boundary').onchange = e => {
+            config.ui.useVectorBoundary = e.target.checked;
+            postMsg('TOGGLE_USE_VECTOR_BOUNDARY', { enabled: e.target.checked });
+        };
         $('keep-visible-count').onchange = e => {
             const parsedCount = Number.parseInt(e.target.value, 10);
             const c = Number.isFinite(parsedCount) ? Math.max(0, Math.min(50, parsedCount)) : 6;
@@ -1662,6 +2632,7 @@
         };
 
         // Vector UI
+        initSummaryIOUI();
         initVectorUI();
 
         // Gen params collapsible
@@ -1691,7 +2662,7 @@
         const autoSummaryOptions = $('auto-summary-options');
         if (triggerEnabled && autoSummaryOptions) {
             triggerEnabled.onchange = () => {
-                autoSummaryOptions.classList.toggle('hidden', !triggerEnabled.checked);
+                syncAutoSummaryControls();
             };
         }
 
@@ -1747,6 +2718,8 @@
                 if (!CSS_MAP[theme]) return;
                 link.setAttribute('href', CSS_MAP[theme]);
                 document.documentElement.setAttribute('data-theme', (theme === 'dark' || theme === 'neo-dark') ? 'dark' : '');
+                hideRelationTooltip();
+                if (relationChart) renderRelations(summaryData.characters);
             }
 
             // 启动时恢复主题
@@ -1766,6 +2739,7 @@
 
         // Notify parent
         postMsg('FRAME_READY');
+        document.body.classList.remove('xb-frame-loading');
     }
 
     // Start

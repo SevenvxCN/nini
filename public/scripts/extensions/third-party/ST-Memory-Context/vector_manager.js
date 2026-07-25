@@ -5,7 +5,7 @@
  * 支持：OpenAI、SiliconFlow、Ollama 等兼容 OpenAI API 的服务
  * 新架构：多书架 + 会话绑定系统
  *
- * @version 1.9.7
+ * @version 2.3.2
  * @author Gaigai Team
  */
 
@@ -536,12 +536,21 @@
          * @returns {Promise<number[]|number[][]>} - 单个向量或向量数组
          */
         async _fetchEmbedding(text, config) {
-            // ✅ 优化 URL 拼接逻辑，避免重复 /v1
-            let baseUrl = config.url.replace(/\/$/, ''); // 去除末尾斜杠
-            if (baseUrl.endsWith('/v1')) {
-                baseUrl = baseUrl.slice(0, -3); // 去除已存在的 /v1
+            // ✅ 智能拼接 Embeddings URL，兼容 Google 官方 OpenAI 兼容端点
+            let url = config.url.replace(/\/+$/, ''); // 去除末尾斜杠
+            // 如果用户没写 /embeddings，我们智能补全
+            if (!url.endsWith('/embeddings')) {
+                // 如果是谷歌官方 OpenAI 兼容接口，直接加 /embeddings
+                if (url.includes('googleapis.com') && url.includes('openai')) {
+                    url += '/embeddings';
+                } else {
+                    // 其他常规 OpenAI 接口，确保有 /v1
+                    if (!url.endsWith('/v1')) {
+                        url += '/v1';
+                    }
+                    url += '/embeddings';
+                }
             }
-            const url = baseUrl + '/v1/embeddings';
 
             const isBatch = Array.isArray(text);
             const payload = {
@@ -1386,8 +1395,9 @@
                                 currentBookId = line.substring(4);
                             } else if (line.startsWith('书名: ')) {
                                 currentEntry.name = line.substring(4);
-                            } else if (line.startsWith('创建时间: ')) {
-                                currentEntry.createTime = parseInt(line.substring(7));
+                            } else if (line.startsWith('创建时间:')) {
+                                const tsStr = line.replace('创建时间:', '').trim();
+                                currentEntry.createTime = parseInt(tsStr) || Date.now();
                             } else if (line.startsWith('片段数量: ')) {
                                 // 忽略，从实际数据获取
                             }
@@ -1455,12 +1465,14 @@
 
             const html = `
                 <style>
-                    /* 强制指定主窗口大小，防止被全局样式或小弹窗样式影响 */
+                    /* 与主界面保持一致的窗口尺寸（避免向量化页和其他页面大小不一致） */
                     #gai-main-pop .g-w {
-                        width: 900px !important;        /* 宽度改小 */
-                        height: 700px !important;       /* 高度改小 */
-                        max-width: 95vw !important;     /* 防止溢出屏幕 */
-                        max-height: 90vh !important;
+                        width: 90vw !important;
+                        height: 80vh !important;
+                        max-width: 1200px !important;
+                        max-height: calc(100vh - 40px) !important;
+                        min-width: 280px !important;
+                        min-height: 250px !important;
                     }
 
                     /* 内部容器自适应 */
@@ -1520,19 +1532,29 @@
                     @media (max-width: 768px) {
                         /* 强制主弹窗在手机上全屏且允许滚动 */
                         #gai-main-pop .g-w {
-                            width: 100vw !important;
-                            height: 90vh !important;
-                            max-height: 90vh !important;
+                            width: 100% !important;
+                            max-width: 100% !important;
+                            height: 85dvh !important;
+                            min-height: 85vh !important;
+                            max-height: 85dvh !important;
+                            margin: auto !important;
+                            box-sizing: border-box !important;
                             display: flex !important;
                             flex-direction: column !important;
+                        }
+
+                        /* 和主弹窗移动端规则保持一致，防止左右偏移 */
+                        #gai-main-pop .g-bd {
+                            padding: 0 !important;
                         }
 
                         /* 内部容器允许滚动 */
                         .gg-vm-container {
                             flex-direction: column;
                             height: 100%;
-                            padding: 10px;
+                            padding: 10px max(10px, env(safe-area-inset-right)) 12px max(10px, env(safe-area-inset-left));
                             overflow-y: auto; /* 关键：允许垂直滚动 */
+                            overflow-x: hidden;
                             gap: 15px;
                             display: flex;
                         }
@@ -1576,24 +1598,21 @@
                             flex-shrink: 0; /* 防止按钮被压缩 */
                         }
 
-                        /* 📱 手机端适配 */
-                        @media (max-width: 768px) {
-                            .gg-model-row {
-                                flex-direction: column; /* 改为垂直排列 */
-                                align-items: stretch;
-                                gap: 8px !important;
-                            }
-                            .gg-model-btns {
-                                width: 100%;
-                                display: grid; /* 使用网格布局 */
-                                grid-template-columns: 1fr 1fr; /* 两个按钮平分宽度 */
-                                gap: 10px;
-                            }
-                            .gg-model-btns button {
-                                width: 100% !important;
-                                justify-content: center;
-                                padding: 8px !important; /* 增加手机端点击区域 */
-                            }
+                        .gg-model-row {
+                            flex-direction: column; /* 改为垂直排列 */
+                            align-items: stretch;
+                            gap: 8px !important;
+                        }
+                        .gg-model-btns {
+                            width: 100%;
+                            display: grid; /* 使用网格布局 */
+                            grid-template-columns: 1fr 1fr; /* 两个按钮平分宽度 */
+                            gap: 10px;
+                        }
+                        .gg-model-btns button {
+                            width: 100% !important;
+                            justify-content: center;
+                            padding: 8px !important; /* 增加手机端点击区域 */
                         }
                     }
                 </style>
@@ -1621,7 +1640,10 @@
                             </div>
 
                             <div style="margin-bottom: 6px;">
-                                <label style="display: block; font-size: 10px; opacity: 0.7; color: ${UI.tc}; margin-bottom: 2px;">API 地址</label>
+                                <label style="display: flex; align-items: center; gap: 4px; font-size: 10px; opacity: 0.7; color: ${UI.tc}; margin-bottom: 2px;">
+                                    <span>API 地址</span>
+                                    <i class="fa-solid fa-circle-info" id="gg_vm_url_info" style="color: #17a2b8; cursor: pointer; font-size: 14px;" title="点击查看 URL 填写示例"></i>
+                                </label>
                                 <input type="text" id="gg_vm_url" value="${config.url || ''}" placeholder="https://api.siliconflow.cn" style="width: 100%; padding: 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
                             </div>
 
@@ -1707,7 +1729,14 @@
 
                                 <div style="margin-bottom: 6px;">
                                     <label style="display: block; font-size: 10px; opacity: 0.7; color: ${UI.tc}; margin-bottom: 2px;">Rerank Model</label>
-                                    <input type="text" id="gg_vm_rerank_model" value="${config.rerankModel || 'BAAI/bge-reranker-v2-m3'}" placeholder="BAAI/bge-reranker-v2-m3" style="width: 100%; padding: 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+                                    <div class="gg-model-row">
+                                        <input type="text" id="gg_vm_rerank_model" value="${config.rerankModel || 'BAAI/bge-reranker-v2-m3'}" placeholder="BAAI/bge-reranker-v2-m3" style="flex: 1; padding: 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+                                        <div class="gg-model-btns">
+                                            <button id="gg_vm_fetch_rerank_models" style="padding: 5px 8px; border: 1px solid rgba(255,255,255,0.3); border-radius: 3px; background: rgba(100,150,255,0.2); color: ${UI.tc}; font-size: 9px; cursor: pointer; white-space: nowrap; transition: all 0.2s;" onmouseover="this.style.background='rgba(100,150,255,0.4)'" onmouseout="this.style.background='rgba(100,150,255,0.2)'">🔄 拉取模型</button>
+                                            <button id="gg_vm_test_rerank_connection" style="padding: 5px 8px; border: 1px solid rgba(255,255,255,0.3); border-radius: 3px; background: rgba(76,175,80,0.2); color: ${UI.tc}; font-size: 9px; cursor: pointer; white-space: nowrap; transition: all 0.2s;" onmouseover="this.style.background='rgba(76,175,80,0.4)'" onmouseout="this.style.background='rgba(76,175,80,0.2)'">🧪 测试连接</button>
+                                        </div>
+                                    </div>
+                                    <select id="gg_vm_rerank_model_select" style="display: none; width: 100%; padding: 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(0,0,0,0.2); color: ${UI.tc}; font-size: 10px; box-sizing: border-box; margin-top: 4px;"></select>
                                 </div>
                             </div>
 
@@ -2309,6 +2338,21 @@
                 }
             });
 
+            // ℹ️ API 地址填写示例
+            $('#gg_vm_url_info').off('click').on('click', async function () {
+                await customAlert(
+                    '向量化 API 地址填写示例：\n\n' +
+                    '1) 轨迹流动（SiliconFlow）\n' +
+                    'https://api.siliconflow.cn/v1\n\n' +
+                    '2) Google OpenAI 兼容端点\n' +
+                    'https://generativelanguage.googleapis.com/v1beta/openai/\n\n' +
+                    '说明：\n' +
+                    '- 地址可直接填到 API 地址输入框\n' +
+                    '- 插件会自动补全 /embeddings（Google 端点不会强制追加 /v1）',
+                    'API 地址示例'
+                );
+            });
+
             // 🔄 拉取模型列表
             $('#gg_vm_fetch_models').off('click').on('click', async function () {
                 const btn = $(this);
@@ -2324,10 +2368,12 @@
                         return;
                     }
 
-                    // 智能处理 API URL (确保以 /v1 结尾)
                     let baseUrl = apiUrl.replace(/\/+$/, ''); // 移除尾部斜杠
-                    if (!baseUrl.endsWith('/v1')) {
-                        baseUrl += '/v1';
+                    // 智能处理：如果是谷歌的 OpenAI 兼容端点，跳过追加 /v1 的逻辑
+                    if (!(baseUrl.includes('googleapis.com') && baseUrl.includes('openai'))) {
+                        if (!baseUrl.endsWith('/v1')) {
+                            baseUrl += '/v1';
+                        }
                     }
                     const modelsUrl = `${baseUrl}/models`;
 
@@ -2452,12 +2498,18 @@
                         return;
                     }
 
-                    // 智能处理 API URL
-                    let baseUrl = apiUrl.replace(/\/+$/, '');
-                    if (!baseUrl.endsWith('/v1')) {
-                        baseUrl += '/v1';
+                    // 智能处理 API URL（兼容 Google 官方 OpenAI 兼容端点）
+                    let embeddingsUrl = apiUrl.replace(/\/+$/, '');
+                    if (!embeddingsUrl.endsWith('/embeddings')) {
+                        if (embeddingsUrl.includes('googleapis.com') && embeddingsUrl.includes('openai')) {
+                            embeddingsUrl += '/embeddings';
+                        } else {
+                            if (!embeddingsUrl.endsWith('/v1')) {
+                                embeddingsUrl += '/v1';
+                            }
+                            embeddingsUrl += '/embeddings';
+                        }
                     }
-                    const embeddingsUrl = `${baseUrl}/embeddings`;
 
                     // ✅ 构建请求头：仅在有 Key 时才添加 Authorization
                     const headers = {
@@ -2508,6 +2560,176 @@
                 } catch (e) {
                     console.error('❌ [VectorManager] 测试连接失败:', e);
                     await customAlert(`❌ 测试连接失败\n\n${e.message}`, '错误');
+                } finally {
+                    btn.html(originalText).prop('disabled', false);
+                }
+            });
+
+            // 🔄 拉取 Rerank 模型列表
+            $('#gg_vm_fetch_rerank_models').off('click').on('click', async function () {
+                const btn = $(this);
+                const originalText = btn.html();
+                btn.html('<i class="fa-solid fa-spinner fa-spin"></i> 处理中...').prop('disabled', true);
+
+                try {
+                    const apiUrl = $('#gg_vm_rerank_url').val().trim();
+                    const apiKey = $('#gg_vm_rerank_key').val().trim();
+
+                    if (!apiUrl) {
+                        await customAlert('⚠️ 请先填写 Rerank API URL', '提示');
+                        return;
+                    }
+
+                    // 智能处理 Rerank API URL：提取 base URL 拼接 /models
+                    let baseUrl = apiUrl.replace(/\/+$/, '');
+                    // 如果以 /rerank 结尾，截掉 /rerank
+                    baseUrl = baseUrl.replace(/\/rerank$/, '');
+                    // 确保以 /v1 结尾
+                    if (!baseUrl.endsWith('/v1')) {
+                        baseUrl += '/v1';
+                    }
+                    const modelsUrl = `${baseUrl}/models`;
+
+                    const headers = {
+                        'Content-Type': 'application/json'
+                    };
+                    if (apiKey) {
+                        headers['Authorization'] = `Bearer ${apiKey}`;
+                    }
+
+                    const response = await fetch(modelsUrl, {
+                        method: 'GET',
+                        headers: headers
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    const text = await response.text();
+
+                    let data;
+                    try {
+                        data = JSON.parse(text);
+                    } catch (e) {
+                        console.error('❌ [Rerank模型列表] JSON 解析失败:', e.message);
+                        throw new Error(`API返回非JSON格式\n\n原始响应: ${text.substring(0, 100)}`);
+                    }
+
+                    let models = [];
+                    if (data.data && Array.isArray(data.data)) {
+                        models = data.data.map(m => m.id || m.name || m).filter(Boolean);
+                    } else if (Array.isArray(data)) {
+                        models = data.map(m => m.id || m.name || m).filter(Boolean);
+                    }
+
+                    if (models.length === 0) {
+                        await customAlert('⚠️ 未找到可用模型', '提示');
+                        return;
+                    }
+
+                    // 将输入框替换为下拉框
+                    const $modelInput = $('#gg_vm_rerank_model');
+                    const currentValue = $modelInput.val();
+                    const $select = $('<select>', {
+                        id: 'gg_vm_rerank_model',
+                        style: $modelInput.attr('style')
+                    });
+
+                    $select.append($('<option>', {
+                        value: '__manual__',
+                        text: '-- 手动输入 --'
+                    }));
+
+                    models.forEach(modelId => {
+                        $select.append($('<option>', {
+                            value: modelId,
+                            text: modelId,
+                            selected: modelId === currentValue
+                        }));
+                    });
+
+                    $select.on('change', function() {
+                        if ($(this).val() === '__manual__') {
+                            const $newInput = $('<input>', {
+                                type: 'text',
+                                id: 'gg_vm_rerank_model',
+                                value: '',
+                                style: $(this).attr('style'),
+                                placeholder: '请输入Rerank模型名称...'
+                            });
+                            $(this).replaceWith($newInput);
+                            $newInput.focus();
+                        }
+                    });
+
+                    $modelInput.replaceWith($select);
+
+                    if (typeof toastr !== 'undefined') {
+                        toastr.success(`已加载 ${models.length} 个模型`, 'Rerank 拉取成功');
+                    } else {
+                        await customAlert(`✅ 已加载 ${models.length} 个模型`, 'Rerank 拉取成功');
+                    }
+                } catch (e) {
+                    console.error('❌ [VectorManager] 拉取Rerank模型失败:', e);
+                    await customAlert(`❌ 拉取Rerank模型失败\n\n${e.message}`, '错误');
+                } finally {
+                    btn.html(originalText).prop('disabled', false);
+                }
+            });
+
+            // 🧪 测试 Rerank 连接
+            $('#gg_vm_test_rerank_connection').off('click').on('click', async function () {
+                const btn = $(this);
+                const originalText = btn.html();
+                btn.html('<i class="fa-solid fa-spinner fa-spin"></i> 处理中...').prop('disabled', true);
+
+                try {
+                    const apiUrl = $('#gg_vm_rerank_url').val().trim();
+                    const apiKey = $('#gg_vm_rerank_key').val().trim();
+                    const model = $('#gg_vm_rerank_model').val().trim();
+
+                    if (!apiUrl) {
+                        await customAlert('⚠️ 请先填写 Rerank API URL', '提示');
+                        return;
+                    }
+
+                    if (!model) {
+                        await customAlert('⚠️ 请先填写 Rerank 模型名称', '提示');
+                        return;
+                    }
+
+                    const headers = {
+                        'Content-Type': 'application/json'
+                    };
+                    if (apiKey) {
+                        headers['Authorization'] = `Bearer ${apiKey}`;
+                    }
+
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify({
+                            model: model,
+                            query: 'test',
+                            documents: ['test'],
+                            top_n: 1
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`HTTP ${response.status}: ${errorText}`);
+                    }
+
+                    if (typeof toastr !== 'undefined') {
+                        toastr.success('Rerank API连接成功', '✅ 连接成功');
+                    } else {
+                        await customAlert('✅ Rerank API连接成功', '测试成功');
+                    }
+                } catch (e) {
+                    console.error('❌ [VectorManager] Rerank测试连接失败:', e);
+                    await customAlert(`❌ Rerank测试连接失败\n\n${e.message}`, '错误');
                 } finally {
                     btn.html(originalText).prop('disabled', false);
                 }
@@ -2584,6 +2806,23 @@
                         // 自动选中新创建/更新的书籍
                         self.selectedBookId = result.bookId;
                         self.showUI();
+
+                        // ✅ 新增：手动同步成功后，自动隐藏总结表的所有内容
+                        const sumIdx = m.s.length - 1; // 总结表索引
+                        const sumSheet = m.get(sumIdx);
+                        if (sumSheet && sumSheet.r.length > 0) {
+                            // 遍历所有行进行隐藏标记
+                            for (let ri = 0; ri < sumSheet.r.length; ri++) {
+                                window.Gaigai.markAsSummarized(sumIdx, ri);
+                            }
+                            m.save(false, true); // 保存隐藏状态
+                            console.log('⚡[手动同步向量化] 已自动隐藏总结表所有行');
+
+                            // 如果记忆表格主界面正开着，刷新它以显示绿色隐藏状态
+                            if ($('#gai-main-pop').length > 0 && typeof window.Gaigai.shw === 'function') {
+                                window.Gaigai.shw();
+                            }
+                        }
                     } else {
                         throw new Error(result.error || '同步失败');
                     }

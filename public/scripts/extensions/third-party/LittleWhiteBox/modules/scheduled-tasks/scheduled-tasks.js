@@ -28,74 +28,6 @@ const CONFIG = { MAX_PROCESSED: 20, MAX_COOLDOWN: 10, CLEANUP_INTERVAL: 30000, T
 const events = createModuleEvents('scheduledTasks');
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 数据迁移
-// ═══════════════════════════════════════════════════════════════════════════
-
-async function migrateToServerStorage() {
-    const FLAG = 'LWB_tasks_migrated_server_v1';
-    if (localStorage.getItem(FLAG)) return;
-
-    let count = 0;
-
-    const settings = getSettings();
-    for (const task of (settings.globalTasks || [])) {
-        if (!task) continue;
-        if (!task.id) task.id = uuidv4();
-        if (task.commands) {
-            await TasksStorage.set(task.id, task.commands);
-            delete task.commands;
-            count++;
-        }
-    }
-    if (count > 0) saveSettingsDebounced();
-
-    await new Promise((resolve) => {
-        const req = indexedDB.open('LittleWhiteBox_TaskScripts');
-        req.onerror = () => resolve();
-        req.onsuccess = async (e) => {
-            const db = e.target.result;
-            if (!db.objectStoreNames.contains('scripts')) {
-                db.close();
-                resolve();
-                return;
-            }
-            try {
-                const tx = db.transaction('scripts', 'readonly');
-                const store = tx.objectStore('scripts');
-                const keys = await new Promise(r => {
-                    const req = store.getAllKeys();
-                    req.onsuccess = () => r(req.result || []);
-                    req.onerror = () => r([]);
-                });
-                const vals = await new Promise(r => {
-                    const req = store.getAll();
-                    req.onsuccess = () => r(req.result || []);
-                    req.onerror = () => r([]);
-                });
-                for (let i = 0; i < keys.length; i++) {
-                    if (keys[i] && vals[i]) {
-                        await TasksStorage.set(keys[i], vals[i]);
-                        count++;
-                    }
-                }
-            } catch (err) {
-                console.warn('[Tasks] IndexedDB 迁移出错:', err);
-            }
-            db.close();
-            indexedDB.deleteDatabase('LittleWhiteBox_TaskScripts');
-            resolve();
-        };
-    });
-
-    if (count > 0) {
-        await TasksStorage.saveNow();
-        console.log(`[Tasks] 已迁移 ${count} 个脚本到服务器`);
-    }
-
-    localStorage.setItem(FLAG, 'true');
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
 // 状态
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -2151,7 +2083,6 @@ async function initTasks() {
     }
     window.__XB_TASKS_INITIALIZED__ = true;
 
-    await migrateToServerStorage();
     hydrateProcessedSetFromSettings();
     scheduleCleanup();
 

@@ -4,12 +4,20 @@
 import { getContext } from "../../../../../../extensions.js";
 import { xbLog } from "../../../core/debug-core.js";
 import { getSummaryStore, saveSummaryStore, addSummarySnapshot, mergeNewData, getFacts } from "../data/store.js";
+import { formatCharacterAliasTableForAI, sanitizeCharacterAliasUpdates } from "../data/character-aliases.js";
 import { generateSummary, parseSummaryJson } from "./llm.js";
 import { filterText } from "../vector/utils/text-filter.js";
 
 const MODULE_ID = 'summaryGenerator';
 const SUMMARY_SESSION_ID = 'xb9';
 const MAX_CAUSED_BY = 2;
+const FACT_PREDICATE_ALIASES = new Map([
+    ['当前位置', '位置'],
+    ['当前所在地', '位置'],
+    ['所在位置', '位置'],
+    ['所在地', '位置'],
+    ['当前状态', '状态'],
+]);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // factUpdates 清洗
@@ -21,6 +29,11 @@ function normalizeRelationPredicate(p) {
     return null;
 }
 
+function normalizeFactPredicate(p) {
+    const text = String(p || '').trim();
+    return FACT_PREDICATE_ALIASES.get(text) || text;
+}
+
 function sanitizeFacts(parsed) {
     if (!parsed) return;
 
@@ -29,7 +42,7 @@ function sanitizeFacts(parsed) {
 
     for (const item of updates) {
         const s = String(item?.s || '').trim();
-        const pRaw = String(item?.p || '').trim();
+        const pRaw = normalizeFactPredicate(item?.p);
 
         if (!s || !pRaw) continue;
 
@@ -61,6 +74,16 @@ function sanitizeFacts(parsed) {
     }
 
     parsed.factUpdates = ok;
+}
+
+function sanitizeAliases(parsed) {
+    if (!parsed) return;
+    const updates = sanitizeCharacterAliasUpdates(parsed.characterAliasUpdates);
+    if (updates.length) {
+        parsed.characterAliasUpdates = updates;
+    } else {
+        delete parsed.characterAliasUpdates;
+    }
 }
 
 
@@ -128,6 +151,12 @@ export function formatExistingSummaryForAI(store) {
     if (data.characters?.main?.length) {
         const names = data.characters.main.map(m => typeof m === 'string' ? m : m.name);
         parts.push(`\n【主要角色】${names.join("、")}`);
+    }
+
+    const aliasTable = formatCharacterAliasTableForAI(data);
+    if (aliasTable) {
+        parts.push("\n【角色别名表】");
+        parts.push(aliasTable);
     }
 
     if (data.arcs?.length) {
@@ -241,10 +270,16 @@ export async function runSummaryGeneration(mesId, config, callbacks = {}) {
     }
 
     sanitizeFacts(parsed);
+    sanitizeAliases(parsed);
     const existingEventIds = new Set((store?.json?.events || []).map(e => e?.id).filter(Boolean));
     sanitizeEventsCausality(parsed, existingEventIds);
 
-    const merged = mergeNewData(store?.json || {}, parsed, slice.endMesId);
+    const mergeResult = mergeNewData(store?.json || {}, parsed, slice.endMesId, { returnMeta: true });
+    const merged = mergeResult.json;
+    if (mergeResult.aliasMigration) {
+        store.aliasMigrations ||= [];
+        store.aliasMigrations.push(mergeResult.aliasMigration);
+    }
 
     store.lastSummarizedMesId = slice.endMesId;
     store.json = merged;
@@ -264,8 +299,9 @@ export async function runSummaryGeneration(mesId, config, callbacks = {}) {
         merged,
         endMesId: slice.endMesId,
         newEventIds,
+        aliasChanged: !!mergeResult.aliasChanged,
         factStats: { updated: parsed.factUpdates?.length || 0 },
     });
 
-    return { success: true, merged, endMesId: slice.endMesId, newEventIds };
+    return { success: true, merged, endMesId: slice.endMesId, newEventIds, aliasChanged: !!mergeResult.aliasChanged };
 }

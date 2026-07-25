@@ -2,6 +2,7 @@ import {
   appendAudioList,
   getAudioList,
   getAudioSettings,
+  getCurrentAudio,
   pauseAudio,
   playAudio,
   replaceAudioList,
@@ -13,7 +14,9 @@ import {
   createOrReplaceCharacter,
   deleteCharacter,
   getCharacter,
+  getCharacterIds,
   getCharacterNames,
+  getCurrentCharacterId,
   getCurrentCharacterName,
   replaceCharacter,
   updateCharacterWith,
@@ -61,7 +64,7 @@ import {
   stopAllGeneration,
   stopGenerationById,
 } from '@/function/generate';
-import { builtin_prompt_default_order } from '@/function/generate/types';
+import { placeholder_prompt_default_order } from '@/function/generate/types';
 import { _initializeGlobal, _waitGlobalInitialized, initializeGlobal, waitGlobalInitialized } from '@/function/global';
 import {
   importRawCharacter,
@@ -112,6 +115,19 @@ import {
   setPreset,
   updatePresetWith,
 } from '@/function/preset';
+import {
+  createOrReplacePersona,
+  createPersona,
+  deletePersona,
+  getCurrentPersonaId,
+  getCurrentPersonaName,
+  getPersona,
+  getPersonaAvatarPath,
+  getPersonaIds,
+  getPersonaNames,
+  replacePersona,
+  updatePersonaWith,
+} from '@/function/persona';
 import {
   getCharAvatarPath,
   getCharData,
@@ -261,13 +277,16 @@ function getTavernHelper() {
     appendAudioList,
     getAudioSettings,
     setAudioSettings,
+    getCurrentAudio,
 
     // builtin
     builtin,
 
     // character
     getCharacterNames,
+    getCharacterIds,
     getCurrentCharacterName,
+    getCurrentCharacterId,
     createCharacter,
     createOrReplaceCharacter,
     deleteCharacter,
@@ -315,7 +334,7 @@ function getTavernHelper() {
     uninjectPrompts,
 
     // generate
-    builtin_prompt_default_order,
+    builtin_prompt_default_order: placeholder_prompt_default_order,
     getModelList,
     getProxyPresetNames,
     generate,
@@ -366,6 +385,19 @@ function getTavernHelper() {
     replacePreset,
     updatePresetWith,
     setPreset,
+
+    // persona
+    getPersonaNames,
+    getPersonaIds,
+    getCurrentPersonaName,
+    getCurrentPersonaId,
+    getPersonaAvatarPath,
+    createPersona,
+    createOrReplacePersona,
+    deletePersona,
+    getPersona,
+    replacePersona,
+    updatePersonaWith,
 
     // raw_character
     RawCharacter,

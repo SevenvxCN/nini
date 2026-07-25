@@ -103,6 +103,29 @@ declare function getAudioSettings(type: 'bgm' | 'ambient'): AudioSettings;
  * setAudioSettings('bgm', { volume: 50 });
  */
 declare function setAudioSettings(type: 'bgm' | 'ambient', settings: Partial<AudioSettings>): void;
+
+type CurrentAudio = {
+  /** 当前选中/正在播放的音频链接, 未选中曲目时为空字符串 */
+  src: string;
+  /** 当前选中音频的标题, 未匹配到时为空字符串 */
+  title: string;
+  /** 是否正在播放 */
+  playing: boolean;
+  /** 播放进度 (0-100) */
+  progress: number;
+};
+
+/**
+ * 获取当前播放的音频信息: 链接、标题、是否在播、进度
+ *
+ * @param type 背景音乐 ('bgm') 或音效 ('ambient')
+ * @returns 当前音频信息
+ *
+ * @example
+ * // 获取当前正在播放的背景音乐
+ * const { title, src, playing, progress } = getCurrentAudio('bgm');
+ */
+declare function getCurrentAudio(type: 'bgm' | 'ambient'): CurrentAudio;
 declare const builtin: {
   /**
    * 向网页添加一条楼层渲染
@@ -216,11 +239,25 @@ type Character = {
 declare function getCharacterNames(): string[];
 
 /**
+ * 获取角色卡头像 id 列表
+ *
+ * @returns 角色卡头像 id 列表
+ */
+declare function getCharacterIds(): string[];
+
+/**
  * 获取当前角色卡名称
  *
  * @returns 当前角色卡名称, 如果当前没有角色卡, 则返回 `null`
  */
 declare function getCurrentCharacterName(): string | null;
+
+/**
+ * 获取当前角色卡头像 id
+ *
+ * @returns 当前角色卡头像 id, 如果当前没有角色卡, 则返回 `null`
+ */
+declare function getCurrentCharacterId(): string | null;
 
 /**
  * 新建 `character_name` 角色卡, 内容为 `character`
@@ -234,7 +271,7 @@ declare function getCurrentCharacterName(): string | null;
  */
 declare function createCharacter(
   character_name: Exclude<string, 'current'>,
-  character?: PartialDeep<Character>,
+  character?: TypeFest.PartialDeep<Character>,
 ): Promise<boolean>;
 
 /**
@@ -251,7 +288,7 @@ declare function createCharacter(
  */
 declare function createOrReplaceCharacter(
   character_name: Exclude<string, 'current'>,
-  character?: PartialDeep<Character>,
+  character?: TypeFest.PartialDeep<Character>,
   options?: ReplaceCharacterOptions,
 ): Promise<boolean>;
 
@@ -265,7 +302,7 @@ declare function createOrReplaceCharacter(
  * @returns 是否成功删除, 可能因角色卡不存在等原因而失败
  */
 declare function deleteCharacter(
-  character_name: LiteralUnion<'current', string>,
+  character_name: TypeFest.LiteralUnion<'current', string>,
   options?: { delete_chats?: boolean },
 ): Promise<boolean>;
 
@@ -278,7 +315,7 @@ declare function deleteCharacter(
  *
  * @throws 如果角色卡不存在, 将会抛出异常
  */
-declare function getCharacter(character_name: LiteralUnion<'current', string>): Promise<Character>;
+declare function getCharacter(character_name: TypeFest.LiteralUnion<'current', string>): Promise<Character>;
 
 type ReplaceCharacterOptions = {
   /** 酒馆网页应该防抖渲染 (debounced)、立即渲染 (immediate) 还是不刷新前端显示 (none)? 默认为性能更好的防抖渲染 */
@@ -316,7 +353,7 @@ type ReplaceCharacterOptions = {
  */
 declare function replaceCharacter(
   character_name: Exclude<string, 'current'>,
-  character: PartialDeep<Character>,
+  character: TypeFest.PartialDeep<Character>,
   options?: ReplaceCharacterOptions,
 ): Promise<void>;
 
@@ -357,7 +394,7 @@ type CharacterUpdater = ((character: Character) => Character) | ((character: Cha
  * });
  */
 declare function updateCharacterWith(
-  character_name: LiteralUnion<'current', string>,
+  character_name: TypeFest.LiteralUnion<'current', string>,
   updater: CharacterUpdater,
 ): Promise<Character>;
 type ChatMessage = {
@@ -864,8 +901,56 @@ declare function getProxyPresetNames(): string[];
  * // 然后进行生成
  * const result = await generate({ user_input: '你好', should_stream: true });
  * console.info('收到最终回复: ', result);
+ *
+ * @example
+ * // 使用 tool use / function calling
+ * const result = await generate({
+ *   user_input: '今天北京天气怎么样？',
+ *   tools: [{
+ *     type: 'function',
+ *     function: {
+ *       name: 'get_weather',
+ *       description: '获取指定城市的天气',
+ *       parameters: {
+ *         type: 'object',
+ *         properties: {
+ *           city: { type: 'string', description: '城市名称' }
+ *         },
+ *         required: ['city']
+ *       }
+ *     }
+ *   }],
+ *   tool_choice: 'auto'
+ * });
+ *
+ * if (typeof result === 'object' && result.tool_calls) {
+ *   for (const call of result.tool_calls) {
+ *     console.info(`模型调用了工具: ${call.function.name}(${call.function.arguments})`);
+ *   }
+ * } else {
+ *   console.info('收到文本回复: ', result);
+ * }
+ *
+ * @example
+ * // 使用 json_schema 强制结构化输出
+ * const result = await generate({
+ *   user_input: '描述场景',
+ *   json_schema: {
+ *     name: 'scene_output',
+ *     value: {
+ *       type: 'object',
+ *       properties: {
+ *         narrative: { type: 'string' },
+ *         mood: { type: 'string', enum: ['happy', 'sad', 'tense'] }
+ *       },
+ *       required: ['narrative', 'mood']
+ *     }
+ *   }
+ * });
+ * const parsed = JSON.parse(result as string);
+ * console.info(parsed.narrative, parsed.mood);
  */
-declare function generate(config: GenerateConfig): Promise<string>;
+declare function generate(config: GenerateConfig): Promise<string | GenerateToolCallResult>;
 
 /**
  * 不使用酒馆当前启用的预设, 让 AI 生成一段文本.
@@ -918,7 +1003,7 @@ declare function generate(config: GenerateConfig): Promise<string>;
  * })
  * console.info('收到回复: ', result);
  */
-declare function generateRaw(config: GenerateRawConfig): Promise<string>;
+declare function generateRaw(config: GenerateRawConfig): Promise<string | GenerateToolCallResult>;
 
 /**
  * 获取模型列表
@@ -945,6 +1030,9 @@ declare function stopGenerationById(generation_id: string): boolean;
 declare function stopAllGeneration(): boolean;
 
 type GenerateConfig = {
+  /** 要使用的预设名称, 默认为当前加载的预设 `'in_use'`; 若设置, 则会用所选预设的提示词及参数, 但不会使用所选预设的正则、酒馆助手脚本 */
+  preset_name?: 'in_use' | string;
+
   /**
    * 请求生成的唯一标识符, 不设置则默认生成一个随机标识符.
    *
@@ -1000,24 +1088,51 @@ type GenerateConfig = {
 
   /** 自定义API配置 */
   custom_api?: CustomApiConfig;
+
+  /**
+   * 工具定义列表（OpenAI 格式）。
+   * 传入后，模型可能返回 tool_calls 而非纯文本，此时函数返回 `GenerateToolCallResult` 对象。
+   */
+  tools?: ToolDefinition[];
+
+  /**
+   * 工具选择策略:
+   * - `'auto'`: 模型自行决定是否调用工具（默认）
+   * - `'required'`: 模型必须调用工具
+   * - `'none'`: 模型不调用工具
+   * - `{ type: 'function', function: { name: string } }`: 强制调用指定工具
+   */
+  tool_choice?: ToolChoice;
+
+  /**
+   * JSON Schema 定义，强制模型输出符合指定 schema 的 JSON。
+   * 返回值为 JSON 字符串（需自行 JSON.parse）。
+   *
+   * ST 服务端会根据 provider 自动转换格式：
+   * - OpenAI/DeepSeek/Mistral 等 → response_format.json_schema
+   * - Claude → 转为 tool + forced tool_choice
+   *
+   * 与 tools 互斥，不要同时传入。
+   */
+  json_schema?: JsonSchema;
 };
 
 type GenerateRawConfig = GenerateConfig & {
   /**
    * 一个提示词数组, 数组元素将会按顺序发给 AI, 因而相当于自定义预设. 该数组允许存放两种类型:
-   * - `BuiltinPrompt`: 内置提示词. 由于不使用预设, 如果需要 "角色描述" 等提示词, 你需要自己指定要用哪些并给出顺序
-   *                      如果不想自己指定, 可通过 `builtin_prompt_default_order` 得到酒馆默认预设所使用的顺序 (但对于这种情况, 也许你更应该用 `generate`).
+   * - `PlaceholderPrompt`: 内置提示词. 由于不使用预设, 如果需要 "角色描述" 等提示词, 你需要自己指定要用哪些并给出顺序
+   *                        如果不想自己指定, 可通过 `placeholder_prompt_default_order` 得到酒馆默认预设所使用的顺序 (但对于这种情况, 也许你更应该用 `generate`).
    * - `RolePrompt`: 要额外给定的提示词.
    */
-  ordered_prompts?: (BuiltinPrompt | RolePrompt)[];
+  ordered_prompts?: (PlaceholderPrompt | RolePrompt)[];
 };
 
 /**
  * 预设为内置提示词设置的默认顺序
  */
-declare const builtin_prompt_default_order: BuiltinPrompt[];
+declare const placeholder_prompt_default_order: PlaceholderPrompt[];
 
-type BuiltinPrompt =
+type PlaceholderPrompt =
   | 'world_info_before'
   | 'persona_description'
   | 'char_description'
@@ -1091,7 +1206,142 @@ type CustomApiConfig = {
   presence_penalty?: 'same_as_preset' | 'unset' | number;
   top_p?: 'same_as_preset' | 'unset' | number;
   top_k?: 'same_as_preset' | 'unset' | number;
+
+  /** 仅 `source === 'custom'` 时有效, 在请求体中额外覆盖参数; 如 `{ max_tokens: 1024 }` */
+  custom_include_body?: Record<string, any>;
+  /** 仅 `source === 'custom'` 时有效, 在请求体中排除参数, 由于酒馆后端限制仅能排除根参数; 如 `['max_tokens']` */
+  custom_exclude_body?: string[];
+  /** 仅 `source === 'custom'` 时有效, 在请求头中额外覆盖参数; 如 `{ Content-Type: 'application/json' }` */
+  custom_include_headers?: Record<string, any>;
 };
+
+/**
+ * JSON Schema 定义，用于强制模型输出符合指定 schema 的 JSON。
+ *
+ * @example
+ * const result = await generateRaw({
+ *   user_input: '描述场景',
+ *   json_schema: {
+ *     name: 'scene_output',
+ *     description: '场景描述和角色状态',
+ *     value: {
+ *       type: 'object',
+ *       properties: {
+ *         narrative: { type: 'string', description: '叙事文本' },
+ *         status: { type: 'object', properties: { name: { type: 'string' } } }
+ *       },
+ *       required: ['narrative', 'status']
+ *     }
+ *   }
+ * });
+ * const parsed = JSON.parse(result as string);
+ */
+type JsonSchema = {
+  /** Schema 名称 */
+  name: string;
+  /** Schema 描述 */
+  description?: string;
+  /** JSON Schema 定义 */
+  value: Record<string, any>;
+  /** 是否严格模式（默认 true） */
+  strict?: boolean;
+};
+
+/**
+ * Tool function 定义
+ */
+type ToolFunction = {
+  /** 工具函数名称 */
+  name: string;
+  /** 工具函数描述 */
+  description?: string;
+  /** JSON Schema 格式的参数定义 */
+  parameters?: Record<string, any>;
+};
+
+/**
+ * Tool 定义（OpenAI 格式）
+ */
+type ToolDefinition = {
+  type: 'function';
+  function: ToolFunction;
+};
+
+/**
+ * Tool choice 选项
+ */
+type ToolChoice = 'auto' | 'required' | 'none' | 'any' | { type: 'function'; function: { name: string } };
+
+/**
+ * 当模型返回 tool_calls 时的结构化结果。
+ *
+ * 仅在 `generate` / `generateRaw` 配置中传入了 `tools` 且模型决定调用工具时返回；
+ * 否则函数仍返回普通的 `string`。
+ */
+type GenerateToolCallResult = {
+  /** 模型返回的文本内容（可能为空字符串） */
+  content: string;
+  /** 模型请求调用的工具列表 */
+  tool_calls: {
+    id: string;
+    type: 'function';
+    function: {
+      /** 工具函数名称 */
+      name: string;
+      /** JSON 字符串格式的参数 */
+      arguments: string;
+    };
+    /**
+     * 加密的 reasoning/thought 签名（若 provider 返回）。
+     *
+     * 多轮 tool call 场景下必须把签名原样回传给下一轮请求以维持推理上下文。
+     *
+     * **Gemini 3 强制要求**：不回传 thought_signature 会返回 4xx 校验错误
+     * （Gemini 2.5 及之前是可选，3.0+ 强制，见官方 thought-signatures 文档）。
+     *
+     * **并行 tool call**：Gemini 只会把签名挂在**第一个** tool_call 上，
+     * 后续并行 call 的 `thought_signature` 为 undefined——这一个签名代表整批，
+     * 回传时只需要还原到第一个 call 对应的 functionCall part 上。
+     *
+     * **多轮累积**：必须把**历史所有轮次**返回过的签名一起回传，而不是只带最后一次。
+     *
+     * **绕过校验**（仅限手动构造 tool call 的情况）：把 thought_signature 设为
+     * `"skip_thought_signature_validator"` 或 `"context_engineering_is_the_way_to_go"`
+     * 可以跳过 Gemini 服务端校验。
+     */
+    thought_signature?: string;
+  }[];
+  /**
+   * 顶层 reasoning 签名（非绑定到具体 tool_call 的那一份）。
+   *
+   * 主要出现在「模型只返回文本、没有 tool_calls」的场景：Gemini 会把签名挂在最后一个
+   * text part 上（流式终帧里可能是空字符串 text + 签名）。OpenRouter 通过
+   * `reasoning_details` 暴露非 tool 绑定的 encrypted 段；Claude 通过 thinking 块的
+   * signature 字段提供。
+   *
+   * 同样用于多轮场景下把 thinking 上下文回传给下一轮请求。
+   */
+  reasoning_signature?: string;
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+/**
+ * 预设为内置提示词设置的默认顺序
+ * @deprecated 请使用 `placeholder_prompt_default_order`
+ */
+declare const builtin_prompt_default_order: PlaceholderPrompt[];
+
+/** @deprecated 请使用 `PlaceholderPrompt` */
+type BuiltinPrompt =
+  | 'world_info_before'
+  | 'persona_description'
+  | 'char_description'
+  | 'char_personality'
+  | 'scenario'
+  | 'world_info_after'
+  | 'dialogue_examples'
+  | 'chat_history'
+  | 'user_input';
 /**
  * 将接口共享到全局, 使其可以在其他前端界面或脚本中使用.
  *
@@ -1105,7 +1355,7 @@ type CustomApiConfig = {
  * initializeGlobal('Mvu', Mvu);
  * // 此后其他前端界面或脚本中可以通过 `await waitGlobalInitialized('Mvu')` 来等待初始化完毕, 从而用 `Mvu` 为变量名访问该接口
  */
-declare function initializeGlobal(global: LiteralUnion<'Mvu', string>, value: any): void;
+declare function initializeGlobal(global: TypeFest.LiteralUnion<'Mvu', string>, value: any): void;
 
 /**
  * 等待其他前端界面或脚本中共享出来的全局接口初始化完毕, 并使之在当前前端界面或脚本中可用.
@@ -1118,7 +1368,7 @@ declare function initializeGlobal(global: LiteralUnion<'Mvu', string>, value: an
  * await waitGlobalInitialized('Mvu');
  * ...此后可以直接使用 Mvu 接口
  */
-declare function waitGlobalInitialized<T>(global: LiteralUnion<'Mvu', string>): Promise<T>;
+declare function waitGlobalInitialized<T>(global: TypeFest.LiteralUnion<'Mvu', string>): Promise<T>;
 /**
  * 像酒馆界面里那样导入新角色/更新现有角色卡
  *
@@ -1196,15 +1446,19 @@ interface Window {
     readonly pauseAudio: typeof pauseAudio;
     readonly getAudioList: typeof getAudioList;
     readonly replaceAudioList: typeof replaceAudioList;
-    readonly insertAudioList: typeof insertAudioList;
+    readonly appendAudioList: typeof appendAudioList;
     readonly getAudioSettings: typeof getAudioSettings;
     readonly setAudioSettings: typeof setAudioSettings;
+    readonly getCurrentAudio: typeof getCurrentAudio;
 
     // builtin
     readonly builtin: typeof builtin;
 
     // character
     readonly getCharacterNames: typeof getCharacterNames;
+    readonly getCharacterIds: typeof getCharacterIds;
+    readonly getCurrentCharacterName: typeof getCurrentCharacterName;
+    readonly getCurrentCharacterId: typeof getCurrentCharacterId;
     readonly createCharacter: typeof createCharacter;
     readonly createOrReplaceCharacter: typeof createOrReplaceCharacter;
     readonly deleteCharacter: typeof deleteCharacter;
@@ -1296,6 +1550,19 @@ interface Window {
     readonly replacePreset: typeof replacePreset;
     readonly updatePresetWith: typeof updatePresetWith;
     readonly setPreset: typeof setPreset;
+
+    // persona
+    readonly getPersonaNames: typeof getPersonaNames;
+    readonly getPersonaIds: typeof getPersonaIds;
+    readonly getCurrentPersonaName: typeof getCurrentPersonaName;
+    readonly getCurrentPersonaId: typeof getCurrentPersonaId;
+    readonly getPersonaAvatarPath: typeof getPersonaAvatarPath;
+    readonly createPersona: typeof createPersona;
+    readonly createOrReplacePersona: typeof createOrReplacePersona;
+    readonly deletePersona: typeof deletePersona;
+    readonly getPersona: typeof getPersona;
+    readonly replacePersona: typeof replacePersona;
+    readonly updatePersonaWith: typeof updatePersonaWith;
 
     // raw_character
     readonly RawCharacter: typeof RawCharacter;
@@ -1575,6 +1842,174 @@ declare function registerMacroLike(
  * @param regex 助手宏的正则表达式
  */
 declare function unregisterMacroLike(regex: RegExp): void;
+type PersonaConnection = {
+  type: 'character' | 'group';
+  id: string;
+};
+
+type Persona = {
+  avatar_id: string;
+  avatar: `${string}.png` | Blob;
+  name: string;
+  title: string;
+  description: string;
+  position: number;
+  depth: number;
+  role: number;
+  lorebook: string;
+  connections: PersonaConnection[];
+  is_default: boolean;
+};
+
+type ReplacePersonaOptions = {
+  /** 酒馆网页应该防抖渲染 persona 管理列表 (debounced)、立即渲染 (immediate) 还是不刷新前端显示 (none)? 默认为防抖渲染 */
+  render?: 'debounced' | 'immediate' | 'none';
+};
+
+/**
+ * 获取 persona 名称列表
+ *
+ * @returns persona 名称列表
+ */
+declare function getPersonaNames(): string[];
+
+/**
+ * 获取 persona 头像 id 列表
+ *
+ * @returns persona 头像 id 列表
+ */
+declare function getPersonaIds(): string[];
+
+/**
+ * 获取当前 persona 名称
+ *
+ * @returns 当前 persona 名称, 如果当前没有 persona, 则返回 `null`
+ */
+declare function getCurrentPersonaName(): string | null;
+
+/**
+ * 获取当前 persona 头像 id
+ *
+ * @returns 当前 persona 头像 id, 如果当前没有 persona, 则返回 `null`
+ */
+declare function getCurrentPersonaId(): string | null;
+
+/**
+ * 获取 persona 的头像路径
+ *
+ * @param persona_id persona 名称、头像 id 或 `'current'`
+ *
+ * @returns persona 头像路径, 如果 persona 不存在或名称不唯一, 则返回 `null`
+ */
+declare function getPersonaAvatarPath(persona_id?: TypeFest.LiteralUnion<'current', string>): string | null;
+
+/**
+ * 获取 persona 的内容
+ *
+ * @param persona_id persona 名称、头像 id 或 `'current'`
+ *
+ * @returns persona 内容
+ *
+ * @throws 如果 persona 不存在或名称不唯一, 将会抛出异常
+ */
+declare function getPersona(persona_id: TypeFest.LiteralUnion<'current', string>): Persona;
+
+/**
+ * 新建 persona
+ *
+ * @param persona_name persona 名称
+ * @param persona persona 数据; 不填则使用默认头像和默认描述设置
+ * @param options 可选选项
+ *   - `render:'debounced'|'immediate'|'none'`: 酒馆网页应该防抖渲染、立即渲染还是不刷新前端显示
+ *
+ * @returns 是否成功创建, 如果已经存在同名 persona、同头像 id persona 或尝试创建名为 `'current'` 的 persona 会失败
+ *
+ * @throws 如果访问后端失败, 将会抛出异常
+ */
+declare function createPersona(
+  persona_name: Exclude<string, 'current'>,
+  persona?: TypeFest.PartialDeep<Persona>,
+  options?: ReplacePersonaOptions,
+): Promise<boolean>;
+
+/**
+ * 创建或替换名为 `persona_name` 的 persona
+ *
+ * @param persona_name persona 名称或头像 id
+ * @param persona persona 数据; 不填则使用默认头像和默认描述设置
+ * @param options 可选选项
+ *   - `render:'debounced'|'immediate'|'none'`: 酒馆网页应该防抖渲染、立即渲染还是不刷新前端显示
+ *
+ * @returns 如果发生创建, 则返回 `true`; 如果发生替换, 则返回 `false`
+ *
+ * @throws 如果 persona 名称不唯一, 将会抛出异常
+ * @throws 如果访问后端失败, 将会抛出异常
+ */
+declare function createOrReplacePersona(
+  persona_name: Exclude<string, 'current'>,
+  persona?: TypeFest.PartialDeep<Persona>,
+  options?: ReplacePersonaOptions,
+): Promise<boolean>;
+
+/**
+ * 删除 persona
+ *
+ * @param persona_id persona 名称、头像 id 或 `'current'`
+ *
+ * @returns 是否成功删除, 可能因 persona 不存在或名称不唯一等原因而失败
+ *
+ * @throws 如果访问后端失败, 将会抛出异常
+ */
+declare function deletePersona(persona_id: TypeFest.LiteralUnion<'current', string>): Promise<boolean>;
+
+/**
+ * 完全替换 persona 的内容
+ *
+ * @param persona_id persona 名称、头像 id 或 `'current'`
+ * @param persona persona 数据
+ * @param options 可选选项
+ *   - `render:'debounced'|'immediate'|'none'`: 酒馆网页应该防抖渲染、立即渲染还是不刷新前端显示
+ *
+ * @throws 如果 persona 不存在或名称不唯一, 将会抛出异常
+ * @throws 如果访问后端失败, 将会抛出异常
+ *
+ * @example
+ * const persona = getPersona('玩家');
+ * persona.description = '新的玩家描述';
+ * await replacePersona('玩家', persona);
+ */
+declare function replacePersona(
+  persona_id: TypeFest.LiteralUnion<'current', string>,
+  persona: TypeFest.PartialDeep<Persona>,
+  options?: ReplacePersonaOptions,
+): Promise<void>;
+
+type PersonaUpdater = ((persona: Persona) => Persona) | ((persona: Persona) => Promise<Persona>);
+
+/**
+ * 用 `updater` 函数更新 persona
+ *
+ * @param persona_id persona 名称、头像 id 或 `'current'`
+ * @param updater 用于更新 persona 的函数. 它应该接收 persona 内容作为参数, 并返回更新后的 persona 内容.
+ * @param options 可选选项
+ *   - `render:'debounced'|'immediate'|'none'`: 酒馆网页应该防抖渲染、立即渲染还是不刷新前端显示
+ *
+ * @returns 更新后的 persona 内容
+ *
+ * @throws 如果 persona 不存在或名称不唯一, 将会抛出异常
+ * @throws 如果访问后端失败, 将会抛出异常
+ *
+ * @example
+ * await updatePersonaWith('玩家', persona => {
+ *   persona.title = '旁白显示标题';
+ *   return persona;
+ * });
+ */
+declare function updatePersonaWith(
+  persona_id: TypeFest.LiteralUnion<'current', string>,
+  updater: PersonaUpdater,
+  options?: ReplacePersonaOptions,
+): Promise<Persona>;
 type Preset = {
   settings: {
     /** 最大上下文 token 数 */
@@ -1657,7 +2092,7 @@ type PresetPrompt = {
    * - 系统提示词 (`isPresetSystemPrompt`): 酒馆所设置的系统提示词, 但其实相比于手动添加的提示词没有任何优势, 分为 `main`、`nsfw`、`jailbreak`、`enhance_definitions`
    * - 占位符提示词 (`isPresetPlaceholderPrompt`): 用于表示世界书条目、角色卡、玩家角色、聊天记录等提示词的插入位置, 分为 `world_info_before`、`persona_description`、`char_description`、`char_personality`、`scenario`、`world_info_after`、`dialogue_examples`、`chat_history`
    */
-  id: LiteralUnion<
+  id: TypeFest.LiteralUnion<
     | 'main'
     | 'nsfw'
     | 'jailbreak'
@@ -1680,7 +2115,7 @@ type PresetPrompt = {
    *   - `'relative'`: 按提示词相对位置插入
    *   - `'in_chat'`: 插入到聊天记录的对应深度, 需要设置对应的深度 `depth` 和顺序 `order`
    */
-  position:
+  position?:
     | {
         type: 'relative';
         depth?: never;
@@ -1694,12 +2129,12 @@ type PresetPrompt = {
   /** 额外字段, 用于为预设提示词绑定额外数据 */
   extra?: Record<string, any>;
 };
-type PresetNormalPrompt = SetRequired<{ id: string } & Omit<PresetPrompt, 'id'>, 'position' | 'content'>;
-type PresetSystemPrompt = SetRequired<
-  { id: 'main' | 'nsfw' | 'jailbreak' | 'enhanceDefinitions' } & Omit<PresetPrompt, 'id'>,
+type PresetNormalPrompt = TypeFest.SetRequired<{ id: string } & Omit<PresetPrompt, 'id'>, 'position' | 'content'>;
+type PresetSystemPrompt = TypeFest.SetRequired<
+  { id: 'main' | 'nsfw' | 'jailbreak' | 'enhanceDefinitions' } & Omit<PresetPrompt, 'id' | 'position'>,
   'content'
 >;
-type PresetPlaceholderPrompt = SetRequired<
+type PresetPlaceholderPrompt = TypeFest.SetRequired<
   {
     id:
       | 'worldInfoBefore'
@@ -1710,7 +2145,7 @@ type PresetPlaceholderPrompt = SetRequired<
       | 'worldInfoAfter'
       | 'dialogueExamples'
       | 'chatHistory';
-  } & Omit<PresetPrompt, 'id'>,
+  } & Omit<PresetPrompt, 'id' | 'content'>,
   'position'
 >;
 declare function isPresetNormalPrompt(prompt: PresetPrompt): prompt is PresetNormalPrompt;
@@ -1754,7 +2189,7 @@ declare function loadPreset(preset_name: Exclude<string, 'in_use'>): boolean;
  *
  * @throws 如果预设不存在, 将会抛出异常
  */
-declare function getPreset(preset_name: LiteralUnion<'in_use', string>): Preset;
+declare function getPreset(preset_name: TypeFest.LiteralUnion<'in_use', string>): Preset;
 
 /**
  * 新建 `preset_name` 预设, 内容为 `preset`
@@ -1779,7 +2214,7 @@ declare function createPreset(preset_name: Exclude<string, 'in_use'>, preset?: P
  * @returns 如果发生创建, 则返回 `true`; 如果发生替换, 则返回 `false`
  */
 declare function createOrReplacePreset(
-  preset_name: LiteralUnion<'in_use', string>,
+  preset_name: TypeFest.LiteralUnion<'in_use', string>,
   preset?: Preset,
   { render }?: ReplacePresetOptions,
 ): Promise<boolean>;
@@ -1851,7 +2286,7 @@ type ReplacePresetOptions = {
  * await replacePreset('预设B', preset_b);
  */
 declare function replacePreset(
-  preset_name: LiteralUnion<'in_use', string>,
+  preset_name: TypeFest.LiteralUnion<'in_use', string>,
   preset: Preset,
   { render }?: ReplacePresetOptions,
 ): Promise<void>;
@@ -1907,7 +2342,7 @@ type PresetUpdater = ((preset: Preset) => Preset) | ((preset: Preset) => Promise
  * });
  */
 declare function updatePresetWith(
-  preset_name: LiteralUnion<'in_use', string>,
+  preset_name: TypeFest.LiteralUnion<'in_use', string>,
   updater: PresetUpdater,
   { render }?: ReplacePresetOptions,
 ): Promise<Preset>;
@@ -1936,8 +2371,8 @@ declare function updatePresetWith(
  * });
  */
 declare function setPreset(
-  preset_name: LiteralUnion<'in_use', string>,
-  preset: PartialDeep<Preset>,
+  preset_name: TypeFest.LiteralUnion<'in_use', string>,
+  preset: TypeFest.PartialDeep<Preset>,
   { render }?: ReplacePresetOptions,
 ): Promise<Preset>;
 /**
@@ -1956,7 +2391,7 @@ declare class RawCharacter {
     name,
     allowAvatar,
   }?: {
-    name: LiteralUnion<'current', string>;
+    name: TypeFest.LiteralUnion<'current', string>;
     allowAvatar?: boolean;
   }): SillyTavern.v1CharData;
 
@@ -2044,7 +2479,7 @@ declare class RawCharacter {
  * @param allowAvatar 是否允许通过头像ID查找
  * @returns 角色卡数据
  */
-declare function getCharData(name: LiteralUnion<'current', string>): SillyTavern.v1CharData | null;
+declare function getCharData(name: TypeFest.LiteralUnion<'current', string>): SillyTavern.v1CharData | null;
 
 /**
  * 获取角色头像路径
@@ -2052,7 +2487,7 @@ declare function getCharData(name: LiteralUnion<'current', string>): SillyTavern
  * @param allowAvatar 是否允许通过头像ID查找
  * @returns 角色头像路径
  */
-declare function getCharAvatarPath(name: LiteralUnion<'current', string>): string | null;
+declare function getCharAvatarPath(name: TypeFest.LiteralUnion<'current', string>): string | null;
 
 /**
  * 获取角色聊天历史摘要
@@ -2061,7 +2496,7 @@ declare function getCharAvatarPath(name: LiteralUnion<'current', string>): strin
  * @returns 聊天历史摘要数组
  */
 declare function getChatHistoryBrief(
-  name: LiteralUnion<'current', string>,
+  name: TypeFest.LiteralUnion<'current', string>,
   allowAvatar?: boolean,
 ): Promise<any[] | null>;
 
@@ -2083,7 +2518,7 @@ type ScriptButton = {
 };
 
 type Script = {
-  type: 'script',
+  type: 'script';
   enabled: boolean;
   name: string;
   id: string;
@@ -2092,8 +2527,12 @@ type Script = {
   button: {
     enabled: boolean;
     buttons: Array<ScriptButton>;
-  }
+  };
   data: Record<string, any>;
+  export_with: {
+    data: boolean;
+    button: boolean;
+  };
 };
 type ScriptFolder = {
   type: 'folder';
@@ -2103,7 +2542,7 @@ type ScriptFolder = {
   icon: string;
   color: string;
   scripts: Script[];
-}
+};
 type ScriptTree = Script | ScriptFolder;
 
 type ScriptTreesOptions = {
@@ -2126,7 +2565,7 @@ declare function getScriptTrees(option: ScriptTreesOptions): ScriptTree[];
  * @param script_trees 要用于替换的酒馆助手列表
  * @param option 要操作的酒馆助手脚本类型
  */
-declare function replaceScriptTrees(script_trees: PartialDeep<ScriptTree>[], option: ScriptTreesOptions): void;
+declare function replaceScriptTrees(script_trees: TypeFest.PartialDeep<ScriptTree>[], option: ScriptTreesOptions): void;
 
 /**
  * 用 `updater` 函数更新酒馆助手列表
@@ -2137,7 +2576,7 @@ declare function replaceScriptTrees(script_trees: PartialDeep<ScriptTree>[], opt
  * @returns 更新后的酒馆助手列表
  */
 declare function updateScriptTreesWith(
-  updater: (script_trees: ScriptTree[]) => PartialDeep<ScriptTree>[],
+  updater: (script_trees: ScriptTree[]) => TypeFest.PartialDeep<ScriptTree>[],
   option: ScriptTreesOptions,
 ): ScriptTree[];
 
@@ -2150,7 +2589,7 @@ declare function updateScriptTreesWith(
  * @returns 更新后的酒馆助手列表
  */
 declare function updateScriptTreesWith(
-  updater: (script_trees: ScriptTree[]) => Promise<PartialDeep<ScriptTree>[]>,
+  updater: (script_trees: ScriptTree[]) => Promise<TypeFest.PartialDeep<ScriptTree>[]>,
   option: ScriptTreesOptions,
 ): Promise<ScriptTree[]>;
 /**
@@ -2209,7 +2648,7 @@ declare function formatAsTavernRegexedString(
   source: 'user_input' | 'ai_output' | 'slash_command' | 'world_info' | 'reasoning',
   destination: 'display' | 'prompt',
   { depth, character_name }?: FormatAsTavernRegexedStringOption,
-);
+): string;
 
 type TavernRegex = {
   id: string;
@@ -2227,6 +2666,7 @@ type TavernRegex = {
     ai_output: boolean;
     slash_command: boolean;
     world_info: boolean;
+    reasoning: boolean;
   };
 
   destination: {
@@ -2604,7 +3044,7 @@ type CharWorldbooks = {
  *
  * @returns 角色卡绑定的世界书
  */
-declare function getCharWorldbookNames(character_name: LiteralUnion<'current' | string>): CharWorldbooks;
+declare function getCharWorldbookNames(character_name: TypeFest.LiteralUnion<'current' | string>): CharWorldbooks;
 /**
  * 重新绑定角色卡世界书
  *
@@ -2751,7 +3191,7 @@ declare function createWorldbook(worldbook_name: string, worldbook?: WorldbookEn
  */
 declare function createOrReplaceWorldbook(
   worldbook_name: string,
-  worldbook?: PartialDeep<WorldbookEntry>[],
+  worldbook?: TypeFest.PartialDeep<WorldbookEntry>[],
   { render }?: ReplaceWorldbookOptions,
 ): Promise<boolean>;
 
@@ -2800,13 +3240,13 @@ interface ReplaceWorldbookOptions {
  */
 declare function replaceWorldbook(
   worldbook_name: string,
-  worldbook: PartialDeep<WorldbookEntry>[],
+  worldbook: TypeFest.PartialDeep<WorldbookEntry>[],
   { render }?: ReplaceWorldbookOptions,
 ): Promise<void>;
 
 type WorldbookUpdater =
-  | ((worldbook: WorldbookEntry[]) => PartialDeep<WorldbookEntry>[])
-  | ((worldbook: WorldbookEntry[]) => Promise<PartialDeep<WorldbookEntry>[]>);
+  | ((worldbook: WorldbookEntry[]) => TypeFest.PartialDeep<WorldbookEntry>[])
+  | ((worldbook: WorldbookEntry[]) => Promise<TypeFest.PartialDeep<WorldbookEntry>[]>);
 /**
  * 用 `updater` 函数更新世界书 `worldbook_name`
  *
@@ -2859,7 +3299,7 @@ declare function updateWorldbookWith(
  */
 declare function createWorldbookEntries(
   worldbook_name: string,
-  new_entries: PartialDeep<WorldbookEntry>[],
+  new_entries: TypeFest.PartialDeep<WorldbookEntry>[],
   { render }?: ReplaceWorldbookOptions,
 ): Promise<{ worldbook: WorldbookEntry[]; new_entries: WorldbookEntry[] }>;
 
@@ -3175,7 +3615,7 @@ interface ListenerType {
   [tavern_events.MESSAGE_SENT]: (message_id: number) => void;
   [tavern_events.MESSAGE_RECEIVED]: (
     message_id: number,
-    type: LiteralUnion<
+    type: TypeFest.LiteralUnion<
       | 'normal'
       | 'quiet'
       | 'regenerate'
@@ -3746,14 +4186,25 @@ declare namespace SillyTavern {
   };
 
   type SendingMessage = {
-    role: 'user' | 'assistant' | 'system';
-    content:
+    role: 'user' | 'assistant' | 'system' | 'tool';
+
+    content?:
       | string
       | Array<
           | { type: 'text'; text: string }
           | { type: 'image_url'; image_url: { url: string; detail: 'auto' | 'low' | 'high' } }
           | { type: 'video_url'; video_url: { url: string } }
         >;
+
+    tool_call_id?: string;
+    tool_calls?: Array<{
+      id: string;
+      type: 'function';
+      function: {
+        name: string;
+        arguments: string;
+      };
+    }>;
   };
 
   type FlattenedWorldInfoEntry = {

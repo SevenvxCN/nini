@@ -7,7 +7,6 @@ import { getContext } from "../../../../st-context.js";
 import { SlashCommandParser } from "../../../../slash-commands/SlashCommandParser.js";
 import { SlashCommand } from "../../../../slash-commands/SlashCommand.js";
 import { ARGUMENT_TYPE, SlashCommandArgument, SlashCommandNamedArgument } from "../../../../slash-commands/SlashCommandArgument.js";
-import { SECRET_KEYS, writeSecret } from "../../../../secrets.js";
 import { power_user } from "../../../../power-user.js";
 import { world_info } from "../../../../world-info.js";
 import { xbLog, CacheRegistry } from "../core/debug-core.js";
@@ -18,9 +17,16 @@ const EVT_DONE = 'xiaobaix_streaming_completed';
 
 const PROXY_SUPPORTED = new Set([
     chat_completion_sources.OPENAI, chat_completion_sources.CLAUDE,
-    chat_completion_sources.MAKERSUITE, chat_completion_sources.COHERE,
+    chat_completion_sources.MAKERSUITE,
     chat_completion_sources.DEEPSEEK,
 ]);
+
+const INLINE_KEY_PROXY_DEFAULTS = {
+    [chat_completion_sources.OPENAI]: 'https://api.openai.com/v1',
+    [chat_completion_sources.CLAUDE]: 'https://api.anthropic.com/v1',
+    [chat_completion_sources.MAKERSUITE]: 'https://generativelanguage.googleapis.com',
+    [chat_completion_sources.DEEPSEEK]: 'https://api.deepseek.com/beta',
+};
 
 class StreamingGeneration {
     constructor() {
@@ -139,8 +145,8 @@ class StreamingGeneration {
             const isClaudeModel = modelLower.includes('claude');
 
             if (isClaudeModel && Array.isArray(messages) && messages.length > 0) {
-                if (this._convertTrailingAssistantToSystem(messages)) {
-                    console.log('[xbgen] Claude model: converted trailing assistant prefill to system message');
+                if (this._convertClaudeTrailingPrefillToUser(messages)) {
+                    console.log('[xbgen] Claude model: converted trailing assistant/system prefill to user message');
                 }
             }
 
@@ -169,27 +175,8 @@ class StreamingGeneration {
             if (!model) throw new Error('未检测到当前模型，请在聊天面板选择模型或在插件设置中为分析显式指定模型。');
             
             try {
-                try {
-                    if (xbLog.isEnabled?.()) {
-                        xbLog.info('streamingGeneration', `callAPI stream=${!!stream} api=${String(opts.api || '')} model=${model} messages=${msgCount ?? '-'}`);
-                    }
-                } catch {}
-                const provider = String(opts.api || '').toLowerCase();
-                const reverseProxyConfigured = String(opts.apiurl || '').trim().length > 0;
-                const pwd = String(opts.apipassword || '').trim();
-                if (!reverseProxyConfigured && pwd) {
-                    const providerToSecretKey = {
-                        openai: SECRET_KEYS.OPENAI,
-                        gemini: SECRET_KEYS.MAKERSUITE,
-                        google: SECRET_KEYS.MAKERSUITE,
-                        cohere: SECRET_KEYS.COHERE,
-                        deepseek: SECRET_KEYS.DEEPSEEK,
-                        custom: SECRET_KEYS.CUSTOM,
-                    };
-                    const secretKey = providerToSecretKey[provider];
-                    if (secretKey) {
-                        await writeSecret(secretKey, pwd, 'xbgen-inline');
-                    }
+                if (xbLog.isEnabled?.()) {
+                    xbLog.info('streamingGeneration', `callAPI stream=${!!stream} api=${String(opts.api || '')} model=${model} messages=${msgCount ?? '-'}`);
                 }
             } catch {}
             
@@ -263,7 +250,10 @@ class StreamingGeneration {
             const cmdApiPwd = String(opts.apipassword || '').trim();
             if (cmdApiUrl) {
                 if (cmdApiPwd) proxyPassword = cmdApiPwd;
-            } else if (cmdApiPwd) {
+            } else if (cmdApiPwd && INLINE_KEY_PROXY_DEFAULTS[source]) {
+                reverseProxy = INLINE_KEY_PROXY_DEFAULTS[source];
+                proxyPassword = cmdApiPwd;
+            } else if (cmdApiPwd && source !== chat_completion_sources.CUSTOM) {
                 reverseProxy = '';
                 proxyPassword = '';
             }
@@ -278,7 +268,13 @@ class StreamingGeneration {
                 } else {
                     throw new Error('未配置自定义后端URL，请在命令中提供 apiurl 或在设置中填写 custom_url');
                 }
-                if (oai_settings?.custom_include_headers) body.custom_include_headers = oai_settings.custom_include_headers;
+                const customIncludeHeaders = String(oai_settings?.custom_include_headers || '').trim();
+                if (cmdApiPwd) {
+                    const authHeader = `Authorization: ${JSON.stringify(`Bearer ${cmdApiPwd}`)}`;
+                    body.custom_include_headers = customIncludeHeaders ? `${customIncludeHeaders}\n${authHeader}` : authHeader;
+                } else if (customIncludeHeaders) {
+                    body.custom_include_headers = customIncludeHeaders;
+                }
                 if (oai_settings?.custom_include_body) body.custom_include_body = oai_settings.custom_include_body;
                 if (oai_settings?.custom_exclude_body) body.custom_exclude_body = oai_settings.custom_exclude_body;
             }
@@ -834,15 +830,12 @@ class StreamingGeneration {
         return '';
     }
 
-    _convertTrailingAssistantToSystem(messages) {
+    _convertClaudeTrailingPrefillToUser(messages) {
         if (!Array.isArray(messages) || messages.length < 1) return false;
         const lastMsg = messages[messages.length - 1];
-        if (lastMsg?.role !== 'assistant') return false;
+        if (lastMsg?.role !== 'assistant' && lastMsg?.role !== 'system') return false;
 
-        const assistantText = this._extractTextFromMessage(lastMsg).trim();
-        const systemText = assistantText ? `Assistant:\n${assistantText}` : 'Assistant:';
-        lastMsg.role = 'system';
-        lastMsg.content = systemText;
+        lastMsg.role = 'user';
         return true;
     }
 

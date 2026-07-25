@@ -6,9 +6,296 @@ import { chat_metadata } from "../../../../../../../script.js";
 import { EXT_ID } from "../../../core/constants.js";
 import { xbLog } from "../../../core/debug-core.js";
 import { clearEventVectors, deleteEventVectorsByIds } from "../vector/storage/chunk-store.js";
+import {
+    applyAliasMigrationsForRollback,
+    applyCharacterAliasUpdates,
+    canonicalizeIncrementalSummaryData,
+    normalizeAliasMigrations,
+    normalizeCharacterAliases,
+} from "./character-aliases.js";
 
 const MODULE_ID = 'summaryStore';
 const FACTS_LIMIT_PER_SUBJECT = 10;
+
+function isPlainObject(value) {
+    return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function normalizeStringArray(value) {
+    if (!Array.isArray(value)) {
+        return { value: [], changed: value != null };
+    }
+
+    const next = [];
+    let changed = false;
+    for (const item of value) {
+        let text = '';
+        if (typeof item === 'string') {
+            text = item.trim();
+        } else if (isPlainObject(item)) {
+            // Old data may store names/ids as lightweight objects; only accept explicit text-like fields.
+            text = String(item.name || item.text || item.id || '').trim();
+            changed = true;
+        } else if (item != null) {
+            changed = true;
+        }
+        if (!text) {
+            if (item != null) changed = true;
+            continue;
+        }
+        next.push(text);
+        if (typeof item !== 'string' || item !== text) {
+            changed = true;
+        }
+    }
+
+    if (!changed && next.length !== value.length) {
+        changed = true;
+    }
+
+    return { value: changed ? next : value, changed };
+}
+
+function normalizeSummaryHistory(history) {
+    if (!Array.isArray(history)) {
+        return { value: [], changed: history != null };
+    }
+
+    const next = [];
+    let changed = false;
+    for (const item of history) {
+        const endMesId = Number(item?.endMesId);
+        if (!Number.isFinite(endMesId)) {
+            changed = true;
+            continue;
+        }
+        const normalized = { endMesId: Math.trunc(endMesId) };
+        next.push(normalized);
+        if (!isPlainObject(item) || item.endMesId !== normalized.endMesId) {
+            changed = true;
+        }
+    }
+
+    if (!changed && next.length !== history.length) {
+        changed = true;
+    }
+
+    return { value: changed ? next : history, changed };
+}
+
+function normalizeInternalAliasMigrations(migrations) {
+    const normalized = normalizeAliasMigrations(migrations);
+    if (!Array.isArray(migrations)) {
+        return { value: normalized, changed: migrations != null };
+    }
+
+    const changed = JSON.stringify(normalized) !== JSON.stringify(migrations);
+    return { value: changed ? normalized : migrations, changed };
+}
+
+function normalizeSummaryJson(json) {
+    if (json == null) {
+        return { value: null, changed: false };
+    }
+
+    if (!isPlainObject(json)) {
+        return {
+            value: {
+                keywords: [],
+                events: [],
+                characters: { main: [] },
+                arcs: [],
+                facts: [],
+            },
+            changed: true,
+        };
+    }
+
+    let changed = false;
+    const next = json;
+
+    const normalizedKeywords = Array.isArray(next.keywords)
+        ? next.keywords.filter(isPlainObject)
+        : [];
+    if (!Array.isArray(next.keywords) || normalizedKeywords.length !== next.keywords.length) {
+        next.keywords = normalizedKeywords;
+        changed = true;
+    }
+
+    if (!Array.isArray(next.events)) {
+        next.events = [];
+        changed = true;
+    } else {
+        const events = [];
+        for (const event of next.events) {
+            if (!isPlainObject(event)) {
+                changed = true;
+                continue;
+            }
+
+            let normalizedEvent = event;
+
+            const participants = normalizeStringArray(event.participants);
+            if (participants.changed) {
+                normalizedEvent = normalizedEvent === event ? { ...event } : normalizedEvent;
+                normalizedEvent.participants = participants.value;
+                changed = true;
+            }
+
+            const causedBy = normalizeStringArray(event.causedBy);
+            if (causedBy.changed) {
+                normalizedEvent = normalizedEvent === event ? { ...event } : normalizedEvent;
+                normalizedEvent.causedBy = causedBy.value;
+                changed = true;
+            }
+
+            events.push(normalizedEvent);
+        }
+
+        if (events.length !== next.events.length) {
+            changed = true;
+        }
+        if (changed) {
+            next.events = events;
+        }
+    }
+
+    if (!isPlainObject(next.characters)) {
+        next.characters = { main: [] };
+        changed = true;
+    } else if (!Array.isArray(next.characters.main)) {
+        next.characters.main = [];
+        changed = true;
+    } else {
+        const main = next.characters.main.filter(item => typeof item === 'string' || isPlainObject(item));
+        if (main.length !== next.characters.main.length) {
+            next.characters.main = main;
+            changed = true;
+        }
+    }
+
+    if (!Array.isArray(next.arcs)) {
+        next.arcs = [];
+        changed = true;
+    } else {
+        const arcs = [];
+        for (const arc of next.arcs) {
+            if (!isPlainObject(arc)) {
+                changed = true;
+                continue;
+            }
+
+            const moments = Array.isArray(arc.moments)
+                ? arc.moments.filter(item => typeof item === 'string' || isPlainObject(item))
+                : [];
+
+            if (!Array.isArray(arc.moments) || moments.length !== arc.moments.length) {
+                arcs.push({ ...arc, moments });
+                changed = true;
+                continue;
+            }
+
+            arcs.push(arc);
+        }
+
+        if (arcs.length !== next.arcs.length) {
+            changed = true;
+        }
+        if (changed) {
+            next.arcs = arcs;
+        }
+    }
+
+    const normalizedAliases = normalizeCharacterAliases(next.characterAliases);
+    if (next.characterAliases == null) {
+        // Keep the optional alias table absent until it is actually needed.
+    } else if (!Array.isArray(next.characterAliases)) {
+        next.characterAliases = normalizedAliases;
+        changed = true;
+    } else if (JSON.stringify(normalizedAliases) !== JSON.stringify(next.characterAliases)) {
+        next.characterAliases = normalizedAliases;
+        changed = true;
+    }
+
+    if (!Array.isArray(next.facts)) {
+        const hasOldData = next.world?.length || next.characters?.relationships?.length;
+        if (hasOldData) {
+            next.facts = migrateToFacts(next);
+            delete next.world;
+            delete next.characters.relationships;
+        } else {
+            next.facts = [];
+        }
+        changed = true;
+    } else {
+        const facts = next.facts.filter(isPlainObject);
+        if (facts.length !== next.facts.length) {
+            next.facts = facts;
+            changed = true;
+        }
+    }
+
+    return { value: next, changed };
+}
+
+function normalizeSummaryStore(store) {
+    if (!store || !isPlainObject(store)) {
+        return false;
+    }
+
+    let changed = false;
+
+    if (store.lastSummarizedMesId != null) {
+        const lastSummarizedMesId = Number(store.lastSummarizedMesId);
+        if (!Number.isFinite(lastSummarizedMesId)) {
+            if (store.lastSummarizedMesId !== -1) {
+                store.lastSummarizedMesId = -1;
+                changed = true;
+            }
+        } else {
+            const normalizedMesId = Math.trunc(lastSummarizedMesId);
+            if (store.lastSummarizedMesId !== normalizedMesId) {
+                store.lastSummarizedMesId = normalizedMesId;
+                changed = true;
+            }
+        }
+    }
+
+    const history = normalizeSummaryHistory(store.summaryHistory);
+    if (history.changed) {
+        store.summaryHistory = history.value;
+        changed = true;
+    }
+
+    const pendingImportBoundary = store.pendingImportBoundary;
+    if (pendingImportBoundary == null || pendingImportBoundary === false) {
+        if ('pendingImportBoundary' in store) {
+            delete store.pendingImportBoundary;
+            changed = true;
+        }
+    } else if (pendingImportBoundary !== true) {
+        store.pendingImportBoundary = true;
+        changed = true;
+    }
+
+    const json = normalizeSummaryJson(store.json);
+    if (json.changed) {
+        store.json = json.value;
+        changed = true;
+    }
+
+    const aliasMigrations = normalizeInternalAliasMigrations(store.aliasMigrations);
+    if (aliasMigrations.changed) {
+        if (aliasMigrations.value.length) {
+            store.aliasMigrations = aliasMigrations.value;
+        } else {
+            delete store.aliasMigrations;
+        }
+        changed = true;
+    }
+
+    return changed;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 基础存取
@@ -23,20 +310,10 @@ export function getSummaryStore() {
 
     const store = chat_metadata.extensions[EXT_ID].storySummary;
 
-    // ★ 自动迁移旧数据
-    if (store.json && !store.json.facts) {
-        const hasOldData = store.json.world?.length || store.json.characters?.relationships?.length;
-        if (hasOldData) {
-            store.json.facts = migrateToFacts(store.json);
-            // 删除旧字段
-            delete store.json.world;
-            if (store.json.characters) {
-                delete store.json.characters.relationships;
-            }
-            store.updatedAt = Date.now();
-            saveSummaryStore();
-            xbLog.info(MODULE_ID, `自动迁移完成: ${store.json.facts.length} 条 facts`);
-        }
+    if (normalizeSummaryStore(store)) {
+        store.updatedAt = Date.now();
+        saveSummaryStore();
+        xbLog.info(MODULE_ID, '已自动修正总结存储中的旧结构或异常字段');
     }
 
     return store;
@@ -65,6 +342,24 @@ export function calcHideRange(boundary, keepCountOverride = null) {
 export function addSummarySnapshot(store, endMesId) {
     store.summaryHistory ||= [];
     store.summaryHistory.push({ endMesId });
+}
+
+export function getRollbackOnceTargetEndMesId(store) {
+    const currentEndMesId = Number(store?.lastSummarizedMesId);
+    if (!Number.isFinite(currentEndMesId) || currentEndMesId < 0) {
+        return null;
+    }
+
+    const history = Array.isArray(store?.summaryHistory) ? store.summaryHistory : [];
+    for (let i = history.length - 1; i >= 0; i--) {
+        const candidate = Number(history[i]?.endMesId);
+        if (!Number.isFinite(candidate)) continue;
+        if (candidate < currentEndMesId) {
+            return Math.trunc(candidate);
+        }
+    }
+
+    return -1;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -250,12 +545,23 @@ export function migrateToFacts(json) {
     return facts;
 }
 
+function normalizeCharacterNameKey(name) {
+    return String(name || '').trim().toLowerCase();
+}
+
+function normalizeArcProgress(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 0;
+    return Math.max(0, Math.min(1, n));
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // 数据合并（L2 + L3）
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function mergeNewData(oldJson, parsed, endMesId) {
+export function mergeNewData(oldJson, parsed, endMesId, options = {}) {
     const merged = structuredClone(oldJson || {});
+    const incoming = canonicalizeIncrementalSummaryData(parsed || {}, merged.characterAliases || []);
 
     // L2 初始化
     merged.keywords ||= [];
@@ -268,41 +574,55 @@ export function mergeNewData(oldJson, parsed, endMesId) {
     merged.facts ||= [];
 
     // L2 数据合并
-    if (parsed.keywords?.length) {
-        merged.keywords = parsed.keywords.map(k => ({ ...k, _addedAt: endMesId }));
+    if (incoming.keywords?.length) {
+        merged.keywords = incoming.keywords.map(k => ({ ...k, _addedAt: endMesId }));
     }
 
-    (parsed.events || []).forEach(e => {
+    (incoming.events || []).forEach(e => {
         e._addedAt = endMesId;
         merged.events.push(e);
     });
 
     // newCharacters
     const existingMain = new Set(
-        (merged.characters.main || []).map(m => typeof m === 'string' ? m : m.name)
+        (merged.characters.main || [])
+            .map(m => normalizeCharacterNameKey(typeof m === 'string' ? m : m.name))
+            .filter(Boolean)
     );
-    (parsed.newCharacters || []).forEach(name => {
-        if (!existingMain.has(name)) {
+    (incoming.newCharacters || []).forEach(rawName => {
+        const name = String(typeof rawName === 'string' ? rawName : rawName?.name || '').trim();
+        const key = normalizeCharacterNameKey(name);
+        if (!key) return;
+        if (!existingMain.has(key)) {
             merged.characters.main.push({ name, _addedAt: endMesId });
+            existingMain.add(key);
         }
     });
 
     // arcUpdates
-    const arcMap = new Map((merged.arcs || []).map(a => [a.name, a]));
-    (parsed.arcUpdates || []).forEach(update => {
-        const existing = arcMap.get(update.name);
+    const arcMap = new Map(
+        (merged.arcs || [])
+            .map(a => [normalizeCharacterNameKey(a.name), a])
+            .filter(([key]) => key)
+    );
+    (incoming.arcUpdates || []).forEach(update => {
+        const name = String(update?.name || '').trim();
+        if (!name) return;
+        const key = normalizeCharacterNameKey(name);
+        const existing = arcMap.get(key);
+        const progress = normalizeArcProgress(update.progress);
         if (existing) {
             existing.trajectory = update.trajectory;
-            existing.progress = update.progress;
+            existing.progress = progress;
             if (update.newMoment) {
                 existing.moments = existing.moments || [];
                 existing.moments.push({ text: update.newMoment, _addedAt: endMesId });
             }
         } else {
-            arcMap.set(update.name, {
-                name: update.name,
+            arcMap.set(key, {
+                name,
                 trajectory: update.trajectory,
-                progress: update.progress,
+                progress,
                 moments: update.newMoment ? [{ text: update.newMoment, _addedAt: endMesId }] : [],
                 _addedAt: endMesId,
             });
@@ -311,9 +631,19 @@ export function mergeNewData(oldJson, parsed, endMesId) {
     merged.arcs = Array.from(arcMap.values());
 
     // L3 factUpdates 合并
-    merged.facts = mergeFacts(merged.facts, parsed.factUpdates || [], endMesId);
+    merged.facts = mergeFacts(merged.facts, incoming.factUpdates || [], endMesId);
 
-    return merged;
+    const aliasResult = applyCharacterAliasUpdates(merged, incoming.characterAliasUpdates || [], endMesId);
+
+    if (options?.returnMeta) {
+        return {
+            json: aliasResult.json,
+            aliasChanged: aliasResult.aliasChanged,
+            aliasMigration: aliasResult.migration,
+        };
+    }
+
+    return aliasResult.json;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -364,6 +694,8 @@ export async function executeRollback(chatId, store, targetEndMesId, currentLeng
         store.lastSummarizedMesId = -1;
         store.json = null;
         store.summaryHistory = [];
+        delete store.aliasMigrations;
+        delete store.pendingImportBoundary;
         store.hideSummarizedHistory = false;
 
         await clearEventVectors(chatId);
@@ -373,11 +705,13 @@ export async function executeRollback(chatId, store, targetEndMesId, currentLeng
             .filter(e => (e._addedAt ?? 0) > targetEndMesId)
             .map(e => e.id);
 
-        const json = store.json || {};
+        let json = store.json || {};
+        json = applyAliasMigrationsForRollback(json, store.aliasMigrations || [], targetEndMesId);
 
         // L2 回滚
         json.events = (json.events || []).filter(e => (e._addedAt ?? 0) <= targetEndMesId);
         json.keywords = (json.keywords || []).filter(k => (k._addedAt ?? 0) <= targetEndMesId);
+        json.characterAliases = (json.characterAliases || []).filter(a => (a._addedAt ?? 0) <= targetEndMesId);
         json.arcs = (json.arcs || []).filter(a => (a._addedAt ?? 0) <= targetEndMesId);
         json.arcs.forEach(a => {
             a.moments = (a.moments || []).filter(m =>
@@ -397,6 +731,9 @@ export async function executeRollback(chatId, store, targetEndMesId, currentLeng
         store.json = json;
         store.lastSummarizedMesId = targetEndMesId;
         store.summaryHistory = (store.summaryHistory || []).filter(h => h.endMesId <= targetEndMesId);
+        store.aliasMigrations = (store.aliasMigrations || []).filter(m => (m._addedAt ?? 0) <= targetEndMesId);
+        if (!store.aliasMigrations.length) delete store.aliasMigrations;
+        delete store.pendingImportBoundary;
 
         if (deletedEventIds.length > 0) {
             await deleteEventVectorsByIds(chatId, deletedEventIds);
@@ -410,11 +747,34 @@ export async function executeRollback(chatId, store, targetEndMesId, currentLeng
     xbLog.info(MODULE_ID, `回滚完成，目标楼层: ${targetEndMesId}`);
 }
 
+export async function rollbackSummaryOnce(chatId) {
+    const store = getSummaryStore();
+    if (!store) {
+        return { success: false, reason: 'store_unavailable', targetEndMesId: null, clearedAll: false };
+    }
+
+    const targetEndMesId = getRollbackOnceTargetEndMesId(store);
+    if (targetEndMesId == null) {
+        return { success: false, reason: 'rollback_unavailable', targetEndMesId: null, clearedAll: false };
+    }
+
+    await executeRollback(chatId, store, targetEndMesId);
+    return {
+        success: true,
+        targetEndMesId,
+        clearedAll: targetEndMesId < 0,
+    };
+}
+
 export async function clearSummaryData(chatId) {
     const store = getSummaryStore();
     if (store) {
         delete store.json;
         store.lastSummarizedMesId = -1;
+        store.summaryHistory = [];
+        delete store.aliasMigrations;
+        delete store.pendingImportBoundary;
+        store.hideSummarizedHistory = false;
         store.updatedAt = Date.now();
         saveSummaryStore();
     }

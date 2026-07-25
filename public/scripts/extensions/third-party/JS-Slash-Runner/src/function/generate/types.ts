@@ -10,6 +10,64 @@ export const extension_prompt_roles = {
 } as const;
 
 /**
+ * Tool function 定义
+ */
+export type ToolFunction = {
+  name: string;
+  description?: string;
+  parameters?: Record<string, any>;
+};
+
+/**
+ * Tool 定义（OpenAI 格式）
+ */
+export type ToolDefinition = {
+  type: 'function';
+  function: ToolFunction;
+};
+
+/**
+ * Tool choice 选项
+ */
+export type ToolChoice = 'auto' | 'required' | 'none' | 'any' | { type: 'function'; function: { name: string } };
+
+/**
+ * JSON Schema 定义，用于强制模型输出符合指定 schema 的 JSON
+ */
+export type JsonSchema = {
+  name: string;
+  description?: string;
+  value: Record<string, any>;
+  strict?: boolean;
+};
+
+/**
+ * 当模型返回 tool_calls 时的结构化结果
+ */
+export type GenerateToolCallResult = {
+  content: string;
+  tool_calls: {
+    id: string;
+    type: 'function';
+    function: {
+      name: string;
+      arguments: string;
+    };
+    /**
+     * 加密的 reasoning/thought 签名（若 provider 返回）。
+     * 多轮 tool call 时需要原样回传给下一轮请求以维持推理上下文。
+     * 目前主要由 Google Gemini 和 OpenRouter 提供。
+     */
+    thought_signature?: string;
+  }[];
+  /**
+   * 顶层 reasoning 签名（非绑定到具体 tool_call 的那一份）。
+   * 同样用于多轮场景下把 thinking 上下文回传给下一轮请求。
+   */
+  reasoning_signature?: string;
+};
+
+/**
  * 自定义API配置接口
  */
 export type CustomApiConfig = {
@@ -24,12 +82,16 @@ export type CustomApiConfig = {
   presence_penalty?: 'same_as_preset' | 'unset' | number;
   top_p?: 'same_as_preset' | 'unset' | number;
   top_k?: 'same_as_preset' | 'unset' | number;
+  custom_include_body?: Record<string, any>;
+  custom_exclude_body?: string[];
+  custom_include_headers?: Record<string, any>;
 };
 
 /**
  * 生成配置接口（使用预设）
  */
 export type GenerateConfig = {
+  preset_name?: 'in_use' | string;
   generation_id?: string;
   user_input?: string;
   image?: File | string | (File | string)[];
@@ -39,6 +101,9 @@ export type GenerateConfig = {
   injects?: Omit<InjectionPrompt, 'id'>[];
   max_chat_history?: 'all' | number;
   custom_api?: CustomApiConfig;
+  tools?: ToolDefinition[];
+  tool_choice?: ToolChoice;
+  json_schema?: JsonSchema;
 };
 
 /**
@@ -52,9 +117,12 @@ export type GenerateRawConfig = {
   should_silence?: boolean;
   overrides?: Overrides;
   injects?: Omit<InjectionPrompt, 'id'>[];
-  ordered_prompts?: (BuiltinPrompt | RolePrompt)[];
+  ordered_prompts?: (PlaceholderPrompt | RolePrompt)[];
   max_chat_history?: 'all' | number;
   custom_api?: CustomApiConfig;
+  tools?: ToolDefinition[];
+  tool_choice?: ToolChoice;
+  json_schema?: JsonSchema;
 };
 
 /**
@@ -87,7 +155,7 @@ export type Overrides = {
 /**
  * 内置提示词类型
  */
-export type BuiltinPrompt =
+export type PlaceholderPrompt =
   | 'world_info_before'
   | 'persona_description'
   | 'char_description'
@@ -101,7 +169,7 @@ export type BuiltinPrompt =
 /**
  * 默认内置提示词顺序
  */
-export const builtin_prompt_default_order: BuiltinPrompt[] = [
+export const placeholder_prompt_default_order: PlaceholderPrompt[] = [
   'world_info_before',
   'persona_description',
   'char_description',
@@ -189,6 +257,9 @@ export namespace detail {
     inject?: Omit<InjectionPrompt, 'id'>[];
     order?: Array<BuiltinPromptEntry | CustomPrompt>;
     custom_api?: CustomApiConfig;
+    tools?: ToolDefinition[];
+    tool_choice?: ToolChoice;
+    json_schema?: JsonSchema;
   };
 }
 

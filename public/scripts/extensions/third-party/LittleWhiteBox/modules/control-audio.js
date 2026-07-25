@@ -1,6 +1,5 @@
 "use strict";
 
-import { extension_settings } from "../../../../extensions.js";
 import { eventSource, event_types } from "../../../../../script.js";
 import { SlashCommandParser } from "../../../../slash-commands/SlashCommandParser.js";
 import { SlashCommand } from "../../../../slash-commands/SlashCommand.js";
@@ -218,30 +217,9 @@ function enableFeature() {
     registerSlash();
 }
 
-function disableFeature() {
-    try { AudioHost.reset(); } catch { }
-    unregisterSlash();
-}
-
 export function initControlAudio() {
     try {
-        try {
-            const enabled = !!(extension_settings?.LittleWhiteBox?.audio?.enabled ?? true);
-            if (enabled) enableFeature(); else disableFeature();
-        } catch { enableFeature(); }
-
-        const bind = () => {
-            const cb = document.getElementById('xiaobaix_audio_enabled');
-            if (!cb) { setTimeout(bind, 200); return; }
-            const applyState = () => {
-                const input = /** @type {HTMLInputElement} */(cb);
-                const enabled = !!(input && input.checked);
-                if (enabled) enableFeature(); else disableFeature();
-            };
-            cb.addEventListener('change', applyState);
-            applyState();
-        };
-        bind();
+        enableFeature();
 
         // 监听扩展全局开关，关闭时强制停止并清理两个实例
         try {
@@ -253,9 +231,7 @@ export function initControlAudio() {
                             try { AudioHost.reset(); } catch { }
                             unregisterSlash();
                         } else {
-                            // 重新根据子开关状态应用
-                            const audioEnabled = !!(extension_settings?.LittleWhiteBox?.audio?.enabled ?? true);
-                            if (audioEnabled) enableFeature(); else disableFeature();
+                            enableFeature();
                         }
                     } catch { }
                 };

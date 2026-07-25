@@ -5,7 +5,6 @@
 // ============================================================================
 
 import { getContext } from '../../../../../../../extensions.js';
-import { saveMetadataDebounced } from '../../../../../../../extensions.js';
 import { xbLog } from '../../../../core/debug-core.js';
 import {
     saveStateAtoms,
@@ -19,9 +18,12 @@ import {
     setL0FloorStatus,
     clearL0Index,
     deleteL0IndexFromFloor,
+    beginL0MetadataBatch,
+    endL0MetadataBatch,
+    flushL0MetadataSave,
 } from '../storage/state-store.js';
 import { embed } from '../llm/siliconflow.js';
-import { extractAtomsForRound, cancelBatchExtraction } from '../llm/atom-extraction.js';
+import { extractAtomsForRound, cancelBatchExtraction, resetBatchExtractionCancel } from '../llm/atom-extraction.js';
 import { getVectorConfig } from '../../data/config.js';
 import { getEngineFingerprint } from '../utils/embedder.js';
 import { filterText } from '../utils/text-filter.js';
@@ -29,7 +31,7 @@ import { filterText } from '../utils/text-filter.js';
 const MODULE_ID = 'state-integration';
 
 // ★ 并发配置
-const CONCURRENCY = 50;
+const DEFAULT_CONCURRENCY = 10;
 const STAGGER_DELAY = 15;
 const DEBUG_CONCURRENCY = true;
 const R_AGG_MAX_CHARS = 256;
@@ -126,25 +128,37 @@ function buildRAggregateText(atom) {
 }
 
 export async function incrementalExtractAtoms(chatId, chat, onProgress, options = {}) {
-    const { maxFloors = Infinity } = options;
-    if (!chatId || !chat?.length) return { built: 0 };
+    beginL0MetadataBatch('incrementalExtractAtoms');
+    try {
+        return await incrementalExtractAtomsInner(chatId, chat, onProgress, options);
+    } finally {
+        endL0MetadataBatch('incrementalExtractAtoms');
+    }
+}
+
+async function incrementalExtractAtomsInner(chatId, chat, onProgress, options = {}) {
+    const { maxFloors = Infinity, preferredFloors = [] } = options;
+    if (!chatId || !chat?.length) return { built: 0, cancelled: false };
 
     const vectorCfg = getVectorConfig();
-    if (!vectorCfg?.enabled) return { built: 0 };
+    if (!vectorCfg?.enabled) return { built: 0, cancelled: false };
 
-    // ★ 重置取消标志
+    // New runs must clear the previous manual-cancel latch, otherwise
+    // later floors get misread as empty results.
     extractionCancelled = false;
+    resetBatchExtractionCancel();
 
     const pendingPairs = [];
+    const queuedFloors = new Set();
 
-    for (let i = 0; i < chat.length; i++) {
+    const tryQueueFloor = (i) => {
         const msg = chat[i];
-        if (!msg || msg.is_user) continue;
+        if (!msg || msg.is_user || queuedFloors.has(i)) return;
 
         const st = getL0FloorStatus(i);
         // ★ 只跳过 ok 和 empty，fail 的可以重试
         if (st?.status === 'ok' || st?.status === 'empty') {
-            continue;
+            return;
         }
 
         const userMsg = (i > 0 && chat[i - 1]?.is_user) ? chat[i - 1] : null;
@@ -152,10 +166,21 @@ export async function incrementalExtractAtoms(chatId, chat, onProgress, options 
 
         if (!inputText) {
             setL0FloorStatus(i, { status: 'empty', reason: 'filtered_empty', atoms: 0 });
-            continue;
+            return;
         }
 
         pendingPairs.push({ userMsg, aiMsg: msg, aiFloor: i });
+        queuedFloors.add(i);
+    };
+
+    for (const rawFloor of preferredFloors) {
+        const floor = Number(rawFloor);
+        if (!Number.isFinite(floor) || floor < 0 || floor >= chat.length) continue;
+        tryQueueFloor(floor);
+    }
+
+    for (let i = 0; i < chat.length; i++) {
+        tryQueueFloor(i);
     }
 
     // 限制单次提取楼层数（自动触发时使用）
@@ -165,10 +190,12 @@ export async function incrementalExtractAtoms(chatId, chat, onProgress, options 
 
     if (!pendingPairs.length) {
         onProgress?.('已全部提取', 0, 0);
-        return { built: 0 };
+        return { built: 0, cancelled: false };
     }
 
-    xbLog.info(MODULE_ID, `增量 L0 提取：pending=${pendingPairs.length}, concurrency=${CONCURRENCY}`);
+    const concurrency = Math.max(1, Math.min(50, Number(vectorCfg?.l0Concurrency) || DEFAULT_CONCURRENCY));
+
+    xbLog.info(MODULE_ID, `增量 L0 提取：pending=${pendingPairs.length}, concurrency=${concurrency}`);
 
     let completed = 0;
     let failed = 0;
@@ -180,14 +207,6 @@ export async function incrementalExtractAtoms(chatId, chat, onProgress, options 
 
     // ★ Phase 1: 收集所有新提取的 atoms（不向量化）
     const allNewAtoms = [];
-
-    // ★ 限流检测：连续失败 N 次后暂停并降速
-    let consecutiveFailures = 0;
-    let rateLimited = false;
-    const RATE_LIMIT_THRESHOLD = 3;       // 连续失败多少次触发限流保护
-    const RATE_LIMIT_WAIT_MS = 60000;      // 限流后等待时间（60 秒）
-    const RETRY_INTERVAL_MS = 1000;        // 降速模式下每次请求间隔（1 秒）
-    const RETRY_CONCURRENCY = 1;           // ★ 降速模式下的并发数（默认1，建议不要超过5）
 
     // ★ 通用处理单个 pair 的逻辑（复用于正常模式和降速模式）
     const processPair = async (pair, idx, workerId) => {
@@ -201,16 +220,13 @@ export async function incrementalExtractAtoms(chatId, chat, onProgress, options 
         }
 
         try {
-            const atoms = await extractAtomsForRound(pair.userMsg, pair.aiMsg, floor, { timeout: 20000 });
+            const atoms = await extractAtomsForRound(pair.userMsg, pair.aiMsg, floor, { timeout: 60000 });
 
             if (extractionCancelled) return;
 
             if (atoms == null) {
                 throw new Error('llm_failed');
             }
-
-            // ★ 成功：重置连续失败计数
-            consecutiveFailures = 0;
 
             if (!atoms.length) {
                 setL0FloorStatus(floor, { status: 'empty', reason: 'llm_empty', atoms: 0 });
@@ -231,13 +247,6 @@ export async function incrementalExtractAtoms(chatId, chat, onProgress, options 
                 reason: String(e?.message || e).replace(/\s+/g, ' ').slice(0, 120),
             });
             failed++;
-
-            // ★ 限流检测：连续失败累加
-            consecutiveFailures++;
-            if (consecutiveFailures >= RATE_LIMIT_THRESHOLD && !rateLimited) {
-                rateLimited = true;
-                xbLog.warn(MODULE_ID, `连续失败 ${consecutiveFailures} 次，疑似触发 API 限流，将暂停所有并发`);
-            }
         } finally {
             active--;
             if (!extractionCancelled) {
@@ -252,12 +261,12 @@ export async function incrementalExtractAtoms(chatId, chat, onProgress, options 
     };
 
     // ★ 并发池处理（保持固定并发度）
-    const poolSize = Math.min(CONCURRENCY, pendingPairs.length);
+    const poolSize = Math.min(concurrency, pendingPairs.length);
     let nextIndex = 0;
     let started = 0;
     const runWorker = async (workerId) => {
         while (true) {
-            if (extractionCancelled || rateLimited) return;
+            if (extractionCancelled) return;
             const idx = nextIndex++;
             if (idx >= pendingPairs.length) return;
 
@@ -267,7 +276,7 @@ export async function incrementalExtractAtoms(chatId, chat, onProgress, options 
                 await new Promise(r => setTimeout(r, stagger * STAGGER_DELAY));
             }
 
-            if (extractionCancelled || rateLimited) return;
+            if (extractionCancelled) return;
 
             await processPair(pair, idx, workerId);
         }
@@ -279,65 +288,6 @@ export async function incrementalExtractAtoms(chatId, chat, onProgress, options 
         xbLog.info(MODULE_ID, `L0 pool done completed=${completed}/${total} failed=${failed} peakActive=${peakActive} elapsedMs=${elapsed}`);
     }
 
-    // ═════════════════════════════════════════════════════════════════════
-    // ★ 限流恢复：重置进度，从头开始以限速模式慢慢跑
-    // ═════════════════════════════════════════════════════════════════════
-    if (rateLimited && !extractionCancelled) {
-        const waitSec = RATE_LIMIT_WAIT_MS / 1000;
-        xbLog.info(MODULE_ID, `限流保护：将重置进度并从头开始降速重来（并发=${RETRY_CONCURRENCY}, 间隔=${RETRY_INTERVAL_MS}ms）`);
-        onProgress?.(`疑似限流，${waitSec}s 后降速重头开始...`, completed, total);
-
-        await new Promise(r => setTimeout(r, RATE_LIMIT_WAIT_MS));
-
-        if (!extractionCancelled) {
-            // ★ 核心逻辑：重置计数器，让 UI 从 0 开始跑，给用户“重头开始”的反馈
-            rateLimited = false;
-            consecutiveFailures = 0;
-            completed = 0;
-            failed = 0;
-
-            let retryNextIdx = 0;
-
-            xbLog.info(MODULE_ID, `限流恢复：开始降速模式扫描 ${pendingPairs.length} 个楼层`);
-
-            const retryWorkers = Math.min(RETRY_CONCURRENCY, pendingPairs.length);
-            const runRetryWorker = async (wid) => {
-                while (true) {
-                    if (extractionCancelled) return;
-                    const idx = retryNextIdx++;
-                    if (idx >= pendingPairs.length) return;
-
-                    const pair = pendingPairs[idx];
-                    const floor = pair.aiFloor;
-
-                    // ★ 检查该楼层状态
-                    const st = getL0FloorStatus(floor);
-                    if (st?.status === 'ok' || st?.status === 'empty') {
-                        // 刚才已经成功了，直接跳过（仅增加进度计数）
-                        completed++;
-                        onProgress?.(`提取: ${completed}/${total} (跳过已完成)`, completed, total);
-                        continue;
-                    }
-
-                    // ★ 没做过的，用 slow 模式处理
-                    await processPair(pair, idx, `retry-${wid}`);
-
-                    // 每个请求后休息，避免再次触发限流
-                    if (idx < pendingPairs.length - 1 && RETRY_INTERVAL_MS > 0) {
-                        await new Promise(r => setTimeout(r, RETRY_INTERVAL_MS));
-                    }
-                }
-            };
-
-            await Promise.all(Array.from({ length: retryWorkers }, (_, i) => runRetryWorker(i)));
-            xbLog.info(MODULE_ID, `降速重头开始阶段结束`);
-        }
-    }
-
-    try {
-        saveMetadataDebounced?.();
-    } catch { }
-
     // ★ Phase 2: 统一向量化所有新提取的 atoms
     if (allNewAtoms.length > 0 && !extractionCancelled) {
         onProgress?.(`向量化 L0: 0/${allNewAtoms.length}`, 0, allNewAtoms.length);
@@ -347,7 +297,7 @@ export async function incrementalExtractAtoms(chatId, chat, onProgress, options 
     }
 
     xbLog.info(MODULE_ID, `L0 ${extractionCancelled ? '已取消' : '完成'}：atoms=${builtAtoms}, completed=${completed}/${total}, failed=${failed}`);
-    return { built: builtAtoms };
+    return { built: builtAtoms, cancelled: extractionCancelled };
 }
 
 // ============================================================================
@@ -408,107 +358,29 @@ async function vectorizeAtoms(chatId, atoms, onProgress) {
     }
 }
 
+async function vectorizeAtomsSimple(chatId, atoms) {
+    await vectorizeAtoms(chatId, atoms);
+}
+
 // ============================================================================
 // 清空
 // ============================================================================
 
 export async function clearAllAtomsAndVectors(chatId) {
-    clearStateAtoms();
-    clearL0Index();
-    if (chatId) {
-        await clearStateVectors(chatId);
+    beginL0MetadataBatch('clearAllAtomsAndVectors');
+    try {
+        clearStateAtoms();
+        clearL0Index();
+        if (chatId) {
+            await clearStateVectors(chatId);
+        }
+    } finally {
+        endL0MetadataBatch('clearAllAtomsAndVectors');
     }
 
-    // ★ 立即保存
-    try {
-        saveMetadataDebounced?.();
-    } catch { }
+    flushL0MetadataSave('clearAllAtomsAndVectors');
 
     xbLog.info(MODULE_ID, '已清空所有记忆锚点');
-}
-
-// ============================================================================
-// 实时增量（AI 消息后触发）- 保持不变
-// ============================================================================
-
-let extractionQueue = [];
-let isProcessing = false;
-
-export async function extractAndStoreAtomsForRound(aiFloor, aiMessage, userMessage, onComplete) {
-    const { chatId } = getContext();
-    if (!chatId) return;
-
-    const vectorCfg = getVectorConfig();
-    if (!vectorCfg?.enabled) return;
-
-    extractionQueue.push({ aiFloor, aiMessage, userMessage, chatId, onComplete });
-    processQueue();
-}
-
-async function processQueue() {
-    if (isProcessing || extractionQueue.length === 0) return;
-    isProcessing = true;
-
-    while (extractionQueue.length > 0) {
-        const { aiFloor, aiMessage, userMessage, chatId, onComplete } = extractionQueue.shift();
-
-        try {
-            const atoms = await extractAtomsForRound(userMessage, aiMessage, aiFloor, { timeout: 12000 });
-
-            if (!atoms?.length) {
-                xbLog.info(MODULE_ID, `floor ${aiFloor}: 无有效 atoms`);
-                onComplete?.({ floor: aiFloor, atomCount: 0 });
-                continue;
-            }
-
-            atoms.forEach(a => a.chatId = chatId);
-            saveStateAtoms(atoms);
-
-            // 单楼实时处理：立即向量化
-            await vectorizeAtomsSimple(chatId, atoms);
-
-            xbLog.info(MODULE_ID, `floor ${aiFloor}: ${atoms.length} atoms 已存储`);
-            onComplete?.({ floor: aiFloor, atomCount: atoms.length });
-        } catch (e) {
-            xbLog.error(MODULE_ID, `floor ${aiFloor} 处理失败`, e);
-            onComplete?.({ floor: aiFloor, atomCount: 0, error: e });
-        }
-    }
-
-    isProcessing = false;
-}
-
-// 简单向量化（无进度回调，用于单楼实时处理）
-async function vectorizeAtomsSimple(chatId, atoms) {
-    if (!atoms?.length) return;
-
-    const vectorCfg = getVectorConfig();
-    if (!vectorCfg?.enabled) return;
-
-    const semanticTexts = atoms.map(a => a.semantic);
-    const rTexts = atoms.map(a => buildRAggregateText(a));
-    const fingerprint = getEngineFingerprint(vectorCfg);
-
-    try {
-        const vectors = await embed(semanticTexts.concat(rTexts), { timeout: 30000 });
-        const split = semanticTexts.length;
-        if (!Array.isArray(vectors) || vectors.length < split * 2) {
-            throw new Error(`embed length mismatch: expect>=${split * 2}, got=${vectors?.length || 0}`);
-        }
-        const semVectors = vectors.slice(0, split);
-        const rVectors = vectors.slice(split, split + split);
-
-        const items = atoms.map((a, i) => ({
-            atomId: a.atomId,
-            floor: a.floor,
-            vector: semVectors[i],
-            rVector: rVectors[i] || semVectors[i],
-        }));
-
-        await saveStateVectors(chatId, items, fingerprint);
-    } catch (e) {
-        xbLog.error(MODULE_ID, 'L0 向量化失败', e);
-    }
 }
 
 // ============================================================================
@@ -520,11 +392,16 @@ async function handleStateRollback(floor) {
 
     const { chatId } = getContext();
 
-    deleteStateAtomsFromFloor(floor);
-    deleteL0IndexFromFloor(floor);
+    beginL0MetadataBatch('stateRollback');
+    try {
+        deleteStateAtomsFromFloor(floor);
+        deleteL0IndexFromFloor(floor);
 
-    if (chatId) {
-        await deleteStateVectorsFromFloor(chatId, floor);
+        if (chatId) {
+            await deleteStateVectorsFromFloor(chatId, floor);
+        }
+    } finally {
+        endL0MetadataBatch('stateRollback');
     }
 }
 
@@ -540,11 +417,16 @@ export async function batchExtractAndStoreAtoms(chatId, chat, onProgress) {
 
     xbLog.info(MODULE_ID, `开始批量 L0 提取: ${chat.length} 条消息`);
 
-    clearStateAtoms();
-    clearL0Index();
-    await clearStateVectors(chatId);
+    beginL0MetadataBatch('batchExtractAndStoreAtoms');
+    try {
+        clearStateAtoms();
+        clearL0Index();
+        await clearStateVectors(chatId);
 
-    return await incrementalExtractAtoms(chatId, chat, onProgress);
+        return await incrementalExtractAtoms(chatId, chat, onProgress);
+    } finally {
+        endL0MetadataBatch('batchExtractAndStoreAtoms');
+    }
 }
 
 export async function rebuildStateVectors(chatId, vectorCfg) {

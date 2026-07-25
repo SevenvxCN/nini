@@ -14,6 +14,8 @@
 @import url('./styles/collapse.css');
 @import url('./styles/vibeGroupEditor.css');
 @import url('./styles/charRefGroupEditor.css');
+@import url('./styles/knowledgeBase.css');
+@import url('./styles/help-tip.css');
 
 /* Sub-navigation styles */
 .st-chatu8-sub-nav {
@@ -50,4 +52,26 @@
 
 .st-chatu8-sub-tab-content[style*="display: block"] {
     display: block;
+}
+
+/* User 人设生成 - 类型选择器样式 */
+.ch-persona-gen-type-selector {
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ch-persona-gen-type-selector label {
+    font-weight: 500;
+    color: var(--st-chatu8-text-primary);
+}
+
+/* 统一控制 token 占用的样式 */
+.st-chatu8-token-display {
+    font-size: 0.85em;
+    color: inherit;
+    margin-top: 4px;
+    opacity: 0.8;
+    font-weight: 600;
 }

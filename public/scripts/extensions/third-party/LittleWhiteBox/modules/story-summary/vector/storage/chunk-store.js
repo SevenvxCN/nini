@@ -9,6 +9,10 @@ import {
     eventVectorsTable,
     CHUNK_MAX_TOKENS,
 } from '../../data/db.js';
+import {
+    applyRecallRuntimeMutationBestEffort,
+    clearRecallRuntime,
+} from '../runtime/runtime.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 工具函数
@@ -57,6 +61,10 @@ export async function updateMeta(chatId, updates) {
         ...updates,
         updatedAt: Date.now(),
     });
+    applyRecallRuntimeMutationBestEffort(chatId, {
+        type: 'meta',
+        meta: updates,
+    });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -76,6 +84,10 @@ export async function saveChunks(chatId, chunks) {
         createdAt: Date.now(),
     }));
     await chunksTable.bulkPut(records);
+    applyRecallRuntimeMutationBestEffort(chatId, {
+        type: 'upsertChunks',
+        chunks: records,
+    });
 }
 
 export async function getAllChunks(chatId) {
@@ -111,6 +123,10 @@ export async function deleteChunksFromFloor(chatId, fromFloor) {
     for (const chunkId of chunkIds) {
         await chunkVectorsTable.delete([chatId, chunkId]);
     }
+    applyRecallRuntimeMutationBestEffort(chatId, {
+        type: 'deleteChunksFromFloor',
+        floor: fromFloor,
+    });
 }
 
 /**
@@ -129,11 +145,16 @@ export async function deleteChunksAtFloor(chatId, floor) {
     for (const chunkId of chunkIds) {
         await chunkVectorsTable.delete([chatId, chunkId]);
     }
+    applyRecallRuntimeMutationBestEffort(chatId, {
+        type: 'deleteChunksAtFloor',
+        floor,
+    });
 }
 
 export async function clearAllChunks(chatId) {
     await chunksTable.where('chatId').equals(chatId).delete();
     await chunkVectorsTable.where('chatId').equals(chatId).delete();
+    await clearRecallRuntime(chatId, 'chunks');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -149,6 +170,10 @@ export async function saveChunkVectors(chatId, items, fingerprint) {
         fingerprint,
     }));
     await chunkVectorsTable.bulkPut(records);
+    applyRecallRuntimeMutationBestEffort(chatId, {
+        type: 'upsertChunkVectors',
+        items: records,
+    });
 }
 
 export async function getAllChunkVectors(chatId) {
@@ -159,14 +184,22 @@ export async function getAllChunkVectors(chatId) {
     }));
 }
 
-export async function getChunkVectorsByIds(chatId, chunkIds) {
+export async function getChunkVectorsByIds(chatId, chunkIds, options = {}) {
     if (!chatId || !chunkIds?.length) return [];
-    
+    const { decode = true } = options;
+
     const records = await chunkVectorsTable
         .where('[chatId+chunkId]')
         .anyOf(chunkIds.map(id => [chatId, id]))
         .toArray();
-    
+
+    if (!decode) {
+        return records.map(r => ({
+            chunkId: r.chunkId,
+            vector: r.vector,
+        }));
+    }
+
     return records.map(r => ({
         chunkId: r.chunkId,
         vector: bufferToFloat32(r.vector),
@@ -186,6 +219,10 @@ export async function saveEventVectors(chatId, items, fingerprint) {
         fingerprint,
     }));
     await eventVectorsTable.bulkPut(records);
+    applyRecallRuntimeMutationBestEffort(chatId, {
+        type: 'upsertEventVectors',
+        items: records,
+    });
 }
 
 export async function getAllEventVectors(chatId) {
@@ -198,6 +235,7 @@ export async function getAllEventVectors(chatId) {
 
 export async function clearEventVectors(chatId) {
     await eventVectorsTable.where('chatId').equals(chatId).delete();
+    await clearRecallRuntime(chatId, 'events');
 }
 
 /**
@@ -207,6 +245,10 @@ export async function deleteEventVectorsByIds(chatId, eventIds) {
     for (const eventId of eventIds) {
         await eventVectorsTable.delete([chatId, eventId]);
     }
+    applyRecallRuntimeMutationBestEffort(chatId, {
+        type: 'deleteEventVectorsByIds',
+        eventIds,
+    });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -237,6 +279,7 @@ export async function clearChatData(chatId) {
         chunkVectorsTable.where('chatId').equals(chatId).delete(),
         eventVectorsTable.where('chatId').equals(chatId).delete(),
     ]);
+    await clearRecallRuntime(chatId);
 }
 
 export async function ensureFingerprintMatch(chatId, newFingerprint) {
@@ -250,6 +293,7 @@ export async function ensureFingerprintMatch(chatId, newFingerprint) {
             fingerprint: newFingerprint,
             lastChunkFloor: -1,
         });
+        await clearRecallRuntime(chatId);
         return false;
     }
     if (!meta.fingerprint) {
