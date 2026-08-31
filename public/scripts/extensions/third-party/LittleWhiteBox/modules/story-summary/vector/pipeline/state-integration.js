@@ -1,7 +1,6 @@
 // ============================================================================
 // state-integration.js - L0 状态层集成
-// Phase 1: 批量 LLM 提取（只存文本）
-// Phase 2: 统一向量化（提取完成后）
+// StateAtoms 是 LLM 提取的事实数据；StateVectors 是可独立重建的派生数据。
 // ============================================================================
 
 import { getContext } from '../../../../../../../extensions.js';
@@ -9,9 +8,10 @@ import { xbLog } from '../../../../core/debug-core.js';
 import {
     saveStateAtoms,
     saveStateVectors,
+    getStateAtoms,
+    getStateVectorDescriptors,
     deleteStateAtomsFromFloor,
     deleteStateVectorsFromFloor,
-    getStateAtoms,
     clearStateAtoms,
     clearStateVectors,
     getL0FloorStatus,
@@ -23,10 +23,20 @@ import {
     flushL0MetadataSave,
 } from '../storage/state-store.js';
 import { embed } from '../llm/siliconflow.js';
-import { extractAtomsForRound, cancelBatchExtraction, resetBatchExtractionCancel } from '../llm/atom-extraction.js';
+import { extractAtomsForRound } from '../llm/atom-extraction.js';
+import { getL0FailureDetails } from '../llm/l0-retry-policy.js';
+import {
+    createInvalidEmbeddingResponseError,
+    getEmbeddingFailureDetails,
+} from '../llm/embedding-failure.js';
 import { getVectorConfig } from '../../data/config.js';
 import { getEngineFingerprint } from '../utils/embedder.js';
 import { filterText } from '../utils/text-filter.js';
+import { getMeta } from '../storage/chunk-store.js';
+import {
+    canRepairStateVectors,
+    selectMissingStateVectorAtoms,
+} from './state-vector-policy.js';
 
 const MODULE_ID = 'state-integration';
 
@@ -35,14 +45,10 @@ const DEFAULT_CONCURRENCY = 10;
 const STAGGER_DELAY = 15;
 const DEBUG_CONCURRENCY = true;
 const R_AGG_MAX_CHARS = 256;
+// 单个楼层跨会话的累计失败上限。达到后视为终态，不再入队重试。
+const L0_FLOOR_MAX_ATTEMPTS = 3;
 
 let initialized = false;
-let extractionCancelled = false;
-
-export function cancelL0Extraction() {
-    extractionCancelled = true;
-    cancelBatchExtraction();
-}
 
 // ============================================================================
 // 初始化
@@ -62,7 +68,7 @@ export function initStateIntegration() {
 export async function getAnchorStats() {
     const { chat } = getContext();
     if (!chat?.length) {
-        return { extracted: 0, total: 0, pending: 0, empty: 0, fail: 0 };
+        return { extracted: 0, total: 0, pending: 0, incomplete: 0, empty: 0, fail: 0, terminalFail: 0 };
     }
 
     // 统计 AI 楼层
@@ -74,30 +80,38 @@ export async function getAnchorStats() {
     let ok = 0;
     let empty = 0;
     let fail = 0;
+    let retriableFail = 0;
 
     for (const f of aiFloors) {
         const s = getL0FloorStatus(f);
         if (!s) continue;
         if (s.status === 'ok') ok++;
         else if (s.status === 'empty') empty++;
-        else if (s.status === 'fail') fail++;
+        else if (s.status === 'fail') {
+            fail++;
+            if ((s.attempts || 0) < L0_FLOOR_MAX_ATTEMPTS) retriableFail++;
+        }
     }
 
     const total = aiFloors.length;
-    const processed = ok + empty + fail;
-    const pending = Math.max(0, total - processed);
+    // 未处理楼层 + 还会被重试的 fail = 真实待办。fail 必须算进来，否则上层会误以为
+    // L0 已经做完；但已达尝试上限的 fail 是终态、不再入队，算进去会让统计永远停在"没做完"。
+    const pending = Math.max(0, total - ok - empty - (fail - retriableFail));
+    const incomplete = Math.max(0, total - ok - empty);
 
     return {
         extracted: ok + empty,
         total,
         pending,
+        incomplete,
         empty,
-        fail
+        fail,
+        terminalFail: fail - retriableFail,
     };
 }
 
 // ============================================================================
-// 增量提取 - Phase 1 提取文本，Phase 2 统一向量化
+// 增量提取：只负责 LLM 与 StateAtoms，不以 StateVector 成败决定锚点结果。
 // ============================================================================
 
 function buildL0InputText(userMessage, aiMessage) {
@@ -137,16 +151,36 @@ export async function incrementalExtractAtoms(chatId, chat, onProgress, options 
 }
 
 async function incrementalExtractAtomsInner(chatId, chat, onProgress, options = {}) {
-    const { maxFloors = Infinity, preferredFloors = [] } = options;
-    if (!chatId || !chat?.length) return { built: 0, cancelled: false };
+    const {
+        maxFloors = Infinity,
+        // 用户显式触发时忽略楼层失败上限：后台会放弃的终态楼层，手动操作必须能重试，
+        // 否则一次网络故障就能让整个聊天的 L0 永久瘫痪且无恢复入口。
+        retryFailedFloors = false,
+        preferredFloors = [],
+        signal = null,
+        shouldCancel = null,
+    } = options;
+    const isCancelled = () => (
+        signal?.aborted
+        || shouldCancel?.() === true
+    );
+    if (!chatId || !chat?.length) {
+        return { built: 0, failed: 0, llmFailed: 0, vectorFailed: 0, cancelled: false };
+    }
+    const isTargetChatActive = () => getContext()?.chatId === chatId;
+    let targetStale = !isTargetChatActive();
+    if (targetStale) {
+        return { built: 0, failed: 0, llmFailed: 0, vectorFailed: 0, cancelled: true, stale: true };
+    }
 
     const vectorCfg = getVectorConfig();
-    if (!vectorCfg?.enabled) return { built: 0, cancelled: false };
+    if (!vectorCfg?.enabled) {
+        return { built: 0, failed: 0, llmFailed: 0, vectorFailed: 0, cancelled: false };
+    }
 
-    // New runs must clear the previous manual-cancel latch, otherwise
-    // later floors get misread as empty results.
-    extractionCancelled = false;
-    resetBatchExtractionCancel();
+    if (isCancelled()) {
+        return { built: 0, failed: 0, llmFailed: 0, vectorFailed: 0, cancelled: true, stale: false };
+    }
 
     const pendingPairs = [];
     const queuedFloors = new Set();
@@ -157,7 +191,13 @@ async function incrementalExtractAtomsInner(chatId, chat, onProgress, options = 
 
         const st = getL0FloorStatus(i);
         // ★ 只跳过 ok 和 empty，fail 的可以重试
+        // 但 fail 不能无限重试：上层维护现在会因 failed>0 退避重排，若某楼层永远失败
+        // （例如 LLM 对该内容始终拒答），就会变成永不停止的后台 LLM 调用。
+        // 达到上限的楼层进入终态，下一轮不再入队，退避循环随之自然结束。
         if (st?.status === 'ok' || st?.status === 'empty') {
+            return;
+        }
+        if (st?.status === 'fail' && !retryFailedFloors && (st.attempts || 0) >= L0_FLOOR_MAX_ATTEMPTS) {
             return;
         }
 
@@ -190,7 +230,7 @@ async function incrementalExtractAtomsInner(chatId, chat, onProgress, options = 
 
     if (!pendingPairs.length) {
         onProgress?.('已全部提取', 0, 0);
-        return { built: 0, cancelled: false };
+        return { built: 0, failed: 0, llmFailed: 0, vectorFailed: 0, cancelled: false };
     }
 
     const concurrency = Math.max(1, Math.min(50, Number(vectorCfg?.l0Concurrency) || DEFAULT_CONCURRENCY));
@@ -198,15 +238,18 @@ async function incrementalExtractAtomsInner(chatId, chat, onProgress, options = 
     xbLog.info(MODULE_ID, `增量 L0 提取：pending=${pendingPairs.length}, concurrency=${concurrency}`);
 
     let completed = 0;
-    let failed = 0;
+    let llmFailed = 0;
+    let firstFailure = null;
     const total = pendingPairs.length;
     let builtAtoms = 0;
     let active = 0;
     let peakActive = 0;
     const tStart = performance.now();
 
-    // ★ Phase 1: 收集所有新提取的 atoms（不向量化）
+    // 收集本轮成功提取的 atoms，全部 LLM 结束后统一提交到当前聊天 metadata。
     const allNewAtoms = [];
+    // floor -> atoms 数量。楼层 ok 只代表 LLM 提取完成，与派生向量无关。
+    const pendingFloors = new Map();
 
     // ★ 通用处理单个 pair 的逻辑（复用于正常模式和降速模式）
     const processPair = async (pair, idx, workerId) => {
@@ -220,36 +263,50 @@ async function incrementalExtractAtomsInner(chatId, chat, onProgress, options = 
         }
 
         try {
-            const atoms = await extractAtomsForRound(pair.userMsg, pair.aiMsg, floor, { timeout: 60000 });
+            const atoms = await extractAtomsForRound(pair.userMsg, pair.aiMsg, floor, {
+                timeout: 60000,
+                signal,
+                shouldCancel,
+            });
 
-            if (extractionCancelled) return;
+            if (isCancelled()) return;
+            if (!isTargetChatActive()) {
+                targetStale = true;
+                return;
+            }
 
             if (atoms == null) {
                 throw new Error('llm_failed');
             }
 
             if (!atoms.length) {
+                if (isCancelled()) return;
                 setL0FloorStatus(floor, { status: 'empty', reason: 'llm_empty', atoms: 0 });
             } else {
+                if (isCancelled()) return;
                 atoms.forEach(a => a.chatId = chatId);
-                saveStateAtoms(atoms);
                 allNewAtoms.push(...atoms);
-
-                setL0FloorStatus(floor, { status: 'ok', atoms: atoms.length });
-                builtAtoms += atoms.length;
+                pendingFloors.set(floor, atoms.length);
             }
         } catch (e) {
-            if (extractionCancelled) return;
+            // 请求内部超时也抛 AbortError，但那是失败：必须记 fail 计入 attempts，不能当取消放过。
+            if (isCancelled()) return;
+            if (!isTargetChatActive()) {
+                targetStale = true;
+                return;
+            }
 
+            const failure = getL0FailureDetails(e);
+            firstFailure ||= failure;
             setL0FloorStatus(floor, {
                 status: 'fail',
                 attempts: (prev?.attempts || 0) + 1,
-                reason: String(e?.message || e).replace(/\s+/g, ' ').slice(0, 120),
+                reason: failure.httpStatus ? `${failure.code}:http_${failure.httpStatus}` : failure.code,
             });
-            failed++;
+            llmFailed++;
         } finally {
             active--;
-            if (!extractionCancelled) {
+            if (!isCancelled() && !targetStale) {
                 completed++;
                 onProgress?.(`提取: ${completed}/${total}`, completed, total);
             }
@@ -266,7 +323,7 @@ async function incrementalExtractAtomsInner(chatId, chat, onProgress, options = 
     let started = 0;
     const runWorker = async (workerId) => {
         while (true) {
-            if (extractionCancelled) return;
+            if (isCancelled()) return;
             const idx = nextIndex++;
             if (idx >= pendingPairs.length) return;
 
@@ -276,7 +333,7 @@ async function incrementalExtractAtomsInner(chatId, chat, onProgress, options = 
                 await new Promise(r => setTimeout(r, stagger * STAGGER_DELAY));
             }
 
-            if (extractionCancelled) return;
+            if (isCancelled()) return;
 
             await processPair(pair, idx, workerId);
         }
@@ -285,81 +342,238 @@ async function incrementalExtractAtomsInner(chatId, chat, onProgress, options = 
     await Promise.all(Array.from({ length: poolSize }, (_, i) => runWorker(i)));
     if (DEBUG_CONCURRENCY) {
         const elapsed = Math.max(1, Math.round(performance.now() - tStart));
-        xbLog.info(MODULE_ID, `L0 pool done completed=${completed}/${total} failed=${failed} peakActive=${peakActive} elapsedMs=${elapsed}`);
+        xbLog.info(MODULE_ID, `L0 pool done completed=${completed}/${total} failed=${llmFailed} peakActive=${peakActive} elapsedMs=${elapsed}`);
     }
 
-    // ★ Phase 2: 统一向量化所有新提取的 atoms
-    if (allNewAtoms.length > 0 && !extractionCancelled) {
-        onProgress?.(`向量化 L0: 0/${allNewAtoms.length}`, 0, allNewAtoms.length);
-        await vectorizeAtoms(chatId, allNewAtoms, (current, total) => {
-            onProgress?.(`向量化 L0: ${current}/${total}`, current, total);
-        });
+    targetStale ||= !isTargetChatActive();
+    const aborted = isCancelled() || targetStale;
+
+    // StateAtoms 是 LLM 阶段的事实成果。只要目标聊天仍有效，就先提交事实并将楼层标为 ok；
+    // StateVector 是可重建派生数据，不能反过来决定这批锚点是否成功。
+    // 切聊天后不能写 chat_metadata，因此 stale/cancelled 时不提交尚未落下的成功结果。
+    if (pendingFloors.size > 0 && !aborted) {
+        saveStateAtoms(allNewAtoms);
+        for (const [floor, count] of pendingFloors) {
+            setL0FloorStatus(floor, { status: 'ok', atoms: count });
+            builtAtoms += count;
+        }
     }
 
-    xbLog.info(MODULE_ID, `L0 ${extractionCancelled ? '已取消' : '完成'}：atoms=${builtAtoms}, completed=${completed}/${total}, failed=${failed}`);
-    return { built: builtAtoms, cancelled: extractionCancelled };
+    xbLog.info(MODULE_ID, `L0 ${aborted ? '已取消' : '完成'}：atoms=${builtAtoms}, completed=${completed}/${total}, llmFailed=${llmFailed}`);
+    return {
+        built: builtAtoms,
+        failed: llmFailed,
+        llmFailed,
+        vectorFailed: 0,
+        failureCode: firstFailure?.code || null,
+        httpStatus: firstFailure?.httpStatus || null,
+        cancelled: aborted,
+        stale: targetStale,
+    };
 }
 
 // ============================================================================
-// 向量化（支持进度回调）
+// StateVector 派生数据维护
 // ============================================================================
 
-async function vectorizeAtoms(chatId, atoms, onProgress) {
-    if (!atoms?.length) return;
+async function collectL0VectorBuildState(chatId, options = {}) {
+    const {
+        vectorConfig = getVectorConfig(),
+    } = options;
+    if (!chatId || getContext()?.chatId !== chatId) {
+        return { success: false, missing: 0, total: 0, code: 'stale_chat', stale: true };
+    }
+    if (!vectorConfig?.enabled) {
+        return { success: false, missing: 0, total: 0, code: 'disabled' };
+    }
 
-    const vectorCfg = getVectorConfig();
-    if (!vectorCfg?.enabled) return;
+    const fingerprint = getEngineFingerprint(vectorConfig);
+    const atoms = [...getStateAtoms()];
+    const [stateVectors, meta] = await Promise.all([
+        getStateVectorDescriptors(chatId),
+        getMeta(chatId),
+    ]);
+    if (getContext()?.chatId !== chatId) {
+        return { success: false, missing: 0, total: atoms.length, code: 'stale_chat', stale: true };
+    }
+    if (!canRepairStateVectors(meta?.fingerprint, fingerprint)) {
+        return {
+            success: false,
+            missing: 0,
+            total: atoms.length,
+            code: 'fingerprint_mismatch',
+            fingerprintMismatch: true,
+        };
+    }
 
-    const semanticTexts = atoms.map(a => a.semantic);
-    const rTexts = atoms.map(a => buildRAggregateText(a));
-    const fingerprint = getEngineFingerprint(vectorCfg);
+    const missingAtoms = selectMissingStateVectorAtoms(atoms, stateVectors, fingerprint);
+    return {
+        success: true,
+        missing: missingAtoms.length,
+        missingFloors: new Set(missingAtoms
+            .map(atom => Number(atom?.floor))
+            .filter(Number.isFinite)).size,
+        total: atoms.length,
+        fingerprint,
+        missingAtoms,
+    };
+}
+
+export async function getL0VectorBuildStatus(chatId, options = {}) {
+    const status = { ...await collectL0VectorBuildState(chatId, options) };
+    delete status.missingAtoms;
+    return status;
+}
+
+/**
+ * 仅补齐缺失或无效的 StateVector。StateAtoms 是唯一事实来源；本函数不会修改锚点或
+ * 楼层提取状态。所有 Embedding 批次成功后才整批写库，失败时下轮仍可从事实数据重建。
+ */
+export async function vectorizeMissingStateAtoms(chatId, onProgress, options = {}) {
+    const {
+        vectorConfig = getVectorConfig(),
+        signal = null,
+        shouldCancel = null,
+    } = options;
+    const isCancelled = () => signal?.aborted || shouldCancel?.() === true;
+    const cancelledResult = () => ({
+        success: false,
+        status: 'cancelled',
+        vectorized: 0,
+        failed: 0,
+        vectorFailed: 0,
+        code: 'cancelled',
+        cancelled: true,
+    });
+    if (isCancelled()) return cancelledResult();
+
+    let status;
+    try {
+        status = await collectL0VectorBuildState(chatId, { vectorConfig });
+    } catch (error) {
+        xbLog.error(MODULE_ID, '读取 L0 向量状态失败', error);
+        return {
+            success: false,
+            status: 'failed',
+            vectorized: 0,
+            failed: 0,
+            vectorFailed: 0,
+            code: 'state_vector_read_failed',
+            error,
+        };
+    }
+    if (isCancelled()) return cancelledResult();
+    if (!status.success) {
+        return {
+            ...status,
+            status: 'failed',
+            vectorized: 0,
+            failed: 0,
+            vectorFailed: 0,
+        };
+    }
+
+    const atoms = status.missingAtoms;
+    if (!atoms.length) {
+        return {
+            success: true,
+            status: 'up_to_date',
+            vectorized: 0,
+            failed: 0,
+            vectorFailed: 0,
+        };
+    }
+
+    const fingerprint = status.fingerprint;
     const batchSize = 20;
+    const allItems = [];
 
     try {
-        const allVectors = [];
+        onProgress?.(0, atoms.length);
+        for (let i = 0; i < atoms.length; i += batchSize) {
+            if (isCancelled()) return cancelledResult();
 
-        for (let i = 0; i < semanticTexts.length; i += batchSize) {
-            if (extractionCancelled) break;
-
-            const semBatch = semanticTexts.slice(i, i + batchSize);
-            const rBatch = rTexts.slice(i, i + batchSize);
+            const atomBatch = atoms.slice(i, i + batchSize);
+            const semBatch = atomBatch.map(atom => atom.semantic);
+            const rBatch = atomBatch.map(buildRAggregateText);
             const payload = semBatch.concat(rBatch);
-            const vectors = await embed(payload, { timeout: 30000 });
+            const vectors = await embed(payload, {
+                apiConfig: vectorConfig.embeddingApi,
+                timeout: 30000,
+                signal,
+            });
+            if (isCancelled()) return cancelledResult();
             const split = semBatch.length;
-            if (!Array.isArray(vectors) || vectors.length < split * 2) {
-                throw new Error(`embed length mismatch: expect>=${split * 2}, got=${vectors?.length || 0}`);
+            const expectedVectorCount = split * 2;
+            if (
+                !Array.isArray(vectors)
+                || vectors.length < expectedVectorCount
+                || vectors.slice(0, expectedVectorCount).some(vector => !vector?.length)
+            ) {
+                throw createInvalidEmbeddingResponseError(expectedVectorCount, vectors?.length || 0);
             }
             const semVectors = vectors.slice(0, split);
             const rVectors = vectors.slice(split, split + split);
 
             for (let j = 0; j < split; j++) {
-                allVectors.push({
+                const atom = atomBatch[j];
+                allItems.push({
+                    atomId: atom.atomId,
+                    floor: atom.floor,
                     vector: semVectors[j],
                     rVector: rVectors[j] || semVectors[j],
                 });
             }
 
-            onProgress?.(allVectors.length, semanticTexts.length);
+            onProgress?.(allItems.length, atoms.length);
         }
 
-        if (extractionCancelled) return;
-
-        const items = atoms.slice(0, allVectors.length).map((a, i) => ({
-            atomId: a.atomId,
-            floor: a.floor,
-            vector: allVectors[i].vector,
-            rVector: allVectors[i].rVector,
-        }));
-
-        await saveStateVectors(chatId, items, fingerprint);
-        xbLog.info(MODULE_ID, `L0 向量化完成: ${items.length} 条`);
-    } catch (e) {
-        xbLog.error(MODULE_ID, 'L0 向量化失败', e);
+        if (isCancelled()) return cancelledResult();
+        if (
+            getContext()?.chatId !== chatId
+            || getEngineFingerprint(getVectorConfig()) !== fingerprint
+        ) return cancelledResult();
+    } catch (error) {
+        if (isCancelled()) return cancelledResult();
+        const failure = getEmbeddingFailureDetails(error);
+        xbLog.error(MODULE_ID, `L0 Embedding 失败: ${failure.code}`, error);
+        return {
+            success: false,
+            status: 'failed',
+            vectorized: 0,
+            failed: atoms.length,
+            vectorFailed: atoms.length,
+            code: failure.code,
+            httpStatus: failure.httpStatus,
+            error,
+        };
     }
-}
 
-async function vectorizeAtomsSimple(chatId, atoms) {
-    await vectorizeAtoms(chatId, atoms);
+    try {
+        if (isCancelled()) return cancelledResult();
+        await saveStateVectors(chatId, allItems, fingerprint);
+    } catch (error) {
+        if (isCancelled()) return cancelledResult();
+        xbLog.error(MODULE_ID, 'L0 StateVector 写入失败', error);
+        return {
+            success: false,
+            status: 'failed',
+            vectorized: 0,
+            failed: atoms.length,
+            vectorFailed: atoms.length,
+            code: 'state_vector_write_failed',
+            error,
+        };
+    }
+
+    xbLog.info(MODULE_ID, `L0 向量补齐完成: ${allItems.length} 条`);
+    return {
+        success: true,
+        status: 'built',
+        vectorized: allItems.length,
+        failed: 0,
+        vectorFailed: 0,
+    };
 }
 
 // ============================================================================
@@ -403,42 +617,4 @@ async function handleStateRollback(floor) {
     } finally {
         endL0MetadataBatch('stateRollback');
     }
-}
-
-// ============================================================================
-// 兼容旧接口
-// ============================================================================
-
-export async function batchExtractAndStoreAtoms(chatId, chat, onProgress) {
-    if (!chatId || !chat?.length) return { built: 0 };
-
-    const vectorCfg = getVectorConfig();
-    if (!vectorCfg?.enabled) return { built: 0 };
-
-    xbLog.info(MODULE_ID, `开始批量 L0 提取: ${chat.length} 条消息`);
-
-    beginL0MetadataBatch('batchExtractAndStoreAtoms');
-    try {
-        clearStateAtoms();
-        clearL0Index();
-        await clearStateVectors(chatId);
-
-        return await incrementalExtractAtoms(chatId, chat, onProgress);
-    } finally {
-        endL0MetadataBatch('batchExtractAndStoreAtoms');
-    }
-}
-
-export async function rebuildStateVectors(chatId, vectorCfg) {
-    if (!chatId || !vectorCfg?.enabled) return { built: 0 };
-
-    const atoms = getStateAtoms();
-    if (!atoms.length) return { built: 0 };
-
-    xbLog.info(MODULE_ID, `重建 L0 向量: ${atoms.length} 条 atom`);
-
-    await clearStateVectors(chatId);
-    await vectorizeAtomsSimple(chatId, atoms);
-
-    return { built: atoms.length };
 }

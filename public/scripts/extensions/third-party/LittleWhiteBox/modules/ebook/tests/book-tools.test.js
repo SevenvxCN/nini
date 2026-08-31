@@ -20,6 +20,20 @@ const lightBrakeModule = await import('../../agent-core/runtime/light-brake.js')
 const textEditModule = await import('../../agent-core/tools/text-edit.js');
 const openAICompatibleAdapterModule = await import('../../agent-core/adapters/openai-compatible.js');
 const looseToolArgumentsModule = await import('../../agent-core/runtime/loose-tool-arguments.js');
+const sceneSourceModule = await import('../../draw/shared/scene-source.js');
+
+const { createSceneSource } = sceneSourceModule;
+
+function sourcePlacementFor(text, pointNumber) {
+    const source = createSceneSource(text);
+    const point = source.points[pointNumber - 1];
+    return {
+        mode: 'source',
+        insertAfter: point.number,
+        offset: point.offset,
+        sourceHash: source.sourceHash,
+    };
+}
 
 const {
     default: db,
@@ -35,6 +49,7 @@ const {
     ebookMessagesTable,
     ebookSessionsTable,
     setSelectedBookId,
+    updateBookFileContentIfMatches,
     upsertBookFile,
 } = dbModule;
 const {
@@ -95,6 +110,32 @@ async function resetDb() {
     await db.delete();
     await db.open();
 }
+
+test('ebook conversation storage keeps the explicit empty Google provider tool id across reload', async () => {
+    await resetDb();
+    const bookId = 'provider-id-reload';
+    const state = {
+        book: { id: bookId },
+        messages: [{
+            role: 'assistant',
+            content: '',
+            toolCalls: [{
+                id: 'google-tool-1-1',
+                name: 'Read',
+                arguments: '{"path":"book/outline.md"}',
+                providerId: '',
+            }],
+        }],
+    };
+    const store = createEbookConversationStore({ state });
+    await store.persistConversation(bookId);
+
+    const restoredState = { book: { id: bookId }, messages: [] };
+    await createEbookConversationStore({ state: restoredState }).restoreConversation(bookId);
+    const restoredToolCall = restoredState.messages[0]?.toolCalls?.[0];
+    assert.equal(restoredToolCall?.providerId, '');
+    assert.equal(Object.prototype.hasOwnProperty.call(restoredToolCall || {}, 'providerId'), true);
+});
 
 test('ebook startup posts frame-ready before shelf hydration and host config is prewarmed', () => {
     const appSource = readFileSync(new URL('../app-src/ebook-app.js', import.meta.url), 'utf8');
@@ -193,6 +234,22 @@ test('Library book list reports drafted chapter counts without counting the star
     const [listed] = await listBooks();
     assert.equal(listed.title, '章节统计书');
     assert.equal(listed.chapterCount, 2);
+});
+
+test('Ebook chapter content updates reject a stale writer atomically', async () => {
+    await resetDb();
+    const book = await createBook('章节条件写测试');
+    const path = 'book/chapters/001.md';
+    await upsertBookFile(book.id, path, '原始正文');
+
+    const results = await Promise.all([
+        updateBookFileContentIfMatches(book.id, path, '原始正文', '写入 A'),
+        updateBookFileContentIfMatches(book.id, path, '原始正文', '写入 B'),
+    ]);
+
+    assert.deepEqual(results.map((result) => result.ok).sort(), [false, true]);
+    assert.equal(results.find((result) => !result.ok)?.reason, 'conflict');
+    assert.match((await getBookFile(book.id, path)).content, /^写入 [AB]$/);
 });
 
 test('Library book list counts chapter 001 and high chapter numbers without off-by-one', async () => {
@@ -692,6 +749,15 @@ test('Book Grep defaults to literal text search and only uses regex when request
     assert.equal(literal.ok, true);
     assert.equal(literal.count, 1);
     assert.equal(literal.results[0].lineNumber, 1);
+    assert.equal(Object.hasOwn(literal.results[0], 'context'), false);
+
+    const cancelled = new AbortController();
+    cancelled.abort();
+    const cancelledRuntime = createBookToolRuntime({ bookId: book.id, signal: cancelled.signal });
+    await assert.rejects(
+        () => cancelledRuntime.execute(EBOOK_TOOL_NAMES.GREP, { pattern: '普通章节', path: 'book/notes/' }),
+        (error) => error?.name === 'AbortError',
+    );
 
     const defaultPlainPattern = await runtime.execute(EBOOK_TOOL_NAMES.GREP, {
         pattern: 'C.*D',
@@ -706,6 +772,45 @@ test('Book Grep defaults to literal text search and only uses regex when request
     });
     assert.equal(regex.count, 1);
     assert.equal(regex.results[0].lineNumber, 3);
+
+    const legacyRegex = await runtime.execute(EBOOK_TOOL_NAMES.GREP, {
+        pattern: '\\8',
+        path: 'book/notes/',
+        useRegex: true,
+    });
+    assert.equal(legacyRegex.count, 0);
+});
+
+test('Book Grep keeps the legacy non-Unicode regex dialect', async () => {
+    await resetDb();
+    const book = await createBook('Grep 方言测试');
+    await upsertBookFile(book.id, 'book/notes/dialect.md', ['字', '📡'].join('\n'));
+    const runtime = createBookToolRuntime({ bookId: book.id });
+
+    // Under the ebook 'i' dialect an emoji is two UTF-16 code units, so `^.$`
+    // matches the single BMP character but not the emoji.
+    const regex = await runtime.execute(EBOOK_TOOL_NAMES.GREP, {
+        pattern: '^.$',
+        path: 'book/notes/',
+        useRegex: true,
+    });
+    assert.equal(regex.ok, true);
+    assert.equal(regex.count, 1);
+    assert.equal(regex.results[0].lineNumber, 1);
+});
+
+test('Book Grep preserves the public locale path order while streaming file content', async () => {
+    await resetDb();
+    const book = await createBook('Grep 路径排序测试');
+    const paths = ['book/阿.md', 'book/B.md', 'book/啊.md'];
+    for (const path of paths) await upsertBookFile(book.id, path, '命中');
+    const runtime = createBookToolRuntime({ bookId: book.id });
+
+    const result = await runtime.execute(EBOOK_TOOL_NAMES.GREP, { pattern: '命中', path: 'book/' });
+    assert.deepEqual(
+        result.results.map((row) => row.path),
+        [...paths].sort((left, right) => left.localeCompare(right, 'zh-CN')),
+    );
 });
 
 test('Book Grep works after loose JSON argument repair decodes unicode escapes', async () => {
@@ -1389,8 +1494,7 @@ test('Book agent cancel is immediate before provider request starts', async () =
                 provider: 'test',
                 temperature: 0.2,
                 maxTokens: 1000,
-                reasoningEnabled: false,
-                reasoningEffort: 'medium',
+                reasoning: { mode: 'inherit', output: 'hide' },
             };
         },
         createAdapter() {
@@ -1459,8 +1563,7 @@ test('Book agent automatically passes review context into DelegateRun', async ()
                 provider: 'test',
                 temperature: 0.2,
                 maxTokens: 1000,
-                reasoningEnabled: false,
-                reasoningEffort: 'medium',
+                reasoning: { mode: 'inherit', output: 'hide' },
             };
         },
         createAdapter() {
@@ -1559,8 +1662,7 @@ test('Book agent shows DelegateRun dispatch before result and keeps task in hist
                 provider: 'test',
                 temperature: 0.2,
                 maxTokens: 1000,
-                reasoningEnabled: false,
-                reasoningEffort: 'medium',
+                reasoning: { mode: 'inherit', output: 'hide' },
             };
         },
         createAdapter() {
@@ -3229,7 +3331,7 @@ test('Book editor surface keeps focused textarea draft while patching progress',
     }
 });
 
-test('Book controller draws current chapter and inserts ebook image markers by anchor', async () => {
+test('Book controller draws current chapter and inserts ebook image markers by numbered placement', async () => {
     await resetDb();
     const book = await createBook('章节配图测试');
     const originalContent = '她推开门。\n\n夜色涌进来。';
@@ -3253,8 +3355,8 @@ test('Book controller draws current chapter and inserts ebook image markers by a
     const controller = createBookController({
         state,
         render() {},
-        async requestHost(type, payload) {
-            seenRequests.push({ type, payload });
+        async requestHost(type, payload, options = {}) {
+            seenRequests.push({ type, payload, options });
             if (type === 'xb-ebook:draw-status') {
                 return { ok: true, provider: 'novelai', enabled: true, ready: true };
             }
@@ -3264,8 +3366,8 @@ test('Book controller draws current chapter and inserts ebook image markers by a
                     success: 2,
                     total: 2,
                     images: [
-                        { slotId: 'slot-anchor', anchor: '她推开门', success: true },
-                        { slotId: 'slot-tail', anchor: '不存在的锚点', success: true },
+                        { slotId: 'slot-anchor', placement: sourcePlacementFor(originalContent, 1), success: true },
+                        { slotId: 'slot-tail', placement: sourcePlacementFor(originalContent, 2), success: true },
                     ],
                 };
             }
@@ -3285,7 +3387,66 @@ test('Book controller draws current chapter and inserts ebook image markers by a
     assert.equal(drawPayload.source, 'ebook');
     assert.equal(drawPayload.bookId, book.id);
     assert.equal(drawPayload.chapterPath, 'book/chapters/001.md');
+    const drawOptions = seenRequests.find((item) => item.type === 'xb-ebook:draw-generate')?.options || {};
+    assert.equal(drawOptions.timeoutMs, null);
     assert.equal(state.drawProgressText, '占位符已插入，请去阅读器查看');
+});
+
+test('Book drawing keeps pre-existing unsaved edits in the editor instead of silently saving them', async () => {
+    await resetDb();
+    const book = await createBook('未保存正文配图测试');
+    const savedContent = '她推开门。';
+    const editorContent = '她推开门。她又补了一句。';
+    const chapterPath = 'book/chapters/001.md';
+    await upsertBookFile(book.id, chapterPath, savedContent);
+    const state = {
+        book,
+        books: [book],
+        files: await listBookFiles(book.id),
+        selectedPath: chapterPath,
+        readerPath: chapterPath,
+        viewMode: 'studio',
+        editorContent,
+        savedContent,
+        isBusy: false,
+        isDrawingChapter: false,
+        drawStatus: { provider: 'novelai', enabled: true, ready: true },
+        drawProgressText: '',
+        toast: '',
+    };
+    const toasts = [];
+    const controller = createBookController({
+        state,
+        render() {},
+        async requestHost(type) {
+            if (type === 'xb-ebook:draw-status') {
+                return { ok: true, provider: 'novelai', enabled: true, ready: true };
+            }
+            if (type === 'xb-ebook:draw-generate') {
+                return {
+                    ok: true,
+                    success: 1,
+                    total: 1,
+                    images: [{
+                        slotId: 'slot-unsaved',
+                        placement: sourcePlacementFor(editorContent, 2),
+                        success: true,
+                    }],
+                };
+            }
+            throw new Error('unexpected_request');
+        },
+        showToast(message) {
+            toasts.push(message);
+        },
+    });
+
+    await controller.drawCurrentChapter();
+
+    assert.equal((await getBookFile(book.id, chapterPath)).content, savedContent);
+    assert.equal(state.savedContent, savedContent);
+    assert.equal(state.editorContent, `${editorContent}\n[ebook-image:slot-unsaved]`);
+    assert.equal(toasts.at(-1), '图片占位符已插入，请保存章节');
 });
 
 test('Book drawing can be cancelled by clicking the chapter draw button again', async () => {
@@ -3330,7 +3491,7 @@ test('Book drawing can be cancelled by clicking the chapter draw button again', 
                         ok: true,
                         success: 1,
                         total: 1,
-                        images: [{ slotId: 'slot-should-not-write', anchor: '她推开门', success: true }],
+                        images: [{ slotId: 'slot-should-not-write', placement: sourcePlacementFor(originalContent, 1), success: true }],
                     }), 1000).unref?.();
                 });
             }
@@ -3393,7 +3554,7 @@ test('Book drawing saves the original chapter if the user switches files while g
                     ok: true,
                     success: 1,
                     total: 1,
-                    images: [{ slotId: 'slot-switch', anchor: '她推开门', success: true }],
+                    images: [{ slotId: 'slot-switch', placement: sourcePlacementFor(chapterContent, 1), success: true }],
                 };
             }
             throw new Error('unexpected_request');
@@ -3408,6 +3569,73 @@ test('Book drawing saves the original chapter if the user switches files while g
     assert.equal(state.selectedPath, 'book/outline.md');
     assert.equal(state.editorContent, '未保存的新大纲');
     assert.equal(state.savedContent, '旧大纲');
+});
+
+test('Book drawing keeps a changed chapter dirty when appending already generated images', async () => {
+    await resetDb();
+    const book = await createBook('正文变化拒写测试');
+    const originalContent = '她推开门。';
+    await upsertBookFile(book.id, 'book/chapters/001.md', originalContent);
+    const state = {
+        book,
+        books: [book],
+        files: await listBookFiles(book.id),
+        selectedPath: 'book/chapters/001.md',
+        readerPath: 'book/chapters/001.md',
+        viewMode: 'studio',
+        editorContent: originalContent,
+        savedContent: originalContent,
+        isBusy: false,
+        isDrawingChapter: false,
+        drawStatus: { provider: 'novelai', enabled: true, ready: true },
+        drawProgressText: '',
+        toast: '',
+    };
+    const toasts = [];
+    const previousConfirm = globalThis.confirm;
+    let confirmCount = 0;
+    globalThis.confirm = () => {
+        confirmCount += 1;
+        return true;
+    };
+    let drawRequestCount = 0;
+    const controller = createBookController({
+        state,
+        render() {},
+        async requestHost(type) {
+            if (type === 'xb-ebook:draw-status') {
+                return { ok: true, provider: 'novelai', enabled: true, ready: true };
+            }
+            if (type === 'xb-ebook:draw-generate') {
+                drawRequestCount += 1;
+                state.editorContent = '她推开门。又回头看了看。';
+                return {
+                    ok: true,
+                    success: 1,
+                    total: 1,
+                    images: [{ slotId: 'slot-stale', placement: sourcePlacementFor(originalContent, 1), success: true }],
+                };
+            }
+            throw new Error('unexpected_request');
+        },
+        showToast(message) {
+            toasts.push(message);
+        },
+    });
+
+    try {
+        await controller.drawCurrentChapter();
+
+        const updated = await getBookFile(book.id, 'book/chapters/001.md');
+        assert.equal(updated.content, originalContent);
+        assert.equal(state.editorContent, '她推开门。又回头看了看。\n[ebook-image:slot-stale]');
+        assert.equal(state.savedContent, originalContent);
+        assert.equal(confirmCount, 1);
+        assert.equal(drawRequestCount, 1);
+        assert.equal(toasts.at(-1), '图片占位符已插入，请保存章节');
+    } finally {
+        globalThis.confirm = previousConfirm;
+    }
 });
 
 test('Book drawing does not recreate files when the original book is deleted mid-generation', async () => {
@@ -3444,7 +3672,7 @@ test('Book drawing does not recreate files when the original book is deleted mid
                     ok: true,
                     success: 1,
                     total: 1,
-                    images: [{ slotId: 'slot-deleted-book', anchor: '她推开门', success: true }],
+                    images: [{ slotId: 'slot-deleted-book', placement: sourcePlacementFor('她推开门。', 1), success: true }],
                 };
             }
             throw new Error('unexpected_request');
@@ -3762,14 +3990,15 @@ test('Book conversation preserves tool context separately from UI folding', asyn
                 content: '',
                 thoughts: [{ label: '思考块', text: '先读取第一章。' }],
                 toolCalls: [{
-                    id: 'call-read',
+                    id: 'ebook-tool-1',
                     name: EBOOK_TOOL_NAMES.READ,
                     arguments: '{"filePath":"book/chapters/001.md"}',
+                    providerId: '',
                 }],
             },
             {
                 role: 'tool',
-                toolCallId: 'call-read',
+                toolCallId: 'ebook-tool-1',
                 toolName: EBOOK_TOOL_NAMES.READ,
                 content: '{"ok":true,"content":"1: # 第 1 章"}',
             },
@@ -3789,13 +4018,17 @@ test('Book conversation preserves tool context separately from UI folding', asyn
     assert.equal(state.messages.length, 4);
     assert.equal(state.messages[1].thoughts[0].text, '先读取第一章。');
     assert.equal(state.messages[1].toolCalls[0].name, EBOOK_TOOL_NAMES.READ);
+    assert.equal(Object.prototype.hasOwnProperty.call(state.messages[1].toolCalls[0], 'providerId'), true);
+    assert.equal(state.messages[1].toolCalls[0].providerId, '');
     assert.equal(state.messages[2].role, 'tool');
-    assert.equal(state.messages[2].toolCallId, 'call-read');
+    assert.equal(state.messages[2].toolCallId, 'ebook-tool-1');
 
     const providerMessages = buildEbookProviderMessagesFromHistory(state.messages);
     assert.equal(providerMessages[1].tool_calls[0].function.name, EBOOK_TOOL_NAMES.READ);
+    assert.equal(Object.prototype.hasOwnProperty.call(providerMessages[1].tool_calls[0], 'providerToolCallId'), true);
+    assert.equal(providerMessages[1].tool_calls[0].providerToolCallId, '');
     assert.equal(providerMessages[2].role, 'tool');
-    assert.equal(providerMessages[2].tool_call_id, 'call-read');
+    assert.equal(providerMessages[2].tool_call_id, 'ebook-tool-1');
     assert.equal(providerMessages[2].toolName, EBOOK_TOOL_NAMES.READ);
 });
 
@@ -6643,8 +6876,7 @@ test('Book agent stores a multi-tool batch only after all tool results exist', a
                 provider: 'test',
                 temperature: 0.2,
                 maxTokens: 1000,
-                reasoningEnabled: false,
-                reasoningEffort: 'medium',
+                reasoning: { mode: 'inherit', output: 'hide' },
             };
         },
         createAdapter() {
@@ -6736,8 +6968,7 @@ test('Book agent refreshes file snapshot before first model request', async () =
                 provider: 'test',
                 temperature: 0.2,
                 maxTokens: 1000,
-                reasoningEnabled: false,
-                reasoningEffort: 'medium',
+                reasoning: { mode: 'inherit', output: 'hide' },
             };
         },
         createAdapter() {
@@ -6806,8 +7037,7 @@ test('Book agent refreshes drafted chapter progress after chapter deletion', asy
                 provider: 'test',
                 temperature: 0.2,
                 maxTokens: 1000,
-                reasoningEnabled: false,
-                reasoningEffort: 'medium',
+                reasoning: { mode: 'inherit', output: 'hide' },
             };
         },
         createAdapter() {
@@ -6871,8 +7101,7 @@ test('Book agent keeps the user message if first snapshot refresh fails', async 
                 provider: 'test',
                 temperature: 0.2,
                 maxTokens: 1000,
-                reasoningEnabled: false,
-                reasoningEffort: 'medium',
+                reasoning: { mode: 'inherit', output: 'hide' },
             };
         },
         createAdapter() {
@@ -6952,8 +7181,7 @@ test('Book agent renders read-only tool progress through local surfaces', async 
                 provider: 'test',
                 temperature: 0.2,
                 maxTokens: 1000,
-                reasoningEnabled: false,
-                reasoningEffort: 'medium',
+                reasoning: { mode: 'inherit', output: 'hide' },
             };
         },
         createAdapter() {
@@ -7045,8 +7273,7 @@ test('Book agent streaming updates do not full-render the reader screen', async 
                 provider: 'test',
                 temperature: 0.2,
                 maxTokens: 1000,
-                reasoningEnabled: false,
-                reasoningEffort: 'medium',
+                reasoning: { mode: 'inherit', output: 'hide' },
             };
         },
         createAdapter() {
@@ -7132,8 +7359,7 @@ test('Book agent refreshes file surfaces for write tools without extra full rend
                 provider: 'test',
                 temperature: 0.2,
                 maxTokens: 1000,
-                reasoningEnabled: false,
-                reasoningEffort: 'medium',
+                reasoning: { mode: 'inherit', output: 'hide' },
             };
         },
         createAdapter() {
@@ -7232,8 +7458,7 @@ test('Book agent replays repaired tagged-json Write content after executing malf
                 toolMode: 'tagged-json',
                 temperature: 0.2,
                 maxTokens: 1000,
-                reasoningEnabled: false,
-                reasoningEffort: 'medium',
+                reasoning: { mode: 'inherit', output: 'hide' },
             };
         },
         createAdapter() {
@@ -7354,8 +7579,7 @@ test('Book agent reports invalid tool arguments without executing Edit', async (
                 provider: 'test',
                 temperature: 0.2,
                 maxTokens: 1000,
-                reasoningEnabled: false,
-                reasoningEffort: 'medium',
+                reasoning: { mode: 'inherit', output: 'hide' },
             };
         },
         createAdapter() {
@@ -7440,8 +7664,7 @@ test('Book agent uses Google-style session tool loop without rebuilding replay h
                 provider: 'google',
                 temperature: 0.2,
                 maxTokens: 1000,
-                reasoningEnabled: true,
-                reasoningEffort: 'medium',
+                reasoning: { mode: 'on', effort: 'medium', output: 'show' },
             };
         },
         createAdapter() {
@@ -7462,7 +7685,6 @@ test('Book agent uses Google-style session tool loop without rebuilding replay h
                                     role: 'model',
                                     parts: [{
                                         functionCall: {
-                                            id: 'google-read-outline',
                                             name: EBOOK_TOOL_NAMES.READ,
                                             args: {
                                                 filePath: 'book/outline.md',
@@ -7479,10 +7701,12 @@ test('Book agent uses Google-style session tool loop without rebuilding replay h
                         assert.deepEqual(task.toolResponses.map((item) => ({
                             id: item.id,
                             name: item.name,
+                            providerId: item.providerId,
                             ok: item.response.ok,
                         })), [{
-                            id: 'google-read-outline',
+                            id: 'ebook-tool-1',
                             name: EBOOK_TOOL_NAMES.READ,
+                            providerId: '',
                             ok: true,
                         }]);
                         return {
@@ -7510,7 +7734,8 @@ test('Book agent uses Google-style session tool loop without rebuilding replay h
 
     assert.equal(seenTasks.length, 3);
     assert.deepEqual(state.messages.map((message) => message.role), ['user', 'assistant', 'tool', 'assistant']);
-    assert.equal(state.messages[1].toolCalls[0].id, 'google-read-outline');
+    assert.equal(state.messages[1].toolCalls[0].id, 'ebook-tool-1');
+    assert.equal(state.messages[1].toolCalls[0].providerId, '');
     assert.equal(state.messages[1].thoughts.length, 1);
     assert.equal(state.messages[3].thoughts.length, 1);
     assert.equal(state.messages[3].thoughts[0].text, '大纲可用。');
@@ -7555,8 +7780,7 @@ test('Book agent keeps streamed thoughts in the final assistant message', async 
                 provider: 'test',
                 temperature: 0.2,
                 maxTokens: 1000,
-                reasoningEnabled: false,
-                reasoningEffort: 'medium',
+                reasoning: { mode: 'inherit', output: 'hide' },
             };
         },
         createAdapter() {
@@ -7632,8 +7856,7 @@ test('Book agent keeps streamed text when a model request fails', async () => {
                 model: 'test-model',
                 temperature: 0.2,
                 maxTokens: 1000,
-                reasoningEnabled: false,
-                reasoningEffort: 'medium',
+                reasoning: { mode: 'inherit', output: 'hide' },
             };
         },
         createAdapter() {
@@ -7701,8 +7924,7 @@ test('Book agent injects a light brake after repeated tool failures', async () =
                 provider: 'test',
                 temperature: 0.2,
                 maxTokens: 1000,
-                reasoningEnabled: false,
-                reasoningEffort: 'medium',
+                reasoning: { mode: 'inherit', output: 'hide' },
             };
         },
         createAdapter() {
@@ -7791,8 +8013,7 @@ test('Book agent places non-session final answer reminder after history and befo
                 provider: 'test',
                 temperature: 0.2,
                 maxTokens: 1000,
-                reasoningEnabled: false,
-                reasoningEffort: 'medium',
+                reasoning: { mode: 'inherit', output: 'hide' },
             };
         },
         createAdapter() {
@@ -7908,8 +8129,7 @@ test('Book agent reroll trims to the previous user message without duplicating i
                 provider: 'test',
                 temperature: 0.2,
                 maxTokens: 1000,
-                reasoningEnabled: false,
-                reasoningEffort: 'medium',
+                reasoning: { mode: 'inherit', output: 'hide' },
             };
         },
         createAdapter() {
@@ -7981,8 +8201,7 @@ test('Book agent reroll can start directly from an edited user message', async (
                 provider: 'test',
                 temperature: 0.2,
                 maxTokens: 1000,
-                reasoningEnabled: false,
-                reasoningEffort: 'medium',
+                reasoning: { mode: 'inherit', output: 'hide' },
             };
         },
         createAdapter() {
@@ -8155,8 +8374,7 @@ test('Book agent compaction prunes old turns and does not inject creative record
                 provider: 'test',
                 temperature: 0.7,
                 maxTokens: 12000,
-                reasoningEnabled: false,
-                reasoningEffort: 'medium',
+                reasoning: { mode: 'inherit', output: 'hide' },
             };
         },
         createAdapter() {

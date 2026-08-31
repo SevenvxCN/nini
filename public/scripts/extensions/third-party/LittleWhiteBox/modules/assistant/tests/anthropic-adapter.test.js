@@ -2,7 +2,199 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 
-import { AnthropicAdapter, buildAnthropicMessages } from '../../agent-core/adapters/anthropic.js';
+import {
+    AnthropicAdapter,
+    buildAnthropicMessages,
+    resolveAnthropicToolChoice,
+} from '../../agent-core/adapters/anthropic.js';
+
+const readTool = {
+    type: 'function',
+    function: {
+        name: 'Read',
+        description: 'Read a file.',
+        parameters: { type: 'object', properties: {} },
+    },
+};
+
+test('Anthropic adapter maps every shared tool choice mode', () => {
+    assert.deepEqual(resolveAnthropicToolChoice('auto', [readTool]), { type: 'auto' });
+    assert.deepEqual(resolveAnthropicToolChoice('required', [readTool]), { type: 'any' });
+    assert.deepEqual(resolveAnthropicToolChoice('none', [readTool]), { type: 'none' });
+    assert.deepEqual(resolveAnthropicToolChoice('Read', [readTool]), { type: 'tool', name: 'Read' });
+    assert.throws(
+        () => resolveAnthropicToolChoice('Write', [readTool]),
+        /不存在的工具：Write/,
+    );
+});
+
+test('Anthropic request sends tool_choice only when tools are present', () => {
+    const adapter = new AnthropicAdapter({
+        apiKey: 'test-key',
+        baseUrl: 'https://anthropic.example',
+        model: 'claude-test',
+    });
+    const withTools = adapter.buildRequestBody({
+        messages: [{ role: 'user', content: 'read' }],
+        tools: [readTool],
+        toolChoice: 'required',
+    });
+    const withoutTools = adapter.buildRequestBody({
+        messages: [{ role: 'user', content: 'answer' }],
+        tools: [],
+        toolChoice: 'required',
+    });
+
+    assert.deepEqual(withTools.tool_choice, { type: 'any' });
+    assert.equal(withTools.tools.length, 1);
+    assert.equal(Object.hasOwn(withoutTools, 'tools'), false);
+    assert.equal(Object.hasOwn(withoutTools, 'tool_choice'), false);
+});
+
+test('Anthropic adaptive reasoning keeps mode, effort, and output visibility independent', () => {
+    const adapter = new AnthropicAdapter({
+        apiKey: 'test-key',
+        baseUrl: 'https://anthropic.example',
+        model: 'claude-opus-4-7',
+    });
+    const hiddenTask = {
+        messages: [{ role: 'user', content: 'think' }],
+        reasoning: { mode: 'on', effort: 'max', output: 'hide' },
+    };
+    const hiddenBody = adapter.buildRequestBody(hiddenTask);
+    assert.deepEqual(hiddenBody.thinking, { type: 'adaptive', display: 'omitted' });
+    assert.deepEqual(hiddenBody.output_config, { effort: 'max' });
+    assert.deepEqual(adapter.inspectRequest(hiddenTask, { body: hiddenBody }).effectiveConfig, {
+        reasoningRequestedMode: 'on',
+        reasoningRequestedOutput: 'hide',
+        reasoningProfileId: 'anthropic-adaptive',
+        reasoningEffectiveMode: 'on',
+        reasoningEffort: 'max',
+        reasoningBudgetTokens: null,
+        reasoningControlFields: {
+            thinking: { type: 'adaptive', display: 'omitted' },
+            output_config: { effort: 'max' },
+        },
+        reasoningOutputVisible: false,
+    });
+
+    const visibleBody = adapter.buildRequestBody({
+        ...hiddenTask,
+        reasoning: { ...hiddenTask.reasoning, output: 'show' },
+    });
+    assert.equal(visibleBody.thinking.display, 'summarized');
+
+    const inheritBody = adapter.buildRequestBody({
+        ...hiddenTask,
+        reasoning: { mode: 'inherit', output: 'hide' },
+    });
+    assert.equal(Object.hasOwn(inheritBody, 'thinking'), false);
+
+    const offBody = adapter.buildRequestBody({
+        ...hiddenTask,
+        reasoning: { mode: 'off', output: 'hide' },
+    });
+    assert.deepEqual(offBody.thinking, { type: 'disabled' });
+});
+
+test('Anthropic uses visible reasoning consistently when output is omitted', async () => {
+    const adapter = new AnthropicAdapter({
+        apiKey: 'test-key',
+        baseUrl: 'https://anthropic.example',
+        model: 'claude-opus-4-7',
+    });
+    let requestBody;
+    adapter.client.messages.create = async (body) => {
+        requestBody = body;
+        return {
+            model: 'claude-opus-4-7',
+            stop_reason: 'end_turn',
+            content: [
+                { type: 'thinking', thinking: '默认可见的思考。' },
+                { type: 'text', text: '完成。' },
+            ],
+        };
+    };
+
+    const result = await adapter.chat({
+        messages: [{ role: 'user', content: 'think' }],
+        reasoning: { mode: 'on', effort: 'high' },
+    });
+
+    assert.deepEqual(requestBody.thinking, { type: 'adaptive', display: 'summarized' });
+    assert.deepEqual(result.thoughts, [{ label: '思考块', text: '默认可见的思考。' }]);
+    assert.equal(result.requestInspection.effectiveConfig.reasoningRequestedOutput, 'show');
+    assert.equal(result.requestInspection.effectiveConfig.reasoningOutputVisible, true);
+
+    const offTask = {
+        messages: [{ role: 'user', content: 'do not think' }],
+        reasoning: { mode: 'off', output: 'show' },
+    };
+    const offBody = adapter.buildRequestBody(offTask);
+    const offInspection = adapter.inspectRequest(offTask, { body: offBody });
+    assert.deepEqual(offBody.thinking, { type: 'disabled' });
+    assert.equal(offInspection.effectiveConfig.reasoningRequestedOutput, 'show');
+    assert.equal(offInspection.effectiveConfig.reasoningOutputVisible, false);
+    const offResult = await adapter.chat(offTask);
+    assert.deepEqual(offResult.thoughts, []);
+});
+
+test('older Claude names use the latest adaptive reasoning contract', () => {
+    const adapter = new AnthropicAdapter({
+        apiKey: 'test-key',
+        baseUrl: 'https://anthropic.example',
+        model: 'claude-sonnet-4-5',
+    });
+    const task = {
+        messages: [{ role: 'user', content: 'think' }],
+        maxTokens: 16000,
+        reasoning: { mode: 'on', effort: 'high', budgetTokens: 8192, output: 'hide' },
+    };
+    assert.deepEqual(adapter.buildRequestBody(task).thinking, {
+        type: 'adaptive',
+        display: 'omitted',
+    });
+    assert.deepEqual(adapter.buildRequestBody(task).output_config, { effort: 'high' });
+});
+
+test('Anthropic latest adaptive reasoning remains enabled with a forced tool contract', () => {
+    const adapter = new AnthropicAdapter({
+        apiKey: 'test-key',
+        baseUrl: 'https://anthropic.example',
+        model: 'claude-sonnet-4-5',
+    });
+    const task = {
+        messages: [{ role: 'user', content: 'plan' }],
+        tools: [{
+            type: 'function',
+            function: {
+                name: 'submit_scene_plan',
+                description: 'Submit the plan.',
+                parameters: { type: 'object', properties: {} },
+            },
+        }],
+        toolChoice: 'required',
+        temperature: 0.4,
+        maxTokens: 1024,
+        reasoning: { mode: 'on', effort: 'high', output: 'show' },
+    };
+
+    const body = adapter.buildRequestBody(task);
+    assert.deepEqual(body.tool_choice, { type: 'any' });
+    assert.deepEqual(body.thinking, { type: 'adaptive', display: 'summarized' });
+    assert.deepEqual(body.output_config, { effort: 'high' });
+    assert.equal(Object.hasOwn(body, 'temperature'), false);
+
+    const inspection = adapter.inspectRequest(task, { body });
+    assert.equal(inspection.notices, undefined);
+    assert.equal(inspection.effectiveConfig.reasoningRequestedMode, 'on');
+    assert.equal(inspection.effectiveConfig.reasoningEffectiveMode, 'on');
+    assert.equal(inspection.effectiveConfig.reasoningOutputVisible, true);
+    assert.deepEqual(inspection.effectiveConfig.reasoningControlFields, {
+        thinking: { type: 'adaptive', display: 'summarized' },
+        output_config: { effort: 'high' },
+    });
+});
 
 test('Anthropic adapter groups consecutive tool results into one user message', () => {
     const messages = buildAnthropicMessages([

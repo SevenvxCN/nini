@@ -1,15 +1,16 @@
-import { extension_settings, extensionTypes } from "../../../extensions.js";
-import { saveSettingsDebounced, eventSource, event_types, getRequestHeaders } from "../../../../script.js";
-import { EXT_FOLDER_ID, EXT_ID, extensionFolderPath } from "./core/constants.js";
+import { extension_settings } from "../../../extensions.js";
+import { saveSettingsDebounced } from "../../../../script.js";
+import { EXT_ID, extensionFolderPath } from "./core/constants.js";
 import { executeSlashCommand } from "./core/slash-command.js";
 import { EventCenter } from "./core/event-manager.js";
+import { initPluginUpdate } from "./modules/plugin-update/plugin-update.js";
 import { initTasks } from "./modules/scheduled-tasks/scheduled-tasks.js";
-import { initMessagePreview, addHistoryButtonsDebounced } from "./modules/message-preview.js";
+import { initMessagePreview, addHistoryButtonsDebounced, configureMessagePreviewRuntime, removeOwnedHistoryButtons } from "./modules/message-preview.js";
 import { initImmersiveMode } from "./modules/immersive-mode.js";
-import { initTemplateEditor } from "./modules/template-editor/template-editor.js";
+import { hasActiveCustomTemplate, hasCustomTemplateForMessage, initTemplateEditor } from "./modules/template-editor/template-editor.js";
 import { initFourthWall, initFourthWallFloorTools, refreshFourthWallFloorTools, closeFourthWall, openFourthWall } from "./modules/fourth-wall/fourth-wall.js";
-import { initButtonCollapse } from "./widgets/button-collapse.js";
-import { initVariablesPanel, cleanupVariablesPanel } from "./modules/variables/variables-panel.js";
+import { configureButtonCollapseRuntime, initButtonCollapse } from "./widgets/button-collapse.js";
+import { initVariablesPanel, cleanupVariablesPanel, configureVariablesPanelRuntime } from "./modules/variables/variables-panel.js";
 import { initStreamingGeneration } from "./modules/streaming-generation.js";
 import { initVariablesCore, cleanupVariablesCore } from "./modules/variables/variables-core.js";
 import { initControlAudio } from "./modules/control-audio.js";
@@ -19,20 +20,37 @@ import {
     processExistingMessages,
     clearBlobCaches,
     renderHtmlInIframe,
-    shrinkRenderedWindowFull
+    shrinkRenderedWindowFull,
 } from "./modules/iframe-renderer.js";
 import { initVarCommands, cleanupVarCommands } from "./modules/variables/var-commands.js";
 import { initVareventEditor, cleanupVareventEditor } from "./modules/variables/varevent-editor.js";
-import { initNovelDraw, cleanupNovelDraw } from "./modules/draw/providers/novelai/novel-draw.js";
+import {
+    applyNovelDrawRunAutoLearn,
+    cleanupNovelDraw,
+    decodeNovelBackendJobResult,
+    initNovelDraw,
+} from "./modules/draw/providers/novelai/novel-draw.js";
 import { initSdDraw, cleanupSdDraw } from "./modules/draw/providers/sd-webui/sd-draw.js";
 import { initComfyDraw, cleanupComfyDraw } from "./modules/draw/providers/comfyui/comfy-draw.js";
 import { setupDrawGenerateInterceptor } from "./modules/draw/shared/draw-common.js";
-import "./modules/story-summary/story-summary.js";
-import "./modules/story-outline/story-outline.js";
+import { startImageJobRecovery, stopImageJobRecovery } from "./modules/draw/shared/image-job-recovery-runtime.js";
+import {
+    checkGeneratedImageCache as checkGeneratedImageCacheRuntime,
+    clearExpiredGeneratedImageCache as clearExpiredGeneratedImageCacheRuntime,
+    clearSharedImageRequests as clearSharedImageRequestsRuntime,
+    generateSharedImage as generateSharedImageRuntime,
+} from "./modules/draw/shared/generated-image-runtime.js";
+import { configureStorySummaryRuntime } from "./modules/story-summary/story-summary.js";
+import { configureStoryOutlineRuntime } from "./modules/story-outline/story-outline.js";
 import { initTts, cleanupTts } from "./modules/tts/tts.js";
 import { initEnaPlanner, cleanupEnaPlanner } from "./modules/ena-planner/ena-planner.js";
 import { initAssistant, cleanupAssistant } from "./modules/assistant/assistant.js";
 import { initEbook, cleanupEbook } from "./modules/ebook/ebook.js";
+import {
+    activateTauriTavernChatSurface,
+    isTauriTavernChatSurfaceManaged,
+    lockTauriTavernChatSurfaceSettings,
+} from "./integrations/tauritavern-chat-surface/index.js";
 
 extension_settings[EXT_ID] = extension_settings[EXT_ID] || {
     enabled: true,
@@ -64,6 +82,16 @@ if (settings.dynamicPrompt && !settings.fourthWall) settings.fourthWall = settin
 settings.audio ||= {};
 settings.audio.enabled = true;
 settings.wrapperIframe = true;
+
+const CHAT_SURFACE_MANAGED = isTauriTavernChatSurfaceManaged();
+configureMessagePreviewRuntime({
+    ownsHistoryButtons: !CHAT_SURFACE_MANAGED,
+    supportsPreview: !CHAT_SURFACE_MANAGED,
+});
+configureVariablesPanelRuntime({ ownsMessageButtons: !CHAT_SURFACE_MANAGED });
+configureStorySummaryRuntime({ ownsMessageButtons: !CHAT_SURFACE_MANAGED });
+configureStoryOutlineRuntime({ enabled: !CHAT_SURFACE_MANAGED });
+configureButtonCollapseRuntime({ ownsMessageButtons: !CHAT_SURFACE_MANAGED });
 
 const DRAW_PROVIDER_VALUES = new Set(['disabled', 'novelai', 'sdwebui', 'comfyui']);
 let tavernModulePromise = null;
@@ -137,6 +165,15 @@ function normalizeDrawProvider(provider) {
     return DRAW_PROVIDER_VALUES.has(provider) ? provider : 'disabled';
 }
 
+export function activate() {
+    return activateTauriTavernChatSurface({
+        settings,
+        hasActiveCustomTemplate,
+        hasCustomTemplateForMessage,
+        isDrawProviderActive: () => normalizeDrawProvider(settings.drawProvider) !== 'disabled',
+    });
+}
+
 function migrateDrawProviderSettings(targetSettings) {
     let changed = false;
     targetSettings.novelDraw ||= {};
@@ -156,6 +193,7 @@ function migrateDrawProviderSettings(targetSettings) {
 }
 
 async function cleanupDrawProvider(provider = settings.drawProvider) {
+    clearSharedImageRequestsRuntime();
     const normalized = normalizeDrawProvider(provider);
     if (normalized === 'novelai') {
         try { await cleanupNovelDraw(); } catch (e) { }
@@ -200,10 +238,24 @@ function installDrawFacade() {
         return null;
     }
 
+    function getDrawProviderFacade(provider) {
+        if (provider === 'novelai') return window.xiaobaixNovelDraw;
+        if (provider === 'sdwebui') return window.xiaobaixSdDraw;
+        if (provider === 'comfyui') return window.xiaobaixComfyDraw;
+        return null;
+    }
+
     function normalizeCharacterPrompts(value) {
         return Array.isArray(value)
             ? value.filter(item => item && typeof item === 'object')
             : [];
+    }
+
+    function cloneDrawGenerationValue(value) {
+        if (typeof structuredClone === 'function') {
+            try { return structuredClone(value); } catch { }
+        }
+        return JSON.parse(JSON.stringify(value));
     }
 
     function buildDrawPromptData(input = {}) {
@@ -265,6 +317,68 @@ function installDrawFacade() {
         };
     }
 
+    function prepareDrawGeneration(input = {}) {
+        const provider = normalizeDrawProvider(settings.drawProvider);
+        const payload = typeof input === 'string' ? { prompt: input } : (input || {});
+        const promptData = cloneDrawGenerationValue(buildDrawPromptData(payload));
+        const providerFacade = getDrawProviderFacade(provider);
+        const providerSnapshot = providerFacade?.getGenerationSnapshot?.(payload) || {};
+        const providerConfig = cloneDrawGenerationValue(providerSnapshot.fingerprint || null);
+        const generationConfig = providerSnapshot.execution || null;
+        return {
+            fingerprint: {
+                version: 1,
+                provider,
+                promptData,
+                providerConfig,
+            },
+            async execute({ signal, onQueueStateChange } = {}) {
+                if (provider === 'novelai') {
+                    const novelDraw = window.xiaobaixNovelDraw;
+                    if (!novelDraw?.generateNovelImage) throw new Error('NovelAI 画图模块未初始化');
+                    if (!promptData.hasParamsPreset) throw new Error('无可用的 NovelAI 参数预设');
+                    return novelDraw.generateNovelImage({
+                        scene: promptData.positive || promptData.tags || '',
+                        characterPrompts: promptData.characterPrompts || [],
+                        negativePrompt: promptData.negativePrompt || '',
+                        params: promptData.params || {},
+                        generationConfig,
+                        signal,
+                        onQueueStateChange,
+                    });
+                }
+
+                if (provider === 'sdwebui') {
+                    const sdDraw = window.xiaobaixSdDraw;
+                    if (!sdDraw?.generateSdImage) throw new Error('SD WebUI 画图模块未初始化');
+                    return sdDraw.generateSdImage({
+                        prompt: promptData.positive || promptData.tags || '',
+                        negativePrompt: promptData.negativePrompt || '',
+                        params: promptData.params || {},
+                        generationConfig,
+                        signal,
+                        onQueueStateChange,
+                    });
+                }
+
+                if (provider === 'comfyui') {
+                    const comfyDraw = window.xiaobaixComfyDraw;
+                    if (!comfyDraw?.generateComfyImage) throw new Error('ComfyUI 画图模块未初始化');
+                    return comfyDraw.generateComfyImage({
+                        prompt: promptData.positive || promptData.tags || '',
+                        negativePrompt: promptData.negativePrompt || '',
+                        params: promptData.params || {},
+                        generationConfig,
+                        signal,
+                        onQueueStateChange,
+                    });
+                }
+
+                throw new Error('未启用画图后端');
+            },
+        };
+    }
+
     window.xiaobaixDraw = {
         getProvider() {
             return normalizeDrawProvider(settings.drawProvider);
@@ -285,47 +399,22 @@ function installDrawFacade() {
         buildPromptData(input = {}) {
             return buildDrawPromptData(input);
         },
+        prepareGeneration(input = {}) {
+            return prepareDrawGeneration(input);
+        },
         async generateImage(input = {}) {
-            const provider = normalizeDrawProvider(settings.drawProvider);
             const payload = typeof input === 'string' ? { prompt: input } : (input || {});
-            const promptData = buildDrawPromptData(payload);
-
-            if (provider === 'novelai') {
-                const novelDraw = window.xiaobaixNovelDraw;
-                if (!novelDraw?.generateNovelImage) throw new Error('NovelAI 画图模块未初始化');
-                if (!promptData.hasParamsPreset) throw new Error('无可用的 NovelAI 参数预设');
-                return novelDraw.generateNovelImage({
-                    scene: promptData.positive || promptData.tags || '',
-                    characterPrompts: promptData.characterPrompts || [],
-                    negativePrompt: promptData.negativePrompt || '',
-                    params: promptData.params || {},
-                    signal: payload.signal,
-                });
-            }
-
-            if (provider === 'sdwebui') {
-                const sdDraw = window.xiaobaixSdDraw;
-                if (!sdDraw?.generateSdImage) throw new Error('SD WebUI 画图模块未初始化');
-                return sdDraw.generateSdImage({
-                    prompt: promptData.positive || promptData.tags || '',
-                    negativePrompt: promptData.negativePrompt || '',
-                    params: promptData.params || {},
-                    signal: payload.signal,
-                });
-            }
-
-            if (provider === 'comfyui') {
-                const comfyDraw = window.xiaobaixComfyDraw;
-                if (!comfyDraw?.generateComfyImage) throw new Error('ComfyUI 画图模块未初始化');
-                return comfyDraw.generateComfyImage({
-                    prompt: promptData.positive || promptData.tags || '',
-                    negativePrompt: promptData.negativePrompt || '',
-                    params: promptData.params || {},
-                    signal: payload.signal,
-                });
-            }
-
-            throw new Error('未启用画图后端');
+            const plan = prepareDrawGeneration(payload);
+            return await plan.execute({
+                signal: payload.signal,
+                onQueueStateChange: payload.onQueueStateChange,
+            });
+        },
+        generateSharedImage(input = {}) {
+            return generateSharedImageRuntime(input);
+        },
+        checkGeneratedImageCache(input = {}) {
+            return checkGeneratedImageCacheRuntime(input);
         },
         async generateImagesFromText(input = {}) {
             const provider = normalizeDrawProvider(settings.drawProvider);
@@ -339,6 +428,7 @@ function installDrawFacade() {
             return generateImagesFromText(input || {});
         },
     };
+    void clearExpiredGeneratedImageCacheRuntime();
 }
 
 if (migrateDrawProviderSettings(settings)) {
@@ -374,285 +464,22 @@ function cleanupDeprecatedData() {
 }
 
 let isXiaobaixEnabled = settings.enabled;
+let drawProviderTransitionGeneration = 0;
 let moduleCleanupFunctions = new Map();
-let updateCheckPerformed = false;
-
-const DEFAULT_UPDATE_REPO_INFO = Object.freeze({
-    owner: 'RT15548',
-    repo: 'LittleWhiteBox',
-    homePage: 'https://github.com/RT15548/LittleWhiteBox',
-});
-
-function parseGitHubRepoInfo(homePage = '') {
-    const match = String(homePage || '').match(/github\.com\/([^/]+)\/([^/#?]+)/i);
-    if (!match) return null;
-    const owner = match[1];
-    const repo = match[2].replace(/\.git$/i, '');
-    return {
-        owner,
-        repo,
-        homePage: `https://github.com/${owner}/${repo}`,
-    };
-}
-
-function decodeBase64Utf8(value = '') {
-    const normalized = String(value || '').replace(/\s+/g, '');
-    if (!normalized) return '';
-    try {
-        const binary = atob(normalized);
-        const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
-        return new TextDecoder().decode(bytes);
-    } catch {
-        return '';
-    }
-}
-
-async function detectLittleWhiteBoxGlobalFlag() {
-    const extensionKey = `third-party/${EXT_FOLDER_ID}`;
-
-    try {
-        const response = await fetch('/api/extensions/discover', {
-            method: 'GET',
-            headers: getRequestHeaders(),
-        });
-
-        if (response.ok) {
-            const extensions = await response.json();
-            const match = Array.isArray(extensions)
-                ? extensions.find((ext) => ext?.name === extensionKey)
-                : null;
-
-            if (match?.type === 'global') return true;
-            if (match?.type === 'local') return false;
-        }
-    } catch {}
-
-    const cachedType = extensionTypes?.[extensionKey];
-    if (cachedType === 'global') return true;
-    if (cachedType === 'local') return false;
-
-    return null;
-}
-
-async function requestLittleWhiteBoxUpdate(globalFlag) {
-    return fetch('/api/extensions/update', {
-        method: 'POST',
-        headers: getRequestHeaders(),
-        body: JSON.stringify({ extensionName: EXT_FOLDER_ID, global: globalFlag }),
-    });
-}
-
-async function requestLittleWhiteBoxVersion(globalFlag) {
-    return fetch('/api/extensions/version', {
-        method: 'POST',
-        headers: getRequestHeaders(),
-        body: JSON.stringify({ extensionName: EXT_FOLDER_ID, global: globalFlag }),
-    });
-}
-
-async function checkLittleWhiteBoxUpdate() {
-    const checkByManifestVersion = async () => {
-        try {
-            const timestamp = Date.now();
-            const localRes = await fetch(`${extensionFolderPath}/manifest.json?t=${timestamp}`, { cache: 'no-cache' });
-            if (!localRes.ok) return null;
-            const localManifest = await localRes.json();
-            const localVersion = localManifest.version;
-            const repoInfo = parseGitHubRepoInfo(localManifest?.homePage) || DEFAULT_UPDATE_REPO_INFO;
-            const remoteRes = await fetch(
-                `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}/contents/manifest.json?t=${timestamp}`,
-                { cache: 'no-cache' },
-            );
-            if (!remoteRes.ok) return null;
-            const remoteData = await remoteRes.json();
-            const remoteManifest = JSON.parse(decodeBase64Utf8(remoteData.content));
-            const remoteVersion = remoteManifest.version;
-            return localVersion !== remoteVersion
-                ? { isUpToDate: false, localVersion, remoteVersion }
-                : { isUpToDate: true, localVersion, remoteVersion };
-        } catch {
-            return null;
-        }
-    };
-
-    try {
-        const detectedGlobal = await detectLittleWhiteBoxGlobalFlag();
-        const tryOrder = detectedGlobal === null ? [false, true] : [detectedGlobal, !detectedGlobal];
-
-        for (let i = 0; i < tryOrder.length; i++) {
-            const response = await requestLittleWhiteBoxVersion(tryOrder[i]);
-
-            if (response.ok) {
-                const data = await response.json();
-                if (typeof data?.isUpToDate === 'boolean') {
-                    return { ...data, source: 'git' };
-                }
-                break;
-            }
-
-            const text = await response.text();
-            const shouldRetry = i === 0 && (
-                response.status === 404
-                || response.status === 403
-                || /Directory does not exist|Forbidden|permission/i.test(text)
-            );
-
-            if (!shouldRetry) break;
-        }
-    } catch {}
-
-    return checkByManifestVersion();
-}
-
-async function updateLittleWhiteBoxExtension() {
-    try {
-        const detectedGlobal = await detectLittleWhiteBoxGlobalFlag();
-        const tryOrder = detectedGlobal === null ? [false, true] : [detectedGlobal, !detectedGlobal];
-        let response = null;
-
-        for (let i = 0; i < tryOrder.length; i++) {
-            const candidate = tryOrder[i];
-            response = await requestLittleWhiteBoxUpdate(candidate);
-
-            if (response.ok) break;
-
-            const text = await response.text();
-            const shouldRetry = i === 0 && (
-                response.status === 404
-                || response.status === 403
-                || /Directory does not exist|Forbidden|permission/i.test(text)
-            );
-
-            if (!shouldRetry) {
-                toastr.error(text || response.statusText, 'LittleWhiteBox update failed', { timeOut: 5000 });
-                return false;
-            }
-        }
-
-        if (!response.ok) {
-            const text = await response.text();
-            toastr.error(text || response.statusText, 'LittleWhiteBox update failed', { timeOut: 5000 });
-            return false;
-        }
-
-        const data = await response.json();
-        if (data.isUpToDate) {
-            toastr.success('LittleWhiteBox is up to date');
-            return true;
-        }
-
-        toastr.success('LittleWhiteBox updated，页面即将刷新', '正在应用更新');
-        setTimeout(() => window.location.reload(), 1000);
-        return true;
-    } catch {
-        toastr.error('Error during update', 'LittleWhiteBox update failed');
-        return false;
-    }
-}
-
-function updateExtensionHeaderWithUpdateNotice() {
-    addUpdateTextNotice();
-    addUpdateDownloadButton();
-}
-
-function addUpdateTextNotice() {
-    const selectors = [
-        '.inline-drawer-toggle.inline-drawer-header b',
-        '.inline-drawer-header b',
-        '.littlewhitebox .inline-drawer-header b',
-        'div[class*="inline-drawer"] b',
-    ];
-    let headerElement = null;
-    for (const selector of selectors) {
-        const elements = document.querySelectorAll(selector);
-        for (const element of elements) {
-            if (element.textContent && element.textContent.includes('小白X')) {
-                headerElement = element;
-                break;
-            }
-        }
-        if (headerElement) break;
-    }
-    if (!headerElement) {
-        setTimeout(() => addUpdateTextNotice(), 1000);
-        return;
-    }
-    if (headerElement.querySelector('.littlewhitebox-update-text')) return;
-    const updateTextSmall = document.createElement('small');
-    updateTextSmall.className = 'littlewhitebox-update-text';
-    updateTextSmall.textContent = '(有可用更新)';
-    headerElement.appendChild(updateTextSmall);
-}
-
-function addUpdateDownloadButton() {
-    const sectionDividers = document.querySelectorAll('.section-divider');
-    let totalSwitchDivider = null;
-    for (const divider of sectionDividers) {
-        if (divider.textContent && divider.textContent.includes('总开关')) {
-            totalSwitchDivider = divider;
-            break;
-        }
-    }
-    if (!totalSwitchDivider) {
-        setTimeout(() => addUpdateDownloadButton(), 1000);
-        return;
-    }
-    if (document.querySelector('#littlewhitebox-update-extension')) return;
-    const updateButton = document.createElement('div');
-    updateButton.id = 'littlewhitebox-update-extension';
-    updateButton.className = 'menu_button fa-solid fa-cloud-arrow-down interactable has-update';
-    updateButton.title = '下载并安装小白X的更新';
-    updateButton.tabIndex = 0;
-    try {
-        totalSwitchDivider.style.display = 'flex';
-        totalSwitchDivider.style.alignItems = 'center';
-        totalSwitchDivider.style.justifyContent = 'flex-start';
-    } catch (e) { }
-    totalSwitchDivider.appendChild(updateButton);
-    try {
-        if (window.setupUpdateButtonInSettings) {
-            window.setupUpdateButtonInSettings();
-        }
-    } catch (e) { }
-}
-
-function removeAllUpdateNotices() {
-    const textNotice = document.querySelector('.littlewhitebox-update-text');
-    const downloadButton = document.querySelector('#littlewhitebox-update-extension');
-    if (textNotice) textNotice.remove();
-    if (downloadButton) downloadButton.remove();
-}
-
-function resetLittleWhiteBoxUpdateCheck() {
-    updateCheckPerformed = false;
-}
-
-async function performExtensionUpdateCheck() {
-    if (updateCheckPerformed) return;
-    updateCheckPerformed = true;
-    try {
-        const versionData = await checkLittleWhiteBoxUpdate();
-        if (versionData && versionData.isUpToDate === false) {
-            updateExtensionHeaderWithUpdateNotice();
-        }
-    } catch (error) { }
-}
 
 window.isXiaobaixEnabled = isXiaobaixEnabled;
 setupDrawGenerateInterceptor({ shouldStrip: () => isXiaobaixEnabled });
-window.testLittleWhiteBoxUpdate = async () => {
-    await resetLittleWhiteBoxUpdateCheck();
-    await performExtensionUpdateCheck();
-};
-window.testUpdateUI = async () => {
-    await updateExtensionHeaderWithUpdateNotice();
-};
-window.testRemoveUpdateUI = async () => {
-    await removeAllUpdateNotices();
-};
 
 function registerModuleCleanup(moduleName, cleanupFunction) {
     moduleCleanupFunctions.set(moduleName, cleanupFunction);
+}
+
+function initImageJobRecoveryRuntime() {
+    startImageJobRecovery({
+        decoders: { novelai: decodeNovelBackendJobResult },
+        providerAdoptionEffects: { novelai: applyNovelDrawRunAutoLearn },
+    });
+    registerModuleCleanup('imageJobRecovery', stopImageJobRecovery);
 }
 
 function removeSkeletonStyles() {
@@ -675,10 +502,11 @@ function cleanupAllResources() {
         } catch (e) { }
     });
     moduleCleanupFunctions.clear();
-    try {
-        cleanupRenderer();
-    } catch (e) { }
-    document.querySelectorAll('.memory-button, .mes_history_preview').forEach(btn => btn.remove());
+    if (!CHAT_SURFACE_MANAGED) {
+        try { cleanupRenderer(); } catch (e) { }
+    }
+    document.querySelectorAll('.memory-button').forEach(btn => btn.remove());
+    removeOwnedHistoryButtons();
     document.querySelectorAll('#message_preview_btn').forEach(btn => {
         if (btn instanceof HTMLElement) {
             btn.style.display = 'none';
@@ -755,6 +583,7 @@ function syncFeatureActionButtons() {
         drawButton.disabled = !isXiaobaixEnabled;
         drawButton.classList.toggle('disabled-action', !isXiaobaixEnabled);
     }
+    lockTauriTavernChatSurfaceSettings();
 }
 
 async function toggleAllFeatures(enabled) {
@@ -762,36 +591,39 @@ async function toggleAllFeatures(enabled) {
         toggleSettingsControls(true);
         try { window.XB_applyPrevStates && window.XB_applyPrevStates(); } catch (e) { }
         saveSettingsDebounced();
-        initRenderer();
+        if (!CHAT_SURFACE_MANAGED) initRenderer();
         try { initVarCommands(); } catch (e) { }
         try { initVareventEditor(); } catch (e) { }
         if (extension_settings[EXT_ID].tasks?.enabled) {
             await initTasks();
         }
         const moduleInits = [
-            { condition: extension_settings[EXT_ID].immersive?.enabled, init: initImmersiveMode },
-            { condition: extension_settings[EXT_ID].templateEditor?.enabled, init: initTemplateEditor },
+            { condition: !CHAT_SURFACE_MANAGED && extension_settings[EXT_ID].immersive?.enabled, init: initImmersiveMode },
+            { condition: !CHAT_SURFACE_MANAGED && extension_settings[EXT_ID].templateEditor?.enabled, init: initTemplateEditor },
             { condition: true, init: initControlAudio },
             { condition: extension_settings[EXT_ID].variablesPanel?.enabled, init: initVariablesPanel },
             { condition: extension_settings[EXT_ID].variablesCore?.enabled, init: initVariablesCore },
-            { condition: extension_settings[EXT_ID].tts?.enabled, init: initTts },
+            { condition: !CHAT_SURFACE_MANAGED && extension_settings[EXT_ID].tts?.enabled, init: initTts },
             { condition: extension_settings[EXT_ID].enaPlanner?.enabled, init: initEnaPlanner },
             { condition: true, init: initEbook },
             { condition: true, init: () => { void initTavernSafely(); } },
             { condition: true, init: initStreamingGeneration },
-            { condition: true, init: initButtonCollapse }
+            { condition: !CHAT_SURFACE_MANAGED, init: initButtonCollapse }
         ];
         moduleInits.forEach(({ condition, init }) => {
             if (condition) init();
         });
-        try {
-            await initActiveDrawProvider();
-        } catch (e) {
-            console.error('[LittleWhiteBox] 初始化画图 provider 失败:', e);
-        }
-        try { initFourthWallFloorTools(); } catch (e) { }
-        if (extension_settings[EXT_ID].fourthWall?.enabled) {
-            try { initFourthWall(); } catch (e) { }
+        if (!CHAT_SURFACE_MANAGED) {
+            try {
+                await initActiveDrawProvider();
+            } catch (e) {
+                console.error('[LittleWhiteBox] 初始化画图 provider 失败:', e);
+            }
+            initImageJobRecoveryRuntime();
+            try { initFourthWallFloorTools(); } catch (e) { }
+            if (extension_settings[EXT_ID].fourthWall?.enabled) {
+                try { initFourthWall(); } catch (e) { }
+            }
         }
         if (extension_settings[EXT_ID].preview?.enabled || extension_settings[EXT_ID].recorded?.enabled) {
             setTimeout(initMessagePreview, 200);
@@ -823,6 +655,7 @@ async function toggleAllFeatures(enabled) {
         try { cleanupVariablesCore(); } catch (e) { }
         try { cleanupVarCommands(); } catch (e) { }
         try { cleanupVareventEditor(); } catch (e) { }
+        drawProviderTransitionGeneration++;
         await cleanupDrawProvider(settings.drawProvider);
         try { cleanupTts(); } catch (e) { }
         try { cleanupEnaPlanner(); } catch (e) { }
@@ -870,7 +703,7 @@ async function setupSettings() {
             { id: 'xiaobaix_preview_enabled', key: 'preview', init: initMessagePreview },
             { id: 'scheduled_tasks_enabled', key: 'tasks', init: initTasks },
             { id: 'xiaobaix_template_enabled', key: 'templateEditor', init: initTemplateEditor },
-            { id: 'xiaobaix_variables_panel_enabled', key: 'variablesPanel', init: initVariablesPanel },
+            { id: 'xiaobaix_variables_panel_enabled', key: 'variablesPanel', init: initVariablesPanel, cleanup: cleanupVariablesPanel },
             { id: 'xiaobaix_variables_core_enabled', key: 'variablesCore', init: initVariablesCore },
             { id: 'xiaobaix_story_summary_enabled', key: 'storySummary' },
             { id: 'xiaobaix_story_outline_enabled', key: 'storyOutline' },
@@ -878,7 +711,7 @@ async function setupSettings() {
             { id: 'xiaobaix_ena_planner_enabled', key: 'enaPlanner', init: initEnaPlanner },
         ];
 
-        moduleConfigs.forEach(({ id, key, init }) => {
+        moduleConfigs.forEach(({ id, key, init, cleanup }) => {
             $(`#${id}`).prop("checked", settings[key]?.enabled || false).on("change", async function () {
                 if (!isXiaobaixEnabled) return;
                 const enabled = $(this).prop('checked');
@@ -896,6 +729,7 @@ async function setupSettings() {
                     moduleCleanupFunctions.get(key)();
                     moduleCleanupFunctions.delete(key);
                 }
+                if (!enabled && cleanup) cleanup();
                 if (enabled && init) await init();
                 if (enabled && key === 'tts') {
                     try { refreshFourthWallFloorTools(); } catch { }
@@ -919,10 +753,12 @@ async function setupSettings() {
                 if (next !== $(this).val()) $(this).val(next);
                 if (prev === next) return;
 
-                await cleanupDrawProvider(prev);
+                const transitionGeneration = ++drawProviderTransitionGeneration;
                 settings.drawProvider = next;
                 extension_settings[EXT_ID].drawProvider = next;
                 saveSettingsDebounced();
+                await cleanupDrawProvider(prev);
+                if (transitionGeneration !== drawProviderTransitionGeneration) return;
 
                 try {
                     await initActiveDrawProvider();
@@ -1023,6 +859,7 @@ async function setupSettings() {
 
         $("#xiaobaix_render_enabled").prop("checked", settings.renderEnabled !== false).on("change", async function () {
             if (!isXiaobaixEnabled) return;
+            if (CHAT_SURFACE_MANAGED) return;
             const wasEnabled = settings.renderEnabled !== false;
             settings.renderEnabled = $(this).prop("checked");
             saveSettingsDebounced();
@@ -1048,6 +885,7 @@ async function setupSettings() {
             .val(Number.isFinite(settings.maxRenderedMessages) ? settings.maxRenderedMessages : 5)
             .on("input change", function () {
                 if (!isXiaobaixEnabled) return;
+                if (CHAT_SURFACE_MANAGED) return;
                 const v = normalizeMaxRendered($(this).val());
                 $(this).val(v);
                 settings.maxRenderedMessages = v;
@@ -1058,6 +896,7 @@ async function setupSettings() {
         $(document).off('click.xbreset', '#xiaobaix_reset_btn').on('click.xbreset', '#xiaobaix_reset_btn', async function (e) {
             e.preventDefault();
             e.stopPropagation();
+            if (CHAT_SURFACE_MANAGED) return;
             const MAP = {
                 recorded: 'xiaobaix_recorded_enabled',
                 immersive: 'xiaobaix_immersive_enabled',
@@ -1085,10 +924,12 @@ async function setupSettings() {
             settings.fourthWall.enabled = false;
             extension_settings[EXT_ID].fourthWall = settings.fourthWall;
             try { closeFourthWall(); } catch { }
-            await cleanupDrawProvider(settings.drawProvider);
+            const previousDrawProvider = settings.drawProvider;
+            drawProviderTransitionGeneration++;
             settings.drawProvider = 'disabled';
             extension_settings[EXT_ID].drawProvider = 'disabled';
             $('#xiaobaix_draw_provider').val('disabled');
+            await cleanupDrawProvider(previousDrawProvider);
             notifyTavernDrawStatusChanged();
             syncFeatureActionButtons();
             setChecked('xiaobaix_use_blob', false);
@@ -1097,6 +938,7 @@ async function setupSettings() {
             settings.audio.enabled = true;
             try { saveSettingsDebounced(); } catch (e) { }
         });
+        lockTauriTavernChatSurfaceSettings();
     } catch (err) { }
 }
 
@@ -1150,11 +992,11 @@ function setupMenuTabs() {
     }, 300);
 }
 
-window.processExistingMessages = processExistingMessages;
-window.renderHtmlInIframe = renderHtmlInIframe;
+if (!CHAT_SURFACE_MANAGED) {
+    window.processExistingMessages = processExistingMessages;
+    window.renderHtmlInIframe = renderHtmlInIframe;
+}
 window.registerModuleCleanup = registerModuleCleanup;
-window.updateLittleWhiteBoxExtension = updateLittleWhiteBoxExtension;
-window.removeAllUpdateNotices = removeAllUpdateNotices;
 
 jQuery(async () => {
     try {
@@ -1175,11 +1017,12 @@ jQuery(async () => {
         document.head.appendChild(styleElement);
 
         await setupSettings();
+        initPluginUpdate();
         setupMenuTabs();
 
         try { initControlAudio(); } catch (e) { }
 
-        if (isXiaobaixEnabled) {
+        if (isXiaobaixEnabled && !CHAT_SURFACE_MANAGED) {
             initRenderer();
         }
 
@@ -1198,10 +1041,6 @@ jQuery(async () => {
                 document.head.appendChild(Object.assign(document.createElement('script'), { id: 'xb-contextbridge', type: 'module', src: `${extensionFolderPath}/bridges/context-bridge.js` }));
         } catch (e) { }
 
-        eventSource.on(event_types.APP_READY, () => {
-            setTimeout(performExtensionUpdateCheck, 2000);
-        });
-
         if (isXiaobaixEnabled) {
             try { initVarCommands(); } catch (e) { }
             try { initVareventEditor(); } catch (e) { }
@@ -1211,26 +1050,29 @@ jQuery(async () => {
             }
 
             const moduleInits = [
-                { condition: settings.immersive?.enabled, init: initImmersiveMode },
-                { condition: settings.templateEditor?.enabled, init: initTemplateEditor },
+                { condition: !CHAT_SURFACE_MANAGED && settings.immersive?.enabled, init: initImmersiveMode },
+                { condition: !CHAT_SURFACE_MANAGED && settings.templateEditor?.enabled, init: initTemplateEditor },
                 { condition: settings.variablesPanel?.enabled, init: initVariablesPanel },
                 { condition: settings.variablesCore?.enabled, init: initVariablesCore },
-                { condition: settings.tts?.enabled, init: initTts },
+                { condition: !CHAT_SURFACE_MANAGED && settings.tts?.enabled, init: initTts },
                 { condition: settings.enaPlanner?.enabled, init: initEnaPlanner },
                 { condition: true, init: initEbook },
                 { condition: true, init: () => { void initTavernSafely(); } },
                 { condition: true, init: initStreamingGeneration },
-                { condition: true, init: initButtonCollapse }
+                { condition: !CHAT_SURFACE_MANAGED, init: initButtonCollapse }
             ];
             moduleInits.forEach(({ condition, init }) => { if (condition) init(); });
-            try {
-                await initActiveDrawProvider();
-            } catch (e) {
-                console.error('[LittleWhiteBox] 初始化画图 provider 失败:', e);
-            }
-            try { initFourthWallFloorTools(); } catch (e) { }
-            if (settings.fourthWall?.enabled) {
-                try { initFourthWall(); } catch (e) { }
+            if (!CHAT_SURFACE_MANAGED) {
+                try {
+                    await initActiveDrawProvider();
+                } catch (e) {
+                    console.error('[LittleWhiteBox] 初始化画图 provider 失败:', e);
+                }
+                initImageJobRecoveryRuntime();
+                try { initFourthWallFloorTools(); } catch (e) { }
+                if (settings.fourthWall?.enabled) {
+                    try { initFourthWall(); } catch (e) { }
+                }
             }
 
             if (settings.preview?.enabled || settings.recorded?.enabled) {
@@ -1246,9 +1088,11 @@ jQuery(async () => {
             }
         }, 2000);
 
-        setInterval(() => {
-            if (isXiaobaixEnabled) processExistingMessages();
-        }, 30000);
+        if (!CHAT_SURFACE_MANAGED) {
+            setInterval(() => {
+                if (isXiaobaixEnabled) processExistingMessages();
+            }, 30000);
+        }
     } catch (err) { }
 });
 

@@ -8,33 +8,23 @@
 // 每楼层 1-2 个场景锚点（非碎片原子），60-100 字场景摘要
 // ============================================================================
 
-import { callLLM, cancelAllL0Requests, parseJson } from './llm-service.js';
+import { callLLM } from './llm-service.js';
+import {
+    createL0FailureError,
+    getL0RetryDelayMs,
+    getL0ResponseSchemaFailure,
+    isRetryableL0Failure,
+    L0_MAX_ATTEMPTS,
+    L0_MIN_SCENE_LENGTH,
+} from './l0-retry-policy.js';
+import { parseJsonResponse } from './json-response.js';
 import { xbLog } from '../../../../core/debug-core.js';
 import { filterText } from '../utils/text-filter.js';
 
 const MODULE_ID = 'atom-extraction';
 
-const CONCURRENCY = 10;
-const RETRY_COUNT = 1;
-const RETRY_DELAY = 500;
 const DEFAULT_TIMEOUT = 60000;
-const STAGGER_DELAY = 80;
 const DEBUG_RAW_PREVIEW_LEN = 800;
-
-let batchCancelled = false;
-
-export function cancelBatchExtraction() {
-    batchCancelled = true;
-    cancelAllL0Requests();
-}
-
-export function resetBatchExtractionCancel() {
-    batchCancelled = false;
-}
-
-export function isBatchCancelled() {
-    return batchCancelled;
-}
 
 // ============================================================================
 // L0 提取 Prompt
@@ -69,6 +59,8 @@ const SYSTEM_PROMPT = `你是场景摘要器。从一轮对话中提取1-2个场
 - 禁止空泛写法，例如：两人交谈、关系升温、发生冲突、气氛暧昧、展开互动、进行交流、产生矛盾
 - 必须把抽象概括改写成具象句，写清楚谁在什么地方拿着什么、对谁做了什么；如有关键言语行为，可简要保留其内容或目的；态度和关系变化仅在这一轮里有明确依据时再写
 - 60-100字，信息密集但流畅；不要列清单，要在自然语言里尽量塞进可检索钩子
+- 信息无法全部容纳时，严格按此顺序压缩或删除：气氛描写 → 次要反应 → 心理描写 → 动作过程；必须先删完前一类，才可压缩后一类
+- 与本场景直接相关的具名实体（人名、地点、具名物件）、辨识性特征和15字以内的关键原话属于最后保留层；仅在上述四类都已不足以继续压缩时才考虑舍弃；无关名词不要强行塞入
 
 ## edges（关系三元组）
 - s=施事方 t=受事方 r=互动行为（建议 6-12 字，最多 20 字）
@@ -99,6 +91,13 @@ const SYSTEM_PROMPT = `你是场景摘要器。从一轮对话中提取1-2个场
 // ============================================================================
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+async function waitBeforeL0Retry(attempt, failure) {
+    const delayMs = getL0RetryDelayMs(attempt);
+    if (delayMs == null || !isRetryableL0Failure(failure)) return false;
+    await sleep(delayMs);
+    return true;
+}
 
 function previewText(text, maxLen = DEBUG_RAW_PREVIEW_LEN) {
     const raw = String(text ?? '').replace(/\s+/g, ' ').trim();
@@ -179,11 +178,12 @@ function sanitizeEdges(raw) {
  * @returns {object|null} atom 对象
  */
 function anchorToAtom(anchor, aiFloor, idx) {
+    if (!anchor || typeof anchor !== 'object' || Array.isArray(anchor)) return null;
     const scene = String(anchor.scene || '').trim();
     if (!scene) return null;
 
     // scene 过短（< 15 字）可能是噪音
-    if (scene.length < 15) return null;
+    if (scene.length < L0_MIN_SCENE_LENGTH) return null;
     const edges = sanitizeEdges(anchor.edges);
     const where = String(anchor.where || '').trim();
     const quality = calcAtomQuality(scene, edges, where);
@@ -207,8 +207,12 @@ function anchorToAtom(anchor, aiFloor, idx) {
 // 单轮提取（带重试）
 // ============================================================================
 
-async function extractAtomsForRoundWithRetry(userMessage, aiMessage, aiFloor, options = {}) {
-    const { timeout = DEFAULT_TIMEOUT } = options;
+export async function extractAtomsForRound(userMessage, aiMessage, aiFloor, options = {}) {
+    const { timeout = DEFAULT_TIMEOUT, signal = null, shouldCancel = null } = options;
+    const isCancelled = () => (
+        signal?.aborted
+        || shouldCancel?.() === true
+    );
 
     if (!aiMessage?.mes?.trim()) return [];
 
@@ -225,8 +229,8 @@ async function extractAtomsForRoundWithRetry(userMessage, aiMessage, aiFloor, op
 
     const input = `<round>\n${parts.join('\n')}\n</round>\n请读取上述 <round> 内容，提取 1-2 个场景锚点，并严格按 JSON 输出。\n不要解释，不要续写，不要角色扮演，不要输出 JSON 以外的任何内容。`;
 
-    for (let attempt = 0; attempt <= RETRY_COUNT; attempt++) {
-        if (batchCancelled) return [];
+    for (let attempt = 0; attempt < L0_MAX_ATTEMPTS; attempt++) {
+        if (isCancelled()) return [];
 
         try {
             const response = await callLLM([
@@ -236,42 +240,46 @@ async function extractAtomsForRoundWithRetry(userMessage, aiMessage, aiFloor, op
                 temperature: 0.3,
                 max_tokens: 600,
                 timeout,
+                signal,
             });
+            if (isCancelled()) return [];
 
             const rawText = String(response || '');
             xbLog.info(MODULE_ID, `floor ${aiFloor} attempt ${attempt} rawText(len=${rawText.length}): ${previewText(rawText)}`);
             if (!rawText.trim()) {
-                if (attempt < RETRY_COUNT) {
-                    await sleep(RETRY_DELAY);
+                if (await waitBeforeL0Retry(attempt, { kind: 'empty' })) {
+                    if (isCancelled()) return [];
                     continue;
                 }
-                return null;
+                throw createL0FailureError('L0 API 返回空响应', { kind: 'empty' });
             }
 
             xbLog.info(MODULE_ID, `floor ${aiFloor} attempt ${attempt} parseSource(len=${rawText.length}): ${previewText(rawText)}`);
 
-            let parsed;
-            try {
-                parsed = parseJson(rawText);
-            } catch (e) {
+            const parsedResponse = parseJsonResponse(rawText);
+            if (!parsedResponse) {
                 xbLog.warn(MODULE_ID, `floor ${aiFloor} JSON解析失败 (attempt ${attempt})`);
-                if (attempt < RETRY_COUNT) {
-                    await sleep(RETRY_DELAY);
+                if (await waitBeforeL0Retry(attempt, { kind: 'invalid_json' })) {
+                    if (isCancelled()) return [];
                     continue;
                 }
-                return null;
+                throw createL0FailureError('L0 API 响应无法解析为 JSON', { kind: 'invalid_json' });
+            }
+            const parsed = parsedResponse.value;
+            if (parsedResponse.repair) {
+                xbLog.info(MODULE_ID, `floor ${aiFloor} attempt ${attempt} JSON syntax repaired=${parsedResponse.repair}`);
             }
 
-            // 兼容：优先 anchors，回退 atoms
-            const rawAnchors = parsed?.anchors;
-            if (!rawAnchors || !Array.isArray(rawAnchors)) {
+            const schemaFailure = getL0ResponseSchemaFailure(parsed);
+            if (schemaFailure) {
                 xbLog.warn(MODULE_ID, `floor ${aiFloor} attempt ${attempt} 缺少有效 anchors，parsed=${previewText(JSON.stringify(parsed))}`);
-                if (attempt < RETRY_COUNT) {
-                    await sleep(RETRY_DELAY);
+                if (await waitBeforeL0Retry(attempt, schemaFailure)) {
+                    if (isCancelled()) return [];
                     continue;
                 }
-                return null;
+                throw createL0FailureError('L0 API 响应缺少 anchors 数组', schemaFailure);
             }
+            const rawAnchors = parsed.anchors;
 
             // 转换为 atom 存储格式（最多 2 个）
             const atoms = rawAnchors
@@ -288,112 +296,16 @@ async function extractAtomsForRoundWithRetry(userMessage, aiMessage, aiFloor, op
             return atoms;
 
         } catch (e) {
-            if (batchCancelled) return null;
+            if (isCancelled() || e?.name === 'AbortError') return null;
 
-            if (attempt < RETRY_COUNT) {
-                await sleep(RETRY_DELAY * (attempt + 1));
+            if (await waitBeforeL0Retry(attempt, e?.l0Failure)) {
+                if (isCancelled()) return null;
                 continue;
             }
             xbLog.error(MODULE_ID, `floor ${aiFloor} 失败`, e);
-            return null;
+            throw e;
         }
     }
 
-    return null;
-}
-
-export async function extractAtomsForRound(userMessage, aiMessage, aiFloor, options = {}) {
-    return extractAtomsForRoundWithRetry(userMessage, aiMessage, aiFloor, options);
-}
-
-// ============================================================================
-// 批量提取
-// ============================================================================
-
-export async function batchExtractAtoms(chat, onProgress) {
-    if (!chat?.length) return [];
-
-    batchCancelled = false;
-
-    const pairs = [];
-    for (let i = 0; i < chat.length; i++) {
-        if (!chat[i].is_user) {
-            const userMsg = (i > 0 && chat[i - 1]?.is_user) ? chat[i - 1] : null;
-            pairs.push({ userMsg, aiMsg: chat[i], aiFloor: i });
-        }
-    }
-
-    if (!pairs.length) return [];
-
-    const allAtoms = [];
-    let completed = 0;
-    let failed = 0;
-
-    for (let i = 0; i < pairs.length; i += CONCURRENCY) {
-        if (batchCancelled) break;
-
-        const batch = pairs.slice(i, i + CONCURRENCY);
-
-        if (i === 0) {
-            const promises = batch.map((pair, idx) => (async () => {
-                await sleep(idx * STAGGER_DELAY);
-
-                if (batchCancelled) return;
-
-                try {
-                    const atoms = await extractAtomsForRoundWithRetry(
-                        pair.userMsg,
-                        pair.aiMsg,
-                        pair.aiFloor,
-                        { timeout: DEFAULT_TIMEOUT }
-                    );
-                    if (atoms?.length) {
-                        allAtoms.push(...atoms);
-                    } else if (atoms === null) {
-                        failed++;
-                    }
-                } catch {
-                    failed++;
-                }
-                completed++;
-                onProgress?.(completed, pairs.length, failed);
-            })());
-            await Promise.all(promises);
-        } else {
-            const promises = batch.map(pair =>
-                extractAtomsForRoundWithRetry(
-                    pair.userMsg,
-                    pair.aiMsg,
-                    pair.aiFloor,
-                    { timeout: DEFAULT_TIMEOUT }
-                )
-                    .then(atoms => {
-                        if (batchCancelled) return;
-                        if (atoms?.length) {
-                            allAtoms.push(...atoms);
-                        } else if (atoms === null) {
-                            failed++;
-                        }
-                        completed++;
-                        onProgress?.(completed, pairs.length, failed);
-                    })
-                    .catch(() => {
-                        if (batchCancelled) return;
-                        failed++;
-                        completed++;
-                        onProgress?.(completed, pairs.length, failed);
-                    })
-            );
-
-            await Promise.all(promises);
-        }
-
-        if (i + CONCURRENCY < pairs.length && !batchCancelled) {
-            await sleep(30);
-        }
-    }
-
-    xbLog.info(MODULE_ID, `批量提取完成: ${allAtoms.length} atoms, ${failed} 失败`);
-
-    return allAtoms;
+    throw createL0FailureError('L0 extraction exhausted retries', { kind: 'unknown' });
 }

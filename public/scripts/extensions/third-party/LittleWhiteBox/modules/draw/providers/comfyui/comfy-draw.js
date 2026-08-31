@@ -2,7 +2,7 @@
 
 import { getContext } from "../../../../../../../extensions.js";
 import { saveBase64AsFile } from "../../../../../../../utils.js";
-import { getRequestHeaders } from "../../../../../../../../script.js";
+import { getRequestHeaders, syncMesToSwipe } from "../../../../../../../../script.js";
 import { extensionFolderPath } from "../../../../core/constants.js";
 import { createModuleEvents, event_types } from "../../../../core/event-manager.js";
 import { ComfyDrawStorage } from "../../../../core/server-storage.js";
@@ -25,10 +25,21 @@ import {
     preloadPreviewDisplayUrl,
     warmSlotPreviewNeighbors,
 } from "../../shared/gallery-cache.js";
+import { generateAndParseScenePlan, prepareScenePlannerInput } from "../../shared/scene-planner.js";
+import { createSceneSource, normalizeMessageSceneSourceText } from "../../shared/scene-source.js";
+import { stripDrawImageSlots } from "../../shared/image-marker-syntax.js";
 import {
-    generateAndParseScenePlan,
-    LLMServiceError,
-} from "../../shared/scene-planner.js";
+    commitRecoverableScenePlacements,
+    commitSceneSlotDelivery,
+    commitSceneSlotReplacement,
+    getSceneSlotIds,
+    ScenePlacementError,
+    assertSceneSourceUnchanged,
+    insertScenePlacementsPreservingSlots,
+    commitSettledScenePlacements,
+    removeSceneSlotPlaceholders,
+    setActiveMessageText,
+} from "../../shared/scene-placement.js";
 import { WorldbookProcessor } from "../../shared/worldbook-processor.js";
 import {
     loadSharedDrawSettings,
@@ -36,18 +47,60 @@ import {
     updateSharedDrawSettingsPersistent,
     normalizeSharedCacheDays,
 } from "../../shared/draw-settings.js";
-import { fetchDrawLlmModels, getLastDrawLlmRequestSnapshot } from "../../shared/draw-llm.js";
+import { getLastDrawAgentDiagnostic } from "../../shared/draw-agent.js";
+import { attachDrawAgentSettingsSurface } from "../../shared/agent-settings-surface.js";
+import { createSerialImageRequestQueue } from "../../shared/serial-image-request-queue.js";
+import {
+    buildComfyImageRequest,
+    buildSimpleWorkflow,
+    compile as compileComfyScenePlan,
+    COMFY_REQUEST_DELAY_MS,
+    parseComfyApiWorkflowJson,
+    resolveComfyDirectOutputImage,
+    validateComfyWorkflowNodeMap,
+} from './compiler.js';
+import {
+    createBackendItemError,
+    createImageBackendJobMonitorRegistry,
+    createImageBackendJobsClient,
+    fetchImageBackendJobsStatus,
+    hasImageBackendJobsCapability,
+    readImageBackendResultBase64,
+    readImageBlobBase64,
+    reportImageBackendJobState,
+} from '../../shared/backend-image-jobs.js';
+import {
+    classifyImageJobDeliveryTarget,
+    commitImageJobDeliverySlotRemoval,
+    ImageJobDeliveryTargetState,
+    requireImageJobDeliveryTarget,
+} from '../../shared/image-job-delivery-target.js';
+import { submitRecoverableImageJob } from '../../shared/recoverable-image-jobs.js';
+import {
+    isDrawRunCancelledError,
+    isDrawRunPendingError,
+    submitProviderDrawRun,
+} from '../../shared/draw-run-production.js';
+import {
+    cancelPendingDrawRuns,
+    hasPendingDrawRun,
+} from '../../shared/draw-run-controls.js';
+import {
+    createCharacterEnabledControl,
+    getCharacterEnabledFromCard,
+} from "../../shared/character-enabled-control.js";
+import { hashStableValue } from "../../shared/generation-fingerprint.js";
+import { refreshReleasedPromptPresetDefaults } from "../../shared/prompt-template-migration.js";
 import {
     findLastAIMessageId,
     createPlaceholder,
     renderPreviewsForMessage,
     buildImageHtml,
+    buildPendingImageHtml,
     insertPreviewIntoRenderedMessage,
-    findAnchorPosition,
-    findNearestSentenceEnd,
+    isAnyMessageBeingEdited,
+    isMessageBeingEdited,
     detectPresentCharacters,
-    assembleCharacterPrompts,
-    applyMessageFilterRules,
     DEFAULT_MESSAGE_FILTER_RULES,
     joinTags,
     ensureDrawImageStyles,
@@ -58,6 +111,7 @@ import {
     clearDrawSavedEntry,
     startSharedDrawPreviewRuntime,
     stopSharedDrawPreviewRuntime,
+    toScenePlannerProgress,
 } from "../../shared/draw-common.js";
 import {
     loadLocalDanbooruDB,
@@ -67,8 +121,8 @@ import {
 } from "../../shared/danbooru-local-db.js";
 import {
     COMFY_SCENE_PROMPTS,
+    COMFY_RELEASED_PROMPT_DEFAULT_FINGERPRINTS,
     DEFAULT_PROMPT_CONFIG,
-    LEGACY_USER_JSON_FORMAT,
     PROMPT_TEMPLATE_VERSION,
     getLoadedTagGuide,
     getPromptChainPreview,
@@ -77,62 +131,17 @@ import {
 } from "./comfy-prompts.js";
 
 const MODULE_KEY = 'comfyDraw';
+const DRAW_RUN_PROVIDER = 'comfyui';
 const HTML_PATH = `${extensionFolderPath}/modules/draw/providers/comfyui/comfy-draw.html`;
 const DANBOORU_DATA_PATH = `${extensionFolderPath}/modules/draw/shared/data/danbooru-chars.dat`;
 const SERVER_FILE_KEY = 'config';
 
-// 简单模式只使用 ComfyUI 最基础的“整包模型文生图”链路。
-// SillyTavern 原生 Comfy 后端从 history.outputs[*].images/gifs 取图，因此末端必须有 SaveImage。
-// 节点 ID 固定：3=KSampler, 4=模型加载, 5=画布, 6=正向提示词, 7=负向提示词, 8=解码, 9=保存输出
-const BUILTIN_WORKFLOW_TEMPLATE = {
-    "3": {
-        "inputs": {
-            "seed": 0,
-            "steps": 20,
-            "cfg": 7,
-            "sampler_name": "euler",
-            "scheduler": "normal",
-            "denoise": 1,
-            "model": ["4", 0],
-            "positive": ["6", 0],
-            "negative": ["7", 0],
-            "latent_image": ["5", 0]
-        },
-        "class_type": "KSampler"
-    },
-    "4": {
-        "inputs": { "ckpt_name": "" },
-        "class_type": "CheckpointLoaderSimple"
-    },
-    "5": {
-        "inputs": { "width": 1024, "height": 1024, "batch_size": 1 },
-        "class_type": "EmptyLatentImage"
-    },
-    "6": {
-        "inputs": { "text": "", "clip": ["4", 1] },
-        "class_type": "CLIPTextEncode"
-    },
-    "7": {
-        "inputs": { "text": "", "clip": ["4", 1] },
-        "class_type": "CLIPTextEncode"
-    },
-    "8": {
-        "inputs": { "samples": ["3", 0], "vae": ["4", 2] },
-        "class_type": "VAEDecode"
-    },
-    "9": {
-        "inputs": {
-            "filename_prefix": "LittleWhiteBox_Comfy",
-            "images": ["8", 0]
-        },
-        "class_type": "SaveImage"
-    }
-};
 const DEFAULT_COMFY_DRAW_SETTINGS = {
     host: '',
     connectionMode: 'proxy',
     auth: '',
     timeout: 120000,
+    useImageBackendJobs: false,
     mode: 'manual',
     overrideSize: 'default',
     showFloorButton: true,
@@ -169,13 +178,14 @@ const DEFAULT_COMFY_DRAW_SETTINGS = {
     samplerCache: [],
     schedulerCache: [],
     advancedMode: true,
-    customPrompts: { topSystem: null, tagGuideContent: null, userJsonFormat: null },
+    customPrompts: { topSystem: null, tagGuideContent: null, sceneRules: null },
     promptPresets: [],
     selectedPromptPresetId: null,
     _promptTemplateVersion: 0,
 };
 
 let moduleInitialized = false;
+let moduleLifecycleGeneration = 0;
 let settingsCache = null;
 let settingsLoaded = false;
 let overlayElement = null;
@@ -184,18 +194,21 @@ let frameReadyPromise = null;
 let pendingController = null;
 let resizeHandler = null;
 let eventsBound = false;
+let agentSettingsSurface = null;
+let promptChainPreviewFrame = 0;
 let ensureComfyDrawPanelRef = null;
 let destroyComfyDrawPanelsRef = null;
 let imageDelegationBound = false;
 let autoBusy = false;
 const events = createModuleEvents(MODULE_KEY);
-const generationJobs = new Map();
+let generationJobs = new Map();
+const backendJobMonitors = createImageBackendJobMonitorRegistry({ active: false });
 const COMFY_DRAW_VIEWS = ['test', 'api', 'workflow', 'params', 'llm', 'prompts', 'worldbook', 'characters', 'gallery'];
 const ImageState = { PREVIEW: 'preview', SAVING: 'saving', SAVED: 'saved', REFRESHING: 'refreshing', FAILED: 'failed' };
-const FIXED_COMFY_REQUEST_DELAY_MS = 1000;
-let activeComfyImageRequest = null;
-let comfyImageRequestQueue = [];
-let comfyImageRequestSeq = 0;
+const comfyImageRequestQueue = createSerialImageRequestQueue({
+    getCooldownMs: () => COMFY_REQUEST_DELAY_MS,
+});
+const comfyBackendJobsClient = createImageBackendJobsClient({ getHeaders: getRequestHeaders });
 const COMFY_SIZE_PRESETS = [
     { value: '832x1216', width: 832, height: 1216 },
     { value: '1216x832', width: 1216, height: 832 },
@@ -237,13 +250,6 @@ const BUILTIN_WORKFLOWS = [
         notes: '如果报显存不足，切回基础出图或降低尺寸。',
     },
 ];
-const providerDefaults = {
-    st: { url: '', needKey: false, canFetch: false, needManualModel: false },
-    openai: { url: 'https://api.openai.com', needKey: true, canFetch: true, needManualModel: false },
-    google: { url: 'https://generativelanguage.googleapis.com', needKey: true, canFetch: true, needManualModel: false },
-    claude: { url: 'https://api.anthropic.com', needKey: true, canFetch: false, needManualModel: true },
-};
-
 const saveBtnStates = new WeakMap();
 
 function createDefaultPreset() {
@@ -260,7 +266,7 @@ function createDefaultPreset() {
         scheduler: 'normal',
         steps: 20,
         cfg: 7,
-        maxImages: 0,
+        maxImages: 2,
         maxCharactersPerImage: 0,
     };
 }
@@ -308,24 +314,17 @@ function normalizeWorkflowPresets(rawPresets, rawCustomWorkflow = {}) {
 
 function getPromptPresetDefaults(name) {
     const guide = getLoadedTagGuide() || '';
-    if (name === '默认-第一人称视角') {
+    if (name === '默认-第一人称完整规则') {
         return {
             topSystem: DEFAULT_PROMPT_CONFIG.topSystemPov || DEFAULT_PROMPT_CONFIG.topSystem,
             tagGuideContent: guide,
-            userJsonFormat: DEFAULT_PROMPT_CONFIG.userJsonFormat,
-        };
-    }
-    if (name === '默认-模型要求低') {
-        return {
-            topSystem: DEFAULT_PROMPT_CONFIG.topSystem,
-            tagGuideContent: guide,
-            userJsonFormat: LEGACY_USER_JSON_FORMAT || DEFAULT_PROMPT_CONFIG.userJsonFormat,
+            sceneRules: DEFAULT_PROMPT_CONFIG.sceneRules,
         };
     }
     return {
         topSystem: DEFAULT_PROMPT_CONFIG.topSystem,
         tagGuideContent: guide,
-        userJsonFormat: DEFAULT_PROMPT_CONFIG.userJsonFormat,
+        sceneRules: DEFAULT_PROMPT_CONFIG.sceneRules,
     };
 }
 
@@ -335,32 +334,9 @@ function createPromptPreset(name, id = `prompt-${Date.now()}-${Math.random().toS
 
 function createDefaultPromptPresets() {
     return [
-        createPromptPreset('默认-模型要求高'),
-        createPromptPreset('默认-第一人称视角'),
-        createPromptPreset('默认-模型要求低'),
+        createPromptPreset('默认-完整规则'),
+        createPromptPreset('默认-第一人称完整规则'),
     ];
-}
-
-function hasPromptOverrideValue(customPrompts = {}) {
-    return ['topSystem', 'tagGuideContent', 'userJsonFormat']
-        .some((key) => typeof customPrompts?.[key] === 'string' && customPrompts[key].trim());
-}
-
-function createPresetFromCustomPrompts(customPrompts = {}) {
-    const defaults = getPromptPresetDefaults('默认-模型要求高');
-    return {
-        id: `prompt-legacy-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        name: '自定义-旧配置迁移',
-        topSystem: typeof customPrompts.topSystem === 'string' && customPrompts.topSystem.trim()
-            ? customPrompts.topSystem
-            : defaults.topSystem,
-        tagGuideContent: typeof customPrompts.tagGuideContent === 'string' && customPrompts.tagGuideContent.trim()
-            ? customPrompts.tagGuideContent
-            : defaults.tagGuideContent,
-        userJsonFormat: typeof customPrompts.userJsonFormat === 'string' && customPrompts.userJsonFormat.trim()
-            ? customPrompts.userJsonFormat
-            : defaults.userJsonFormat,
-    };
 }
 
 function cloneSettingsObject(obj) {
@@ -399,7 +375,7 @@ function normalizePresets(rawPresets, rawSettings = {}) {
         scheduler: String(preset.scheduler || 'normal'),
         steps: normalizeNumber(preset.steps, 20, 1, 150),
         cfg: normalizeNumber(preset.cfg, 7, 1, 30),
-        maxImages: normalizeNumber(preset.maxImages, 0, 0, 999),
+        maxImages: normalizeNumber(preset.maxImages, 2, 0, 999),
         maxCharactersPerImage: normalizeNumber(preset.maxCharactersPerImage, 0, 0, 999),
     }));
 }
@@ -418,8 +394,7 @@ function normalizeSettings(raw = {}) {
         : DEFAULT_COMFY_DRAW_SETTINGS.builtinWorkflowId;
     const activeWorkflowPreset = workflowPresets.find((item) => item.id === selectedWorkflowPresetId) || workflowPresets[0] || createDefaultWorkflowPreset();
     const merged = {
-        ...DEFAULT_COMFY_DRAW_SETTINGS,
-        ...raw,
+        host: String(raw.host || ''),
         mode: raw.mode === 'auto' ? 'auto' : 'manual',
         overrideSize: String(raw.overrideSize || 'default'),
         showFloorButton: raw.showFloorButton !== false,
@@ -427,11 +402,14 @@ function normalizeSettings(raw = {}) {
         connectionMode: raw.connectionMode === 'direct' ? 'direct' : 'proxy',
         auth: String(raw.auth ?? ''),
         timeout: normalizeNumber(raw.timeout, DEFAULT_COMFY_DRAW_SETTINGS.timeout, 10000, 600000),
+        useImageBackendJobs: raw.useImageBackendJobs === true,
         selectedPresetId,
         selectedWorkflowPresetId,
         builtinWorkflowId,
         presets,
         workflowPresets,
+        selectedPromptPresetId: raw.selectedPromptPresetId == null ? null : String(raw.selectedPromptPresetId),
+        _promptTemplateVersion: Number(raw._promptTemplateVersion) || 0,
         // 简单模式参数
         selectedModel: String(raw.selectedModel ?? ''),
         sampler: String(raw.sampler || 'euler'),
@@ -456,66 +434,50 @@ function normalizeSettings(raw = {}) {
     };
 
     merged.advancedMode = true;
-    merged.customPrompts = { ...DEFAULT_COMFY_DRAW_SETTINGS.customPrompts, ...(raw.customPrompts || {}) };
-    if (!Array.isArray(merged.promptPresets)) merged.promptPresets = [];
+    let promptPresets = Array.isArray(raw.promptPresets)
+        ? raw.promptPresets.filter((preset) => preset && typeof preset.sceneRules === 'string')
+        : [];
+    if (!promptPresets.length) promptPresets = createDefaultPromptPresets();
 
-    if (!merged.promptPresets.length) {
-        merged.promptPresets = createDefaultPromptPresets();
-        if (hasPromptOverrideValue(merged.customPrompts)) {
-            const legacyPreset = createPresetFromCustomPrompts(merged.customPrompts);
-            merged.promptPresets.push(legacyPreset);
-            merged.selectedPromptPresetId = legacyPreset.id;
-        } else {
-            merged.selectedPromptPresetId = merged.promptPresets[0]?.id || null;
-        }
-    }
-
-    const legacyNames = { '默认1': '默认-模型要求高', '默认2': '默认-模型要求低' };
-    merged.promptPresets.forEach((preset, index) => {
-        if (legacyNames[preset.name]) preset.name = legacyNames[preset.name];
-        preset.id = String(preset.id || `prompt-${Date.now()}-${index}`);
-    });
-
-    const defaultPresetNames = ['默认-模型要求高', '默认-第一人称视角', '默认-模型要求低'];
     const storedVersion = Number(merged._promptTemplateVersion) || 0;
-    if (!merged.promptPresets.some((preset) => preset.name === '默认-第一人称视角')) {
-        const insertIndex = merged.promptPresets.findIndex((preset) => preset.name === '默认-模型要求低');
-        const povPreset = createPromptPreset('默认-第一人称视角');
-        if (insertIndex >= 0) merged.promptPresets.splice(insertIndex, 0, povPreset);
-        else merged.promptPresets.push(povPreset);
+    if (!promptPresets.some((preset) => preset.name === '默认-第一人称完整规则')) {
+        promptPresets.push(createPromptPreset('默认-第一人称完整规则'));
     }
     if (storedVersion < PROMPT_TEMPLATE_VERSION) {
-        merged.promptPresets = merged.promptPresets.map((preset) => {
-            if (!defaultPresetNames.includes(preset.name)) return preset;
-            return {
-                ...preset,
-                ...getPromptPresetDefaults(preset.name),
-            };
+        const refresh = refreshReleasedPromptPresetDefaults(promptPresets, {
+            storedVersion,
+            targetVersion: PROMPT_TEMPLATE_VERSION,
+            releasedFingerprints: COMFY_RELEASED_PROMPT_DEFAULT_FINGERPRINTS,
+            getCurrentDefaults: getPromptPresetDefaults,
         });
-        merged._promptTemplateVersion = PROMPT_TEMPLATE_VERSION;
+        promptPresets = refresh.presets;
+        merged._promptTemplateVersion = refresh.templateVersion;
     }
 
-    merged.promptPresets = merged.promptPresets.map((preset) => {
+    merged.promptPresets = promptPresets.map((preset, index) => {
         const defaults = getPromptPresetDefaults(preset.name);
         return {
-            ...preset,
-            topSystem: preset.topSystem ?? defaults.topSystem,
-            tagGuideContent: preset.tagGuideContent ?? defaults.tagGuideContent,
-            userJsonFormat: preset.userJsonFormat ?? defaults.userJsonFormat,
+            id: String(preset.id || `prompt-${Date.now()}-${index}`),
+            name: String(preset.name || `提示词预设 ${index + 1}`),
+            topSystem: typeof preset.topSystem === 'string' ? preset.topSystem : defaults.topSystem,
+            tagGuideContent: typeof preset.tagGuideContent === 'string'
+                ? preset.tagGuideContent
+                : defaults.tagGuideContent,
+            sceneRules: typeof preset.sceneRules === 'string' ? preset.sceneRules : defaults.sceneRules,
         };
     });
 
     if (!merged.selectedPromptPresetId || !merged.promptPresets.some((preset) => preset.id === merged.selectedPromptPresetId)) {
         merged.selectedPromptPresetId = merged.promptPresets[0]?.id || null;
     }
-    if (!merged.customPrompts.topSystem || !merged.customPrompts.userJsonFormat || merged.customPrompts.tagGuideContent == null) {
-        const activePromptPreset = merged.promptPresets.find((preset) => preset.id === merged.selectedPromptPresetId) || merged.promptPresets[0] || createPromptPreset('默认-模型要求高');
-        merged.customPrompts = {
-            topSystem: activePromptPreset.topSystem,
-            tagGuideContent: activePromptPreset.tagGuideContent,
-            userJsonFormat: activePromptPreset.userJsonFormat,
-        };
-    }
+    const activePromptPreset = merged.promptPresets.find((preset) => preset.id === merged.selectedPromptPresetId)
+        || merged.promptPresets[0]
+        || createPromptPreset('默认-完整规则');
+    merged.customPrompts = {
+        topSystem: activePromptPreset.topSystem,
+        tagGuideContent: activePromptPreset.tagGuideContent,
+        sceneRules: activePromptPreset.sceneRules,
+    };
 
     return merged;
 }
@@ -524,20 +486,23 @@ export async function loadSettings() {
     if (settingsLoaded && settingsCache) return settingsCache;
 
     try {
-        const saved = await ComfyDrawStorage.get(SERVER_FILE_KEY, null);
+        const saved = await ComfyDrawStorage.getStrict(SERVER_FILE_KEY, null);
         if (saved && typeof saved === 'object') {
             settingsCache = normalizeSettings(saved);
         } else {
             settingsCache = normalizeSettings({});
-            await ComfyDrawStorage.setAndSave(SERVER_FILE_KEY, settingsCache, { silent: true });
+            const savedDefaults = await ComfyDrawStorage.setAndSave(SERVER_FILE_KEY, settingsCache, { silent: true });
+            if (!savedDefaults) throw new Error('默认设置保存失败');
         }
+        settingsLoaded = true;
+        return settingsCache;
     } catch (error) {
         console.error('[ComfyDraw] 加载设置失败:', error);
-        settingsCache = normalizeSettings({});
+        settingsCache = null;
+        settingsLoaded = false;
+        toastr.error('无法读取 ComfyUI 配置，已禁止保存，请稍后重试', 'ComfyUI');
+        throw error;
     }
-
-    settingsLoaded = true;
-    return settingsCache;
 }
 
 export function getSettings() {
@@ -551,7 +516,54 @@ export function getSettings() {
     return settingsCache;
 }
 
+export function getGenerationSnapshot() {
+    const settings = getSettings();
+    const customWorkflow = settings.customWorkflow || {};
+    const workflowMode = String(settings.workflowMode || 'simple');
+    const executionCustomWorkflow = Object.freeze({
+        json: String(customWorkflow.json || ''),
+        nodePositive: String(customWorkflow.nodePositive || ''),
+        nodeNegative: String(customWorkflow.nodeNegative || ''),
+        nodeWidth: String(customWorkflow.nodeWidth || ''),
+        nodeHeight: String(customWorkflow.nodeHeight || ''),
+        nodeSeed: String(customWorkflow.nodeSeed || ''),
+        nodeSaveImage: String(customWorkflow.nodeSaveImage || ''),
+    });
+    const execution = Object.freeze({
+        host: String(settings.host || '').trim(),
+        auth: String(settings.auth || ''),
+        connectionMode: String(settings.connectionMode || 'proxy'),
+        timeout: Number(settings.timeout) || 120000,
+        workflowMode,
+        customWorkflow: executionCustomWorkflow,
+        prepared: true,
+    });
+    return {
+        fingerprint: {
+            version: 1,
+            endpointHash: hashStableValue(execution.host, 'endpoint'),
+            connectionMode: execution.connectionMode,
+            workflowMode,
+            customWorkflow: workflowMode === 'custom' ? {
+                workflowHash: hashStableValue(executionCustomWorkflow.json, 'workflow'),
+                nodePositive: executionCustomWorkflow.nodePositive,
+                nodeNegative: executionCustomWorkflow.nodeNegative,
+                nodeWidth: executionCustomWorkflow.nodeWidth,
+                nodeHeight: executionCustomWorkflow.nodeHeight,
+                nodeSeed: executionCustomWorkflow.nodeSeed,
+                nodeSaveImage: executionCustomWorkflow.nodeSaveImage,
+            } : null,
+        },
+        execution,
+    };
+}
+
 async function persistSettings(nextSettings, okText = '已保存', { notify = true, silent = false } = {}) {
+    if (!settingsLoaded) {
+        console.error('[ComfyDraw] 设置尚未成功加载，拒绝保存');
+        if (notify) toastr.error('配置尚未成功加载，已禁止保存', 'ComfyUI');
+        return false;
+    }
     const next = normalizeSettings(nextSettings);
     const previous = settingsCache ? cloneSettingsObject(settingsCache) : null;
     try {
@@ -669,7 +681,7 @@ function validateWorkflowPresetDraftOrThrow({ json, nodeMap }) {
 function getActivePromptPreset(settings = getSettings()) {
     return settings.promptPresets.find((preset) => preset.id === settings.selectedPromptPresetId)
         || settings.promptPresets[0]
-        || createPromptPreset('默认-模型要求高');
+        || createPromptPreset('默认-完整规则');
 }
 
 function getEffectiveParams(settings = getSettings(), overrides = {}) {
@@ -690,7 +702,6 @@ function getEffectiveParams(settings = getSettings(), overrides = {}) {
         height: overrides.height ?? sizeOverride?.height ?? preset.height,
         positivePrefix: overrides.positivePrefix ?? preset.positivePrefix ?? '',
         negativePrefix: overrides.negativePrefix ?? preset.negativePrefix ?? '',
-        // 新增
         model: overrides.model ?? preset.model ?? settings.selectedModel ?? '',
         sampler: overrides.sampler ?? preset.sampler ?? settings.sampler ?? 'euler',
         scheduler: overrides.scheduler ?? preset.scheduler ?? settings.scheduler ?? 'normal',
@@ -699,22 +710,58 @@ function getEffectiveParams(settings = getSettings(), overrides = {}) {
     };
 }
 
+export function createComfyGenerationRecipe({
+    settings = getSettings(),
+    characterTags = getSharedDrawSettings().characterTags || [],
+    paramsOverride = {},
+    promptOverride = '',
+    negativePromptOverride = '',
+    itemCount = 0,
+} = {}) {
+    const params = getEffectiveParams(settings, paramsOverride);
+    const customWorkflow = settings.customWorkflow || {};
+    return {
+        host: String(settings.host || '').trim(),
+        auth: String(settings.auth || ''),
+        timeout: Number(settings.timeout) || 120000,
+        delayMs: COMFY_REQUEST_DELAY_MS,
+        workflowMode: settings.workflowMode === 'custom' ? 'custom' : 'simple',
+        customWorkflow: {
+            json: String(customWorkflow.json || ''),
+            nodePositive: String(customWorkflow.nodePositive || ''),
+            nodeNegative: String(customWorkflow.nodeNegative || ''),
+            nodeWidth: String(customWorkflow.nodeWidth || ''),
+            nodeHeight: String(customWorkflow.nodeHeight || ''),
+            nodeSeed: String(customWorkflow.nodeSeed || ''),
+            nodeSaveImage: String(customWorkflow.nodeSaveImage || ''),
+        },
+        params: cloneSettingsObject(params),
+        positivePrefix: params.positivePrefix,
+        negativePrefix: params.negativePrefix,
+        knownCharacters: cloneSettingsObject(characterTags),
+        promptOverride: String(promptOverride || ''),
+        negativePromptOverride: String(negativePromptOverride || ''),
+        seeds: Array.from({ length: Math.max(0, Math.floor(Number(itemCount) || 0)) }, createComfySeed),
+    };
+}
+
 function getBuiltinWorkflowDefinition(id) {
     return BUILTIN_WORKFLOWS.find((item) => item.id === id) || BUILTIN_WORKFLOWS[0];
 }
 
 function createBuiltinWorkflowPreview({ model, width, height, steps, cfg, sampler, scheduler }) {
-    const workflow = JSON.parse(JSON.stringify(BUILTIN_WORKFLOW_TEMPLATE));
-    workflow["4"].inputs.ckpt_name = String(model || "<selected-model>");
-    workflow["3"].inputs.seed = "<random-seed>";
-    workflow["3"].inputs.steps = steps;
-    workflow["3"].inputs.cfg = cfg;
-    workflow["3"].inputs.sampler_name = sampler;
-    workflow["3"].inputs.scheduler = scheduler;
-    workflow["5"].inputs.width = width;
-    workflow["5"].inputs.height = height;
-    workflow["6"].inputs.text = "<positive-prompt>";
-    workflow["7"].inputs.text = "<negative-prompt>";
+    const workflow = buildSimpleWorkflow({
+        model: String(model || '<selected-model>'),
+        sampler,
+        scheduler,
+        steps,
+        cfg,
+        width,
+        height,
+        positive: '<positive-prompt>',
+        negative: '<negative-prompt>',
+        seed: '<random-seed>',
+    });
     return JSON.stringify(workflow, null, 2);
 }
 
@@ -787,27 +834,22 @@ function isDirectConnection(settings = getSettings()) {
 function createComfyUrl(path, query = {}, settings = getSettings()) {
     const base = String(settings.host || '').trim();
     if (!base) throw new Error('请先填写 ComfyUI 地址');
-    const url = new URL(path, base.endsWith('/') ? base : `${base}/`);
+    // 直接用 new URL(path, base) 会在 base 同时带路径和 query 时把补的 '/' 拼进 query，
+    // 导致反代基础路径丢失；改为显式拼 pathname，同时保留 base 上的 query 参数。
+    const url = new URL(base);
+    const basePath = url.pathname.replace(/\/+$/, '');
+    url.pathname = `${basePath}/${String(path || '').replace(/^\/+/, '')}`;
     Object.entries(query || {}).forEach(([key, value]) => {
         if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
     });
     return url;
 }
 
-async function readBlobAsBase64(blob) {
-    return await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '');
-        reader.onerror = () => reject(reader.error || new Error('图片读取失败'));
-        reader.readAsDataURL(blob);
-    });
-}
-
-async function requestComfyTransport(path, body = {}, { signal, timeoutMs } = {}) {
-    const settings = getSettings();
+async function requestComfyTransport(path, body = {}, { signal, timeoutMs, generationConfig } = {}) {
+    const settings = generationConfig || getSettings();
     if (!settings.host) throw new Error('请先填写 ComfyUI 地址');
     if (isDirectConnection(settings) && path === 'ping') {
-        await testComfyDirectConnection({ signal, timeoutMs });
+        await testComfyDirectConnection({ signal, timeoutMs, generationConfig: settings });
         return { ok: true, json: async () => ({}) };
     }
     if (isDirectConnection(settings) && path === 'generate') {
@@ -815,6 +857,7 @@ async function requestComfyTransport(path, body = {}, { signal, timeoutMs } = {}
         const data = await fetchComfyDirectImageFromWorkflow(workflow, {
             signal,
             timeoutMs,
+            generationConfig: settings,
             preferredSaveImageNodeId: body?.preferredSaveImageNodeId,
         });
         return { ok: true, json: async () => ({ data }) };
@@ -849,8 +892,8 @@ async function requestComfyTransport(path, body = {}, { signal, timeoutMs } = {}
     }
 }
 
-async function fetchComfyDirectJson(path, { signal, timeoutMs, method = 'GET', body } = {}) {
-    const settings = getSettings();
+async function fetchComfyDirectJson(path, { signal, timeoutMs, method = 'GET', body, generationConfig } = {}) {
+    const settings = generationConfig || getSettings();
     const directSignal = createComfyRequestSignal(signal, timeoutMs ?? settings.timeout ?? 120000);
     try {
         const response = await fetch(createComfyUrl(path, {}, settings), {
@@ -875,8 +918,8 @@ async function fetchComfyDirectJson(path, { signal, timeoutMs, method = 'GET', b
     }
 }
 
-async function fetchComfyDirectBlob(path, query = {}, { signal, timeoutMs } = {}) {
-    const settings = getSettings();
+async function fetchComfyDirectBlob(path, query = {}, { signal, timeoutMs, generationConfig } = {}) {
+    const settings = generationConfig || getSettings();
     const directSignal = createComfyRequestSignal(signal, timeoutMs ?? settings.timeout ?? 120000);
     try {
         const response = await fetch(createComfyUrl(path, query, settings), {
@@ -913,8 +956,8 @@ async function fetchComfyDirectSamplers({ signal, timeoutMs } = {}) {
     };
 }
 
-async function testComfyDirectConnection({ signal, timeoutMs } = {}) {
-    await fetchComfyDirectJson('/system_stats', { signal, timeoutMs });
+async function testComfyDirectConnection({ signal, timeoutMs, generationConfig } = {}) {
+    await fetchComfyDirectJson('/system_stats', { signal, timeoutMs, generationConfig });
 }
 
 function isComfyProxyGenerateFailure(error) {
@@ -934,7 +977,12 @@ function buildComfyProxyGenerateError(message, status = null) {
     return `${prefix}：${raw || '后端返回失败'}`;
 }
 
-async function fetchComfyDirectImageFromWorkflow(workflow, { signal, timeoutMs, preferredSaveImageNodeId } = {}) {
+async function fetchComfyDirectImageFromWorkflow(workflow, {
+    signal,
+    timeoutMs,
+    generationConfig,
+    preferredSaveImageNodeId,
+} = {}) {
     const deadline = createComfyDeadlineSignal(signal, timeoutMs);
     try {
         const data = await fetchComfyDirectJson('/prompt', {
@@ -942,6 +990,7 @@ async function fetchComfyDirectImageFromWorkflow(workflow, { signal, timeoutMs, 
             body: JSON.stringify({ prompt: workflow }),
             signal: deadline.signal,
             timeoutMs,
+            generationConfig,
         });
         const promptId = data?.prompt_id;
         if (!promptId) throw new Error('ComfyUI 未返回任务 ID');
@@ -949,7 +998,11 @@ async function fetchComfyDirectImageFromWorkflow(workflow, { signal, timeoutMs, 
         let item = null;
         let cachedEmptySince = 0;
         while (!deadline.signal.aborted) {
-            const history = await fetchComfyDirectJson('/history', { signal: deadline.signal, timeoutMs });
+            const history = await fetchComfyDirectJson('/history', {
+                signal: deadline.signal,
+                timeoutMs,
+                generationConfig,
+            });
             item = history?.[promptId];
             if (!item) {
                 await waitWithAbort(deadline.signal, 100);
@@ -994,8 +1047,8 @@ async function fetchComfyDirectImageFromWorkflow(workflow, { signal, timeoutMs, 
             filename: imgInfo.filename,
             subfolder: imgInfo.subfolder,
             type: imgInfo.type,
-        }, { signal: deadline.signal, timeoutMs });
-        return await readBlobAsBase64(blob);
+        }, { signal: deadline.signal, timeoutMs, generationConfig });
+        return await readImageBlobBase64(blob);
     } finally {
         deadline.cleanup();
     }
@@ -1034,313 +1087,157 @@ async function fetchComfySamplers({ signal, timeoutMs } = {}) {
     };
 }
 
-// 构建简单模式工作流
-function buildSimpleWorkflow({ model, sampler, scheduler, steps, cfg, width, height, positive, negative }) {
-    const wf = JSON.parse(JSON.stringify(BUILTIN_WORKFLOW_TEMPLATE));
-    wf["4"].inputs.ckpt_name = model;
-    wf["3"].inputs.sampler_name = sampler;
-    wf["3"].inputs.scheduler = scheduler;
-    wf["3"].inputs.steps = steps;
-    wf["3"].inputs.cfg = cfg;
-    wf["3"].inputs.seed = Math.floor(Math.random() * 2 ** 32);
-    wf["5"].inputs.width = width;
-    wf["5"].inputs.height = height;
-    wf["6"].inputs.text = positive;
-    wf["7"].inputs.text = negative;
-    return wf;
+function createComfySeed() {
+    return Math.floor(Math.random() * 2 ** 32);
 }
 
-function parseComfyApiWorkflowJson(text) {
-    let workflow;
-    try {
-        workflow = JSON.parse(String(text || '').replace(/^\uFEFF/, ''));
-    } catch (error) {
-        throw new Error(`JSON 格式错误：${error.message}`);
-    }
-    if (!workflow || Array.isArray(workflow) || typeof workflow !== 'object') {
-        throw new Error('工作流格式错误：请导入 API Format workflow JSON。');
-    }
-
-    const hasApiNode = Object.values(workflow).some((node) => (
-        node
-        && typeof node === 'object'
-        && !Array.isArray(node)
-        && typeof node.class_type === 'string'
-        && node.inputs
-        && typeof node.inputs === 'object'
-        && !Array.isArray(node.inputs)
-    ));
-    if (!hasApiNode) {
-        throw new Error('工作流格式错误：需要 API Format workflow JSON，请在 ComfyUI 使用 Save (API Format) 导出。');
-    }
-
-    return workflow;
-}
-
-function requireComfyNode(workflow, nodeId, label) {
-    const id = String(nodeId || '').trim();
-    if (!id) return null;
-    const node = workflow?.[id];
-    if (!node || typeof node !== 'object' || !node.inputs || typeof node.inputs !== 'object') {
-        throw new Error(`${label}不存在：${id}`);
-    }
-    return node;
-}
-
-function getComfyTextFieldCandidates(role) {
-    if (role === 'negative') return ['text', 'negative', 'prompt'];
-    return ['text', 'prompt', 'positive'];
-}
-
-function validateComfyTextNode(workflow, nodeId, label, { required = false, role = 'positive' } = {}) {
-    const id = String(nodeId || '').trim();
-    if (!id) {
-        if (required) throw new Error(`请填写${label}`);
-        return;
-    }
-    const node = requireComfyNode(workflow, id, label);
-    const fields = getComfyTextFieldCandidates(role);
-    const hasTextField = fields.some(k => k in node.inputs);
-    if (!hasTextField) {
-        throw new Error(`${label}需要填带 ${fields.join('/')} 输入的节点：${id}`);
-    }
-}
-
-function validateComfyInputNode(workflow, nodeId, label, inputName, { required = false } = {}) {
-    const id = String(nodeId || '').trim();
-    if (!id) {
-        if (required) throw new Error(`请填写${label}`);
-        return;
-    }
-    const node = requireComfyNode(workflow, id, label);
-    if (!(inputName in node.inputs)) {
-        throw new Error(`${label}节点没有 ${inputName} 输入：${id}`);
-    }
-}
-
-function validateComfySeedNode(workflow, nodeId, { required = false } = {}) {
-    const id = String(nodeId || '').trim();
-    if (!id) {
-        if (required) throw new Error('请填写Seed 节点');
-        return;
-    }
-    const node = requireComfyNode(workflow, id, 'Seed 节点');
-    if (!('seed' in node.inputs) && !('noise_seed' in node.inputs)) {
-        throw new Error(`Seed 节点需要带 seed 或 noise_seed 输入：${id}`);
-    }
-}
-
-function validateComfySaveImageNode(workflow, nodeId, { required = false } = {}) {
-    const id = String(nodeId || '').trim();
-    if (!id) {
-        if (required) throw new Error('请填写SaveImage 节点');
-        return;
-    }
-    const node = requireComfyNode(workflow, id, 'SaveImage 节点');
-    if (normalizeComfyClassType(node.class_type) !== 'saveimage') {
-        throw new Error(`SaveImage 节点 ID 需要指向 SaveImage 节点：${id}`);
-    }
-}
-
-function validateComfyWorkflowNodeMap(workflow, nodeMap) {
-    validateComfyTextNode(workflow, nodeMap.positive, '正向提示词节点', { required: true, role: 'positive' });
-    validateComfyTextNode(workflow, nodeMap.negative, '负向提示词节点', { role: 'negative' });
-    validateComfyInputNode(workflow, nodeMap.width, '宽度节点', 'width');
-    validateComfyInputNode(workflow, nodeMap.height, '高度节点', 'height');
-    validateComfySeedNode(workflow, nodeMap.seed);
-    validateComfySaveImageNode(workflow, nodeMap.saveImage, { required: true });
-}
-
-function isComfyLink(value) {
-    return Array.isArray(value) && value.length >= 2 && value[0] !== undefined && value[1] !== undefined;
-}
-
-function normalizeComfyClassType(value) {
-    return String(value || '').replace(/\s+/g, '').toLowerCase();
-}
-
-function getComfyNodeTitle(node) {
-    return String(node?._meta?.title || node?.title || '').trim().toLowerCase();
-}
-
-function getComfyOutputTitleScore(title) {
-    if (/final|最终/i.test(title)) return 50;
-    if (/output|result|输出|结果/i.test(title)) return 40;
-    if (/save|保存/i.test(title)) return 35;
-    return 0;
-}
-
-function extractComfyOutputAssets(output) {
-    if (!output || typeof output !== 'object') return [];
-    return [
-        ...(Array.isArray(output.images) ? output.images : []),
-        ...(Array.isArray(output.gifs) ? output.gifs : []),
-    ];
-}
-
-function getReferencedComfyNodeIds(workflow) {
-    const refs = new Set();
-    Object.values(workflow || {}).forEach((node) => {
-        const inputs = node?.inputs || {};
-        Object.values(inputs).forEach((value) => {
-            if (isComfyLink(value)) {
-                refs.add(String(value[0]));
-            }
-        });
+async function requestComfyImage({ prompt, negativePrompt = '', params = {}, prepared, seed, generationConfig, signal } = {}) {
+    const settings = generationConfig || getSettings();
+    const effective = generationConfig?.prepared === true ? params : getEffectiveParams(settings, params);
+    const request = prepared || buildComfyImageRequest({
+        prompt,
+        negativePrompt,
+        params: effective,
+        recipe: settings,
+        seed: seed ?? createComfySeed(),
     });
-    return refs;
-}
-
-function pruneComfyOutputNodes(workflow, preferredSaveImageNodeId = '') {
-    const preferredId = String(preferredSaveImageNodeId || '').trim();
-    const hasSaveImage = getPreferredComfySaveImageNodeIds(workflow).length > 0;
-    if (!preferredId && !hasSaveImage) return workflow;
-
-    const refs = getReferencedComfyNodeIds(workflow);
-    Object.entries(workflow || {}).forEach(([id, node]) => {
-        if (refs.has(String(id))) return;
-        const type = normalizeComfyClassType(node?.class_type);
-        const isOutputNode = type === 'previewimage' || type === 'saveimage';
-        if (!isOutputNode) return;
-
-        if (preferredId) {
-            if (String(id) !== preferredId) delete workflow[id];
-            return;
-        }
-        if (type === 'previewimage') delete workflow[id];
-    });
-    return workflow;
-}
-
-function pickComfyOutputAssetByNodeIds(item, nodeIds = []) {
-    const outputs = item?.outputs || {};
-    for (const nodeId of nodeIds) {
-        const assets = extractComfyOutputAssets(outputs[String(nodeId)]);
-        if (assets.length) return assets[0];
-    }
-    return null;
-}
-
-function getPreferredComfySaveImageNodeIds(workflow) {
-    return Object.entries(workflow || {})
-        .filter(([, node]) => normalizeComfyClassType(node?.class_type) === 'saveimage')
-        .map(([id, node]) => ({
-            id: String(id),
-            score: getComfyOutputTitleScore(getComfyNodeTitle(node)),
-        }))
-        .sort((a, b) => b.score - a.score || Number(b.id) - Number(a.id))
-        .map((item) => item.id);
-}
-
-function resolveComfyDirectOutputImage(item, workflow, preferredSaveImageNodeId = '') {
-    const preferredNodeId = String(preferredSaveImageNodeId || '').trim();
-    if (preferredNodeId) {
-        const preferredAsset = pickComfyOutputAssetByNodeIds(item, [preferredNodeId]);
-        if (preferredAsset) return preferredAsset;
-    }
-
-    const saveImageAsset = pickComfyOutputAssetByNodeIds(item, getPreferredComfySaveImageNodeIds(workflow));
-    return saveImageAsset || null;
-}
-
-function injectTextFieldIntoNode(nodeInputs, value, role) {
-    for (const key of getComfyTextFieldCandidates(role)) {
-        if (key in nodeInputs && typeof nodeInputs[key] === 'string') {
-            nodeInputs[key] = value;
-            return;
-        }
-    }
-    nodeInputs.text = value;
-}
-
-function injectPromptIntoWorkflow(workflow, positive, negative, width, height, nodeMap) {
-    const wf = JSON.parse(JSON.stringify(workflow));
-    validateComfyWorkflowNodeMap(wf, nodeMap);
-    if (nodeMap.positive && wf[nodeMap.positive]) {
-        injectTextFieldIntoNode(wf[nodeMap.positive].inputs, positive, 'positive');
-    }
-    if (nodeMap.negative && wf[nodeMap.negative]) {
-        injectTextFieldIntoNode(wf[nodeMap.negative].inputs, negative, 'negative');
-    }
-    if (nodeMap.width && width && wf[nodeMap.width]) {
-        const widthNode = wf[nodeMap.width].inputs;
-        if ('width' in widthNode) widthNode.width = width;
-    }
-    if (nodeMap.height && height && wf[nodeMap.height]) {
-        const heightNode = wf[nodeMap.height].inputs;
-        if ('height' in heightNode) heightNode.height = height;
-    }
-    if (nodeMap.seed && wf[nodeMap.seed]) {
-        const seedNode = wf[nodeMap.seed].inputs;
-        if ('seed' in seedNode) {
-            seedNode.seed = Math.floor(Math.random() * 2 ** 32);
-        } else if ('noise_seed' in seedNode) {
-            seedNode.noise_seed = Math.floor(Math.random() * 2 ** 32);
-        }
-    }
-    pruneComfyOutputNodes(wf, nodeMap.saveImage);
-    return wf;
-}
-
-export async function generateComfyImage({ prompt, negativePrompt = '', params = {}, signal } = {}) {
-    const settings = getSettings();
-    const effective = getEffectiveParams(settings, params);
-
-    const positive = String(prompt || '').trim();
-    const negative = String(negativePrompt || '').trim();
-
-    if (!positive) throw new Error('Prompt 不能为空');
-
-    const width = normalizeNumber(effective.width, 1024, 64, 2048);
-    const height = normalizeNumber(effective.height, 1024, 64, 2048);
-
-    let injected;
-
-    if (settings.workflowMode === 'custom' && settings.customWorkflow?.json) {
-        // 自定义工作流模式
-        const workflow = parseComfyApiWorkflowJson(settings.customWorkflow.json);
-        const nodeMap = {
-            positive: settings.customWorkflow.nodePositive || '',
-            negative: settings.customWorkflow.nodeNegative || '',
-            width: settings.customWorkflow.nodeWidth || '',
-            height: settings.customWorkflow.nodeHeight || '',
-            seed: settings.customWorkflow.nodeSeed || '',
-            saveImage: settings.customWorkflow.nodeSaveImage || '',
-        };
-        injected = injectPromptIntoWorkflow(workflow, positive, negative, width, height, nodeMap);
-    } else {
-        // 简单模式：使用内置模板 + 用户选择的模型和参数
-        const model = effective.model;
-        if (!model) {
-            throw new Error('请先在「模型配置」中选择模型');
-        }
-        injected = buildSimpleWorkflow({
-            model,
-            sampler: effective.sampler || 'euler',
-            scheduler: effective.scheduler || 'normal',
-            steps: effective.steps || 20,
-            cfg: effective.cfg || 7,
-            width,
-            height,
-            positive,
-            negative,
-        });
-    }
-
-    const requestBody = {
-        prompt: JSON.stringify({ prompt: injected }),
-    };
-    if (isDirectConnection(settings) && settings.workflowMode === 'custom') {
-        requestBody.preferredSaveImageNodeId = String(settings.customWorkflow?.nodeSaveImage || '').trim();
-    }
+    const requestBody = { prompt: JSON.stringify({ prompt: request.workflow }) };
+    if (isDirectConnection(settings) && request.preferredSaveImageNodeId) requestBody.preferredSaveImageNodeId = request.preferredSaveImageNodeId;
 
     const response = await requestComfyTransport('generate', requestBody, {
         signal,
         timeoutMs: settings.timeout || 120000,
+        generationConfig: settings,
     });
     const data = await response.json();
     if (!data?.data) throw new Error('ComfyUI 未返回图片数据');
     return String(data.data || '');
+}
+
+async function runComfyImageBatch({
+    requests,
+    compiledBatch,
+    generationConfig,
+    signal,
+    backendCancelSignal,
+    recoverable,
+    monitorGeneration,
+    queueBatch,
+    onStateChange,
+    onItemReady,
+    onItemSettled,
+}) {
+    if (!requests.length) return { mode: 'empty' };
+    const settings = generationConfig || getSettings();
+    const prepared = compiledBatch
+        ? compiledBatch.items.map(item => item.request)
+        : requests.map((request) => {
+            const effective = settings.prepared === true
+                ? request.params
+                : getEffectiveParams(settings, request.params);
+            return request.prepared || buildComfyImageRequest({
+                ...request,
+                params: effective,
+                recipe: settings,
+                seed: request.seed ?? createComfySeed(),
+            });
+        });
+    if (settings.useImageBackendJobs && recoverable) {
+        let status;
+        const detachScope = backendJobMonitors.createScope(
+            backendCancelSignal ? signal : null,
+            monitorGeneration ?? backendJobMonitors.captureGeneration(),
+        );
+        try {
+            status = await fetchImageBackendJobsStatus({ getHeaders: getRequestHeaders, signal });
+        } catch (error) {
+            detachScope.dispose();
+            if (signal?.aborted) throw new Error('已取消');
+            throw error;
+        }
+        if (!hasImageBackendJobsCapability(status)) {
+            detachScope.dispose();
+            throw new Error('小白X后台批量任务不可用。请安装并启动 littlewhitebox-image-jobs，或关闭此选项后继续使用当前连接方式。');
+        }
+        try {
+            const backendRequest = compiledBatch
+                ? {
+                    provider: compiledBatch.provider,
+                    context: compiledBatch.context,
+                    delay: compiledBatch.delay,
+                    items: compiledBatch.items,
+                }
+                : {
+                    provider: 'comfyui',
+                    context: { url: settings.host, auth: settings.auth || '' },
+                    delay: { min: COMFY_REQUEST_DELAY_MS, max: COMFY_REQUEST_DELAY_MS },
+                    items: prepared.map(request => ({ request, timeout: settings.timeout || 120000 })),
+                };
+            const backendHandlers = {
+                cancelSignal: backendCancelSignal || signal,
+                detachSignal: detachScope.signal,
+                onStateChange: (state, data) => reportImageBackendJobState(onStateChange, state, data),
+                onItemReady: async ({ index, response }) => onItemReady?.({ index, base64: await readImageBackendResultBase64(response) }),
+                onItemSettled: async (item) => {
+                    // 早先已交付并 ACK 过的项是成功事实，绝不能触发失败 UI；
+                    // 它由恢复流程按记录的 imgId 从画廊还原。
+                    if (item.alreadyDelivered === true) return;
+                    await onItemSettled?.({
+                        ...item,
+                        error: item.source === 'frontend' ? item.error : createBackendItemError(item),
+                    });
+                },
+            };
+            const result = await submitRecoverableImageJob({
+                client: comfyBackendJobsClient,
+                provider: 'comfyui',
+                request: backendRequest,
+                plan: recoverable.plan,
+                commitPlacements: recoverable.commitPlacements,
+                settlePlacements: recoverable.settlePlacements,
+                resolveSettlement: recoverable.resolveSettlement,
+                afterForget: recoverable.afterForget,
+                ...backendHandlers,
+            });
+            return { mode: 'backend-job', ...result };
+        } catch (error) {
+            if (error?.detached === true || error?.code === 'PENDING_JOB_LEASE_LOST') throw error;
+            if (signal?.aborted) throw new Error('已取消');
+            throw error;
+        } finally {
+            detachScope.dispose();
+        }
+    }
+    for (let index = 0; index < requests.length; index++) {
+        if (signal?.aborted) {
+            for (let pending = index; pending < requests.length; pending++) {
+                await onItemSettled?.({ index: pending, state: 'cancelled', error: new Error('已取消'), source: 'frontend' });
+            }
+            break;
+        }
+        try {
+            const base64 = await generateComfyImage({
+                ...requests[index],
+                prepared: prepared[index],
+                generationConfig: settings,
+                signal,
+                queueBatch,
+                onQueueStateChange: (state, data) => {
+                if (state === 'start') return onStateChange?.('progress', { current: index + 1, total: requests.length });
+                if (state === 'cooldown') {
+                    if (index + 1 >= requests.length) return;
+                    return onStateChange?.('cooldown', { ...data, nextIndex: index + 2, total: requests.length });
+                }
+                onStateChange?.(state, { current: index + 1, total: requests.length, ...data });
+                },
+            });
+            await onItemReady?.({ index, base64 });
+        } catch (error) {
+            await onItemSettled?.({ index, state: signal?.aborted ? 'cancelled' : 'failed', error, source: 'frontend' });
+            if (signal?.aborted) break;
+        }
+    }
+    return { mode: 'frontend' };
 }
 
 function waitWithAbort(signal, durationMs) {
@@ -1358,106 +1255,36 @@ function waitWithAbort(signal, durationMs) {
     });
 }
 
-function notifyQueuedComfyImageRequests() {
-    comfyImageRequestQueue.forEach((item, index) => {
-        const ahead = (activeComfyImageRequest ? 1 : 0) + index;
-        if (ahead > 0) {
-            item.onQueued?.({ ahead, position: ahead + 1 });
-        }
-    });
-}
-
-function pumpComfyImageRequestQueue() {
-    if (activeComfyImageRequest || comfyImageRequestQueue.length === 0) return;
-
-    const item = comfyImageRequestQueue.shift();
-    activeComfyImageRequest = item;
-    notifyQueuedComfyImageRequests();
-
-    void (async () => {
-        let result;
-        let error = null;
-        try {
-            if (item.signal?.aborted) throw new Error('已取消');
-            item.onStart?.();
-            result = await item.run();
-        } catch (caught) {
-            error = caught;
-        } finally {
-            if (item.cooldownMs > 0) {
-                item.onCooldown?.({ duration: item.cooldownMs });
-                await waitWithAbort(item.signal, item.cooldownMs);
-            }
-            if (error) item.reject(error);
-            else item.resolve(result);
-            if (activeComfyImageRequest === item) {
-                activeComfyImageRequest = null;
-            }
-            notifyQueuedComfyImageRequests();
-            pumpComfyImageRequestQueue();
-        }
-    })();
-}
-
-function enqueueComfyRequest(run, {
-    signal,
-    onQueued,
-    onStart,
-    onCooldown,
-    cooldownMs = FIXED_COMFY_REQUEST_DELAY_MS,
-} = {}) {
-    return new Promise((resolve, reject) => {
-        if (signal?.aborted) {
-            reject(new Error('已取消'));
-            return;
-        }
-
-        const item = {
-            id: ++comfyImageRequestSeq,
-            run,
-            signal,
-            onQueued,
-            onStart,
-            onCooldown,
-            cooldownMs,
-            resolve,
-            reject,
-        };
-
-        signal?.addEventListener('abort', () => {
-            if (activeComfyImageRequest === item) return;
-            const idx = comfyImageRequestQueue.indexOf(item);
-            if (idx >= 0) {
-                comfyImageRequestQueue.splice(idx, 1);
-                notifyQueuedComfyImageRequests();
-                reject(new Error('已取消'));
-            }
-        }, { once: true });
-
-        comfyImageRequestQueue.push(item);
-        notifyQueuedComfyImageRequests();
-        pumpComfyImageRequestQueue();
-    });
-}
-
-async function generateComfyImageQueued({
+export async function generateComfyImage({
     prompt,
     negativePrompt = '',
     params = {},
+    prepared,
+    seed,
+    generationConfig,
     signal,
+    queueBatch,
     onQueueStateChange,
-    cooldownMs = FIXED_COMFY_REQUEST_DELAY_MS,
 } = {}) {
-    return enqueueComfyRequest(
-        () => generateComfyImage({ prompt, negativePrompt, params, signal }),
+    return comfyImageRequestQueue.enqueue(
+        () => requestComfyImage({ prompt, negativePrompt, params, prepared, seed, generationConfig, signal }),
         {
             signal,
-            cooldownMs,
+            batchKey: queueBatch,
             onQueued: (data) => onQueueStateChange?.('queued', data),
             onStart: () => onQueueStateChange?.('start'),
             onCooldown: (data) => onQueueStateChange?.('cooldown', data),
         },
     );
+}
+
+async function generateSingleComfyImage(request, {
+    signal,
+    generationConfig,
+    onQueueStateChange,
+} = {}) {
+    const settings = generationConfig || getSettings();
+    return generateComfyImage({ ...request, generationConfig: settings, signal, onQueueStateChange });
 }
 
 function ensureStyles() {
@@ -1509,6 +1336,7 @@ async function createOverlay() {
             eventsBound = false;
             bindOverlayEvents();
             fillForm(getSettings());
+            ensureAgentSettingsSurface();
             resolve(overlayElement);
         }, { once: true });
         overlayFrame?.addEventListener('error', () => {
@@ -1637,6 +1465,9 @@ function bindOverlayEvents() {
         if (ok) fillForm(getSettings());
     });
     querySettings('#comfy-connection-mode')?.addEventListener('change', () => {
+        updateConnectionModeUI(getValue('comfy-connection-mode'));
+    });
+    querySettings('#comfy-use-image-backend-jobs')?.addEventListener('change', () => {
         updateConnectionModeUI(getValue('comfy-connection-mode'));
     });
     querySettings('#comfy-draw-test')?.addEventListener('click', async () => {
@@ -2013,12 +1844,6 @@ function bindOverlayEvents() {
     querySettings('#comfy-danbooru-local')?.addEventListener('change', async (event) => {
         await setComfyDanbooruLocalEnabled(event.target.checked === true);
     });
-    querySettings('#comfy-shared-llm-provider')?.addEventListener('change', () => {
-        handleSharedLlmProviderChange();
-    });
-    querySettings('#comfy-shared-llm-fetch')?.addEventListener('click', async () => {
-        await fetchSharedLlmModels();
-    });
     querySettings('#comfy-llm-request-refresh')?.addEventListener('click', () => {
         renderLastLlmRequestPreview();
     });
@@ -2031,7 +1856,7 @@ function bindOverlayEvents() {
                 settings.customPrompts = {
                     topSystem: active.topSystem,
                     tagGuideContent: active.tagGuideContent,
-                    userJsonFormat: active.userJsonFormat,
+                    sceneRules: active.sceneRules,
                 };
             }
         }, '提示词预设已切换', { notify: false, silent: false }));
@@ -2050,7 +1875,7 @@ function bindOverlayEvents() {
             settings.customPrompts = {
                 topSystem: preset.topSystem,
                 tagGuideContent: preset.tagGuideContent,
-                userJsonFormat: preset.userJsonFormat,
+                sceneRules: preset.sceneRules,
             };
         }, '已创建提示词预设', { notify: false, silent: false }));
         if (ok) fillForm(getSettings());
@@ -2082,7 +1907,7 @@ function bindOverlayEvents() {
                 draft.customPrompts = {
                     topSystem: active.topSystem,
                     tagGuideContent: active.tagGuideContent,
-                    userJsonFormat: active.userJsonFormat,
+                    sceneRules: active.sceneRules,
                 };
             }
         }, '提示词预设已删除', { notify: false, silent: false }));
@@ -2098,7 +1923,7 @@ function bindOverlayEvents() {
             draft.customPrompts = {
                 topSystem: nextPreset.topSystem,
                 tagGuideContent: nextPreset.tagGuideContent,
-                userJsonFormat: nextPreset.userJsonFormat,
+                sceneRules: nextPreset.sceneRules,
             };
         }, '提示词预设已保存', { notify: false, silent: false }), {
             statusElementId: 'comfy-prompt-preset-status',
@@ -2118,7 +1943,7 @@ function bindOverlayEvents() {
             draft.customPrompts = {
                 topSystem: nextPreset.topSystem,
                 tagGuideContent: nextPreset.tagGuideContent,
-                userJsonFormat: nextPreset.userJsonFormat,
+                sceneRules: nextPreset.sceneRules,
             };
         }, '提示词预设已保存', { notify: false, silent: false }), {
             statusElementId: 'comfy-prompts-status',
@@ -2140,7 +1965,7 @@ function bindOverlayEvents() {
     });
     querySettings('#comfy-prompt-reset-format')?.addEventListener('click', () => {
         const defaults = getPromptPresetDefaults(getActivePromptPreset(getSettings()).name);
-        setValue('comfy-prompt-format', defaults.userJsonFormat);
+        setValue('comfy-prompt-format', defaults.sceneRules);
         renderPromptChainPreview();
     });
     querySettings('#comfy-prompts-reset-all')?.addEventListener('click', () => {
@@ -2148,58 +1973,66 @@ function bindOverlayEvents() {
         const defaults = getPromptPresetDefaults(getActivePromptPreset(getSettings()).name);
         setValue('comfy-prompt-system', defaults.topSystem);
         setValue('comfy-prompt-guide', defaults.tagGuideContent);
-        setValue('comfy-prompt-format', defaults.userJsonFormat);
+        setValue('comfy-prompt-format', defaults.sceneRules);
         renderPromptChainPreview();
     });
-    querySettings('#comfy-prompts-export')?.addEventListener('click', () => {
+    querySettings('#comfy-prompt-preset-export')?.addEventListener('click', () => {
+        const preset = getActivePromptPreset(getSettings());
         const payload = {
             _type: 'comfy-draw-prompt-template',
             _version: 1,
+            name: preset.name,
             topSystem: getValue('comfy-prompt-system'),
             tagGuideContent: getValue('comfy-prompt-guide'),
-            userJsonFormat: getValue('comfy-prompt-format'),
+            sceneRules: getValue('comfy-prompt-format'),
         };
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'comfy-draw-prompts.json';
+        link.download = `${preset.name || '提示词预设'}.json`;
         link.click();
         URL.revokeObjectURL(url);
     });
-    querySettings('#comfy-prompts-import')?.addEventListener('change', async (event) => {
+    querySettings('#comfy-prompt-preset-import')?.addEventListener('change', async (event) => {
         const file = event.target.files?.[0];
         if (!file) return;
         try {
             const text = await file.text();
             const payload = JSON.parse(text);
-            if (typeof payload.topSystem !== 'string' || typeof payload.tagGuideContent !== 'string' || typeof payload.userJsonFormat !== 'string') {
+            if (payload?._type !== 'comfy-draw-prompt-template' || payload?._version !== 1) {
+                throw new Error('不是有效的 ComfyUI 提示词预设文件');
+            }
+            if (typeof payload.topSystem !== 'string' || typeof payload.tagGuideContent !== 'string' || typeof payload.sceneRules !== 'string') {
                 throw new Error('不是有效的提示词模板文件');
             }
-            setValue('comfy-prompt-system', payload.topSystem);
-            setValue('comfy-prompt-guide', payload.tagGuideContent);
-            setValue('comfy-prompt-format', payload.userJsonFormat);
-            renderPromptChainPreview();
-            toastr.success('导入成功，请点击保存以生效', 'ComfyUI');
+            const name = (typeof payload.name === 'string' && payload.name.trim())
+                ? payload.name.trim()
+                : (file.name.replace(/\.json$/i, '').trim() || `导入的预设-${(getSettings().promptPresets || []).length + 1}`);
+            const preset = {
+                id: `prompt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                name,
+                topSystem: payload.topSystem,
+                tagGuideContent: payload.tagGuideContent,
+                sceneRules: payload.sceneRules,
+            };
+            const ok = await withSaveTimeout(updateSettingsPersistent((settings) => {
+                settings.promptPresets = [...settings.promptPresets, preset];
+                settings.selectedPromptPresetId = preset.id;
+            }, `已导入为新预设「${name}」`, { notify: true, silent: false }));
+            if (ok) fillForm(getSettings());
         } catch (error) {
             toastr.error(error?.message || '导入失败', 'ComfyUI');
         } finally {
             event.target.value = '';
         }
     });
-    querySettings('#comfy-chain-toggle')?.addEventListener('click', () => {
-        const container = getSettingsElement('comfy-prompt-chain');
-        const icon = querySettings('#comfy-chain-toggle .chain-toggle-icon');
-        if (!container) return;
-        const isOpen = container.classList.toggle('open');
-        if (icon) icon.textContent = isOpen ? '▼ 收起' : '▶ 展开';
-        if (isOpen) renderPromptChainPreview();
+    getSettingsElement('comfy-prompt-chain')?.closest('details')?.addEventListener('toggle', (event) => {
+        if (event.currentTarget.open) schedulePromptChainPreview();
     });
     ['comfy-prompt-system', 'comfy-prompt-guide', 'comfy-prompt-format'].forEach((id) => {
         querySettings(`#${id}`)?.addEventListener('input', () => {
-            if (getSettingsElement('comfy-prompt-chain')?.classList.contains('open')) {
-                renderPromptChainPreview();
-            }
+            schedulePromptChainPreview();
         });
     });
     querySettings('#comfy-filter-add')?.addEventListener('click', () => {
@@ -2219,7 +2052,7 @@ function bindOverlayEvents() {
     bindWorldbookUploadEvents();
     querySettingsAll('[data-comfy-save-shared]').forEach((button) => {
         button.addEventListener('click', async (event) => {
-            const statusElementId = event.currentTarget.dataset.comfyStatus || 'comfy-shared-status';
+            const statusElementId = event.currentTarget.dataset.comfyStatus || '';
             await saveAllSettings({ notify: true, triggerButton: event.currentTarget, statusElementId });
         });
     });
@@ -2251,7 +2084,8 @@ function fillForm(settings) {
     });
     setValue('comfy-connection-mode', settings.connectionMode || 'proxy');
     setValue('comfy-draw-auth', settings.auth || '');
-    updateConnectionModeUI(settings.connectionMode || 'proxy');
+    setChecked('comfy-use-image-backend-jobs', settings.useImageBackendJobs === true);
+    updateConnectionModeUI(settings.connectionMode || 'proxy', settings.useImageBackendJobs === true);
     setValue('comfy-draw-host', settings.host);
     setValue('comfy-draw-timeout', settings.timeout);
     setValue('comfy-draw-width', preset.width);
@@ -2320,6 +2154,7 @@ function readForm() {
         connectionMode: getValue('comfy-connection-mode') === 'direct' ? 'direct' : 'proxy',
         auth: getValue('comfy-draw-auth').trim(),
         timeout: normalizeNumber(getValue('comfy-draw-timeout'), current.timeout, 10000, 600000),
+        useImageBackendJobs: getChecked('comfy-use-image-backend-jobs'),
         builtinWorkflowId: getValue('comfy-builtin-workflow') || current.builtinWorkflowId || DEFAULT_COMFY_DRAW_SETTINGS.builtinWorkflowId,
         presets: current.presets.map(item => item.id === current.selectedPresetId ? { ...preset, id: item.id, name: item.name } : item),
     };
@@ -2428,7 +2263,7 @@ function applyPromptPresetToForm(settings = getSettings()) {
     const promptPreset = getActivePromptPreset(settings);
     setValue('comfy-prompt-system', promptPreset.topSystem || '');
     setValue('comfy-prompt-guide', promptPreset.tagGuideContent || '');
-    setValue('comfy-prompt-format', promptPreset.userJsonFormat || '');
+    setValue('comfy-prompt-format', promptPreset.sceneRules || '');
     renderPromptChainPreview(settings);
 }
 
@@ -2437,36 +2272,46 @@ function readPromptPresetFromForm(basePreset = getActivePromptPreset(getSettings
         ...basePreset,
         topSystem: getValue('comfy-prompt-system'),
         tagGuideContent: getValue('comfy-prompt-guide'),
-        userJsonFormat: getValue('comfy-prompt-format'),
+        sceneRules: getValue('comfy-prompt-format'),
     };
 }
 
-function updateConnectionModeUI(mode = getSettings().connectionMode) {
+function updateConnectionModeUI(
+    mode = getSettings().connectionMode,
+    useImageBackendJobs = getChecked('comfy-use-image-backend-jobs'),
+) {
     const isDirect = mode === 'direct';
+    const usesServerJobs = useImageBackendJobs === true;
     const authRow = getSettingsElement('comfy-auth-row');
     const connectionHint = getSettingsElement('comfy-connection-hint');
     const connectionModeNote = getSettingsElement('comfy-connection-mode-note');
     const hostHint = getSettingsElement('comfy-host-hint');
     const status = getSettingsElement('comfy-draw-api-status');
     const workflowStatus = getSettingsElement('comfy-draw-workflow-status');
-    const statusText = isDirect
-        ? '当前使用浏览器直连 ComfyUI。'
-        : '当前使用酒馆后端代理连接 ComfyUI。';
-    authRow?.classList.toggle('hidden', !isDirect);
+    const statusText = usesServerJobs
+        ? '批量出图将由小白X后台任务连接 ComfyUI。'
+        : isDirect
+            ? '当前使用浏览器直连 ComfyUI。'
+            : '当前使用酒馆后端代理连接 ComfyUI。';
+    authRow?.classList.toggle('hidden', !isDirect && !usesServerJobs);
     if (connectionHint) {
-        connectionHint.textContent = isDirect
-            ? '浏览器直连会从当前浏览器访问 ComfyUI；需要登录时可在这里填写认证信息。'
-            : '酒馆代理会通过 SillyTavern 转发请求；这里不填写 ComfyUI 认证信息。';
+        connectionHint.textContent = usesServerJobs
+            ? '后台批量任务会从酒馆服务器访问 ComfyUI；需要登录时可在这里填写认证信息。'
+            : isDirect
+                ? '浏览器直连会从当前浏览器访问 ComfyUI；需要登录时可在这里填写认证信息。'
+                : '酒馆代理会通过 SillyTavern 转发请求；这里不填写 ComfyUI 认证信息。';
     }
     if (connectionModeNote) {
-        connectionModeNote.textContent = isDirect
-            ? '如果直连偶发连接失败，可以先换酒馆代理对照。'
-            : '如果代理偶发拿不到图，可以先检查 ComfyUI 输出目录，或换浏览器直连对照。';
+        connectionModeNote.textContent = usesServerJobs
+            ? '后台任务由酒馆服务器直接访问上方地址，地址里的反代基础路径和 query 都会保留，与连接模式无关。'
+            : isDirect
+                ? '如果直连偶发连接失败，可以先换酒馆代理对照。'
+                : '如果代理偶发拿不到图，可以先检查 ComfyUI 输出目录，或换浏览器直连对照。';
     }
     if (hostHint) {
-        hostHint.textContent = isDirect
-            ? '填写当前浏览器能访问到的 ComfyUI 地址。'
-            : '填写酒馆服务器能访问到的 ComfyUI 地址。';
+        hostHint.textContent = usesServerJobs || !isDirect
+            ? '填写酒馆服务器能访问到的 ComfyUI 地址。'
+            : '填写当前浏览器能访问到的 ComfyUI 地址。';
     }
     if (status) {
         status.textContent = statusText;
@@ -2598,10 +2443,11 @@ function switchSettingsView(viewName = 'test') {
         void renderGalleryManagement();
     }
     if (normalized === 'llm') {
-        renderLastLlmRequestPreview();
+        ensureAgentSettingsSurface();
     }
     if (normalized === 'prompts') {
-        renderPromptChainPreview();
+        schedulePromptChainPreview();
+        renderLastLlmRequestPreview();
     }
 }
 
@@ -2709,6 +2555,7 @@ function getSharedCharacterTagsFromForm() {
     return querySettingsAll('.sd-char-card').map((card, index) => ({
         ...(existingById.get(String(card.dataset.characterId || '')) || {}),
         id: card.dataset.characterId || `comfy-char-${Date.now()}-${index}`,
+        enabled: getCharacterEnabledFromCard(card),
         name: String(card.querySelector('[data-sd-char-field="name"]')?.value || '').trim(),
         aliases: String(card.querySelector('[data-sd-char-field="aliases"]')?.value || '')
             .split(',')
@@ -2718,8 +2565,9 @@ function getSharedCharacterTagsFromForm() {
         appearance: String(card.querySelector('[data-sd-char-field="appearance"]')?.value || '').trim(),
         negativeTags: String(card.querySelector('[data-sd-char-field="negativeTags"]')?.value || '').trim(),
         danbooruTag: String(card.querySelector('[data-sd-char-field="danbooruTag"]')?.value || '').trim(),
-        outfits: parseCharacterOutfits(card.querySelector('[data-sd-char-field="outfits"]')?.value || ''),
-    })).filter((item) => item.name || item.appearance || item.danbooruTag || item.negativeTags || item.aliases.length || item.outfits?.length);
+        outfits: parseNamedTagLines(card.querySelector('[data-sd-char-field="outfits"]')?.value || ''),
+        dynamicStates: parseNamedTagLines(card.querySelector('[data-sd-char-field="dynamicStates"]')?.value || ''),
+    })).filter((item) => item.name || item.appearance || item.danbooruTag || item.negativeTags || item.aliases.length || item.outfits?.length || item.dynamicStates?.length);
 }
 
 function renderCharacterTagList(tags = []) {
@@ -2779,7 +2627,11 @@ function renderCharacterTagList(tags = []) {
 
         const actions = document.createElement('div');
         actions.className = 'btn-group';
-        actions.append(danbooruButton, delButton);
+        const enabledControl = createCharacterEnabledControl(document, card, {
+            enabled: tag.enabled !== false,
+            label: `角色 ${index + 1}${tag.name ? ` ${tag.name}` : ''}`,
+        });
+        actions.append(enabledControl, danbooruButton, delButton);
         top.append(title, actions);
 
         const grid = document.createElement('div');
@@ -2793,10 +2645,11 @@ function renderCharacterTagList(tags = []) {
             top,
             grid,
             createCharacterField('别名（逗号分隔）', 'aliases', (tag.aliases || []).join(', '), '例如 小芙, Freya'),
-            createCharacterField('外观标签', 'appearance', tag.appearance || '', '会拼进角色外观提示词', { multiline: true }),
+            createCharacterField('固定外貌', 'appearance', tag.appearance || '', '会拼进角色外观提示词', { multiline: true }),
             createCharacterField('负向标签', 'negativeTags', tag.negativeTags || '', '角色专属 negative / uc 标签', { multiline: true }),
             createCharacterField('Danbooru Tag', 'danbooruTag', tag.danbooruTag || '', '可选，用于兼容原有角色提示逻辑'),
-            createCharacterField('服装参考（每行一套）', 'outfits', serializeCharacterOutfits(tag.outfits || []), '校服 = white shirt, pleated skirt', { multiline: true }),
+            createCharacterField('服装参考（每行一套）', 'outfits', serializeNamedTagLines(tag.outfits || []), '校服 = white shirt, pleated skirt', { multiline: true }),
+            createCharacterField('动态外貌（每行一条）', 'dynamicStates', serializeNamedTagLines(tag.dynamicStates || []), '害羞 = blush, embarrassed', { multiline: true }),
         );
         const panel = document.createElement('div');
         panel.className = 'danbooru-panel hidden';
@@ -2828,8 +2681,8 @@ function createCharacterField(labelText, fieldName, value, placeholder, options 
     return field;
 }
 
-function serializeCharacterOutfits(outfits = []) {
-    return (Array.isArray(outfits) ? outfits : [])
+function serializeNamedTagLines(list = []) {
+    return (Array.isArray(list) ? list : [])
         .map((outfit) => {
             const name = String(outfit?.name || '').trim();
             const tags = String(outfit?.tags || '').trim();
@@ -2840,7 +2693,7 @@ function serializeCharacterOutfits(outfits = []) {
         .join('\n');
 }
 
-function parseCharacterOutfits(value = '') {
+function parseNamedTagLines(value = '') {
     return String(value || '')
         .split(/\r?\n/)
         .map((line) => line.trim())
@@ -2853,109 +2706,6 @@ function parseCharacterOutfits(value = '') {
             return { name: '', tags: line };
         })
         .filter((outfit) => outfit.name || outfit.tags);
-}
-
-function updateSharedLlmProviderUI() {
-    const provider = getValue('comfy-shared-llm-provider') || 'st';
-    const providerConfig = providerDefaults[provider] || providerDefaults.st;
-    const sharedDrawSettings = getSharedDrawSettings();
-    const isSt = provider === 'st';
-    const modelCache = Array.isArray(sharedDrawSettings.llmApi?.modelCache) ? sharedDrawSettings.llmApi.modelCache : [];
-    const hasCache = modelCache.length > 0;
-
-    querySettings('#comfy-shared-llm-url-row')?.classList.toggle('hidden', isSt);
-    querySettings('#comfy-shared-llm-key-row')?.classList.toggle('hidden', isSt);
-    querySettings('#comfy-shared-llm-model-manual-row')?.classList.toggle('hidden', isSt || !providerConfig.needManualModel);
-    querySettings('#comfy-shared-llm-model-select-row')?.classList.toggle('hidden', isSt || providerConfig.needManualModel || !hasCache);
-    querySettings('#comfy-shared-llm-connect-row')?.classList.toggle('hidden', isSt || !providerConfig.canFetch);
-}
-
-function getCurrentSharedLlmModel() {
-    const provider = getValue('comfy-shared-llm-provider') || 'st';
-    const providerConfig = providerDefaults[provider] || providerDefaults.st;
-    if (providerConfig.needManualModel) return getValue('comfy-shared-llm-model-manual').trim();
-    if (providerConfig.canFetch) return getValue('comfy-shared-llm-model-select').trim();
-    return '';
-}
-
-function handleSharedLlmProviderChange() {
-    const provider = getValue('comfy-shared-llm-provider') || 'st';
-    const providerConfig = providerDefaults[provider] || providerDefaults.st;
-    const sharedDrawSettings = getSharedDrawSettings();
-    const nextUrl = sharedDrawSettings.llmApi?.provider === provider
-        ? (sharedDrawSettings.llmApi?.url || providerConfig.url || '')
-        : (providerConfig.url || '');
-
-    setValue('comfy-shared-llm-url', nextUrl);
-    if (!providerConfig.canFetch) {
-        sharedDrawSettings.llmApi = { ...(sharedDrawSettings.llmApi || {}), modelCache: [] };
-    }
-    fillSharedLlmModelFields();
-    updateSharedLlmProviderUI();
-}
-
-function fillSharedLlmModelFields() {
-    const sharedDrawSettings = getSharedDrawSettings();
-    const llmApi = sharedDrawSettings.llmApi || {};
-    const provider = getValue('comfy-shared-llm-provider') || llmApi.provider || 'st';
-    const providerConfig = providerDefaults[provider] || providerDefaults.st;
-    const modelCache = Array.isArray(llmApi.modelCache) ? llmApi.modelCache : [];
-    populateSelect(
-        'comfy-shared-llm-model-select',
-        modelCache.map((item) => ({ value: item, label: item })),
-        { value: llmApi.model || '', emptyLabel: '请先拉取模型列表' },
-    );
-    if (providerConfig.needManualModel) {
-        setValue('comfy-shared-llm-model-manual', llmApi.model || '');
-    } else if (providerConfig.canFetch) {
-        setSelectValue('comfy-shared-llm-model-select', llmApi.model || '');
-    }
-}
-
-async function fetchSharedLlmModels() {
-    const provider = getValue('comfy-shared-llm-provider').trim() || 'st';
-    const url = getValue('comfy-shared-llm-url').trim();
-    const key = getValue('comfy-shared-llm-key').trim();
-    const button = getSettingsElement('comfy-shared-llm-fetch');
-
-    if (provider === 'st') {
-        updateStatusText('comfy-shared-llm-fetch-status', 'error', '当前渠道无需拉取模型列表');
-        return false;
-    }
-
-    if (button) {
-        button.disabled = true;
-        button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 连接中...';
-    }
-    updateStatusText('comfy-shared-llm-fetch-status', '', '正在连接并拉取模型列表...');
-
-    try {
-        const models = await fetchDrawLlmModels({ provider, url, key });
-
-        await updateSharedDrawSettingsPersistent((settings) => {
-            settings.llmApi = {
-                ...(settings.llmApi || {}),
-                provider,
-                url,
-                key,
-                modelCache: [...new Set(models)],
-                model: getCurrentSharedLlmModel() || settings.llmApi?.model || models[0] || '',
-            };
-        }, `已获取 ${models.length} 个模型`, { notify: false, silent: false });
-
-        fillSharedLlmModelFields();
-        updateSharedLlmProviderUI();
-        updateStatusText('comfy-shared-llm-fetch-status', 'success', `已获取 ${models.length} 个模型`);
-        return true;
-    } catch (error) {
-        updateStatusText('comfy-shared-llm-fetch-status', 'error', `连接失败：${error?.message || '请检查配置'}`);
-        return false;
-    } finally {
-        if (button) {
-            button.disabled = false;
-            button.innerHTML = '<i class="fa-solid fa-plug"></i> 连接 / 拉取模型列表';
-        }
-    }
 }
 
 function renderFilterRuleRow(rule = { start: '', end: '' }) {
@@ -3055,7 +2805,6 @@ async function handleWorldbookFiles(files) {
     sharedDrawSettings.worldbooks = { ...worldbooks, uploadedBooks: uploaded };
     renderUploadedBooks(uploaded);
     if (added > 0) {
-        updateStatusText('comfy-shared-status', 'success', `已读取 ${added} 个世界书，请点击保存配置`);
         updateStatusText('comfy-worldbook-status', 'success', `已读取 ${added} 个世界书，请点击保存配置`);
     }
     if (errors.length) {
@@ -3130,7 +2879,6 @@ function renderUploadedBooks(books = []) {
             nextBooks.splice(Number(button.dataset.index), 1);
             sharedDrawSettings.worldbooks = { ...worldbooks, uploadedBooks: nextBooks };
             renderUploadedBooks(nextBooks);
-            updateStatusText('comfy-shared-status', '', '已移除，请点击保存配置');
             updateStatusText('comfy-worldbook-status', '', '已移除，请点击保存配置');
         });
     });
@@ -3409,36 +3157,19 @@ function renderComfyDanbooruResults(results = [], characterId = '', container = 
 
 function fillSharedDrawForm() {
     const sharedDrawSettings = getSharedDrawSettings();
-    setSelectValue('comfy-shared-llm-provider', sharedDrawSettings.llmApi?.provider || 'st');
-    setValue('comfy-shared-llm-url', sharedDrawSettings.llmApi?.url || '');
-    setValue('comfy-shared-llm-key', sharedDrawSettings.llmApi?.key || '');
-    setChecked('comfy-shared-use-stream', sharedDrawSettings.useStream === true);
     setChecked('comfy-shared-use-worldinfo', sharedDrawSettings.useWorldInfo === true);
-    setChecked('comfy-shared-disable-prefill', sharedDrawSettings.disablePrefill === true);
     setChecked('comfy-wb-enabled', sharedDrawSettings.worldbooks?.enabled === true);
     setSelectValue('comfy-wb-filter-mode', sharedDrawSettings.worldbooks?.keywordFilterMode || 'auto');
     renderUploadedBooks(sharedDrawSettings.worldbooks?.uploadedBooks || []);
-    fillSharedLlmModelFields();
-    updateSharedLlmProviderUI();
     renderFilterRules(sharedDrawSettings.messageFilterRules || []);
     renderCharacterTagList(sharedDrawSettings.characterTags || []);
-    renderLastLlmRequestPreview();
     void ensureComfyDanbooruLoadedForForm(sharedDrawSettings);
 }
 
 async function saveSharedDrawSettings({ notify = false } = {}) {
-    const llmApi = {
-        provider: getValue('comfy-shared-llm-provider').trim() || 'st',
-        url: getValue('comfy-shared-llm-url').trim(),
-        key: getValue('comfy-shared-llm-key').trim(),
-        model: getCurrentSharedLlmModel(),
-    };
     const characterTags = getSharedCharacterTagsFromForm();
     return await updateSharedDrawSettingsPersistent((settings) => {
-        settings.llmApi = { ...(settings.llmApi || {}), ...llmApi };
-        settings.useStream = getChecked('comfy-shared-use-stream');
         settings.useWorldInfo = getChecked('comfy-shared-use-worldinfo');
-        settings.disablePrefill = getChecked('comfy-shared-disable-prefill');
         settings.messageFilterRules = collectFilterRules();
         settings.characterTags = characterTags;
         settings.worldbooks = {
@@ -3510,7 +3241,7 @@ function addCharacterTagDraft() {
     const current = getSharedCharacterTagsFromForm();
     current.push({
         id: `comfy-char-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        name: '', aliases: [], type: 'girl', appearance: '', negativeTags: '', danbooruTag: '', outfits: [],
+        enabled: true, name: '', aliases: [], type: 'girl', appearance: '', negativeTags: '', danbooruTag: '', outfits: [], dynamicStates: [],
     });
     renderCharacterTagList(current);
     refreshSettingsSummary();
@@ -3551,13 +3282,18 @@ async function importSharedCharacterTags(input) {
         const merged = [...getSharedCharacterTagsFromForm()];
         for (const char of data.characters) {
             if (!char?.name) continue;
-            const existingIndex = merged.findIndex((item) => item.name === char.name);
+            const importedId = String(char.id || '').trim();
+            const existingIndex = importedId
+                ? merged.findIndex((item) => String(item.id || '') === importedId)
+                : -1;
             const nextChar = {
-                id: char.id || `comfy-char-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                id: importedId || `comfy-char-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                enabled: char.enabled !== false,
                 name: char.name || '', aliases: Array.isArray(char.aliases) ? char.aliases : [],
                 type: char.type || 'girl', appearance: char.appearance || char.tags || '',
                 negativeTags: char.negativeTags || '', danbooruTag: char.danbooruTag || '',
                 outfits: Array.isArray(char.outfits) ? char.outfits : [],
+                dynamicStates: Array.isArray(char.dynamicStates) ? char.dynamicStates : [],
             };
             if (existingIndex >= 0) {
                 merged[existingIndex] = { ...merged[existingIndex], ...nextChar, id: merged[existingIndex].id };
@@ -3650,17 +3386,26 @@ function populateSelect(id, options, { value, emptyLabel = '' } = {}) {
 }
 
 export async function openSettings() {
-    await loadSettings();
-    await loadSharedDrawSettings();
+    try {
+        await loadSettings();
+        await loadSharedDrawSettings();
+    } catch {
+        return false;
+    }
     const overlay = await createOverlay();
     fillForm(getSettings());
     switchSettingsView('test');
     syncOverlayHeight();
     overlay.style.display = 'block';
+    return true;
 }
 
 export function hideSettings() {
     abortPendingRequest();
+    agentSettingsSurface?.destroy();
+    agentSettingsSurface = null;
+    if (promptChainPreviewFrame) cancelAnimationFrame(promptChainPreviewFrame);
+    promptChainPreviewFrame = 0;
 
     if (resizeHandler) {
         window.removeEventListener('resize', resizeHandler);
@@ -3737,15 +3482,26 @@ function updateComfyOptionStatus(state, text) {
 function renderLastLlmRequestPreview() {
     const preview = getSettingsElement('comfy-llm-request-preview');
     if (!preview) return;
-    const snapshot = getLastDrawLlmRequestSnapshot();
+    const snapshot = getLastDrawAgentDiagnostic();
     preview.textContent = snapshot
         ? JSON.stringify(snapshot, null, 2)
         : '暂无请求记录，请先触发一次画图分析。';
 }
 
+function ensureAgentSettingsSurface() {
+    agentSettingsSurface = attachDrawAgentSettingsSurface({
+        surface: agentSettingsSurface,
+        getRoot: () => getSettingsElement('comfy-agent-settings-surface'),
+        showToast: (message) => toastr.info(String(message || ''), 'Agent API'),
+        source: 'draw-comfyui',
+        logPrefix: 'ComfyDraw',
+    });
+    return agentSettingsSurface;
+}
+
 function renderPromptChainPreview(settings = getSettings()) {
     const container = getSettingsElement('comfy-prompt-chain');
-    if (!container) return;
+    if (!container || !container.closest('details')?.open) return;
 
     const promptPreset = getActivePromptPreset(settings);
     const systemInput = getSettingsElement('comfy-prompt-system');
@@ -3755,7 +3511,7 @@ function renderPromptChainPreview(settings = getSettings()) {
         ...promptPreset,
         topSystem: systemInput ? systemInput.value : (promptPreset?.topSystem || ''),
         tagGuideContent: guideInput ? guideInput.value : (promptPreset?.tagGuideContent || ''),
-        userJsonFormat: formatInput ? formatInput.value : (promptPreset?.userJsonFormat || ''),
+        sceneRules: formatInput ? formatInput.value : (promptPreset?.sceneRules || ''),
     };
     const promptConfig = {
         ...COMFY_SCENE_PROMPTS,
@@ -3766,16 +3522,33 @@ function renderPromptChainPreview(settings = getSettings()) {
     const editableMap = {
         topSystem: 'comfy-prompt-system',
         tagGuideContent: 'comfy-prompt-guide',
-        userJsonFormat: 'comfy-prompt-format',
+        sceneRules: 'comfy-prompt-format',
     };
 
     container.replaceChildren();
+
+    const focusPromptEditor = (key) => {
+        const target = getSettingsElement(editableMap[key]);
+        if (!target) return false;
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.focus();
+        return true;
+    };
+    const getPreviewContent = (key) => {
+        let content = String(promptConfig[key] || '(内置模板，不可编辑)');
+        if (key === 'assistantDoc') {
+            content = content.replace('{$tagGuide}', promptConfig.tagGuideContent || '');
+        }
+        return content.length > 1200 ? `${content.slice(0, 1200)}\n...(已截断)` : content;
+    };
 
     chain.forEach((item, index) => {
         const row = document.createElement('div');
         row.className = 'chain-item';
         row.dataset.key = item.key;
         row.dataset.editableId = editableMap[item.key] || '';
+        const sections = Array.isArray(item.sections) ? item.sections : [];
+        if (sections.length) row.classList.add('has-sections');
 
         const role = document.createElement('span');
         role.className = `chain-role ${item.role}`;
@@ -3813,29 +3586,80 @@ function renderPromptChainPreview(settings = getSettings()) {
             summary.appendChild(vars);
         }
 
-        const preview = document.createElement('div');
-        preview.className = 'chain-content-preview';
-        summary.appendChild(preview);
+        if (sections.length) {
+            const sectionList = document.createElement('div');
+            sectionList.className = 'chain-sections';
+            sections.forEach((section, sectionIndex) => {
+                const sectionRow = document.createElement('div');
+                sectionRow.className = 'chain-section';
+                sectionRow.dataset.key = section.key;
+
+                const sectionSummary = document.createElement('div');
+                sectionSummary.className = 'chain-section-summary';
+                sectionSummary.textContent = `${sectionIndex + 1}. ${section.summary || ''}`;
+                if (section.label) {
+                    const label = document.createElement('span');
+                    label.className = 'chain-editable';
+                    label.textContent = ` [${section.label}]`;
+                    sectionSummary.appendChild(label);
+                }
+                if (section.editable) {
+                    const edit = document.createElement('span');
+                    edit.className = 'chain-editable';
+                    edit.title = '可在上方编辑';
+                    edit.textContent = ' ✏️';
+                    edit.addEventListener('click', (event) => {
+                        event.stopPropagation();
+                        focusPromptEditor(section.key);
+                    });
+                    sectionSummary.appendChild(edit);
+                }
+                sectionRow.appendChild(sectionSummary);
+
+                if (Array.isArray(section.variables) && section.variables.length) {
+                    const vars = document.createElement('div');
+                    vars.className = 'chain-variables';
+                    section.variables.forEach((value) => {
+                        const span = document.createElement('span');
+                        span.textContent = `📎 ${value}`;
+                        vars.appendChild(span);
+                    });
+                    sectionRow.appendChild(vars);
+                }
+
+                const sectionPreview = document.createElement('div');
+                sectionPreview.className = 'chain-section-content';
+                sectionRow.appendChild(sectionPreview);
+                sectionRow.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    sectionRow.classList.toggle('expanded');
+                    sectionPreview.textContent = getPreviewContent(section.key);
+                });
+                sectionList.appendChild(sectionRow);
+            });
+            summary.appendChild(sectionList);
+        } else {
+            const preview = document.createElement('div');
+            preview.className = 'chain-content-preview';
+            summary.appendChild(preview);
+            row.addEventListener('click', () => {
+                if (row.dataset.editableId && focusPromptEditor(row.dataset.key)) return;
+                row.classList.toggle('expanded');
+                preview.textContent = getPreviewContent(row.dataset.key);
+            });
+        }
 
         row.append(role, summary);
-        row.addEventListener('click', () => {
-            const editableId = row.dataset.editableId;
-            if (editableId) {
-                const target = getSettingsElement(editableId);
-                if (target) {
-                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    target.focus();
-                    return;
-                }
-            }
-            row.classList.toggle('expanded');
-            let content = promptConfig[row.dataset.key] || '(内置模板，不可编辑)';
-            if (row.dataset.key === 'assistantDoc') {
-                content = String(content).replace('{$tagGuide}', promptConfig.tagGuideContent || '');
-            }
-            preview.textContent = content.length > 1200 ? `${content.slice(0, 1200)}\n...(已截断)` : content;
-        });
         container.appendChild(row);
+    });
+}
+
+function schedulePromptChainPreview() {
+    const container = getSettingsElement('comfy-prompt-chain');
+    if (!container?.closest('details')?.open || promptChainPreviewFrame) return;
+    promptChainPreviewFrame = requestAnimationFrame(() => {
+        promptChainPreviewFrame = 0;
+        renderPromptChainPreview();
     });
 }
 
@@ -3925,32 +3749,72 @@ function createGenerationJob(messageId) {
     if (generationJobs.has(key)) {
         throw new Error('该楼层已有任务进行中');
     }
-    const job = { controller: new AbortController(), messageId };
+    const job = {
+        key,
+        chatId: String(getContext()?.chatId || ''),
+        phase: 'starting',
+        controller: new AbortController(),
+        backendCancel: new AbortController(),
+        messageId,
+        abortReason: null,
+    };
     generationJobs.set(key, job);
     return job;
 }
 
-export function abortGeneration(messageId = null) {
+function releaseGenerationJob(job) {
+    if (job && generationJobs.get(job.key) === job) generationJobs.delete(job.key);
+}
+
+function cancelPendingDrawRun(messageId) {
+    // Draw Run 归属于当前 swipe。用户在任务期间切换图片 Provider 后，
+    // 新 Provider 的按钮仍要能取消这一个既有任务。
+    if (!hasPendingDrawRun(messageId)) return false;
+    void cancelPendingDrawRuns(messageId).catch((error) => {
+        console.error('[ComfyDraw] 后台 Draw Run 取消失败:', error);
+        toastr.error(error?.message || '后台画图取消失败，请稍后重试', '小白X画图');
+    });
+    return true;
+}
+
+export function abortGeneration(messageId = null, { reason = 'user' } = {}) {
     if (messageId !== null && messageId !== undefined) {
         const job = generationJobs.get(String(messageId));
-        if (!job) return false;
-        job.controller.abort();
-        generationJobs.delete(String(messageId));
-        return true;
+        let aborted = false;
+        if (job) {
+            job.abortReason ||= reason;
+            if (reason === 'user') job.backendCancel.abort();
+            job.controller.abort();
+            aborted = true;
+        }
+        if (reason === 'user' && cancelPendingDrawRun(messageId)) aborted = true;
+        return aborted;
     }
     let aborted = false;
     for (const job of generationJobs.values()) {
+        job.abortReason ||= reason;
+        if (reason === 'user') job.backendCancel.abort();
         job.controller.abort();
         aborted = true;
     }
-    generationJobs.clear();
-    abortPendingRequest();
+    if (reason === 'user') {
+        abortPendingRequest();
+    }
     return aborted;
 }
 
 export function isGenerating(messageId = null) {
-    if (messageId !== null && messageId !== undefined) return generationJobs.has(String(messageId));
+    if (messageId !== null && messageId !== undefined) {
+        const job = generationJobs.get(String(messageId));
+        return Boolean(job && job.chatId === String(getContext()?.chatId || ''));
+    }
     return generationJobs.size > 0;
+}
+
+export function getGenerationPhase(messageId) {
+    const job = generationJobs.get(String(messageId));
+    if (!job || job.chatId !== String(getContext()?.chatId || '')) return null;
+    return job.phase;
 }
 
 async function autoGenerateForLastAI() {
@@ -3965,11 +3829,10 @@ async function autoGenerateForLastAI() {
     const lastMessage = chat[lastIdx];
     if (!lastMessage || lastMessage.is_user) return;
 
-    const content = String(lastMessage.mes || '').replace(/\[image:[a-z0-9\-_]+\]/gi, '').trim();
+    const content = stripDrawImageSlots(lastMessage.mes).trim();
     if (content.length < 50) return;
 
-    lastMessage.extra ||= {};
-    if (lastMessage.extra.xb_comfy_auto_done) return;
+    if (lastMessage.extra?.xb_comfy_auto_done) return;
     if (autoBusy || isGenerating(lastIdx)) return;
 
     autoBusy = true;
@@ -3995,15 +3858,21 @@ async function autoGenerateForLastAI() {
             }
         }
 
-        await generateAndInsertImages({
+        const result = await generateAndInsertImages({
             messageId: lastIdx,
+            automatic: true,
             onStateChange: (state, data) => {
                 switch (state) {
+                    case 'submitting': updateState(fp.FloatState?.SUBMITTING, data); break;
+                    case 'accepted': updateState(fp.FloatState?.ACCEPTED, data); break;
+                    case 'uncertain': updateState(fp.FloatState?.UNCERTAIN, data); break;
                     case 'queued': updateState(fp.FloatState?.QUEUED, data); break;
                     case 'llm': updateState(fp.FloatState?.LLM); break;
                     case 'gen':
                     case 'progress': updateState(fp.FloatState?.GEN, data); break;
                     case 'cooldown': updateState(fp.FloatState?.COOLDOWN, data); break;
+                    case 'reconnecting': updateState(fp.FloatState?.RECONNECTING, data); break;
+                    case 'cancelling': updateState(fp.FloatState?.CANCELLING, data); break;
                     case 'success':
                         updateState(
                             (data.aborted && data.success === 0) ? fp.FloatState?.IDLE
@@ -4016,7 +3885,10 @@ async function autoGenerateForLastAI() {
             },
         });
 
-        lastMessage.extra.xb_comfy_auto_done = true;
+        if (!['accepted', 'uncertain'].includes(result?.status)) {
+            lastMessage.extra ||= {};
+            lastMessage.extra.xb_comfy_auto_done = true;
+        }
     } catch (error) {
         console.error('[ComfyDraw] 自动配图失败:', error);
         try {
@@ -4025,6 +3897,26 @@ async function autoGenerateForLastAI() {
             const floatingOn = settings.showFloatingButton !== false;
             const floorOn = settings.showFloorButton !== false;
             const useFloatingOnly = floatingOn && floorOn;
+            if (error?.uncertain === true) {
+                if (useFloatingOnly || (floatingOn && !floorOn)) {
+                    fp.setFloatingState?.(fp.FloatState?.UNCERTAIN);
+                } else if (floorOn) {
+                    fp.setStateForMessage?.(lastIdx, fp.FloatState?.UNCERTAIN);
+                }
+                return;
+            }
+            if (isDrawRunPendingError(error)) {
+                toastr?.info?.(error.message);
+                return;
+            }
+            if (isDrawRunCancelledError(error)) {
+                if (useFloatingOnly || (floatingOn && !floorOn)) {
+                    fp.setFloatingState?.(fp.FloatState?.IDLE);
+                } else if (floorOn) {
+                    fp.setStateForMessage?.(lastIdx, fp.FloatState?.IDLE);
+                }
+                return;
+            }
             if (useFloatingOnly || (floatingOn && !floorOn)) {
                 fp.setFloatingState?.(fp.FloatState?.ERROR, { error: classified });
             } else if (floorOn) {
@@ -4036,25 +3928,40 @@ async function autoGenerateForLastAI() {
     }
 }
 
-async function buildTasksFromMessage({ message, messageId, signal, promptOverride = '', negativePromptOverride = '', useWorldbook = true }) {
-    if (promptOverride.trim()) {
-        return [{ scene: promptOverride.trim(), chars: [], characterPrompts: [], anchor: '' }];
-    }
+function notifySceneImageLimitAdjusted(adjustment) {
+    if (adjustment?.message) toastr.info(adjustment.message, '小白X画图');
+}
 
+function notifyDetachedGeneration(successCount) {
+    const count = Math.max(0, Number(successCount) || 0);
+    if (count > 0) {
+        toastr.info(`聊天或楼层已经变化，已生成 ${count} 张图片但未写入原楼层；可在画图设置的图片管理中查看。`, '小白X画图');
+    }
+}
+
+async function buildComfyScenePlannerOptions({
+    message,
+    signal,
+    useWorldbook = true,
+    stripImageMarkers = true,
+    onStateChange,
+    providerSettings,
+    sharedSettings,
+}) {
     await loadSharedDrawSettings();
 
-    const sharedDrawSettings = getSharedDrawSettings();
-    const rawText = String(message.mes || '')
-        .replace(/\[image:[a-z0-9\-_]+\]/gi, '')
-        .replace(/\[ebook-image:[a-z0-9\-_]+\]/gi, '')
-        .trim();
+    const sharedDrawSettings = sharedSettings || getSharedDrawSettings();
+    const comfySettings = providerSettings || getSettings();
+    const sourceText = stripImageMarkers
+        ? normalizeMessageSceneSourceText(message.mes)
+        : String(message.mes || '');
     const filterRules = sharedDrawSettings.messageFilterRules?.length
         ? sharedDrawSettings.messageFilterRules
         : DEFAULT_MESSAGE_FILTER_RULES;
-    const messageText = applyMessageFilterRules(rawText, filterRules);
-    if (!messageText) throw new Error('消息内容为空（可能被过滤规则清空）');
+    const sceneSource = createSceneSource(sourceText, { filterRules });
+    if (!sceneSource.content) throw new Error('消息内容为空（可能被过滤规则清空）');
 
-    const presentCharacters = detectPresentCharacters(messageText, sharedDrawSettings.characterTags || []);
+    const presentCharacters = detectPresentCharacters(sceneSource.content, sharedDrawSettings.characterTags || []);
     let worldbookEntries = null;
 
     if (useWorldbook && sharedDrawSettings.worldbooks?.enabled && sharedDrawSettings.worldbooks.uploadedBooks?.length) {
@@ -4063,75 +3970,50 @@ async function buildTasksFromMessage({ message, messageId, signal, promptOverrid
         const allEntries = sharedDrawSettings.worldbooks.uploadedBooks.flatMap(b => b.entries || []);
         worldbookEntries = processor.processFromEntries({
             entries: allEntries,
-            contextText: `${messageText} ${charNames}`,
+            contextText: `${sceneSource.content} ${charNames}`,
             keywordFilterMode: sharedDrawSettings.worldbooks.keywordFilterMode || 'auto',
         });
     }
 
-    let tasks = [];
-    try {
-        const preset = getActivePreset(getSettings());
-        const promptPreset = getActivePromptPreset(getSettings()) || DEFAULT_PROMPT_CONFIG;
-        tasks = await generateAndParseScenePlan({
-            messageText,
+    const preset = getActivePreset(comfySettings);
+    const promptPreset = getActivePromptPreset(comfySettings) || DEFAULT_PROMPT_CONFIG;
+    return {
+        sceneSource,
+        plannerOptions: {
+            sceneSource,
             presentCharacters,
-            llmApi: sharedDrawSettings.llmApi,
-            useStream: sharedDrawSettings.useStream,
             useWorldInfo: useWorldbook && sharedDrawSettings.useWorldInfo,
             customPrompts: promptPreset,
             promptDefaults: DEFAULT_PROMPT_CONFIG,
             worldbookEntries,
-            timeout: sharedDrawSettings.timeout || 120000,
             maxImages: preset.maxImages || 0,
             maxCharactersPerImage: preset.maxCharactersPerImage || 0,
-            disablePrefill: !!sharedDrawSettings.disablePrefill,
+            onImageLimitAdjusted: notifySceneImageLimitAdjusted,
+            onDiagnosticUpdate: diagnostic => onStateChange?.('llm', toScenePlannerProgress(diagnostic)),
             signal,
-        });
-    } catch (error) {
-        if (signal.aborted) throw new Error('已取消');
-        if (error instanceof LLMServiceError) {
-            throw new Error(`场景分析失败: ${error.message}`);
-        }
-        throw error;
-    }
-
-    const preset = getActivePreset(getSettings());
-    const maxImg = preset.maxImages || 0;
-    const maxChar = preset.maxCharactersPerImage || 0;
-    if (maxImg > 0 && tasks.length > maxImg) tasks = tasks.slice(0, maxImg);
-    if (maxChar > 0) {
-        tasks = tasks.map(task => ({
-            ...task,
-            chars: Array.isArray(task.chars) ? task.chars.slice(0, maxChar) : [],
-        }));
-    }
-
-    console.log('[ComfyDraw] LLM plan ready for message %s: %d task(s)', messageId, tasks.length);
-    return tasks;
+        },
+    };
 }
 
-function buildPromptForTask(task, sharedDrawSettings, comfySettings, promptOverride = '', negativePromptOverride = '') {
-    const characterPrompts = Array.isArray(task?.characterPrompts)
-        ? task.characterPrompts.filter(Boolean)
-        : assembleCharacterPrompts(task.chars || [], sharedDrawSettings.characterTags || [], {
-            preserveDanbooruCanonical: true,
-        });
-
+async function buildTasksFromMessage({ message, messageId, signal, promptOverride = '', useWorldbook = true, stripImageMarkers = true, onStateChange }) {
     if (promptOverride.trim()) {
         return {
-            positive: composePrompt(comfySettings.positivePrefix, promptOverride),
-            negative: composePrompt(comfySettings.negativePrefix, negativePromptOverride),
-            characterPrompts,
+            tasks: [{ scene: promptOverride.trim(), chars: [], characterPrompts: [], placement: { mode: 'tail' } }],
+            sceneSource: null,
         };
     }
 
-    const charPositive = characterPrompts.map(item => item.prompt).filter(Boolean).join(', ');
-    const charNegative = characterPrompts.map(item => item.uc).filter(Boolean).join(', ');
-    return {
-        positive: joinTags(comfySettings.positivePrefix, task.scene, charPositive),
-        negative: joinTags(comfySettings.negativePrefix, negativePromptOverride, charNegative),
-        characterPrompts,
-    };
+    const { sceneSource, plannerOptions } = await buildComfyScenePlannerOptions({
+        message,
+        signal,
+        useWorldbook,
+        stripImageMarkers,
+        onStateChange,
+    });
+    const tasks = await generateAndParseScenePlan(plannerOptions);
+
+    console.log('[ComfyDraw] LLM plan ready for message %s: %d task(s)', messageId, tasks.length);
+    return { tasks, sceneSource };
 }
 
 function buildTextSourceGalleryMeta(options = {}) {
@@ -4171,8 +4053,9 @@ function buildTextSourceGalleryMeta(options = {}) {
 }
 
 export async function generateImagesFromText(options = {}) {
-    const text = String(options.text || '').trim();
-    if (!text) throw new Error('正文内容为空，无法配图');
+    const monitorGeneration = backendJobMonitors.captureGeneration();
+    const text = String(options.text || '');
+    if (!text.trim()) throw new Error('正文内容为空，无法配图');
     const signal = options.signal || new AbortController().signal;
     const galleryMeta = buildTextSourceGalleryMeta(options);
     const messageId = String(options.messageId || galleryMeta.messageId || `text:${Date.now()}`);
@@ -4184,14 +4067,16 @@ export async function generateImagesFromText(options = {}) {
 
     ensureDrawImageStyles();
     await openDB();
-    options.onStateChange?.('llm', {});
-    const tasks = await buildTasksFromMessage({
+    options.onStateChange?.('llm', toScenePlannerProgress());
+    const { tasks, sceneSource } = await buildTasksFromMessage({
         message,
         messageId,
         signal,
         promptOverride: options.promptOverride || '',
         negativePromptOverride: options.negativePromptOverride || '',
         useWorldbook: false,
+        stripImageMarkers: false,
+        onStateChange: options.onStateChange,
     });
     if (signal.aborted) throw new Error('已取消');
 
@@ -4199,41 +4084,40 @@ export async function generateImagesFromText(options = {}) {
     const sharedDrawSettings = getSharedDrawSettings();
     const images = [];
     let successCount = 0;
-
-    options.onStateChange?.('gen', { current: 0, total: tasks.length });
-    for (let i = 0; i < tasks.length; i++) {
-        if (signal.aborted) break;
-        const task = tasks[i];
+    const generationRecipe = createComfyGenerationRecipe({
+        settings: comfySettings,
+        characterTags: sharedDrawSettings.characterTags || [],
+        paramsOverride: options.paramsOverride || {},
+        promptOverride: options.promptOverride || '',
+        negativePromptOverride: options.negativePromptOverride || '',
+        itemCount: tasks.length,
+    });
+    const params = generationRecipe.params;
+    const compiledBatch = compileComfyScenePlan(tasks, generationRecipe);
+    const requests = compiledBatch.artifacts.map(({ task, promptData }) => {
         const slotId = generateSlotId();
         const imgId = generateImgId();
-        const params = getEffectiveParams(comfySettings, options.paramsOverride || {});
-        const promptData = buildPromptForTask(
+        return {
             task,
-            sharedDrawSettings,
-            {
-                positivePrefix: params.positivePrefix,
-                negativePrefix: params.negativePrefix,
-            },
-            options.promptOverride || '',
-            options.negativePromptOverride || '',
-        );
+            slotId,
+            imgId,
+            params,
+            promptData,
+            prompt: promptData.positive,
+            negativePrompt: promptData.negative,
+        };
+    });
 
-        options.onStateChange?.('progress', { current: i + 1, total: tasks.length });
-        try {
-            const base64 = await generateComfyImageQueued({
-                prompt: promptData.positive,
-                negativePrompt: promptData.negative,
-                params,
-                signal,
-                onQueueStateChange: (queueState, queueData) => {
-                    if (queueState === 'queued') {
-                        options.onStateChange?.('queued', { current: i + 1, total: tasks.length, ...queueData });
-                    }
-                    if (queueState === 'start') {
-                        options.onStateChange?.('progress', { current: i + 1, total: tasks.length });
-                    }
-                },
-            });
+    options.onStateChange?.('gen', { current: 0, total: tasks.length });
+    await runComfyImageBatch({
+        requests,
+        compiledBatch,
+        signal,
+        monitorGeneration,
+        queueBatch: {},
+        onStateChange: options.onStateChange,
+        onItemReady: async ({ index, base64 }) => {
+            const { task, slotId, imgId, promptData } = requests[index];
             await storePreview({
                 ...galleryMeta,
                 imgId,
@@ -4244,22 +4128,23 @@ export async function generateImagesFromText(options = {}) {
                 positive: promptData.positive,
                 characterPrompts: promptData.characterPrompts,
                 negativePrompt: promptData.negative,
-                anchor: task.anchor || '',
             });
             await setSlotSelection(slotId, imgId);
             successCount++;
             images.push({
                 slotId,
                 imgId,
-                anchor: task.anchor || '',
+                placement: task.placement,
                 tags: task.scene || options.promptOverride || '',
                 positive: promptData.positive,
                 negativePrompt: promptData.negative,
                 displayUrl: getPreviewDisplayUrl({ imgId, base64 }),
                 success: true,
             });
-        } catch (error) {
-            if (signal.aborted) break;
+        },
+        onItemSettled: async ({ index, state, error }) => {
+            if (state === 'ready' || signal.aborted) return;
+            const { task, slotId, promptData } = requests[index];
             const errorType = classifyError(error) || ErrorType.UNKNOWN;
             await storeFailedPlaceholder({
                 ...galleryMeta,
@@ -4271,22 +4156,28 @@ export async function generateImagesFromText(options = {}) {
                 errorMessage: errorType.desc,
                 characterPrompts: promptData.characterPrompts,
                 negativePrompt: promptData.negative,
-                anchor: task.anchor || '',
             });
             images.push({
                 slotId,
-                anchor: task.anchor || '',
+                placement: task.placement,
                 tags: task.scene || options.promptOverride || '',
                 positive: promptData.positive,
                 negativePrompt: promptData.negative,
                 success: false,
                 error: errorType,
             });
-        }
-    }
+        },
+    });
 
     options.onStateChange?.('success', { success: successCount, total: tasks.length });
-    return { ok: true, source: options.source || 'text', success: successCount, total: tasks.length, images };
+    return {
+        ok: true,
+        source: options.source || 'text',
+        success: successCount,
+        total: tasks.length,
+        images,
+        sourceHash: sceneSource?.sourceHash || '',
+    };
 }
 
 async function persistChatSilently() {
@@ -4316,7 +4207,7 @@ function setImageState(container, state) {
     }
     container.querySelector('.xb-nd-indicator')?.remove();
     if (state === ImageState.SAVING) container.insertAdjacentHTML('afterbegin', '<div class="xb-nd-indicator">💾 保存中...</div>');
-    else if (state === ImageState.REFRESHING) container.insertAdjacentHTML('afterbegin', '<div class="xb-nd-indicator">🔄 生成中...</div>');
+    else if (state === ImageState.REFRESHING) container.insertAdjacentHTML('afterbegin', '<div class="xb-nd-indicator"><i class="fa-solid fa-rotate" aria-hidden="true"></i> 生成中...</div>');
 }
 
 function updateNavControls(container, currentIndex, total) {
@@ -4704,6 +4595,7 @@ async function saveEditedTags(container) {
 }
 
 async function refreshSingleImage(container) {
+    const monitorGeneration = backendJobMonitors.captureGeneration();
     const slotId = container.dataset.slotId;
     const messageId = Number(container.dataset.mesid);
     const preview = await getPreviewByImageId(container);
@@ -4717,17 +4609,17 @@ async function refreshSingleImage(container) {
         setImageState(container, ImageState.REFRESHING);
         const settings = getSettings();
         const params = getEffectiveParams(settings);
-        const base64 = await generateComfyImageQueued({
+        const base64 = await generateSingleComfyImage({
             prompt,
             negativePrompt: promptData.negative || preview?.negativePrompt || params.negativePrefix || '',
             params,
-        });
+        }, { monitorGeneration });
         const imgId = generateImgId();
         await storePreview({
             imgId, slotId, messageId, base64,
             tags: container.dataset.tags || prompt, positive: prompt,
             characterPrompts: preview?.characterPrompts || [],
-            negativePrompt: promptData.negative || preview?.negativePrompt || params.negativePrefix || '', anchor: '',
+            negativePrompt: promptData.negative || preview?.negativePrompt || params.negativePrefix || '',
         });
         await setSlotSelection(slotId, imgId);
         void clearDrawSavedEntry(messageId, slotId).catch(() => {});
@@ -4750,6 +4642,7 @@ async function refreshSingleImage(container) {
 }
 
 async function retryFailedImage(container) {
+    const monitorGeneration = backendJobMonitors.captureGeneration();
     const slotId = container.dataset.slotId;
     const messageId = Number(container.dataset.mesid);
     const tags = String(container.dataset.tags || '').trim();
@@ -4768,12 +4661,15 @@ async function retryFailedImage(container) {
         const positive = joinTags(params.positivePrefix || '', tags, charPositive);
         const negative = latestFailed?.negativePrompt || params.negativePrefix || '';
 
-        const base64 = await generateComfyImageQueued({ prompt: positive, negativePrompt: negative, params });
+        const base64 = await generateSingleComfyImage(
+            { prompt: positive, negativePrompt: negative, params },
+            { monitorGeneration },
+        );
         const imgId = generateImgId();
         await storePreview({
             imgId, slotId, messageId, base64, tags, positive,
             characterPrompts: latestFailed?.characterPrompts || [],
-            negativePrompt: negative, anchor: latestFailed?.anchor || '',
+            negativePrompt: negative,
         });
         await deleteFailedRecordsForSlot(slotId);
         await setSlotSelection(slotId, imgId);
@@ -4792,7 +4688,6 @@ async function retryFailedImage(container) {
             errorType: classified.code, errorMessage: classified.desc,
             characterPrompts: latestFailed?.characterPrompts || [],
             negativePrompt: latestFailed?.negativePrompt || '',
-            anchor: latestFailed?.anchor || '',
         }).catch(() => {});
 
         // eslint-disable-next-line no-unsanitized/property
@@ -4826,7 +4721,7 @@ async function removePlaceholder(container) {
     const ctx = getContext();
     const message = ctx.chat?.[messageId];
     if (message?.mes) {
-        message.mes = String(message.mes || '').replace(createPlaceholder(slotId), '').replace(/\n{3,}/g, '\n\n');
+        message.mes = removeSceneSlotPlaceholders(message.mes, [slotId]);
         await persistChatSilently().catch(() => {});
     }
     container.remove();
@@ -4854,7 +4749,7 @@ async function deleteCurrentImage(container) {
         const ctx = getContext();
         const message = ctx.chat?.[messageId];
         if (message?.mes) {
-            message.mes = message.mes.replace(createPlaceholder(slotId), '').replace(/\n{3,}/g, '\n\n');
+            message.mes = removeSceneSlotPlaceholders(message.mes, [slotId]);
             await persistChatSilently().catch(() => {});
         }
     }
@@ -4912,155 +4807,538 @@ export async function generateAndInsertImages({
     negativePromptOverride = '',
     paramsOverride = {},
     onStateChange,
+    automatic = false,
 } = {}) {
     const resolvedMessageId = Number.isFinite(Number(messageId)) ? Number(messageId) : findLastAIMessageId();
     if (resolvedMessageId < 0) throw new Error('未找到可出图的 AI 消息');
 
     const job = createGenerationJob(resolvedMessageId);
     const signal = job.controller.signal;
+    let placementLifecycle = null;
 
     try {
         ensureDrawImageStyles();
         await openDB();
+        await loadSettings();
+        await loadSharedDrawSettings();
         const ctx = getContext();
         const initialChatId = ctx.chatId;
         const message = ctx.chat?.[resolvedMessageId];
         if (!message || message.is_user) throw new Error('消息不存在或不是 AI 消息');
 
-        onStateChange?.('llm', {});
-        const tasks = await buildTasksFromMessage({
-            message, messageId: resolvedMessageId, signal, promptOverride, negativePromptOverride,
+        const comfySettings = cloneSettingsObject(getSettings());
+        const sharedSettingsSnapshot = cloneSettingsObject(getSharedDrawSettings());
+        if (comfySettings.useImageBackendJobs === true && !promptOverride.trim()) {
+            job.phase = 'submitting';
+            return await submitProviderDrawRun({
+                ctx,
+                message,
+                messageId: resolvedMessageId,
+                provider: DRAW_RUN_PROVIDER,
+                signal,
+                preparePlanner: async ({ maxPlanImages }) => {
+                    job.phase = 'llm';
+                    const { plannerOptions } = await buildComfyScenePlannerOptions({
+                        message,
+                        signal,
+                        onStateChange,
+                        providerSettings: comfySettings,
+                        sharedSettings: sharedSettingsSnapshot,
+                    });
+                    return prepareScenePlannerInput({ ...plannerOptions, maxPlanImages });
+                },
+                createGenerationRecipe: prepared => createComfyGenerationRecipe({
+                    settings: comfySettings,
+                    characterTags: sharedSettingsSnapshot.characterTags || [],
+                    paramsOverride,
+                    promptOverride,
+                    negativePromptOverride,
+                    itemCount: prepared.planner.validationContext.maxPlanImages,
+                }),
+                automatic,
+                getCurrentContext: getContext,
+                syncActiveSwipe: syncMesToSwipe,
+                isMessageBeingEdited,
+                onStateChange,
+            });
+        }
+
+        job.phase = 'llm';
+        onStateChange?.('llm', toScenePlannerProgress());
+        const { tasks, sceneSource } = await buildTasksFromMessage({
+            message, messageId: resolvedMessageId, signal, promptOverride, negativePromptOverride, onStateChange,
         });
         if (signal.aborted) throw new Error('已取消');
 
-        const comfySettings = getSettings();
         const sharedDrawSettings = getSharedDrawSettings();
+        if (isMessageBeingEdited(resolvedMessageId)) {
+            throw new ScenePlacementError('该楼层正在编辑，请保存或取消编辑后再配图。', 'SCENE_MESSAGE_EDITING');
+        }
         const originalMes = message.mes;
-        message.mes = String(message.mes || '').replace(/\[image:[a-z0-9\-_]+\]/gi, '');
-
-        onStateChange?.('gen', { current: 0, total: tasks.length });
-        const { messageFormatting } = await import('../../../../../../../../script.js');
-        const results = [];
+        const replacedSlotIds = getSceneSlotIds(originalMes);
+        const slotIds = tasks.map(() => generateSlotId());
+        const results = new Array(tasks.length);
         let successCount = 0;
-        let requiresFinalDomSync = false;
+        const strippedNow = normalizeMessageSceneSourceText(message.mes);
+        if (sceneSource) assertSceneSourceUnchanged(strippedNow, sceneSource.sourceHash);
+        const plannedMes = insertScenePlacementsPreservingSlots(originalMes, tasks.map((task, index) => ({
+            placement: task.placement,
+            content: createPlaceholder(slotIds[index]),
+        })), { block: true });
 
-        for (let i = 0; i < tasks.length; i++) {
-            if (signal.aborted) break;
-            const currentCtx = getContext();
-            if (currentCtx.chatId !== initialChatId || currentCtx.chat?.[resolvedMessageId] !== message) break;
+        placementLifecycle = {
+            message,
+            originalMes,
+            slotIds,
+            results,
+            getSuccessCount: () => successCount,
+            initialChatId,
+            plannedMes,
+            syncRenderedMessage: null,
+            settled: false,
+            committedEarly: false,
+        };
 
-            const task = tasks[i];
-            const slotId = generateSlotId();
-            const imgId = generateImgId();
-            const params = getEffectiveParams(comfySettings, paramsOverride);
-            const promptData = buildPromptForTask(task, sharedDrawSettings, {
-                positivePrefix: params.positivePrefix,
-                negativePrefix: params.negativePrefix,
-            }, promptOverride, negativePromptOverride);
-            let position = findAnchorPosition(message.mes, task.anchor);
-
-            onStateChange?.('progress', { current: i + 1, total: tasks.length });
-
-            let incrementalHtml = '';
-            try {
-                const base64 = await generateComfyImageQueued({
-                    prompt: promptData.positive,
-                    negativePrompt: promptData.negative,
-                    params,
-                    signal,
-                    onQueueStateChange: (queueState, queueData) => {
-                        if (queueState === 'queued') {
-                            onStateChange?.('queued', { current: i + 1, total: tasks.length, ...queueData });
-                        }
-                        if (queueState === 'start') {
-                            onStateChange?.('progress', { current: i + 1, total: tasks.length });
-                        }
-                        if (queueState === 'cooldown' && i < tasks.length - 1) {
-                            onStateChange?.('cooldown', { duration: queueData.duration, nextIndex: i + 2, total: tasks.length });
-                        }
-                    },
-                    cooldownMs: i < tasks.length - 1 ? FIXED_COMFY_REQUEST_DELAY_MS : 0,
+        const { messageFormatting } = await import('../../../../../../../../script.js');
+        const syncRenderedMessage = (sourceText = plannedMes) => {
+            if (isMessageBeingEdited(resolvedMessageId)) return;
+            const formatted = messageFormatting(sourceText, message.name, message.is_system, message.is_user, resolvedMessageId);
+            $(`[mesid="${resolvedMessageId}"] .mes_text`).html(formatted);
+        };
+        const renderPendingSlots = () => {
+            const settledSlotIds = new Set(results.filter(Boolean).map((item) => item.slotId));
+            slotIds.forEach((slotId, index) => {
+                if (settledSlotIds.has(slotId)) return;
+                insertPreviewIntoRenderedMessage({
+                    messageId: resolvedMessageId,
+                    slotId,
+                    html: buildPendingImageHtml({
+                        slotId,
+                        messageId: resolvedMessageId,
+                        index: index + 1,
+                        total: slotIds.length,
+                    }),
                 });
-                await storePreview({
-                    imgId, slotId, messageId: resolvedMessageId, base64,
-                    tags: task.scene || promptOverride, positive: promptData.positive,
-                    characterPrompts: promptData.characterPrompts,
-                    negativePrompt: promptData.negative, anchor: task.anchor || '',
-                });
-                await setSlotSelection(slotId, imgId);
-                successCount++;
-                results.push({ slotId, imgId, success: true });
-                incrementalHtml = buildImageHtml({
-                    slotId, imgId, url: getPreviewDisplayUrl({ imgId, base64 }),
-                    tags: task.scene || promptOverride, positive: promptData.positive,
-                    messageId: resolvedMessageId, state: ImageState.PREVIEW, historyCount: 1, currentIndex: 0,
-                });
-            } catch (error) {
-                if (signal.aborted) break;
-                const errorType = classifyError(error) || ErrorType.UNKNOWN;
-                await storeFailedPlaceholder({
-                    slotId, messageId: resolvedMessageId,
-                    tags: task.scene || promptOverride, positive: promptData.positive,
-                    errorType: errorType.code, errorMessage: errorType.desc,
-                    characterPrompts: promptData.characterPrompts,
-                    negativePrompt: promptData.negative, anchor: task.anchor || '',
-                });
-                results.push({ slotId, success: false, error: errorType });
-                incrementalHtml = buildFailedPlaceholderHtml({
-                    slotId, messageId: resolvedMessageId,
-                    tags: task.scene || promptOverride, positive: promptData.positive,
-                    errorType: errorType.label, errorMessage: errorType.desc,
-                });
-            }
-
-            if (signal.aborted) break;
-
-            const placeholder = createPlaceholder(slotId);
-            if (position >= 0) {
-                position = findNearestSentenceEnd(message.mes, position);
-                const before = message.mes.slice(0, position);
-                const after = message.mes.slice(position);
-                let insertText = placeholder;
-                if (before.length > 0 && !before.endsWith('\n')) insertText = `\n${insertText}`;
-                if (after.length > 0 && !after.startsWith('\n')) insertText = `${insertText}\n`;
-                message.mes = before + insertText + after;
-            } else {
-                const needNewline = message.mes.length > 0 && !message.mes.endsWith('\n');
-                message.mes += `${needNewline ? '\n' : ''}${placeholder}`;
-            }
-
-            const inserted = insertPreviewIntoRenderedMessage({
-                messageId: resolvedMessageId, slotId, html: incrementalHtml, anchor: task.anchor || '',
             });
-            if (!inserted) {
-                requiresFinalDomSync = true;
-                const formatted = messageFormatting(message.mes, message.name, message.is_system, message.is_user, resolvedMessageId);
-                $(`[mesid="${resolvedMessageId}"] .mes_text`).html(formatted);
-                await renderPreviewsForMessage(resolvedMessageId);
+        };
+        placementLifecycle.syncRenderedMessage = syncRenderedMessage;
+        if (message.mes !== originalMes) {
+            throw new ScenePlacementError('正文在准备插图位置时发生变化，未写入图片。', 'SCENE_SOURCE_CHANGED');
+        }
+        syncRenderedMessage();
+        renderPendingSlots();
+
+        job.phase = 'gen';
+        onStateChange?.('gen', { current: 0, total: tasks.length });
+        let requiresFinalDomSync = false;
+        let terminationReason = '';
+        const checkPlacementContext = () => {
+            if (terminationReason) return false;
+            if (!moduleInitialized) {
+                terminationReason = 'detached';
+                job.controller.abort();
+                return false;
             }
+            const currentCtx = getContext();
+            if (currentCtx.chatId !== initialChatId
+                || (!placementLifecycle.committedEarly && currentCtx.chat?.[resolvedMessageId] !== message)) {
+                console.warn('[ComfyDraw] 聊天已切换或消息已被替换，中止生成');
+                terminationReason = 'detached';
+                job.controller.abort();
+                return false;
+            }
+            if (isMessageBeingEdited(resolvedMessageId)) {
+                if (!placementLifecycle.committedEarly) {
+                    console.warn('[ComfyDraw] 楼层正在编辑，中止生成');
+                    terminationReason = 'source_changed';
+                    job.controller.abort();
+                }
+                return false;
+            }
+            if (!placementLifecycle.committedEarly && message.mes !== originalMes) {
+                console.warn('[ComfyDraw] 正文已变化，中止生成');
+                terminationReason = 'source_changed';
+                job.controller.abort();
+                return false;
+            }
+            return true;
+        };
+        const generationRecipe = createComfyGenerationRecipe({
+            settings: comfySettings,
+            characterTags: sharedDrawSettings.characterTags || [],
+            paramsOverride,
+            promptOverride,
+            negativePromptOverride,
+            itemCount: tasks.length,
+        });
+        const params = generationRecipe.params;
+        const compiledBatch = compileComfyScenePlan(tasks, generationRecipe);
+        const batchRequests = compiledBatch.artifacts.map(({ task, promptData }, index) => {
+            return {
+                task,
+                slotId: slotIds[index],
+                imgId: generateImgId(),
+                params,
+                promptData,
+                prompt: promptData.positive,
+                negativePrompt: promptData.negative,
+            };
+        });
+        const recoverablePlan = {
+            delivery: {
+                mode: 'slots',
+                chatId: String(initialChatId || ''),
+                messageId: String(resolvedMessageId),
+            },
+            replacedSlotIds,
+            gallery: {
+                chatId: String(initialChatId || ''),
+                characterName: String(message.name || ''),
+                messageId: String(resolvedMessageId),
+            },
+            items: batchRequests.map((request, index) => ({
+                index,
+                slotId: request.slotId,
+                imgId: request.imgId,
+                previewMetadata: {
+                    tags: request.task.scene || promptOverride,
+                    positive: request.promptData.positive,
+                    characterPrompts: request.promptData.characterPrompts,
+                    negativePrompt: request.promptData.negative,
+                },
+            })),
+        };
+        const commitPlannedPlacements = async () => {
+            const committed = await commitRecoverableScenePlacements({
+                getCurrentChatId: () => getContext().chatId,
+                getCurrentMessage: id => getContext().chat?.[id],
+                expectedChatId: initialChatId,
+                messageId: resolvedMessageId,
+                message,
+                originalText: originalMes,
+                plannedText: plannedMes,
+                slotIds,
+                isEditing: isMessageBeingEdited,
+                persist: persistChatSilently,
+                syncAfterRollback: async (sourceText) => {
+                    syncRenderedMessage(sourceText);
+                    await renderPreviewsForMessage(resolvedMessageId);
+                },
+            });
+            if (committed) placementLifecycle.committedEarly = true;
+            return committed;
+        };
+
+        const resolveDeliveryTarget = (slotId) => {
+            const currentCtx = getContext();
+            return requireImageJobDeliveryTarget({
+                currentChatId: currentCtx.chatId,
+                targetChatId: initialChatId,
+                chat: currentCtx.chat,
+                slotId,
+            });
+        };
+        const renderBatchPreviews = async ({ final = false } = {}) => {
+            const currentCtx = getContext();
+            if (String(currentCtx.chatId || '') !== String(initialChatId || '')) return;
+            const messageIds = new Set();
+            for (const slotId of slotIds) {
+                const target = classifyImageJobDeliveryTarget({
+                    currentChatId: currentCtx.chatId,
+                    targetChatId: initialChatId,
+                    chat: currentCtx.chat,
+                    slotId,
+                });
+                if (target.state === ImageJobDeliveryTargetState.ALIVE && target.isActiveSwipe) {
+                    messageIds.add(target.messageId);
+                }
+            }
+            if (messageIds.size === 0) {
+                const currentMessageId = currentCtx.chat?.indexOf(message) ?? -1;
+                if (currentMessageId >= 0) messageIds.add(currentMessageId);
+            }
+            await Promise.all([...messageIds].map(currentMessageId => renderPreviewsForMessage(
+                currentMessageId,
+                final ? { refreshSlotIds: [...new Set([...slotIds, ...replacedSlotIds])] } : undefined,
+            )));
+        };
+        const renderRemovedTargets = async (targets, removedSlotIds) => {
+            const messageIds = new Set((Array.isArray(targets) ? targets : [])
+                .filter(target => target?.isActiveSwipe)
+                .map(target => target.messageId));
+            await Promise.all([...messageIds].map(targetMessageId => renderPreviewsForMessage(
+                targetMessageId,
+                { refreshSlotIds: removedSlotIds },
+            )));
+        };
+        const renderSettledSlot = async (slotId, createHtml) => {
+            if (!checkPlacementContext()) return;
+            const target = placementLifecycle.committedEarly
+                ? resolveDeliveryTarget(slotId)
+                : { messageId: resolvedMessageId, isActiveSwipe: true };
+            if (!target?.isActiveSwipe) return;
+            const html = typeof createHtml === 'function' ? createHtml(target.messageId) : createHtml;
+            const inserted = insertPreviewIntoRenderedMessage({ messageId: target.messageId, slotId, html });
+            if (!inserted) requiresFinalDomSync = true;
+        };
+        const recordSlotFailure = async (index, error, guard = async () => {}) => {
+            const request = batchRequests[index];
+            if (!request || results[index]) return null;
+            const errorType = classifyError(error) || ErrorType.UNKNOWN;
+            const failedImgId = `failed-${request.imgId}`;
+            const committed = await commitSceneSlotDelivery({
+                committedEarly: placementLifecycle.committedEarly,
+                resolveTarget: () => resolveDeliveryTarget(request.slotId),
+                guard,
+                persist: target => storeFailedPlaceholder({
+                    ...recoverablePlan.gallery,
+                    imgId: failedImgId,
+                    slotId: request.slotId,
+                    messageId: target?.messageId ?? resolvedMessageId,
+                    tags: request.task.scene || promptOverride,
+                    positive: request.promptData.positive,
+                    errorType: errorType.code,
+                    errorMessage: errorType.desc,
+                    characterPrompts: request.promptData.characterPrompts,
+                    negativePrompt: request.promptData.negative,
+                }),
+                rollbackPersisted: () => deletePreview(failedImgId),
+                select: () => setSlotSelection(request.slotId, failedImgId),
+                rollbackSelection: () => clearSlotSelection(request.slotId),
+            });
+            if (!committed) return null;
+            results[index] = { slotId: request.slotId, success: false, error: errorType };
+            return errorType;
+        };
+        const settleBackendPlacements = async ({ error, guard = async () => {} } = {}) => {
+            const unfinished = slotIds.filter((_slotId, index) => !results[index]);
+            if (job.abortReason === 'user') {
+                let removedTargets = [];
+                if (unfinished.length > 0) {
+                    removedTargets = await commitImageJobDeliverySlotRemoval({
+                        slotIds: unfinished,
+                        resolveTarget: resolveDeliveryTarget,
+                        isEditing: isMessageBeingEdited,
+                        isAnyEditing: isAnyMessageBeingEdited,
+                        guard,
+                        persist: persistChatSilently,
+                    });
+                }
+                await renderRemovedTargets(removedTargets, unfinished).catch(() => {});
+                await renderBatchPreviews().catch(() => {});
+                return;
+            }
+            if (error) {
+                for (const index of slotIds.keys()) {
+                    if (results[index]) continue;
+                    const errorType = await recordSlotFailure(index, error, guard);
+                    if (!errorType) continue;
+                    const request = batchRequests[index];
+                    await renderSettledSlot(request.slotId, targetMessageId => buildFailedPlaceholderHtml({
+                        slotId: request.slotId,
+                        messageId: targetMessageId,
+                        tags: request.task.scene || promptOverride,
+                        positive: request.promptData.positive,
+                        errorType: errorType.label,
+                        errorMessage: errorType.desc,
+                    }));
+                }
+            }
+            if (replacedSlotIds.length > 0) {
+                const removedTargets = await commitImageJobDeliverySlotRemoval({
+                    slotIds: replacedSlotIds,
+                    resolveTarget: resolveDeliveryTarget,
+                    isEditing: isMessageBeingEdited,
+                    isAnyEditing: isAnyMessageBeingEdited,
+                    guard,
+                    persist: persistChatSilently,
+                });
+                await renderRemovedTargets(removedTargets, replacedSlotIds).catch(() => {});
+            }
+        };
+        const resolveBackendSettlement = ({ error } = {}) => {
+            if (job.abortReason === 'user') return { mode: 'discard' };
+            if (!error) return { mode: 'complete' };
+            return { mode: 'fail', errorType: classifyError(error) || ErrorType.UNKNOWN };
+        };
+        await runComfyImageBatch({
+            requests: batchRequests,
+            compiledBatch,
+            signal,
+            backendCancelSignal: job.backendCancel.signal,
+            recoverable: {
+                plan: recoverablePlan,
+                commitPlacements: commitPlannedPlacements,
+                settlePlacements: settleBackendPlacements,
+                resolveSettlement: resolveBackendSettlement,
+                afterForget: () => renderBatchPreviews({ final: true }),
+            },
+            queueBatch: job,
+            onStateChange: (state, data) => {
+                checkPlacementContext();
+                onStateChange?.(state, data);
+            },
+            onItemReady: async ({ index, base64, guard = async () => {} }) => {
+                const request = batchRequests[index];
+                const { slotId, imgId } = request;
+                const { task, promptData } = request;
+                const committed = await commitSceneSlotDelivery({
+                    committedEarly: placementLifecycle.committedEarly,
+                    resolveTarget: () => resolveDeliveryTarget(slotId),
+                    guard,
+                    persist: target => storePreview({
+                        ...recoverablePlan.gallery,
+                        imgId, slotId, messageId: target?.messageId ?? resolvedMessageId, base64,
+                        tags: task.scene || promptOverride, positive: promptData.positive,
+                        characterPrompts: promptData.characterPrompts, negativePrompt: promptData.negative,
+                    }),
+                    rollbackPersisted: () => deletePreview(imgId),
+                    select: () => setSlotSelection(slotId, imgId),
+                    rollbackSelection: () => clearSlotSelection(slotId),
+                });
+                if (!committed) return;
+                successCount++;
+                results[index] = { slotId, imgId, success: true };
+                await renderSettledSlot(slotId, targetMessageId => buildImageHtml({
+                        slotId, imgId, url: getPreviewDisplayUrl({ imgId, base64 }),
+                        tags: task.scene || promptOverride, positive: promptData.positive,
+                        messageId: targetMessageId, state: ImageState.PREVIEW, historyCount: 1, currentIndex: 0,
+                    }));
+            },
+            onItemSettled: async ({ index, state, error, guard = async () => {} }) => {
+                if (state === 'ready' || state === 'cancelled') return;
+                const errorType = await recordSlotFailure(index, error, guard);
+                if (!errorType) return;
+                const request = batchRequests[index];
+                await renderSettledSlot(request.slotId, targetMessageId => buildFailedPlaceholderHtml({
+                    slotId: request.slotId,
+                    messageId: targetMessageId,
+                    tags: request.task.scene || promptOverride,
+                    positive: request.promptData.positive,
+                    errorType: errorType.label,
+                    errorMessage: errorType.desc,
+                }));
+            },
+        });
+
+        if (signal.aborted || terminationReason) {
+            const abortCtx = getContext();
+            const messageValid = abortCtx.chatId === initialChatId
+                && abortCtx.chat?.[resolvedMessageId] === message;
+            const canCommit = !placementLifecycle.committedEarly
+                && messageValid
+                && message.mes === originalMes
+                && !isMessageBeingEdited(resolvedMessageId);
+            const canSync = messageValid
+                && !isMessageBeingEdited(resolvedMessageId)
+                && (placementLifecycle.committedEarly || canCommit);
+            if (canCommit) {
+                setActiveMessageText(message, commitSettledScenePlacements(plannedMes, {
+                    allSlotIds: slotIds,
+                    settledSlotIds: results.filter(Boolean).map((item) => item.slotId),
+                }));
+            }
+            if (canSync) {
+                try {
+                    syncRenderedMessage(message.mes);
+                    await renderPreviewsForMessage(resolvedMessageId);
+                } catch (error) {
+                    console.warn('[ComfyDraw] 取消结算后的 DOM 同步失败:', error);
+                }
+            }
+            if (canCommit) await persistChatSilently().catch(() => {});
+            placementLifecycle.settled = true;
+            if (terminationReason === 'source_changed') {
+                throw new ScenePlacementError(
+                    '正文在配图期间发生变化或正在编辑；已生成图片保留在画廊中，未写入楼层。',
+                    'SCENE_SOURCE_CHANGED',
+                );
+            }
+            const aborted = terminationReason === 'aborted' || (signal.aborted && !terminationReason && job.abortReason === 'user');
+            if (!aborted) notifyDetachedGeneration(successCount);
+            onStateChange?.('success', { success: successCount, total: tasks.length, aborted, detached: !aborted });
+            return { success: successCount, total: tasks.length, results, aborted, terminationReason: aborted ? 'aborted' : 'detached' };
         }
 
-        if (signal.aborted) {
-            if (successCount === 0) message.mes = originalMes;
-            onStateChange?.('success', { success: successCount, total: tasks.length, aborted: true });
-            return { success: successCount, total: tasks.length, results, aborted: true };
+        if (placementLifecycle.committedEarly) {
+            placementLifecycle.settled = true;
+            onStateChange?.('success', { success: successCount, total: tasks.length });
+            return { success: successCount, total: tasks.length, results };
         }
 
         const finalCtx = getContext();
-        const shouldUpdateDom = finalCtx.chatId === initialChatId && finalCtx.chat?.[resolvedMessageId] === message;
+        const messageAttached = finalCtx.chatId === initialChatId && finalCtx.chat?.[resolvedMessageId] === message;
+        if (!messageAttached) {
+            placementLifecycle.settled = true;
+            notifyDetachedGeneration(successCount);
+            onStateChange?.('success', { success: successCount, total: tasks.length, detached: true });
+            return { success: successCount, total: tasks.length, results, aborted: false, terminationReason: 'detached' };
+        }
+        const shouldUpdateDom = !isMessageBeingEdited(resolvedMessageId)
+            && (placementLifecycle.committedEarly || message.mes === originalMes);
+        if (!placementLifecycle.committedEarly && !shouldUpdateDom) {
+            placementLifecycle.settled = true;
+            throw new ScenePlacementError(
+                '正文在配图期间发生变化或正在编辑；已生成图片保留在画廊中，未写入楼层。',
+                'SCENE_SOURCE_CHANGED',
+            );
+        }
+        if (!placementLifecycle.committedEarly) {
+            try {
+                await commitSceneSlotReplacement({
+                    message,
+                    stagedText: plannedMes,
+                    replacedSlotIds,
+                    persist: persistChatSilently,
+                });
+                if (replacedSlotIds.length > 0) requiresFinalDomSync = true;
+            } catch (error) {
+                requiresFinalDomSync = true;
+                console.warn('[ComfyDraw] 替换旧图片槽位的保存未确认，已保留旧槽位:', error);
+            }
+        }
         if (shouldUpdateDom && requiresFinalDomSync) {
-            const formatted = messageFormatting(message.mes, message.name, message.is_system, message.is_user, resolvedMessageId);
-            $(`[mesid="${resolvedMessageId}"] .mes_text`).html(formatted);
-            await renderPreviewsForMessage(resolvedMessageId);
+            try {
+                syncRenderedMessage(message.mes);
+                await renderPreviewsForMessage(resolvedMessageId);
+            } catch (error) {
+                console.warn('[ComfyDraw] 最终 DOM 同步失败:', error);
+            }
         }
-        if (shouldUpdateDom) {
-            await persistChatSilently().catch(() => {});
-        }
-
         onStateChange?.('success', { success: successCount, total: tasks.length });
+        placementLifecycle.settled = true;
         return { success: successCount, total: tasks.length, results };
     } finally {
-        generationJobs.delete(String(resolvedMessageId));
+        if (placementLifecycle && !placementLifecycle.settled) {
+            const {
+                message,
+                originalMes,
+                slotIds,
+                results,
+                initialChatId,
+                plannedMes,
+                syncRenderedMessage,
+                committedEarly,
+            } = placementLifecycle;
+            const currentCtx = getContext();
+            const canCommit = !committedEarly
+                && currentCtx.chatId === initialChatId
+                && currentCtx.chat?.[resolvedMessageId] === message
+                && message.mes === originalMes
+                && !isMessageBeingEdited(resolvedMessageId);
+            if (canCommit) {
+                setActiveMessageText(message, commitSettledScenePlacements(plannedMes, {
+                    allSlotIds: slotIds,
+                    settledSlotIds: results.filter(Boolean).map((item) => item.slotId),
+                }));
+                try {
+                    syncRenderedMessage?.(message.mes);
+                } catch {}
+                await renderPreviewsForMessage(resolvedMessageId).catch(() => {});
+                await persistChatSilently().catch(() => {});
+            }
+        }
+        releaseGenerationJob(job);
     }
 }
 
@@ -5080,11 +5358,13 @@ async function testGenerateFromSettingsPanel() {
     try {
         const settings = getSettings();
         const effective = getEffectiveParams(settings);
-        const base64 = await generateComfyImageQueued({
+        const base64 = await generateSingleComfyImage({
             prompt: composePrompt(effective.positivePrefix, prompt),
             negativePrompt: composePrompt(effective.negativePrefix, getValue('comfy-draw-test-negative')),
             params: effective,
+        }, {
             signal: pendingController.signal,
+            generationConfig: settings,
             onQueueStateChange: (state, data) => {
                 if (!resultEl) return;
                 if (state === 'queued') {
@@ -5112,17 +5392,27 @@ async function testGenerateFromSettingsPanel() {
 }
 
 export async function initComfyDraw() {
-    if (moduleInitialized) return;
-    moduleInitialized = true;
+    if (moduleInitialized) return true;
+    const initGeneration = ++moduleLifecycleGeneration;
     await loadPromptTemplates();
     await loadTagGuide();
-    await loadSettings();
-    const sharedDrawSettings = await loadSharedDrawSettings();
+    let sharedDrawSettings;
+    try {
+        await loadSettings();
+        sharedDrawSettings = await loadSharedDrawSettings();
+    } catch {
+        return false;
+    }
+    const [floatingPanel] = await Promise.all([
+        import('./floating-panel.js'),
+        openDB().then(() => clearExpiredCache(sharedDrawSettings.cacheDays)).catch(() => {}),
+    ]);
+    if (initGeneration !== moduleLifecycleGeneration || window?.isXiaobaixEnabled === false) return false;
+
+    moduleInitialized = true;
+    backendJobMonitors.activate();
     ensureDrawImageStyles();
     setupImageDelegation();
-    await openDB().then(() => clearExpiredCache(sharedDrawSettings.cacheDays)).catch(() => {});
-
-    const floatingPanel = await import('./floating-panel.js');
     ensureComfyDrawPanelRef = floatingPanel.ensureComfyDrawPanel;
     destroyComfyDrawPanelsRef = floatingPanel.destroyComfyDrawPanels;
     floatingPanel.initFloatingPanel?.();
@@ -5131,6 +5421,9 @@ export async function initComfyDraw() {
     events.on(event_types.CHARACTER_MESSAGE_RENDERED, (data) => {
         const messageId = typeof data === 'number' ? data : data?.messageId ?? data?.mesId;
         if (messageId === undefined) return;
+        if (Number(messageId) === findLastAIMessageId()) {
+            floatingPanel.refreshDrawRunUiState?.();
+        }
         const ctx = getContext();
         const message = ctx.chat?.[messageId];
         if (!message || message.is_user) return;
@@ -5139,9 +5432,11 @@ export async function initComfyDraw() {
     });
 
     events.on(event_types.CHAT_CHANGED, () => {
-        setTimeout(() => {
-            renderExistingPanels();
-        }, 150);
+        floatingPanel.refreshDrawRunUiState?.();
+        setTimeout(renderExistingPanels, 150);
+    });
+    events.on(event_types.MESSAGE_SWIPED, () => {
+        floatingPanel.refreshDrawRunUiState?.();
     });
     events.on(event_types.GENERATION_ENDED, async () => {
         try {
@@ -5161,6 +5456,7 @@ export async function initComfyDraw() {
     window.xiaobaixComfyDraw = {
         openSettings,
         getSettings,
+        getGenerationSnapshot,
         getQuickSettings,
         updateQuickSettings,
         testConnection,
@@ -5174,16 +5470,20 @@ export async function initComfyDraw() {
 
     window.registerModuleCleanup?.(MODULE_KEY, cleanupComfyDraw);
     console.log('[ComfyDraw] 模块已初始化');
+    return true;
 }
 
 export function cleanupComfyDraw() {
-    if (!moduleInitialized && !overlayElement) return;
+    moduleLifecycleGeneration++;
     moduleInitialized = false;
     events.cleanup();
     cleanupImageDelegation();
     stopSharedDrawPreviewRuntime();
+    backendJobMonitors.deactivate();
     abortPendingRequest();
-    abortGeneration();
+    abortGeneration(null, { reason: 'teardown' });
+    generationJobs = new Map();
+    comfyImageRequestQueue.clear();
     hideSettings();
     destroyComfyDrawPanelsRef?.();
     ensureComfyDrawPanelRef = null;

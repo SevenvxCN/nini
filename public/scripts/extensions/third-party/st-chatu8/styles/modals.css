@@ -479,6 +479,159 @@
     border-color: rgba(255, 255, 255, 0.22);
 }
 
+/* ===== 生成参数面板 ===== */
+.st-chatu8-params-panel {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0 8px 8px;
+    padding: 12px 14px;
+    max-height: 42vh;
+    overflow-y: auto;
+    flex-shrink: 0;
+    background: rgba(20, 20, 28, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    box-sizing: border-box;
+}
+
+.st-chatu8-params-panel.visible {
+    display: flex;
+}
+
+.st-chatu8-params-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.st-chatu8-params-title {
+    font-size: 0.95em;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: 0.3px;
+}
+
+.st-chatu8-params-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    font-size: 0.82em;
+    border-radius: 999px;
+    cursor: pointer;
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: linear-gradient(135deg, rgba(74, 144, 226, 0.85) 0%, rgba(123, 97, 255, 0.85) 100%);
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
+    white-space: nowrap;
+}
+
+.st-chatu8-params-copy:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.4);
+}
+
+.st-chatu8-params-copy:active {
+    transform: translateY(0) scale(0.98);
+}
+
+.st-chatu8-params-header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+/* 关闭按钮：圆形图标按钮，与复制按钮同高 */
+.st-chatu8-params-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    font-size: 0.9em;
+    border-radius: 50%;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.06);
+    transition: background 0.15s ease, color 0.15s ease;
+    flex-shrink: 0;
+}
+
+.st-chatu8-params-close:hover {
+    background: rgba(255, 95, 95, 0.2);
+    border-color: rgba(255, 95, 95, 0.4);
+    color: #fff;
+}
+
+.st-chatu8-params-close:active {
+    transform: scale(0.92);
+}
+
+.st-chatu8-params-row {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    font-size: 0.86em;
+    line-height: 1.5;
+}
+
+/* 长文本（提示词）改为上下排列，避免横向挤压 */
+.st-chatu8-params-row.long {
+    flex-direction: column;
+    gap: 3px;
+}
+
+.st-chatu8-params-label {
+    color: rgba(255, 255, 255, 0.55);
+    flex-shrink: 0;
+    min-width: 96px;
+}
+
+.st-chatu8-params-value {
+    color: #fff;
+    word-break: break-word;
+    white-space: pre-wrap;
+    user-select: text;
+}
+
+.st-chatu8-params-row.long .st-chatu8-params-value {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    padding: 6px 8px;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 0.96em;
+}
+
+/* 随机命中标记：提示用户这个值与设置里的当前值可能不同 */
+.st-chatu8-params-random {
+    margin-left: 6px;
+    padding: 1px 7px;
+    font-size: 0.82em;
+    border-radius: 999px;
+    color: #ffd479;
+    background: rgba(255, 190, 80, 0.15);
+    border: 1px solid rgba(255, 190, 80, 0.35);
+    white-space: nowrap;
+}
+
+.st-chatu8-params-empty {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.86em;
+    text-align: center;
+    padding: 8px 0;
+    line-height: 1.6;
+}
+
 /* 移动端适配：全屏铺满 + 更紧凑的按钮栏，避免图片被按钮遮挡 */
 @media (max-width: 640px),
 (pointer: coarse) {
@@ -504,11 +657,12 @@
         gap: 8px;
     }
 
+    /* 三个按钮并排在窄屏会挤，内边距与字号都收紧 */
     .st-chatu8-preview-action-button {
         flex: 1 1 0;
         min-width: 0;
-        padding: 10px 12px;
-        font-size: 0.88em;
+        padding: 10px 6px;
+        font-size: 0.82em;
     }
 
     /* 触屏设备：隐藏左右按钮，使用滑动手势切换（使用 !important 覆盖内联样式） */
@@ -524,6 +678,22 @@
     /* 计数器上移稍靠近顶边，避免遮挡图片 */
     .st-chatu8-preview-counter {
         top: 6px !important;
+    }
+
+    .st-chatu8-params-panel {
+        margin: 0 4px 6px;
+        padding: 10px;
+        max-height: 38vh;
+    }
+
+    .st-chatu8-params-label {
+        min-width: 78px;
+    }
+
+    /* 窄屏 header 会挤，复制按钮收紧内边距 */
+    .st-chatu8-params-copy {
+        padding: 5px 10px;
+        font-size: 0.78em;
     }
 }
 
@@ -1923,4 +2093,109 @@
         padding: 8px 10px;
         font-size: 0.9rem;
     }
+}
+
+/* ==================== 配置存储清理弹窗 ==================== */
+.st-chatu8-cfgclean-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.st-chatu8-cfgclean-item .st-chatu8-import-name {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+}
+
+.st-chatu8-cfgclean-thumb {
+    flex-shrink: 0;
+    width: 56px;
+    height: 56px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--st-chatu8-border-color, #333);
+    background-color: var(--st-chatu8-bg-tertiary, #2a2a2a);
+    cursor: pointer;
+}
+
+.st-chatu8-cfgclean-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.st-chatu8-cfgclean-thumb-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    color: var(--st-chatu8-text-secondary, #888);
+    cursor: default;
+}
+
+.st-chatu8-cfgclean-size {
+    margin-left: 8px;
+    font-size: 0.8rem;
+    color: var(--st-chatu8-text-secondary, #888);
+}
+
+.st-chatu8-cfgclean-badge {
+    margin-left: 8px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    background: rgba(243, 156, 18, 0.15);
+    color: #f39c12;
+    border: 1px solid rgba(243, 156, 18, 0.3);
+}
+
+.st-chatu8-cfgclean-section-title {
+    margin: 18px 0 8px;
+    font-weight: 600;
+    color: var(--st-chatu8-accent-primary, #6aa6ff);
+    border-bottom: 1px solid var(--st-chatu8-border-color, #333);
+    padding-bottom: 4px;
+}
+
+.st-chatu8-cfgclean-progress {
+    margin-top: 12px;
+}
+
+.st-chatu8-cfgclean-progress-track {
+    width: 100%;
+    height: 18px;
+    border-radius: 9px;
+    overflow: hidden;
+    background-color: var(--st-chatu8-bg-tertiary, #2a2a2a);
+}
+
+.st-chatu8-cfgclean-progress-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 9px;
+    background: linear-gradient(90deg, #4CAF50, #45a049);
+    transition: width 0.2s ease;
+}
+
+.st-chatu8-cfgclean-progress-text {
+    margin-top: 6px;
+    font-size: 0.85rem;
+    text-align: center;
+    color: var(--st-chatu8-text-secondary, #888);
+}
+
+.st-chatu8-cfgclean-empty {
+    padding: 12px 0;
+    color: var(--st-chatu8-text-secondary, #888);
+    font-size: 0.9rem;
+}
+
+/* 删除进行中按钮需要有明确的禁用观感 */
+.st-chatu8-cfgclean-modal .st-chatu8-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }

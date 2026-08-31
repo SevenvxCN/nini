@@ -2,13 +2,13 @@ import { getRequestHeaders } from '../../../../../../script.js';
 import { extensionFolderPath } from '../../core/constants.js';
 import { isTrustedMessage, postToIframe } from '../../core/iframe-messaging.js';
 import { buildEbookFrameConfig, saveEbookAgentConfig } from './host/assistant-config.js';
+import { subscribeSharedAgentSettingsChanged } from '../agent-core/settings-repository.js';
 import { buildImportMaterial } from './host/import-materials.js';
 import {
     exportPortablePreviewsForSlots,
     getDisplayPreviewForSlot,
     importPortablePreviews,
 } from '../draw/shared/gallery-cache.js';
-import { synthesizeAndPlay } from '../fourth-wall/fw-voice-runtime.js';
 
 const SOURCE_HOST = 'xb-ebook-host';
 const SOURCE_APP = 'xb-ebook-app';
@@ -19,6 +19,7 @@ const BUILD_INFO_PATH = `${extensionFolderPath}/modules/ebook/dist/ebook-build.j
 
 let ebookCacheKey = '';
 let initialConfigPromise = null;
+let unsubscribeSharedAgentSettingsChanged = null;
 
 async function loadEbookCacheKey() {
     if (ebookCacheKey) return ebookCacheKey;
@@ -143,8 +144,11 @@ async function sendInitialConfigToFrame() {
     postToFrame('xb-ebook:config', await promise);
 }
 
-async function sendConfigToFrame() {
-    postToFrame('xb-ebook:config', await buildEbookFrameConfig());
+async function sendConfigToFrame(options = {}) {
+    postToFrame('xb-ebook:config', {
+        ...await buildEbookFrameConfig(),
+        externalChange: options.externalChange === true,
+    });
 }
 
 function revealEbookSettings() {
@@ -300,7 +304,6 @@ async function handleSaveConfig(payload = {}) {
     const requestId = String(payload.requestId || '');
     const result = await saveEbookAgentConfig(payload, { silent: false });
     if (result.ok) {
-        window.xiaobaixAssistant?.refreshConfig?.();
         replyHostResult(requestId, {
             ok: true,
             config: result.config,
@@ -310,6 +313,7 @@ async function handleSaveConfig(payload = {}) {
     replyHostResult(requestId, {
         ok: false,
         error: result.error || 'save_config_failed',
+        conflict: result.conflict === true,
         config: result.config,
     });
 }
@@ -345,7 +349,7 @@ function getTtsStatus() {
         : !!facade;
     return {
         enabled,
-        ready: enabled && typeof facade?.synthesize === 'function',
+        ready: enabled && typeof facade?.playTransient === 'function',
         playing: !!activeTtsPlayback,
     };
 }
@@ -373,7 +377,7 @@ async function handleTtsPlay(payload = {}) {
             playbackId,
             stop: null,
         };
-        const handle = synthesizeAndPlay(text, '', {
+        const handle = window.xiaobaixTts.playTransient(text, '', {
             requestId: playbackId,
             onState: (state, info = {}) => {
                 if (activeTtsPlayback?.playbackId !== playbackId && !['ended', 'error', 'stopped'].includes(state)) {
@@ -547,6 +551,9 @@ function handleFrameMessage(event) {
         case 'xb-ebook:save-config':
             void handleSaveConfig(payload);
             break;
+        case 'xb-ebook:reload-config':
+            void sendConfigToFrame({ externalChange: payload?.preserveDraft === true });
+            break;
         case 'xb-ebook:get-host-request-headers':
             handleHostRequestHeaders(payload);
             break;
@@ -592,6 +599,11 @@ function installMessageHandler() {
 
 export async function initEbook() {
     installMessageHandler();
+    unsubscribeSharedAgentSettingsChanged?.();
+    unsubscribeSharedAgentSettingsChanged = subscribeSharedAgentSettingsChanged((detail) => {
+        if (String(detail?.source || '') === 'ebook') return;
+        void sendConfigToFrame({ externalChange: true });
+    });
     window.xiaobaixEbook = {
         open: openEbook,
         openSettings: openEbookSettings,
@@ -601,6 +613,8 @@ export async function initEbook() {
 }
 
 export function cleanupEbook() {
+    unsubscribeSharedAgentSettingsChanged?.();
+    unsubscribeSharedAgentSettingsChanged = null;
     closeEbook();
 }
 

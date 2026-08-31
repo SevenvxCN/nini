@@ -4,12 +4,12 @@
 import { xbLog } from '../../../../core/debug-core.js';
 import { getVectorConfig } from '../../data/config.js';
 import { getDefaultApiPrefix, resolveApiBaseUrl } from '../../../../shared/common/openai-url-utils.js';
+import { createL0FailureError } from './l0-retry-policy.js';
 
 const MODULE_ID = 'vector-llm-service';
 const DEFAULT_L0_MODEL = 'Qwen/Qwen3-8B';
 const DEFAULT_L0_API_URL = 'https://api.siliconflow.cn/v1';
 
-const activeL0Controllers = new Set();
 let l0KeyIndex = 0;
 
 function getL0ApiConfig() {
@@ -109,12 +109,12 @@ export async function callLLM(messages, options = {}) {
     const apiCfg = normalizeL0ApiConfig(apiConfig);
     const apiKey = getNextKey(apiCfg.key);
     if (!apiKey) {
-        throw new Error('L0 requires siliconflow API key');
+        throw createL0FailureError('L0 requires API key', { kind: 'configuration' });
     }
 
     const normalizedMessages = normalizeMessages(messages);
     if (!normalizedMessages.length) {
-        throw new Error('L0 requires at least one valid message');
+        throw createL0FailureError('L0 requires at least one valid message', { kind: 'protocol' });
     }
 
     const model = String(apiCfg.model || DEFAULT_L0_MODEL).trim();
@@ -132,6 +132,7 @@ export async function callLLM(messages, options = {}) {
     if (model.includes('Qwen3')) {
         body.enable_thinking = false;
     }
+    const requestBody = JSON.stringify(body);
 
     const timeoutController = new AbortController();
     const requestSignal = mergeSignals(signal, timeoutController.signal);
@@ -142,36 +143,61 @@ export async function callLLM(messages, options = {}) {
     }, timeout);
 
     try {
-        activeL0Controllers.add(timeoutController);
         const response = await fetch(`${baseUrl}/chat/completions`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(body),
+            body: requestBody,
             signal: requestSignal,
         });
 
-        clearTimeout(timeoutId);
-
         if (!response.ok) {
-            const errorText = await response.text().catch(() => '');
-            throw new Error(`L0 API ${response.status}: ${errorText.slice(0, 200)}`);
+            let errorText = '';
+            try {
+                errorText = await response.text();
+            } catch (error) {
+                if (error?.name === 'AbortError') throw error;
+                if (error instanceof TypeError) {
+                    throw createL0FailureError(`L0 network error: ${error.message}`, { kind: 'network' }, error);
+                }
+            }
+            throw createL0FailureError(
+                `L0 API ${response.status}: ${errorText.slice(0, 200)}`,
+                { kind: 'http', status: response.status },
+            );
         }
 
-        const data = await response.json();
+        let data;
+        try {
+            data = await response.json();
+        } catch (error) {
+            if (error?.name === 'AbortError') throw error;
+            if (error instanceof TypeError) {
+                throw createL0FailureError(`L0 network error: ${error.message}`, { kind: 'network' }, error);
+            }
+            throw createL0FailureError('L0 API 响应不是有效 JSON', { kind: 'invalid_json' }, error);
+        }
         return String(extractMessageText(data) ?? '');
     } catch (e) {
-        clearTimeout(timeoutId);
         if (e?.name === 'AbortError' && timedOut) {
-            throw new Error(`L0 request timeout after ${timeout}ms`);
+            throw createL0FailureError(
+                `L0 request timeout after ${timeout}ms`,
+                { kind: 'timeout' },
+                e,
+            );
+        }
+        if (e?.name === 'AbortError') {
+            throw createL0FailureError('L0 request cancelled', { kind: 'cancelled' }, e);
+        }
+        if (!e?.l0Failure && e instanceof TypeError) {
+            throw createL0FailureError(`L0 network error: ${e.message}`, { kind: 'network' }, e);
         }
         xbLog.error(MODULE_ID, 'LLM调用失败', e);
         throw e;
     } finally {
         clearTimeout(timeoutId);
-        activeL0Controllers.delete(timeoutController);
     }
 }
 
@@ -191,20 +217,4 @@ export async function testL0Service(apiConfig = {}) {
     const text = String(result || '').trim();
     if (!text) throw new Error('返回为空');
     return { success: true, message: `连接成功：${text.slice(0, 60)}` };
-}
-
-export function cancelAllL0Requests() {
-    for (const controller of activeL0Controllers) {
-        try { controller.abort(); } catch {}
-    }
-    activeL0Controllers.clear();
-}
-
-export function parseJson(text) {
-    if (!text) return null;
-    let s = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-    try { return JSON.parse(s); } catch { }
-    const i = s.indexOf('{'), j = s.lastIndexOf('}');
-    if (i !== -1 && j > i) try { return JSON.parse(s.slice(i, j + 1)); } catch { }
-    return null;
 }

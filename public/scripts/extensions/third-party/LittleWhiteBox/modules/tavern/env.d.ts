@@ -153,15 +153,27 @@ declare module '*.js' {
     export function getCurrentPresetName(): string | null;
     export const AssistantStorage: {
         get<T = unknown>(key: string, fallback?: T): Promise<T>;
-        load(): Promise<Record<string, unknown>>;
-        saveNow(options?: Record<string, unknown>): Promise<void>;
-        _dirtyVersion?: number;
+        setAndSave(key: string, value: unknown, options?: Record<string, unknown>): Promise<boolean>;
     };
     export const AGENT_SETTINGS_CONFIG_VERSION: number;
     export function normalizeAgentSettings(settings: Record<string, unknown>): Record<string, unknown>;
     export function normalizeAgentConfig(settings: Record<string, unknown>): Record<string, unknown>;
     export function normalizeJsApiPermission(value: unknown): string;
     export function normalizePresetName(value: unknown): string;
+    export function loadSharedAgentSettings(options?: Record<string, unknown>): Promise<Record<string, unknown>>;
+    export function saveSharedAgentSettings(
+        patch?: Record<string, unknown>,
+        options?: Record<string, unknown>,
+    ): Promise<{
+        ok: boolean;
+        conflict?: boolean;
+        config: Record<string, unknown> | null;
+        error?: string;
+    }>;
+    export function subscribeSharedAgentSettingsChanged(
+        listener: (detail: { source?: string; updatedAt?: number }) => void,
+        options?: Record<string, unknown>,
+    ): () => void;
     export function createFirstPartyIframeOverlay(options: {
         overlayId: string;
         iframeId: string;
@@ -209,6 +221,43 @@ declare module '*.js' {
         appliedCount?: number;
         warning?: string;
         results?: unknown;
+    };
+    export function grepTextSources(options?: {
+        pattern?: unknown;
+        query?: unknown;
+        useRegex?: boolean;
+        regex?: boolean;
+        regexFlags?: string;
+        outputMode?: unknown;
+        limit?: unknown;
+        offset?: unknown;
+        contextLines?: unknown;
+        signal?: AbortSignal;
+        abortMessage?: string;
+        timeSliceMs?: number;
+        sources?: Iterable<{ path: string; content: string }> | AsyncIterable<{ path: string; content: string }>;
+    }): Promise<{
+        pattern: string;
+        outputMode: string;
+        searchedFileCount: number;
+        count: number;
+        results: Array<{ path: string; lineNumber?: number; line?: string; context?: string; count?: number }>;
+        truncated: boolean;
+        nextOffset: number;
+    }>;
+    export function readTextFile(content?: unknown, options?: {
+        offset?: unknown;
+        limit?: unknown;
+        tail?: unknown;
+        defaultLimit?: unknown;
+        maxLimit?: unknown;
+    }): {
+        content: string;
+        lineStart: number;
+        lineEnd: number;
+        totalLines: number;
+        truncated: boolean;
+        nextOffset: number;
     };
     export function buildProviderAssistantToolCallMessage(
         result?: Record<string, unknown>,

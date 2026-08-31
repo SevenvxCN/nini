@@ -13,14 +13,241 @@ import {
     buildHostGoogleGeneratePayload,
     buildHostOpenAICompatibleGeneratePayload,
     buildHostOpenAICompatibleStatusPayload,
+    createHostChatCompletionsClient,
+    createHostChatCompletion,
     fetchHostChatCompletionsModels,
     fetchHostOpenAICompatibleModels,
     setHostChatCompletionsRequestHeadersProvider,
+    streamHostChatCompletion,
 } from '../../../shared/host-llm/chat-completions/client.js';
 import { createAgentAdapter } from '../../agent-core/provider-config.js';
 import { resolveResultToolCalls } from '../../agent-core/runtime/protocol.js';
 import { pullModelsForProvider } from '../../agent-core/ui/settings-panel.js';
 import { buildNativeMessages } from '../../agent-core/adapters/openai-compatible.js';
+
+test.beforeEach(() => {
+    setHostChatCompletionsRequestHeadersProvider(() => ({}));
+});
+
+test.afterEach(() => {
+    setHostChatCompletionsRequestHeadersProvider(null);
+});
+
+test('SillyTavern hosted Claude and Google always include and deduplicate systemPrompt', () => {
+    for (const Adapter of [SillyTavernClaudeAdapter, SillyTavernGoogleAdapter]) {
+        const adapter = new Adapter({ model: 'hosted-model' });
+        assert.deepEqual(adapter.buildMessages({
+            systemPrompt: 'Shared system prompt',
+            messages: [{ role: 'user', content: 'hello' }],
+        }).slice(0, 2), [
+            { role: 'system', content: 'Shared system prompt' },
+            { role: 'user', content: 'hello' },
+        ]);
+        assert.deepEqual(adapter.buildMessages({
+            systemPrompt: 'Shared system prompt',
+            messages: [
+                { role: 'system', content: 'Shared system prompt' },
+                { role: 'user', content: 'hello' },
+            ],
+        }).filter((message) => message.role === 'system'), [
+            { role: 'system', content: 'Shared system prompt' },
+        ]);
+        assert.deepEqual(adapter.buildMessages({
+            systemPrompt: 'Shared system prompt',
+            messages: [
+                { role: 'system', content: 'Different system prompt' },
+                { role: 'user', content: 'hello' },
+            ],
+        }).slice(0, 2), [
+            { role: 'system', content: 'Shared system prompt' },
+            { role: 'system', content: 'Different system prompt' },
+        ]);
+    }
+});
+
+test('hosted Claude translates required toolChoice and uses the latest adaptive family contract', () => {
+    const tools = [{ type: 'function', function: { name: 'submit_scene_plan', parameters: {} } }];
+    const baseTask = {
+        systemPrompt: 'Scene Planner',
+        messages: [{ role: 'user', content: 'plan' }],
+        tools,
+        toolChoice: 'required',
+        temperature: 0.5,
+        maxTokens: 4096,
+    };
+
+    // Anthropic vocabulary is produced at this adapter boundary only.
+    assert.equal(
+        new SillyTavernClaudeAdapter({ model: 'claude-sonnet-4-5' }).buildPayload(baseTask).tool_choice,
+        'any',
+    );
+    assert.equal(
+        new SillyTavernClaudeAdapter({ model: 'claude-sonnet-4-5' })
+            .buildPayload({ ...baseTask, toolChoice: 'none' }).tool_choice,
+        'none',
+    );
+    assert.equal(
+        new SillyTavernClaudeAdapter({ model: 'claude-sonnet-4-5' })
+            .buildPayload({ ...baseTask, toolChoice: 'auto' }).tool_choice,
+        'auto',
+    );
+    assert.equal(
+        new SillyTavernClaudeAdapter({ model: 'claude-sonnet-4-5' })
+            .buildPayload({ ...baseTask, tools: [], toolChoice: 'required' }).tool_choice,
+        undefined,
+    );
+    for (const toolChoice of ['tool', 'any', 'submit_scene_plan']) {
+        assert.throws(
+            () => new SillyTavernClaudeAdapter({ model: 'claude-sonnet-4-5' })
+                .buildPayload({ ...baseTask, toolChoice }),
+            /仅支持 auto\/required\/none/,
+        );
+    }
+
+    // Google keeps receiving the generic value; the shared host helper is untouched.
+    assert.equal(
+        new SillyTavernGoogleAdapter({ model: 'gemini-2.5-pro' }).buildPayload(baseTask).tool_choice,
+        'required',
+    );
+
+    const reasoningTask = {
+        ...baseTask,
+        reasoning: { mode: 'on', effort: 'high', output: 'show' },
+    };
+    const olderClaude = new SillyTavernClaudeAdapter({ model: 'claude-sonnet-4-5' });
+    const olderProtocol = olderClaude.resolveToolProtocol(reasoningTask);
+    assert.deepEqual(olderProtocol, {
+        toolChoice: 'any',
+        reasoningDisabledForForcedTool: false,
+    });
+    assert.equal(olderClaude.buildPayload(reasoningTask).reasoning_effort, 'high');
+    assert.equal(Object.hasOwn(olderClaude.buildPayload(reasoningTask), 'temperature'), false);
+    const olderInspection = olderClaude.buildRequestInspection({ url: '/x' }, olderProtocol, reasoningTask);
+    assert.equal(olderInspection.notices, undefined);
+    assert.deepEqual(olderInspection.effectiveConfig, {
+        toolChoice: 'any',
+        reasoningRequestedMode: 'on',
+        reasoningRequestedOutput: 'show',
+        reasoningProfileId: 'sillytavern-claude-adaptive',
+        reasoningEffectiveMode: 'on',
+        reasoningEffort: 'high',
+        reasoningBudgetTokens: null,
+        reasoningControlFields: {},
+        reasoningOutputVisible: true,
+    });
+    const adaptive = new SillyTavernClaudeAdapter({ model: 'claude-opus-4-7' });
+    assert.equal(adaptive.buildPayload(reasoningTask).reasoning_effort, 'high');
+    const adaptiveInspection = adaptive.buildRequestInspection(
+        { url: '/x' },
+        adaptive.resolveToolProtocol(reasoningTask),
+        reasoningTask,
+    );
+    assert.equal(adaptiveInspection.notices, undefined);
+    assert.deepEqual(adaptiveInspection.effectiveConfig, {
+        toolChoice: 'any',
+        reasoningRequestedMode: 'on',
+        reasoningRequestedOutput: 'show',
+        reasoningProfileId: 'sillytavern-claude-adaptive',
+        reasoningEffectiveMode: 'on',
+        reasoningEffort: 'high',
+        reasoningBudgetTokens: null,
+        reasoningControlFields: {},
+        reasoningOutputVisible: true,
+    });
+    assert.deepEqual(
+        olderClaude.resolveToolProtocol({ ...reasoningTask, toolChoice: 'auto' }),
+        {
+            toolChoice: 'auto',
+            reasoningDisabledForForcedTool: false,
+        },
+    );
+});
+
+test('hosted adapters encode inherit, on, and off at their own protocol boundary', () => {
+    const messages = [{ role: 'user', content: 'hello' }];
+    const claude = new SillyTavernClaudeAdapter({ model: 'claude-opus-4-7' });
+    const claudeInherit = claude.buildPayload({
+        messages,
+        reasoning: { mode: 'inherit', output: 'show' },
+    });
+    assert.equal(claudeInherit.reasoning_effort, 'auto');
+    assert.equal(claudeInherit.include_reasoning, true);
+    const claudeOn = claude.buildPayload({
+        messages,
+        reasoning: { mode: 'on', effort: 'max', output: 'hide' },
+    });
+    assert.equal(claudeOn.reasoning_effort, 'max');
+    assert.equal(claudeOn.include_reasoning, false);
+    assert.equal(claude.buildPayload({
+        messages,
+        reasoning: { mode: 'off', output: 'show' },
+    }).reasoning_effort, 'auto');
+    assert.equal(claude.buildPayload({
+        messages,
+        reasoning: { mode: 'off', output: 'show' },
+    }).include_reasoning, false);
+
+    const google = new SillyTavernGoogleAdapter({ model: 'gemini-2.5-flash' });
+    const googleInherit = google.buildPayload({
+        messages,
+        reasoning: { mode: 'inherit', output: 'show' },
+    });
+    assert.equal(googleInherit.reasoning_effort, 'auto');
+    assert.equal(googleInherit.include_reasoning, true);
+    const googleOn = google.buildPayload({
+        messages,
+        reasoning: { mode: 'on', effort: 'high', output: 'show' },
+    });
+    assert.equal(googleOn.reasoning_effort, 'high');
+    assert.equal(googleOn.include_reasoning, true);
+    assert.throws(() => google.buildPayload({
+        messages,
+        reasoning: { mode: 'off', output: 'show' },
+    }), /不支持显式关闭 Reasoning/);
+
+    const openai = new SillyTavernOpenAICompatibleAdapter({ model: 'gpt-5.2' });
+    const openaiInherit = openai.buildPayload({
+        messages,
+        reasoning: { mode: 'inherit', output: 'show' },
+    });
+    assert.equal(Object.hasOwn(openaiInherit, 'reasoning_effort'), false);
+    assert.equal(openai.buildPayload({
+        messages,
+        reasoning: { mode: 'on', effort: 'xhigh', output: 'hide' },
+    }).reasoning_effort, 'xhigh');
+    assert.equal(openai.buildPayload({
+        messages,
+        reasoning: { mode: 'off', output: 'hide' },
+    }).reasoning_effort, 'none');
+
+    const kimi = new SillyTavernOpenAICompatibleAdapter({ model: 'relay/kimi-k2.6' });
+    assert.equal(kimi.buildPayload({
+        messages,
+        reasoning: { mode: 'off', output: 'hide' },
+    }).reasoning_effort, 'off');
+
+    const deepSeek = new SillyTavernOpenAICompatibleAdapter({ model: 'relay/DeepSeek-custom' });
+    assert.deepEqual(deepSeek.buildPayload({
+        messages,
+        reasoning: { mode: 'off', output: 'hide' },
+    }).thinking, { type: 'disabled' });
+
+    const localModel = new SillyTavernOpenAICompatibleAdapter({
+        model: 'TheBloke/Llama-2-7B-GPTQ',
+    });
+    const localPayload = localModel.buildPayload({
+        messages,
+        tools: [{ type: 'function', function: { name: 'submit_scene_plan', parameters: {} } }],
+        toolChoice: 'required',
+        maxTokens: 2048,
+        reasoning: { mode: 'on', effort: 'high', output: 'hide' },
+    });
+    assert.equal(localPayload.tool_choice, 'required');
+    assert.equal(localPayload.tools[0].function.name, 'submit_scene_plan');
+    assert.equal(localPayload.reasoning_effort, 'high');
+    assert.equal(localPayload.max_tokens, 2048);
+    assert.equal(Object.hasOwn(localPayload, 'max_completion_tokens'), false);
+});
 
 function createSseResponse(events = [], delimiter = '\n\n') {
     const payload = events.map((event) => `data: ${JSON.stringify(event)}${delimiter}`).join('') + `data: [DONE]${delimiter}`;
@@ -46,6 +273,62 @@ function createJsonResponse(data, ok = true, status = 200) {
     };
 }
 
+test('hosted Claude and Google use visible reasoning consistently when output is omitted', async () => {
+    const originalFetch = globalThis.fetch;
+    const requests = [];
+    globalThis.fetch = async (_url, options = {}) => {
+        const body = JSON.parse(String(options.body || '{}'));
+        requests.push(body);
+        if (body.chat_completion_source === 'claude') {
+            return createJsonResponse({
+                content: [
+                    { type: 'thinking', thinking: 'Claude 默认可见思考。' },
+                    { type: 'text', text: '完成。' },
+                ],
+                stop_reason: 'end_turn',
+                model: 'claude-opus-4-7',
+            });
+        }
+        return createJsonResponse({
+            candidates: [{
+                finishReason: 'STOP',
+                content: {
+                    role: 'model',
+                    parts: [
+                        { thought: true, text: 'Google 默认可见思考。' },
+                        { text: '完成。' },
+                    ],
+                },
+            }],
+            model: 'gemini-3-flash',
+        });
+    };
+
+    try {
+        const task = {
+            messages: [{ role: 'user', content: 'think' }],
+            reasoning: { mode: 'on', effort: 'high' },
+        };
+        const claudeResult = await new SillyTavernClaudeAdapter({
+            model: 'claude-opus-4-7',
+        }).chat(task);
+        const googleResult = await new SillyTavernGoogleAdapter({
+            model: 'gemini-3-flash',
+        }).chat(task);
+
+        assert.equal(requests[0].include_reasoning, true);
+        assert.deepEqual(claudeResult.thoughts, [{ label: '思考块', text: 'Claude 默认可见思考。' }]);
+        assert.equal(claudeResult.requestInspection.effectiveConfig.reasoningRequestedOutput, 'show');
+        assert.equal(claudeResult.requestInspection.effectiveConfig.reasoningOutputVisible, true);
+        assert.equal(requests[1].include_reasoning, true);
+        assert.deepEqual(googleResult.thoughts, [{ label: '思考块 1', text: 'Google 默认可见思考。' }]);
+        assert.equal(googleResult.requestInspection.effectiveConfig.reasoningRequestedOutput, 'show');
+        assert.equal(googleResult.requestInspection.effectiveConfig.reasoningOutputVisible, true);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
 test('host OpenAI-compatible payloads use SillyTavern backend fields without leaking direct-provider shape', () => {
     assert.deepEqual(buildHostOpenAICompatibleStatusPayload({
         baseUrl: 'https://example.com/v1/',
@@ -65,7 +348,7 @@ test('host OpenAI-compatible payloads use SillyTavern backend fields without lea
         {
             maxTokens: 1234,
             temperature: 0.7,
-            reasoning: { enabled: true, effort: 'high' },
+            reasoning: { mode: 'on', effort: 'high', output: 'hide' },
             tools: [{
                 type: 'function',
                 function: {
@@ -84,10 +367,50 @@ test('host OpenAI-compatible payloads use SillyTavern backend fields without lea
     assert.equal(payload.model, 'compat-model');
     assert.equal(payload.stream, true);
     assert.equal(payload.max_tokens, 1234);
-    assert.equal(payload.reasoning_effort, 'high');
-    assert.equal(Object.hasOwn(payload, 'temperature'), false);
+    assert.equal(Object.hasOwn(payload, 'reasoning_effort'), false);
+    assert.equal(payload.temperature, 0.7);
     assert.equal(payload.tool_choice, 'auto');
     assert.equal(payload.tools.length, 1);
+
+    const oSeriesPayload = buildHostOpenAICompatibleGeneratePayload(
+        {
+            baseUrl: 'https://example.com/v1/',
+            apiKey: 'test-key',
+            model: 'o1-mini',
+        },
+        { maxTokens: 4321 },
+        [{ role: 'user', content: 'hello' }],
+        false,
+    );
+    assert.equal(oSeriesPayload.max_completion_tokens, 4321);
+    assert.equal(Object.hasOwn(oSeriesPayload, 'max_tokens'), false);
+
+    const olderGptPayload = buildHostOpenAICompatibleGeneratePayload(
+        { model: 'relay/gpt-4o-mini' },
+        { maxTokens: 2048 },
+        [{ role: 'user', content: 'hello' }],
+        false,
+    );
+    assert.equal(olderGptPayload.max_completion_tokens, 2048);
+    assert.equal(Object.hasOwn(olderGptPayload, 'max_tokens'), false);
+
+    const localGptqPayload = buildHostOpenAICompatibleGeneratePayload(
+        { model: 'TheBloke/Llama-2-7B-GPTQ' },
+        { maxTokens: 2048 },
+        [{ role: 'user', content: 'hello' }],
+        false,
+    );
+    assert.equal(localGptqPayload.max_tokens, 2048);
+    assert.equal(Object.hasOwn(localGptqPayload, 'max_completion_tokens'), false);
+
+    const prefixedDeepSeekPayload = buildHostOpenAICompatibleGeneratePayload(
+        { model: 'openai/relay/DeepSeek-custom' },
+        { maxTokens: 2048 },
+        [{ role: 'user', content: 'hello' }],
+        false,
+    );
+    assert.equal(prefixedDeepSeekPayload.max_tokens, 2048);
+    assert.equal(Object.hasOwn(prefixedDeepSeekPayload, 'max_completion_tokens'), false);
 });
 
 test('OpenAI-compatible native messages keep task system prompt in the actual request', async () => {
@@ -110,6 +433,294 @@ test('OpenAI-compatible native messages keep task system prompt in the actual re
     });
     assert.equal(inspection.request.body.messages[0]?.role, 'system');
     assert.equal(inspection.request.body.messages[0]?.content, 'You are the background manager.');
+});
+
+test('SillyTavern OpenAI-compatible never deletes a rejected reasoning field and retries silently', async () => {
+    const config = {
+        baseUrl: 'https://reasoning-rejection.example/v1',
+        apiKey: 'test-key',
+        model: 'gpt-5.5',
+        toolMode: 'native',
+    };
+    const adapter = new SillyTavernOpenAICompatibleAdapter(config);
+    const originalFetch = globalThis.fetch;
+    const requests = [];
+    globalThis.fetch = async (_url, options = {}) => {
+        requests.push(JSON.parse(String(options.body || '{}')));
+        return createJsonResponse({
+            error: {
+                code: 400,
+                message: 'Invalid value for reasoning_effort.',
+            },
+        }, false, 400);
+    };
+
+    try {
+        await assert.rejects(() => adapter.chat({
+            messages: [{ role: 'user', content: 'hello' }],
+            reasoning: { mode: 'on', effort: 'high', output: 'hide' },
+        }), /Invalid value for reasoning_effort/);
+
+        assert.equal(requests.length, 1);
+        assert.equal(requests[0].reasoning_effort, 'high');
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test('SillyTavern OpenAI-compatible never retries a reasoning stream after accepting it', async () => {
+    const config = {
+        baseUrl: 'https://reasoning-stream-late-error.example/v1',
+        apiKey: 'test-key',
+        model: 'gpt-5.5',
+        toolMode: 'native',
+    };
+    const adapter = new SillyTavernOpenAICompatibleAdapter(config);
+    const originalFetch = globalThis.fetch;
+    const progress = [];
+    let requestCount = 0;
+    const eventChunk = new TextEncoder().encode(`data: ${JSON.stringify({
+        model: config.model,
+        choices: [{
+            index: 0,
+            delta: { role: 'assistant', content: 'partial' },
+            finish_reason: null,
+        }],
+    })}\n\n`);
+    const lateError = new Error('Unknown parameter: reasoning_effort');
+    lateError.status = 400;
+    globalThis.fetch = async () => {
+        requestCount += 1;
+        let readCount = 0;
+        return {
+            ok: true,
+            status: 200,
+            body: {
+                getReader: () => ({
+                    read: async () => {
+                        readCount += 1;
+                        if (readCount === 1) {
+                            return { done: false, value: eventChunk };
+                        }
+                        throw lateError;
+                    },
+                }),
+            },
+        };
+    };
+
+    try {
+        await assert.rejects(() => adapter.chat({
+            messages: [{ role: 'user', content: 'hello' }],
+            reasoning: { mode: 'on', effort: 'high', output: 'hide' },
+            onStreamProgress: (snapshot) => progress.push(snapshot.text),
+        }), /Unknown parameter: reasoning_effort/);
+
+        assert.equal(requestCount, 1);
+        assert.deepEqual(progress, ['partial']);
+        assert.equal(adapter.buildPayload({
+            messages: [{ role: 'user', content: 'hello' }],
+            reasoning: { mode: 'on', effort: 'low', output: 'hide' },
+        }).reasoning_effort, 'low');
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test('SillyTavern OpenAI-compatible hidden reasoning stays out of stream progress and remains replayable', async () => {
+    const adapter = new SillyTavernOpenAICompatibleAdapter({
+        baseUrl: 'https://reasoning.example/v1',
+        apiKey: 'test-key',
+        model: 'gpt-5.5',
+        toolMode: 'native',
+    });
+    const originalFetch = globalThis.fetch;
+    const progress = [];
+    globalThis.fetch = async () => createSseResponse([{
+        model: 'gpt-5.5',
+        choices: [{
+            index: 0,
+            delta: {
+                role: 'assistant',
+                content: '完成。',
+                reasoning_content: '不应展示的内部思考',
+            },
+            finish_reason: 'stop',
+        }],
+    }]);
+
+    try {
+        const result = await adapter.chat({
+            messages: [{ role: 'user', content: '回答。' }],
+            reasoning: { mode: 'on', effort: 'high', output: 'hide' },
+            onStreamProgress: (snapshot) => progress.push(snapshot),
+        });
+
+        assert.equal(progress.length > 0, true);
+        assert.equal(progress.every((snapshot) => snapshot.thoughts?.length === 0), true);
+        assert.deepEqual(result.thoughts, []);
+        assert.equal(
+            result.providerPayload.openaiCompatibleMessage.reasoning_content,
+            '不应展示的内部思考',
+        );
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test('SillyTavern OpenAI-compatible replay skips a corrupted signed tool exchange atomically', () => {
+    const adapter = new SillyTavernOpenAICompatibleAdapter({
+        baseUrl: 'https://example.com/v1',
+        apiKey: 'test-key',
+        model: '[v]gemini-3.7-flash',
+        toolMode: 'native',
+    });
+    const task = {
+        messages: [
+            { role: 'user', content: '继续。' },
+            {
+                role: 'assistant',
+                content: '',
+                tool_calls: [{
+                    id: 'call-read',
+                    type: 'function',
+                    function: {
+                        name: 'Read',
+                        arguments: '{"filePath":"book/state.md"}',
+                    },
+                }],
+                providerPayload: {
+                    openaiCompatibleMessage: {
+                        role: 'assistant',
+                        content: '',
+                        tool_calls: [{
+                            index: 0,
+                            id: 'call-read',
+                            type: 'function',
+                            function: {
+                                name: 'Read',
+                                arguments: '{"filePath":',
+                            },
+                            extra_content: {
+                                google: {
+                                    thoughtSignature: 'gemini-signature',
+                                },
+                            },
+                        }],
+                    },
+                },
+            },
+            {
+                role: 'tool',
+                tool_call_id: 'call-read',
+                content: '{"ok":true}',
+            },
+            { role: 'assistant', content: '读取完成。' },
+            { role: 'user', content: '开始下一轮。' },
+        ],
+        tools: [],
+    };
+    const originalWarn = console.warn;
+    const warnings = [];
+    console.warn = (...args) => warnings.push(args);
+    try {
+        const payload = adapter.buildPayload(task);
+        const repeatedPayload = adapter.buildPayload(task);
+
+        assert.deepEqual(payload.messages, [
+            { role: 'user', content: '继续。' },
+            { role: 'assistant', content: '读取完成。' },
+            { role: 'user', content: '开始下一轮。' },
+        ]);
+        assert.deepEqual(repeatedPayload.messages, payload.messages);
+        assert.equal(warnings.length, 1);
+        assert.equal(warnings[0][1].code, 'openai_compatible_signed_tool_call_history_corrupted');
+    } finally {
+        console.warn = originalWarn;
+    }
+});
+
+test('SillyTavern OpenAI-compatible keeps parallel id-less signed calls paired with tool results', async () => {
+    const adapter = new SillyTavernOpenAICompatibleAdapter({
+        baseUrl: 'https://example.com/v1',
+        apiKey: 'test-key',
+        model: '[v]gemini-3.7-flash',
+        toolMode: 'native',
+    });
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => createJsonResponse({
+        model: '[v]gemini-3.7-flash',
+        choices: [{
+            finish_reason: 'tool_calls',
+            message: {
+                role: 'assistant',
+                content: '',
+                tool_calls: [
+                    {
+                        type: 'function',
+                        function: { name: 'Read', arguments: '{"filePath":"a.md"}' },
+                        extra_content: {
+                            google: { thoughtSignature: 'gemini-signature' },
+                        },
+                    },
+                    {
+                        type: 'function',
+                        function: { name: 'Read', arguments: '{"filePath":"b.md"}' },
+                    },
+                ],
+            },
+        }],
+    });
+
+    try {
+        const result = await adapter.chat({
+            messages: [{ role: 'user', content: '并行读取。' }],
+            tools: [],
+        });
+        const providerToolCalls = result.providerPayload.openaiCompatibleMessage.tool_calls;
+
+        assert.deepEqual(result.toolCalls.map((toolCall) => toolCall.id), [
+            'openai-tool-1',
+            'openai-tool-2',
+        ]);
+        assert.deepEqual(providerToolCalls.map((toolCall) => toolCall.id), [
+            'openai-tool-1',
+            'openai-tool-2',
+        ]);
+
+        const payload = adapter.buildPayload({
+            messages: [
+                { role: 'user', content: '并行读取。' },
+                {
+                    role: 'assistant',
+                    content: '',
+                    providerPayload: result.providerPayload,
+                    tool_calls: result.toolCalls.map((toolCall) => ({
+                        id: toolCall.id,
+                        type: 'function',
+                        function: {
+                            name: toolCall.name,
+                            arguments: toolCall.arguments,
+                        },
+                    })),
+                },
+                { role: 'tool', tool_call_id: result.toolCalls[0].id, content: '{"ok":true}' },
+                { role: 'tool', tool_call_id: result.toolCalls[1].id, content: '{"ok":true}' },
+            ],
+            tools: [],
+        });
+
+        assert.deepEqual(payload.messages[1].tool_calls.map((toolCall) => toolCall.id), [
+            'openai-tool-1',
+            'openai-tool-2',
+        ]);
+        assert.deepEqual(payload.messages.slice(2).map((message) => message.tool_call_id), [
+            'openai-tool-1',
+            'openai-tool-2',
+        ]);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
 });
 
 test('SillyTavern OpenAI-compatible Claude-like requests coerce the final system role only in the request messages', async () => {
@@ -156,7 +767,7 @@ test('host Claude and Google payloads select the matching SillyTavern chat-compl
         {
             maxTokens: 32000,
             temperature: 0.4,
-            reasoning: { enabled: true, effort: 'medium' },
+            reasoning: { mode: 'on', effort: 'medium', output: 'hide' },
             tools: [{
                 type: 'function',
                 function: {
@@ -192,14 +803,22 @@ test('host Claude and Google payloads select the matching SillyTavern chat-compl
     assert.equal(claudePayload.reverse_proxy, 'https://claude-proxy.example/v1');
     assert.equal(claudePayload.proxy_password, 'claude-key');
     assert.equal(claudePayload.use_sysprompt, true);
-    assert.equal(claudePayload.reasoning_effort, 'medium');
-    assert.equal(claudePayload.include_reasoning, true);
+    assert.equal(Object.hasOwn(claudePayload, 'reasoning_effort'), false);
+    assert.equal(Object.hasOwn(claudePayload, 'include_reasoning'), false);
     assert.equal(claudePayload.tool_choice, 'auto');
     assert.equal(googlePayload.chat_completion_source, 'makersuite');
     assert.equal(googlePayload.reverse_proxy, 'https://google-proxy.example');
     assert.equal(googlePayload.proxy_password, 'google-key');
     assert.equal(googlePayload.use_sysprompt, true);
     assert.equal(googlePayload.tool_choice, 'auto');
+
+    const googleReasoningPayload = new SillyTavernGoogleAdapter({ model: 'gemini-3-pro' })
+        .buildPayload({
+            messages: [{ role: 'user', content: 'hello' }],
+            reasoning: { mode: 'on', effort: 'high', output: 'hide' },
+        });
+    assert.equal(googleReasoningPayload.reasoning_effort, 'high');
+    assert.equal(googleReasoningPayload.include_reasoning, false);
 });
 
 test('direct Anthropic adapter strips v1 because the SDK appends it itself', () => {
@@ -398,6 +1017,51 @@ test('sillytavern Claude adapter streams tool calls through host generate endpoi
         }]);
         assert.equal(result.provider, 'sillytavern-claude');
         assert.equal(result.providerPayload.anthropicContent[1].type, 'tool_use');
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test('sillytavern Claude hides thinking output without dropping its replay signature', async () => {
+    const adapter = new SillyTavernClaudeAdapter({
+        baseUrl: '',
+        apiKey: '',
+        model: 'claude-opus-4-7',
+    });
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => createJsonResponse({
+        content: [
+            {
+                type: 'thinking',
+                thinking: '不应展示的内部思考。',
+                signature: 'anthropic-signature-1',
+            },
+            { type: 'text', text: '可见答复。' },
+        ],
+        stop_reason: 'end_turn',
+        model: 'claude-opus-4-7',
+    });
+
+    try {
+        const result = await adapter.chat({
+            messages: [{ role: 'user', content: '继续' }],
+            reasoning: { mode: 'on', effort: 'high', output: 'hide' },
+        });
+
+        assert.equal(result.text, '可见答复。');
+        assert.deepEqual(result.thoughts, []);
+        assert.deepEqual(result.providerPayload?.anthropicContent?.[0], {
+            type: 'thinking',
+            thinking: '不应展示的内部思考。',
+            signature: 'anthropic-signature-1',
+        });
+        assert.deepEqual(adapter.buildMessages({
+            messages: [{
+                role: 'assistant',
+                content: result.text,
+                providerPayload: result.providerPayload,
+            }],
+        })[0].content[0], result.providerPayload.anthropicContent[0]);
     } finally {
         globalThis.fetch = originalFetch;
     }
@@ -886,6 +1550,195 @@ test('agent factory allows SillyTavern Claude and Google without direct API keys
     }) instanceof SillyTavernGoogleAdapter, true);
 });
 
+test('host clients keep request identity isolated per instance', async () => {
+    const requests = [];
+    const createClient = (owner) => createHostChatCompletionsClient({
+        requestHeadersProvider: () => ({
+            Cookie: `session=${owner}`,
+            'X-CSRF-Token': `csrf-${owner}`,
+        }),
+        fetch: async (url, options = {}) => {
+            requests.push({
+                owner,
+                url: String(url),
+                headers: options.headers,
+            });
+            return createJsonResponse({ data: [{ id: `${owner}-model` }] });
+        },
+    });
+    const aliceClient = createClient('alice');
+    const bobClient = createClient('bob');
+    const inspectedRequest = await aliceClient.buildHostChatCompletionGenerateRequest({ messages: [] });
+
+    const [aliceModels, bobModels] = await Promise.all([
+        aliceClient.fetchHostOpenAICompatibleModels({}),
+        bobClient.fetchHostOpenAICompatibleModels({}),
+    ]);
+
+    assert.deepEqual(aliceModels, ['alice-model']);
+    assert.deepEqual(bobModels, ['bob-model']);
+    assert.equal(inspectedRequest.headers.Cookie, '[redacted]');
+    assert.equal(inspectedRequest.headers['X-CSRF-Token'], '[redacted]');
+    assert.equal(inspectedRequest.rawHeaders.Cookie, 'session=alice');
+    assert.deepEqual(requests, [
+        {
+            owner: 'alice',
+            url: HOST_CHAT_COMPLETIONS_STATUS_ENDPOINT,
+            headers: {
+                'Content-Type': 'application/json',
+                Cookie: 'session=alice',
+                'X-CSRF-Token': 'csrf-alice',
+                Accept: 'application/json',
+            },
+        },
+        {
+            owner: 'bob',
+            url: HOST_CHAT_COMPLETIONS_STATUS_ENDPOINT,
+            headers: {
+                'Content-Type': 'application/json',
+                Cookie: 'session=bob',
+                'X-CSRF-Token': 'csrf-bob',
+                Accept: 'application/json',
+            },
+        },
+    ]);
+});
+
+test('injected Host Clients isolate concurrent streaming and non-streaming chats', async () => {
+    const requests = [];
+    const createClient = (owner) => createHostChatCompletionsClient({
+        requestHeadersProvider: () => ({
+            Cookie: `session=${owner}`,
+            'X-CSRF-Token': `csrf-${owner}`,
+        }),
+        fetch: async (_url, options = {}) => {
+            const body = JSON.parse(String(options.body || '{}'));
+            requests.push({ owner, headers: options.headers, stream: body.stream });
+            return body.stream
+                ? createSseResponse([{
+                    model: `${owner}-model`,
+                    choices: [{ delta: { content: `${owner}-stream` }, finish_reason: 'stop' }],
+                }])
+                : createJsonResponse({
+                    model: `${owner}-model`,
+                    choices: [{ message: { content: `${owner}-text` }, finish_reason: 'stop' }],
+                });
+        },
+    });
+    const aliceAdapter = createAgentAdapter(
+        { provider: 'sillytavern-openai-compatible', model: 'hosted-model' },
+        { hostClient: createClient('alice') },
+    );
+    const bobAdapter = createAgentAdapter(
+        { provider: 'sillytavern-openai-compatible', model: 'hosted-model' },
+        { hostClient: createClient('bob') },
+    );
+
+    const [aliceResult, bobResult] = await Promise.all([
+        aliceAdapter.chat({ messages: [] }),
+        bobAdapter.chat({ messages: [], onStreamProgress: () => {} }),
+    ]);
+
+    assert.equal(aliceResult.text, 'alice-text');
+    assert.equal(bobResult.text, 'bob-stream');
+    assert.equal(aliceResult.requestInspection.request.headers.Cookie, '[redacted]');
+    assert.equal(bobResult.requestInspection.request.headers.Cookie, '[redacted]');
+    assert.deepEqual(requests, [
+        {
+            owner: 'alice',
+            headers: {
+                'Content-Type': 'application/json',
+                Cookie: 'session=alice',
+                'X-CSRF-Token': 'csrf-alice',
+                Accept: 'application/json',
+            },
+            stream: false,
+        },
+        {
+            owner: 'bob',
+            headers: {
+                'Content-Type': 'application/json',
+                Cookie: 'session=bob',
+                'X-CSRF-Token': 'csrf-bob',
+                Accept: 'application/json',
+            },
+            stream: true,
+        },
+    ]);
+});
+
+test('every SillyTavern adapter chat uses the injected Host Client', async () => {
+    const sources = [];
+    setHostChatCompletionsRequestHeadersProvider(() => {
+        throw new Error('browser Host Client must not be used');
+    });
+    const hostClient = {
+        async buildHostChatCompletionGenerateRequest() {
+            throw new Error('not used');
+        },
+        async createHostChatCompletion(payload, options = {}) {
+            const source = payload.chat_completion_source;
+            sources.push(source);
+            options.onRequest?.({
+                url: HOST_CHAT_COMPLETIONS_GENERATE_ENDPOINT,
+                method: 'POST',
+                headers: {},
+                body: payload,
+            });
+            if (source === 'claude') {
+                return {
+                    model: 'hosted-model',
+                    content: [{ type: 'text', text: 'claude-ok' }],
+                    stop_reason: 'end_turn',
+                };
+            }
+            if (source === 'makersuite') {
+                return {
+                    model: 'hosted-model',
+                    candidates: [{
+                        finishReason: 'STOP',
+                        content: { role: 'model', parts: [{ text: 'google-ok' }] },
+                    }],
+                };
+            }
+            return {
+                model: 'hosted-model',
+                choices: [{ message: { content: 'openai-ok' }, finish_reason: 'stop' }],
+            };
+        },
+        async streamHostChatCompletion() {
+            throw new Error('not used');
+        },
+    };
+    const cases = [
+        ['sillytavern-openai-compatible', 'openai-ok'],
+        ['sillytavern-claude', 'claude-ok'],
+        ['sillytavern-google', 'google-ok'],
+    ];
+    const results = [];
+
+    for (const [provider] of cases) {
+        const adapter = createAgentAdapter({ provider, model: 'hosted-model' }, { hostClient });
+        results.push(await adapter.chat({ messages: [{ role: 'user', content: 'hello' }] }));
+    }
+
+    assert.deepEqual(sources, ['openai', 'claude', 'makersuite']);
+    assert.deepEqual(results.map(result => result.text), cases.map(([, text]) => text));
+});
+
+test('agent factory rejects an explicitly missing Host Client for SillyTavern providers', () => {
+    for (const provider of [
+        'sillytavern-openai-compatible',
+        'sillytavern-claude',
+        'sillytavern-google',
+    ]) {
+        assert.throws(
+            () => createAgentAdapter({ provider, model: 'hosted-model' }, { hostClient: undefined }),
+            /必须注入有效的 Host Client/,
+        );
+    }
+});
+
 test('host OpenAI-compatible model pull posts to SillyTavern status endpoint', async () => {
     const originalFetch = globalThis.fetch;
     const requests = [];
@@ -1102,6 +1955,26 @@ test('host OpenAI-compatible requests include injected SillyTavern CSRF headers'
     }
 });
 
+test('host OpenAI-compatible requests fail before fetch when request headers are not registered', async () => {
+    const originalFetch = globalThis.fetch;
+    let fetchCalled = false;
+    setHostChatCompletionsRequestHeadersProvider(null);
+    globalThis.fetch = async () => {
+        fetchCalled = true;
+        return createJsonResponse({ data: [] });
+    };
+
+    try {
+        await assert.rejects(
+            () => fetchHostOpenAICompatibleModels({}),
+            /宿主请求头未注册，无法调用酒馆后端。/,
+        );
+        assert.equal(fetchCalled, false);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
 test('host OpenAI-compatible requests resolve fresh async SillyTavern headers per request', async () => {
     const originalFetch = globalThis.fetch;
     const requests = [];
@@ -1139,7 +2012,7 @@ test('host OpenAI-compatible requests resolve fresh async SillyTavern headers pe
     }
 });
 
-test('host OpenAI-compatible model pull maps CSRF and HTML failures to refresh guidance', async () => {
+test('host OpenAI-compatible model pull maps explicit CSRF failures to refresh guidance', async () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = async () => ({
         ok: false,
@@ -1153,6 +2026,82 @@ test('host OpenAI-compatible model pull maps CSRF and HTML failures to refresh g
                 await fetchHostOpenAICompatibleModels({});
             },
             /酒馆当前页面的 CSRF token 已失效，请按 F5 刷新并重新进入酒馆后再试。/,
+        );
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test('host model pull reports generic HTML gateway failures without mislabeling them as CSRF', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({
+        ok: false,
+        status: 502,
+        statusText: 'Bad Gateway',
+        headers: { get: (name) => name === 'content-type' ? 'text/html; charset=utf-8' : '' },
+        text: async () => '<!DOCTYPE html><html><head><title>Bad Gateway</title></head><body>upstream unavailable</body></html>',
+    });
+
+    try {
+        await assert.rejects(
+            async () => fetchHostOpenAICompatibleModels({}),
+            (error) => {
+                assert.match(error.message, /非 JSON 的 HTML 页面/);
+                assert.match(error.message, /HTTP 502 Bad Gateway/);
+                assert.match(error.message, /Bad Gateway/);
+                assert.doesNotMatch(error.message, /CSRF token 已失效/);
+                return true;
+            },
+        );
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test('host non-stream generation identifies an HTML login page instead of reporting CSRF', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({
+        ok: true,
+        status: 200,
+        headers: { get: () => 'text/html' },
+        text: async () => '<html><head><title>登录</title></head><body>请重新登录</body></html>',
+    });
+
+    try {
+        await assert.rejects(
+            async () => createHostChatCompletion({ messages: [] }),
+            (error) => {
+                assert.match(error.message, /酒馆后端生成失败/);
+                assert.match(error.message, /HTTP 200/);
+                assert.match(error.message, /登录/);
+                assert.doesNotMatch(error.message, /CSRF token 已失效/);
+                return true;
+            },
+        );
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test('host stream generation preserves HTML service errors with their HTTP status', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({
+        ok: false,
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: { get: () => 'text/html' },
+        text: async () => '<!DOCTYPE html><html><body><h1>Service temporarily unavailable</h1></body></html>',
+    });
+
+    try {
+        await assert.rejects(
+            async () => streamHostChatCompletion({ messages: [] }, () => {}),
+            (error) => {
+                assert.match(error.message, /HTTP 503 Service Unavailable/);
+                assert.match(error.message, /Service temporarily unavailable/);
+                assert.doesNotMatch(error.message, /CSRF token 已失效/);
+                return true;
+            },
         );
     } finally {
         globalThis.fetch = originalFetch;
@@ -1185,11 +2134,15 @@ test('sillytavern OpenAI-compatible adapter streams native tool calls through ho
                         content: '我先读文件。',
                         tool_calls: [{
                             index: 0,
-                            id: 'call-1',
                             type: 'function',
                             function: {
                                 name: 'Read',
                                 arguments: '{"path"',
+                            },
+                            extra_content: {
+                                google: {
+                                    thoughtSignature: 'stream-signature',
+                                },
                             },
                         }],
                     },
@@ -1243,14 +2196,23 @@ test('sillytavern OpenAI-compatible adapter streams native tool calls through ho
         assert.equal(requests[0].body.tools.length, 1);
         assert.equal(requests[0].body.tool_choice, 'auto');
         assert.equal(result.text, '我先读文件。');
+        assert.equal(progress.some((snapshot) => snapshot.thoughts?.[0]?.text === '先读取一个轻量文件确认工具链。'), true);
+        assert.deepEqual(result.thoughts, [{ label: '推理文本', text: '先读取一个轻量文件确认工具链。' }]);
+        assert.equal(result.requestInspection.effectiveConfig.reasoningRequestedOutput, 'show');
+        assert.equal(result.requestInspection.effectiveConfig.reasoningOutputVisible, true);
         assert.deepEqual(result.toolCalls, [{
-            id: 'call-1',
+            id: 'openai-tool-1',
             name: 'Read',
             arguments: '{"path":"local/test.txt"}',
         }]);
+        assert.equal(result.providerPayload?.openaiCompatibleMessage?.tool_calls?.[0]?.id, 'openai-tool-1');
         assert.equal(progress.some((snapshot) => snapshot.toolCalls?.[0]?.name === 'Read'), true);
         assert.equal(progress.some((snapshot) => String(snapshot.text || '').includes('我先读文件。')), true);
         assert.equal(result.providerPayload?.openaiCompatibleMessage?.reasoning_content, '先读取一个轻量文件确认工具链。');
+        assert.equal(
+            result.providerPayload?.openaiCompatibleMessage?.tool_calls?.[0]?.extra_content?.google?.thoughtSignature,
+            'stream-signature',
+        );
     } finally {
         globalThis.fetch = originalFetch;
     }
@@ -1452,6 +2414,45 @@ test('sillytavern OpenAI-compatible retries malformed native tool host failures 
             name: 'Read',
             arguments: '{"path":"book/state.md"}',
         }]);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test('sillytavern OpenAI-compatible can forbid automatic tool protocol fallback', async () => {
+    const adapter = new SillyTavernOpenAICompatibleAdapter({
+        baseUrl: '',
+        apiKey: '',
+        model: 'compat-model',
+        toolMode: 'native',
+    });
+    const originalFetch = globalThis.fetch;
+    let requestCount = 0;
+    globalThis.fetch = async () => {
+        requestCount += 1;
+        return createJsonResponse({
+            error: {
+                message: "Cannot read properties of null (reading 'function')",
+                type: 'badresponsestatuscode',
+                code: 'badresponsestatuscode',
+            },
+        }, false, 500);
+    };
+
+    try {
+        await assert.rejects(() => adapter.chat({
+            messages: [{ role: 'user', content: '读状态' }],
+            tools: [{
+                type: 'function',
+                function: {
+                    name: 'Read',
+                    description: 'Read file.',
+                    parameters: { type: 'object', properties: {} },
+                },
+            }],
+            allowToolProtocolFallback: false,
+        }), /Cannot read properties of null/);
+        assert.equal(requestCount, 1);
     } finally {
         globalThis.fetch = originalFetch;
     }

@@ -6,6 +6,7 @@
 
 import { getContext } from "../../../../../../../extensions.js";
 import { saveBase64AsFile } from "../../../../../../../utils.js";
+import { getRequestHeaders, syncMesToSwipe } from "../../../../../../../../script.js";
 import { extensionFolderPath } from "../../../../core/constants.js";
 import { createModuleEvents, event_types } from "../../../../core/event-manager.js";
 import { NovelDrawStorage } from "../../../../core/server-storage.js";
@@ -16,28 +17,104 @@ import {
     setSlotSelection, clearSlotSelection,
     updatePreviewSavedUrl, deletePreview, getCacheStats, clearExpiredCache, clearAllCache,
     getGallerySummary, getCharacterPreviews, openGallery, closeGallery, destroyGalleryCache,
-    getPreviewDisplayUrl, preloadPreviewDisplayUrl, warmSlotPreviewNeighbors
+    getPreviewDisplayUrl, getBase64ImagePayload, preloadPreviewDisplayUrl, warmSlotPreviewNeighbors
 } from '../../shared/gallery-cache.js';
 import {
-    PROVIDER_MAP,
-    LLMServiceError,
+    ScenePlannerError,
     generateAndParseScenePlan,
+    prepareScenePlannerInput,
 } from '../../shared/scene-planner.js';
+import { classifyScenePlannerErrorForUi } from '../../shared/scene-planner-error-ui.js';
 import {
     loadSharedDrawSettings,
     getSharedDrawSettings,
     updateSharedDrawSettingsPersistent,
     normalizeSharedCacheDays,
+    mergeNovelDrawProviderSettingsIntoStorageRoot,
 } from '../../shared/draw-settings.js';
-import { fetchDrawLlmModels, getLastDrawLlmRequestSnapshot, normalizeDrawLlmApi } from '../../shared/draw-llm.js';
+import { getLastDrawAgentDiagnostic } from '../../shared/draw-agent.js';
+import { attachDrawAgentSettingsSurface } from '../../shared/agent-settings-surface.js';
+import { createSerialImageRequestQueue } from '../../shared/serial-image-request-queue.js';
+import { isCharacterEnabled } from '../../shared/character-selection.js';
+import {
+    buildKnownCharacterPrompt,
+    joinTags,
+} from '../../shared/character-prompts.js';
+import { resolveAutoLearnCharacter } from './novel-character-learning.js';
+import {
+    NovelImageResponseError,
+    extractImageFromResponse,
+    formatImageBase64,
+    readImageResponse,
+} from './novel-image-response.js';
+import {
+    buildNovelAIConnectionProbe,
+    isNovelImageBackendJobEnabled,
+    resolveNovelImageTransport,
+    resolveNovelAIBackendImageApi,
+    snapshotNovelRequestConfig,
+} from './novel-request-config.js';
 import {
     loadTagGuide,
     loadPromptTemplates,
     DEFAULT_PROMPT_CONFIG,
     PROMPT_TEMPLATE_VERSION,
-    LEGACY_USER_JSON_FORMAT,
-    getLoadedTagGuide,
+    getDefaultNovelModelContractByGuideId,
+    getEffectiveNovelModelGuide,
+    getEffectiveNovelModelContract,
+    getLoadedTagGuideById,
+    normalizeNovelModelContractOverrides,
+    normalizeNovelPromptGuideOverrides,
 } from './novel-prompts.js';
+import { parseNovelPromptPresetImport } from './novel-prompt-import.js';
+import {
+    getNovelModelCapability,
+    getNovelModelCapabilitiesForUi,
+    isNovelV5Model,
+    NOVEL_PROMPT_GUIDES,
+} from './novel-model-capabilities.js';
+import {
+    NovelV5RequestError,
+    V5_QUALITY_IDS,
+    V5_UC_IDS,
+} from './novel-v5-request.js';
+import {
+    compile as compileNovelScenePlan,
+    compileNovelImageRequest,
+} from './compiler.js';
+import {
+    readNovelV5ErrorText,
+    readNovelV5FinalImage,
+    NovelV5StreamError,
+} from './novel-v5-stream.js';
+import {
+    decodeNovelBackendJobResult,
+    hasNovelV5FinalImageCapability,
+} from './novel-backend-job-result.js';
+import {
+    createImageBackendJobMonitorRegistry,
+    createImageBackendJobsClient,
+    hasImageBackendJobsCapability,
+    ImageBackendJobsError,
+    reportImageBackendJobState,
+} from '../../shared/backend-image-jobs.js';
+import {
+    classifyImageJobDeliveryTarget,
+    commitImageJobDeliverySlotRemoval,
+    ImageJobDeliveryTargetState,
+    requireImageJobDeliveryTarget,
+} from '../../shared/image-job-delivery-target.js';
+import { submitRecoverableImageJob } from '../../shared/recoverable-image-jobs.js';
+import {
+    isDrawRunCancelledError,
+    isDrawRunPendingError,
+    submitProviderDrawRun,
+} from '../../shared/draw-run-production.js';
+import {
+    cancelPendingDrawRuns,
+    hasPendingDrawRun,
+} from '../../shared/draw-run-controls.js';
+import { migrateLegacyNovelPromptSettings } from './novel-prompt-migration.js';
 import { WorldbookProcessor } from '../../shared/worldbook-processor.js';
 import {
     openCloudPresetsModal,
@@ -58,59 +135,160 @@ import {
     stopSharedDrawPreviewRuntime,
     renderAllDrawPreviews,
     renderPreviewsForMessage as renderSharedPreviewsForMessage,
+    buildPendingImageHtml,
+    buildDrawSlotSelector,
+    toScenePlannerProgress,
+    isAnyMessageBeingEdited,
+    isMessageBeingEdited,
+    DEFAULT_MESSAGE_FILTER_RULES,
 } from '../../shared/draw-common.js';
+import { createSceneSource, normalizeMessageSceneSourceText } from '../../shared/scene-source.js';
+import { createDrawImageSlotRegex, stripDrawImageSlots } from '../../shared/image-marker-syntax.js';
+import {
+    commitRecoverableScenePlacements,
+    commitSceneSlotDelivery,
+    commitSceneSlotReplacement,
+    getSceneSlotIds,
+    ScenePlacementError,
+    assertSceneSourceUnchanged,
+    commitSettledScenePlacements,
+    insertScenePlacementsPreservingSlots,
+    removeSceneSlotPlaceholders,
+    setActiveMessageText,
+} from '../../shared/scene-placement.js';
 // ═══════════════════════════════════════════════════════════════════════════
 // 常量
 // ═══════════════════════════════════════════════════════════════════════════
 
 const MODULE_KEY = 'novelDraw';
+const DRAW_RUN_PROVIDER = 'novelai';
 const SERVER_FILE_KEY = 'settings';
 const HTML_PATH = `${extensionFolderPath}/modules/draw/providers/novelai/novel-draw.html`;
-const NOVELAI_IMAGE_API = 'https://image.novelai.net/ai/generate-image';
-const CONFIG_VERSION = 5;
-const MAX_SEED = 0xFFFFFFFF;
-const API_TEST_TIMEOUT = 15000;
-const PLACEHOLDER_REGEX = /\[image:([a-z0-9\-_]+)\]/gi;
+// 后端发送模式走 SillyTavern server plugin 转发（需安装 plugins/littlewhitebox-image-jobs 并开启 enableServerPlugins），
+// 用于绕过浏览器 CORS / 自签证书限制。历史插件 littlewhitebox-nai 是独立 ID，这里不探测、不回退。
+const NAI_BACKEND_BASE = '/api/plugins/littlewhitebox-image-jobs';
+const NAI_BACKEND_GENERATE = `${NAI_BACKEND_BASE}/v1/generate-image`;
+const NAI_BACKEND_GENERATE_V2 = `${NAI_BACKEND_BASE}/v2/generate-image`;
+const NAI_BACKEND_GENERATE_STREAM = `${NAI_BACKEND_BASE}/v1/generate-image-stream`;
+const NAI_BACKEND_TEST = `${NAI_BACKEND_BASE}/v1/test`;
+const NAI_BACKEND_TEST_V2 = `${NAI_BACKEND_BASE}/v2/test`;
+const NAI_BACKEND_STATUS = `${NAI_BACKEND_BASE}/status`;
+const NAI_BACKEND_MIN_VERSION = '1.0.1';
+const NAI_BACKEND_V5_MIN_VERSION = '1.2.0';
+const NAI_BACKEND_STATUS_TIMEOUT = 5000;
+const NAI_BACKEND_STATUS_ATTEMPTS = 2;
+const NAI_BACKEND_STATUS_RETRY_DELAY_MS = 1000;
+const CONFIG_VERSION = 8;
 
-// ── 消息文本过滤 ──────────────────────────────────────────────────
-const DEFAULT_MESSAGE_FILTER_RULES = [
-    { start: '<think>',    end: '</think>' },
-    { start: '<thinking>', end: '</thinking>' },
-    { start: '<system>',   end: '</system>' },
-    { start: '<meta>',     end: '</meta>' },
-    { start: '<options>',  end: '</options>' },
-    { start: '<WorldState>', end: '</WorldState>' },
-    { start: '<state>',    end: '</state>' },
-    { start: '<UpdateVariable>', end: '</UpdateVariable>' },
-    { start: '<—',         end: '—>' },
-    { start: '',           end: '</think>' },   // 孤立闭合标签：从开头到 </think>
-];
-
-function applyMessageFilterRules(text, rules) {
-    if (!Array.isArray(rules) || !rules.length) return text;
-    const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    let result = String(text);
-    for (const { start, end } of rules) {
-        const s = (start || '').trim(), e = (end || '').trim();
-        if (!s && !e) continue;
-        if (s && e) {
-            result = result.replace(new RegExp(esc(s) + '[\\s\\S]*?' + esc(e), 'gi'), '');
-        } else if (s) {
-            const idx = result.toLowerCase().indexOf(s.toLowerCase());
-            if (idx >= 0) result = result.slice(0, idx);
-        } else {
-            const idx = result.toLowerCase().indexOf(e.toLowerCase());
-            if (idx >= 0) result = result.slice(idx + e.length);
+function isVersionAtLeast(version, minimum) {
+    const parse = value => String(value || '').split('.').map(part => Number.parseInt(part, 10) || 0);
+    const current = parse(version);
+    const required = parse(minimum);
+    for (let index = 0; index < Math.max(current.length, required.length); index++) {
+        if ((current[index] || 0) !== (required[index] || 0)) {
+            return (current[index] || 0) > (required[index] || 0);
         }
     }
-    return result.trim();
+    return true;
 }
+
+async function fetchBackendPluginStatus(signal) {
+    if (signal?.aborted) {
+        const error = new Error('The operation was aborted');
+        error.name = 'AbortError';
+        throw error;
+    }
+    const controller = new AbortController();
+    const forwardAbort = () => controller.abort();
+    const timeoutId = setTimeout(() => controller.abort(), NAI_BACKEND_STATUS_TIMEOUT);
+    signal?.addEventListener('abort', forwardAbort, { once: true });
+    try {
+        const res = await fetch(NAI_BACKEND_STATUS, {
+            method: 'GET',
+            headers: getRequestHeaders(),
+            signal: controller.signal,
+        });
+        if (res.status === 404) return { ready: false, reason: 'not_installed' };
+        if (!res.ok) return { ready: false, reason: `http_${res.status}` };
+        const data = await res.json().catch(() => null);
+        if (data && data.ok === true) {
+            const version = String(data.version || '');
+            if (!isVersionAtLeast(version, NAI_BACKEND_MIN_VERSION)) {
+                return { ready: false, version, reason: 'outdated', minimumVersion: NAI_BACKEND_MIN_VERSION };
+            }
+            return {
+                ready: true,
+                version,
+                capabilities: Array.isArray(data.capabilities) ? data.capabilities.map(String) : [],
+            };
+        }
+        return { ready: false, reason: 'bad_response' };
+    } catch (e) {
+        if (signal?.aborted) throw e;
+        return { ready: false, reason: 'unreachable' };
+    } finally {
+        clearTimeout(timeoutId);
+        signal?.removeEventListener('abort', forwardAbort);
+    }
+}
+
+// 探测后端 server plugin 是否已安装并就绪。短暂故障重试，调用方取消则立即退出。
+function waitBeforeStatusRetry(signal, duration) {
+    return new Promise((resolve) => {
+        const finish = () => {
+            clearTimeout(timer);
+            signal?.removeEventListener('abort', finish);
+            resolve();
+        };
+        const timer = setTimeout(finish, duration);
+        signal?.addEventListener('abort', finish, { once: true });
+        if (signal?.aborted) finish();
+    });
+}
+
+async function checkBackendPluginStatus({ signal } = {}) {
+    let status;
+    for (let attempt = 0; attempt < NAI_BACKEND_STATUS_ATTEMPTS; attempt++) {
+        if (attempt > 0) await waitBeforeStatusRetry(signal, NAI_BACKEND_STATUS_RETRY_DELAY_MS);
+        status = await fetchBackendPluginStatus(signal);
+        const transient = status.reason === 'unreachable' || /^http_5\d\d$/.test(status.reason);
+        if (!transient) return status;
+    }
+    return status;
+}
+
+async function assertV5BackendCapability(signal) {
+    const status = await checkBackendPluginStatus({ signal });
+    if (!status.ready) {
+        const reason = status.reason === 'not_installed'
+            ? '未安装'
+            : status.reason === 'outdated'
+                ? `版本过旧（当前 v${status.version || '未知'}）`
+                : '未就绪';
+        throw new NovelDrawError(
+            `NovelAI V5 后端插件${reason}，请安装当前 littlewhitebox-image-jobs（兼容后端最低 v${NAI_BACKEND_V5_MIN_VERSION}）`,
+            ErrorType.NETWORK,
+        );
+    }
+    if (!isVersionAtLeast(status.version, NAI_BACKEND_V5_MIN_VERSION)
+        || !status.capabilities?.includes('v5-msgpack-stream')) {
+        throw new NovelDrawError(
+            `当前后端插件不支持 NovelAI V5 流协议，请安装当前 littlewhitebox-image-jobs（兼容后端最低 v${NAI_BACKEND_V5_MIN_VERSION}）`,
+            ErrorType.NETWORK,
+        );
+    }
+    return status;
+}
+
+const MAX_SEED = 0xFFFFFFFF;
+const PLACEHOLDER_REGEX = createDrawImageSlotRegex();
 
 const events = createModuleEvents(MODULE_KEY);
 
 const ImageState = { PREVIEW: 'preview', SAVING: 'saving', SAVED: 'saved', REFRESHING: 'refreshing', FAILED: 'failed' };
 
 const ErrorType = {
+    INPUT: { code: 'input', label: '正文输入', desc: '正文没有可用的配图内容' },
     NETWORK: { code: 'network', label: '网络', desc: '连接超时或网络不稳定' },
     AUTH: { code: 'auth', label: '认证', desc: 'API Key 无效或过期' },
     QUOTA: { code: 'quota', label: '额度', desc: 'Anlas 点数不足' },
@@ -119,6 +297,14 @@ const ErrorType = {
     LLM: { code: 'llm', label: 'LLM失败', desc: '场景分析失败' },
     LLM_EMPTY: { code: 'llm_empty', label: '空回', desc: 'LLM 未返回内容' },
     TIMEOUT: { code: 'timeout', label: '超时', desc: '请求超时' },
+    AGENT_CONFIG: { code: 'agent_config', label: 'Agent 配置', desc: '共享 Agent 主预设不可用' },
+    PROMPT_EXPANSION: { code: 'prompt_expansion', label: 'Prompt 展开', desc: 'Prompt 宏展开失败，请检查提示词中的变量宏' },
+    TOOL_PROTOCOL: { code: 'tool_protocol', label: 'Tool 协议', desc: '模型没有按要求调用场景规划 Tool' },
+    SCENE_SCHEMA: { code: 'scene_schema', label: '计划校验', desc: '模型提交的场景计划不符合契约' },
+    PROVIDER: { code: 'provider', label: 'Provider', desc: '模型 Provider 请求失败' },
+    REQUEST_CONFIG: { code: 'request_config', label: '生图参数', desc: 'NovelAI 请求参数无效' },
+    SCENE_PLACEMENT: { code: 'scene_placement', label: '插图位置', desc: '正文位置已变化，未写入图片' },
+    ABORTED: { code: 'aborted', label: '已取消', desc: '请求已取消' },
     UNKNOWN: { code: 'unknown', label: '错误', desc: '未知错误' },
     CACHE_LOST: { code: 'cache_lost', label: '缓存丢失', desc: '图片缓存已过期' },
 };
@@ -127,7 +313,7 @@ const DEFAULT_PARAMS_PRESET = {
     id: '', name: '默认 (V4.5 Full)',
     positivePrefix: 'best quality, amazing quality, very aesthetic, absurdres,',
     negativePrefix: 'lowres, bad anatomy, bad hands, missing fingers, extra digits, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry',
-    maxImages: 0,
+    maxImages: 2,
     maxCharactersPerImage: 0,
     params: {
         model: 'nai-diffusion-4-5-full', sampler: 'k_euler_ancestral', scheduler: 'karras',
@@ -141,7 +327,7 @@ const DEFAULT_PARAMS_PRESET_2 = {
     id: '', name: '3D 风格 (V4.5 Full)',
     positivePrefix: '3::3D::artist :ningen_mame,:meion, artist:nixeu, year 2025, artist:cc_lin, artist:kuroida, artist:mame_(hyeon5117), artist:nihnfinite8, artist:laevan, 4k, 10::best quality, absurdres, very aesthetic, detailed, masterpiece::,',
     negativePrefix: 'easynegative, bad, bad anatomy, bad composition, bad feet, bad hands, blurry, cropped, deformed, digit, error, extra digit, extra limb, extra missing fingers, fewer digits, imperfect eyes, inaccurate eyes, inaccurate limb, jpeg artifacts, low quality, lowres, negative_hand, missing limbs, normal quality, painting by bad-artist, signature, skewed eyes, text, ugly, ugly body, unnatural body, unnatural face, username, watermark, worst quality, missing fingers',
-    maxImages: 0,
+    maxImages: 2,
     maxCharactersPerImage: 0,
     params: {
         model: 'nai-diffusion-4-5-full', sampler: 'k_euler_ancestral', scheduler: 'karras',
@@ -156,12 +342,14 @@ const DEFAULT_SETTINGS = {
     updatedAt: 0,
     mode: 'manual',
     apiKey: '',
+    apiBaseUrl: '',
+    sendMode: 'frontend',
+    useImageBackendJobs: false,
+    insecureTLS: false,
     selectedParamsPresetId: null,
     paramsPresets: [],
     requestDelay: { min: 15000, max: 30000 },
     timeout: 60000,
-    llmApi: { provider: 'st', url: '', key: '', model: '', modelCache: [] },
-    useStream: false,
     useWorldInfo: false,    
     characterTags: [],
     autoLearnCharacters: false,
@@ -170,7 +358,6 @@ const DEFAULT_SETTINGS = {
     showFloorButton: true,
     showFloatingButton: false,
     advancedMode: true,
-    customPrompts: { topSystem: null, tagGuideContent: null, userJsonFormat: null },
     promptPresets: [],
     selectedPromptPresetId: null,
     worldbooks: { enabled: false, uploadedBooks: [], keywordFilterMode: 'auto' },
@@ -186,17 +373,24 @@ let autoBusy = false;
 let overlayCreated = false;
 let frameReady = false;
 let jsZipLoaded = false;
+let messagePackDecoderPromise = null;
 let moduleInitialized = false;
+let moduleLifecycleGeneration = 0;
 let touchState = null;
 let settingsCache = null;
 let settingsLoaded = false;
 let generationJobs = new Map();
-let imageRequestQueue = [];
-let activeImageRequest = null;
-let imageRequestSeq = 0;
+const generationJobSignals = new WeakMap();
+const backendJobMonitors = createImageBackendJobMonitorRegistry({ active: false });
+const novelImageRequestQueue = createSerialImageRequestQueue({
+    createAbortError: () => new NovelDrawError('已取消', ErrorType.ABORTED),
+    getCooldownMs: () => getNovelImageRequestDelay(),
+});
+const imageBackendJobsClient = createImageBackendJobsClient({ getHeaders: getRequestHeaders });
 let ensureNovelDrawPanelRef = null;
 let overlayResizeHandler = null;
 let afterAiGateDispose = null;
+let agentSettingsSurface = null;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 样式
@@ -210,6 +404,7 @@ function ensureStyles() {
 .xb-nd-img{margin:0.8em 0;text-align:center;position:relative;display:block;width:100%;border-radius:14px;padding:4px}
 .xb-nd-img[data-state="preview"]{border:1px dashed rgba(255,152,0,0.35)}
 .xb-nd-img[data-state="failed"]{border:1px dashed rgba(248,113,113,0.5);background:rgba(248,113,113,0.05);padding:20px}
+.xb-nd-img[data-state="pending"]{border:1px dashed rgba(212,165,116,0.4);background:rgba(212,165,116,0.06);padding:18px;color:inherit}
 .xb-nd-img.busy img{opacity:0.5}
 .xb-nd-img-wrap{position:relative;overflow:hidden;border-radius:10px;touch-action:pan-y pinch-zoom}
 .xb-nd-img img{width:auto;height:auto;max-width:100%;border-radius:10px;cursor:pointer;box-shadow:0 3px 15px rgba(0,0,0,0.25);display:block;user-select:none;-webkit-user-drag:none;transition:transform 0.25s ease,opacity 0.2s ease}
@@ -221,13 +416,13 @@ function ensureStyles() {
 @keyframes ndSlideOutRight{from{transform:translateX(0);opacity:1}to{transform:translateX(30%);opacity:0}}
 @keyframes ndSlideInLeft{from{transform:translateX(30%);opacity:0}to{transform:translateX(0);opacity:1}}
 @keyframes ndSlideInRight{from{transform:translateX(-30%);opacity:0}to{transform:translateX(0);opacity:1}}
-.xb-nd-nav-pill{position:absolute;bottom:10px;left:10px;display:inline-flex;align-items:center;gap:2px;background:rgba(0,0,0,0.75);border-radius:20px;padding:4px 6px;font-size:12px;color:rgba(255,255,255,0.9);font-weight:500;user-select:none;z-index:5;opacity:0.85;transition:opacity 0.2s}
-.xb-nd-nav-pill:hover{opacity:1}
+.xb-nd-nav-pill{position:absolute;bottom:10px;left:10px;display:inline-flex;align-items:center;gap:2px;background:rgba(0,0,0,0.75);border-radius:20px;padding:4px 6px;font-size:12px;color:rgba(255,255,255,0.9);font-weight:500;user-select:none;z-index:5;opacity:0.72;transition:opacity 0.2s}
+.xb-nd-nav-pill:hover{opacity:0.92}
 .xb-nd-nav-arrow{width:24px;height:24px;border:none;background:transparent;color:rgba(255,255,255,0.8);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:14px;transition:background 0.15s,color 0.15s;padding:0}
 .xb-nd-nav-arrow:hover{background:rgba(255,255,255,0.15);color:#fff}
 .xb-nd-nav-arrow:disabled{opacity:0.3;cursor:not-allowed}
 .xb-nd-nav-text{min-width:36px;text-align:center;font-variant-numeric:tabular-nums;padding:0 2px}
-@media(hover:none),(pointer:coarse){.xb-nd-nav-pill{opacity:0.9;padding:5px 8px}}
+@media(hover:none),(pointer:coarse){.xb-nd-nav-pill{opacity:0.78;padding:5px 8px}}
 .xb-nd-menu-wrap{position:absolute;top:8px;right:8px;z-index:10}
 .xb-nd-menu-wrap.busy{pointer-events:none;opacity:0.3}
 .xb-nd-menu-trigger{width:32px;height:32px;border-radius:50%;border:none;background:rgba(0,0,0,0.75);color:rgba(255,255,255,0.85);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;opacity:0.85}
@@ -331,14 +526,6 @@ function generateSlotId() { return `slot-${Date.now()}-${Math.random().toString(
 
 function generateImgId() { return `img-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`; }
 
-function joinTags(...parts) {
-    return parts
-        .filter(Boolean)
-        .map(p => String(p).trim().replace(/[，、]/g, ',').replace(/^,+|,+$/g, ''))
-        .filter(p => p.length > 0)
-        .join(', ');
-}
-
 function escapeHtml(str) { return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
 function escapeRegexChars(str) { return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
@@ -358,9 +545,22 @@ function findLastAIMessageId() {
 }
 
 function randomDelay(min, max) {
-    const safeMin = (min > 0) ? min : DEFAULT_SETTINGS.requestDelay.min;
-    const safeMax = (max > 0) ? max : DEFAULT_SETTINGS.requestDelay.max;
-    return safeMin + Math.random() * (safeMax - safeMin);
+    const configuredMin = Number(min);
+    const configuredMax = Number(max);
+    const safeMin = Number.isFinite(configuredMin) && configuredMin > 0
+        ? configuredMin
+        : DEFAULT_SETTINGS.requestDelay.min;
+    const safeMax = Number.isFinite(configuredMax) && configuredMax > 0
+        ? configuredMax
+        : DEFAULT_SETTINGS.requestDelay.max;
+    const lower = Math.min(safeMin, safeMax);
+    const upper = Math.max(safeMin, safeMax);
+    return lower + Math.random() * (upper - lower);
+}
+
+function getNovelImageRequestDelay() {
+    const requestDelay = getSettings().requestDelay;
+    return randomDelay(requestDelay?.min, requestDelay?.max);
 }
 
 function showToast(message, type = 'success', duration = 2500) {
@@ -370,13 +570,6 @@ function showToast(message, type = 'success', duration = 2500) {
     toast.style.cssText = `position:fixed;top:20px;left:50%;transform:translateX(-50%);background:${colors[type] || colors.info};color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;z-index:99999;animation:fadeInOut ${duration / 1000}s ease-in-out;max-width:80vw;text-align:center;word-break:break-all`;
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), duration);
-}
-
-function isMessageBeingEdited(messageId) {
-    if (!Number.isFinite(messageId)) return false;
-    const mesElement = document.querySelector(`.mes[mesid="${messageId}"]`);
-    if (!mesElement) return false;
-    return mesElement.querySelector('textarea.edit_textarea') !== null || mesElement.classList.contains('editing');
 }
 
 function getMesTextElement(messageId) {
@@ -404,16 +597,6 @@ function findTopLevelFlowContainer(root, node) {
     return current && current.parentElement === root ? current : null;
 }
 
-function insertAfterFlowContainer(target, node) {
-    if (!target?.parentElement || !node) return false;
-    let ref = target;
-    while (ref.nextElementSibling?.classList?.contains('xb-nd-img')) {
-        ref = ref.nextElementSibling;
-    }
-    ref.insertAdjacentElement('afterend', node);
-    return true;
-}
-
 function removeIfEmptyFlowContainer(container) {
     if (!(container instanceof HTMLElement)) return;
     if (!['P', 'DIV', 'BLOCKQUOTE', 'LI'].includes(container.tagName)) return;
@@ -425,19 +608,29 @@ function removeIfEmptyFlowContainer(container) {
 function replacePlaceholdersInDomBatch(root, replacements) {
     if (!root || !Array.isArray(replacements) || replacements.length === 0) return new Set();
 
+    const resolvedSlotIds = new Set();
+    for (const item of replacements) {
+        if (!item?.slotId || !item?.html) continue;
+        const existing = root.querySelector(buildDrawSlotSelector(item.slotId));
+        if (existing?.dataset?.state !== 'pending') continue;
+        const replacement = createNodeFromHtml(item.html);
+        if (!replacement) continue;
+        existing.replaceWith(replacement);
+        resolvedSlotIds.add(item.slotId);
+    }
     const pending = replacements.filter(item =>
         item?.slotId &&
         item?.html &&
-        !root.querySelector(`.xb-nd-img[data-slot-id="${item.slotId}"]`)
+        !resolvedSlotIds.has(item.slotId) &&
+        !root.querySelector(buildDrawSlotSelector(item.slotId))
     );
-    if (pending.length === 0) return new Set();
+    if (pending.length === 0) return resolvedSlotIds;
 
     const placeholderMap = new Map(pending.map(item => [createPlaceholder(item.slotId), item]));
     const placeholderRegex = new RegExp(
         Array.from(placeholderMap.keys()).map(escapeRegexChars).join('|'),
         'g'
     );
-    const resolvedSlotIds = new Set();
     const nodePlans = new Map();
     const groupedByContainer = new Map();
     const orderedContainers = [];
@@ -510,61 +703,6 @@ function replacePlaceholdersInDomBatch(root, replacements) {
     return resolvedSlotIds;
 }
 
-function collectRenderedTextSegments(root) {
-    const segments = [];
-    let text = '';
-
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
-        acceptNode(node) {
-            if (node.nodeType === Node.ELEMENT_NODE) {
-                const el = node;
-                if (el.classList?.contains('xb-nd-img')) return NodeFilter.FILTER_REJECT;
-                if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return NodeFilter.FILTER_REJECT;
-                if (el.tagName === 'BR') return NodeFilter.FILTER_ACCEPT;
-                return NodeFilter.FILTER_SKIP;
-            }
-            return node.parentElement?.closest('.xb-nd-img')
-                ? NodeFilter.FILTER_REJECT
-                : NodeFilter.FILTER_ACCEPT;
-        }
-    });
-
-    let node;
-    while ((node = walker.nextNode())) {
-        const chunk = node.nodeType === Node.TEXT_NODE ? node.nodeValue : '\n';
-        if (!chunk) continue;
-        const start = text.length;
-        text += chunk;
-        segments.push({ node, start, end: text.length, text: chunk });
-    }
-
-    return { text, segments };
-}
-
-function insertPreviewByAnchor(root, slotId, anchor, html) {
-    if (!root || !slotId || !anchor) return false;
-    if (root.querySelector(`.xb-nd-img[data-slot-id="${slotId}"]`)) return true;
-
-    const { text, segments } = collectRenderedTextSegments(root);
-    if (!text || !segments.length) return false;
-
-    let position = findAnchorPosition(text, anchor);
-    if (position < 0) return false;
-    position = findNearestSentenceEnd(text, position);
-
-    const segment = segments.find(item => item.end >= position) || segments[segments.length - 1];
-    const replacementNode = createNodeFromHtml(html);
-    if (!segment || !replacementNode) return false;
-
-    const topLevelContainer = findTopLevelFlowContainer(root, segment.node);
-    if (topLevelContainer) {
-        return insertAfterFlowContainer(topLevelContainer, replacementNode);
-    }
-
-    root.appendChild(replacementNode);
-    return true;
-}
-
 function insertPreviewBatchIntoRenderedMessage({ messageId, patches }) {
     const mesTextEl = getMesTextElement(messageId);
     if (!mesTextEl || !Array.isArray(patches) || patches.length === 0) return false;
@@ -574,12 +712,7 @@ function insertPreviewBatchIntoRenderedMessage({ messageId, patches }) {
 
     patches.forEach(patch => {
         if (!patch?.slotId || !patch?.html || insertedSlotIds.has(patch.slotId)) return;
-        if (mesTextEl.querySelector(`.xb-nd-img[data-slot-id="${patch.slotId}"]`)) {
-            inserted = true;
-            return;
-        }
-
-        if (insertPreviewByAnchor(mesTextEl, patch.slotId, patch.anchor || '', patch.html)) {
+        if (mesTextEl.querySelector(buildDrawSlotSelector(patch.slotId))) {
             inserted = true;
         }
     });
@@ -587,10 +720,10 @@ function insertPreviewBatchIntoRenderedMessage({ messageId, patches }) {
     return inserted;
 }
 
-function insertPreviewIntoRenderedMessage({ messageId, slotId, html, anchor = '' }) {
+function insertPreviewIntoRenderedMessage({ messageId, slotId, html }) {
     return insertPreviewBatchIntoRenderedMessage({
         messageId,
-        patches: [{ slotId, html, anchor }],
+        patches: [{ slotId, html }],
     });
 
 }
@@ -599,28 +732,62 @@ function insertPreviewIntoRenderedMessage({ messageId, slotId, html, anchor = ''
 // 中止控制
 // ═══════════════════════════════════════════════════════════════════════════
 
-function abortGeneration(messageId = null) {
+// 中止分两种，绝不能混为一谈：
+// - reason 'user'：用户亲手停的（停止键、Escape、面板取消）。只有这一种才允许把取消
+//   传导到后端，删掉一个已经付过钱的任务。
+// - 其它 reason：模块卸载、聊天切换这类生命周期中止。前端必须停手，但后端任务要留着，
+//   靠恢复记录在下次打开时接回——否则「重载一次扩展」就等于烧掉一批图。
+function cancelPendingDrawRun(messageId) {
+    // Draw Run 归属于当前 swipe。用户在任务期间切换图片 Provider 后，
+    // 新 Provider 的按钮仍要能取消这一个既有任务。
+    if (!hasPendingDrawRun(messageId)) return false;
+    void cancelPendingDrawRuns(messageId).catch((error) => {
+        console.error('[NovelDraw] 后台 Draw Run 取消失败:', error);
+        toastr.error(error?.message || '后台画图取消失败，请稍后重试', '小白X画图');
+    });
+    return true;
+}
+
+function abortGeneration(messageId = null, { reason = 'user' } = {}) {
     if (messageId !== null && messageId !== undefined) {
         const job = generationJobs.get(String(messageId));
-        if (!job) return false;
-        job.controller.abort();
-        return true;
+        let aborted = false;
+        if (job) {
+            job.abortReason ||= reason;
+            if (reason === 'user') job.backendCancel.abort();
+            job.controller.abort();
+            aborted = true;
+        }
+        if (reason === 'user' && cancelPendingDrawRun(messageId)) aborted = true;
+        return aborted;
     }
 
     let aborted = false;
     generationJobs.forEach((job) => {
+        job.abortReason ||= reason;
+        if (reason === 'user') job.backendCancel.abort();
         job.controller.abort();
         aborted = true;
     });
     return aborted;
 }
 
-function isGenerating() {
+function isGenerating(messageId = null) {
+    if (messageId !== null && messageId !== undefined) {
+        const job = generationJobs.get(String(messageId));
+        return Boolean(job && job.chatId === String(getContext()?.chatId || ''));
+    }
     return autoBusy || generationJobs.size > 0;
 }
 
+export function getGenerationPhase(messageId) {
+    const job = generationJobs.get(String(messageId));
+    if (!job || job.chatId !== String(getContext()?.chatId || '')) return null;
+    return job.phase;
+}
+
 function hasGenerationJob(messageId) {
-    return generationJobs.has(String(messageId));
+    return isGenerating(messageId);
 }
 
 function createGenerationJob(messageId) {
@@ -631,11 +798,16 @@ function createGenerationJob(messageId) {
 
     const job = {
         key,
+        chatId: String(getContext()?.chatId || ''),
+        phase: 'starting',
         messageId,
         controller: new AbortController(),
+        backendCancel: new AbortController(),
+        abortReason: null,
         createdAt: Date.now(),
     };
     generationJobs.set(key, job);
+    generationJobSignals.set(job.controller.signal, job);
     return job;
 }
 
@@ -645,62 +817,8 @@ function releaseGenerationJob(job) {
     }
 }
 
-function notifyQueuedImageRequests() {
-    imageRequestQueue.forEach((item, index) => {
-        const ahead = (activeImageRequest ? 1 : 0) + index;
-        if (ahead > 0) {
-            item.onQueued?.({ ahead, position: ahead + 1 });
-        }
-    });
-}
-
-function pumpImageRequestQueue() {
-    if (activeImageRequest || imageRequestQueue.length === 0) return;
-
-    const item = imageRequestQueue.shift();
-    activeImageRequest = item;
-    notifyQueuedImageRequests();
-
-    Promise.resolve()
-        .then(async () => {
-            if (item.signal?.aborted) throw new NovelDrawError('已取消', ErrorType.UNKNOWN);
-            item.onStart?.();
-            return await item.run();
-        })
-        .then(item.resolve)
-        .catch(item.reject)
-        .finally(() => {
-            if (activeImageRequest === item) {
-                activeImageRequest = null;
-            }
-            notifyQueuedImageRequests();
-            pumpImageRequestQueue();
-        });
-}
-
-function enqueueImageRequest(run, { signal, onQueued, onStart } = {}) {
-    return new Promise((resolve, reject) => {
-        if (signal?.aborted) {
-            reject(new NovelDrawError('已取消', ErrorType.UNKNOWN));
-            return;
-        }
-
-        const item = { id: ++imageRequestSeq, run, signal, onQueued, onStart, resolve, reject };
-
-        signal?.addEventListener('abort', () => {
-            if (activeImageRequest === item) return;
-            const idx = imageRequestQueue.indexOf(item);
-            if (idx >= 0) {
-                imageRequestQueue.splice(idx, 1);
-                notifyQueuedImageRequests();
-                reject(new NovelDrawError('已取消', ErrorType.UNKNOWN));
-            }
-        }, { once: true });
-
-        imageRequestQueue.push(item);
-        notifyQueuedImageRequests();
-        pumpImageRequestQueue();
-    });
+function enqueueImageRequest(run, options = {}) {
+    return novelImageRequestQueue.enqueue(run, options);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -716,21 +834,17 @@ class NovelDrawError extends Error {
 }
 
 function classifyLlmError(e) {
-    const code = String(e?.code || '').toUpperCase();
-    const msg = String(e?.message || '').toLowerCase();
-
-    if (code === 'EMPTY_OUTPUT' || msg.includes('输出为空') || msg.includes('未返回内容')) {
-        return ErrorType.LLM_EMPTY;
-    }
-    if (code === 'PARSE_ERROR' || msg.includes('无法解析') || msg.includes('未解析到图片任务')) {
-        return ErrorType.PARSE;
-    }
-    return ErrorType.LLM;
+    return classifyScenePlannerErrorForUi(e, ErrorType);
 }
 
 function classifyError(e) {
-    if (e instanceof LLMServiceError) return classifyLlmError(e);
-    if (e instanceof NovelDrawError && e.errorType) return e.errorType;
+    if (e instanceof ScenePlannerError) return classifyLlmError(e);
+    if (e instanceof ScenePlacementError) {
+        return { ...ErrorType.SCENE_PLACEMENT, desc: e.message || ErrorType.SCENE_PLACEMENT.desc };
+    }
+    if (e instanceof NovelDrawError && e.errorType) {
+        return { ...e.errorType, desc: e.message || e.errorType.desc };
+    }
     const msg = (e?.message || '').toLowerCase();
     if (msg.includes('network') || msg.includes('fetch') || msg.includes('failed to fetch')) return ErrorType.NETWORK;
     if (msg.includes('401') || msg.includes('key') || msg.includes('auth')) return ErrorType.AUTH;
@@ -744,20 +858,32 @@ function classifyError(e) {
     return { ...ErrorType.UNKNOWN, desc: e?.message || '未知错误' };
 }
 
-function parseApiError(status, text) {
+function parseApiError(status, text, fallbackType = ErrorType.UNKNOWN) {
     switch (status) {
         case 401: return new NovelDrawError('API Key 无效', ErrorType.AUTH);
         case 402: return new NovelDrawError('Anlas 不足', ErrorType.QUOTA);
+        case 408:
+        case 504: return new NovelDrawError('请求超时', ErrorType.TIMEOUT);
         case 429: return new NovelDrawError('当前并发繁忙，请稍后重试', ErrorType.BUSY);
         case 500:
         case 502:
         case 503: return new NovelDrawError('服务不可用', ErrorType.NETWORK);
-        default: return new NovelDrawError(`失败: ${text || status}`, ErrorType.UNKNOWN);
+        default: return new NovelDrawError(`失败: ${text || status}`, fallbackType);
     }
 }
 
 function handleFetchError(e) {
     if (e.name === 'AbortError') return new NovelDrawError('超时', ErrorType.TIMEOUT);
+    if (e instanceof NovelV5RequestError) return new NovelDrawError(e.message, ErrorType.REQUEST_CONFIG);
+    if (e instanceof NovelImageResponseError) return new NovelDrawError(e.message, ErrorType.PARSE);
+    if (e instanceof NovelV5StreamError) {
+        const type = e.code === 'V5_PROVIDER_ERROR'
+            ? ErrorType.PROVIDER
+            : e.code === 'V5_STREAM_READ_FAILED'
+                ? ErrorType.NETWORK
+                : ErrorType.PARSE;
+        return new NovelDrawError(e.message, type);
+    }
     if (e.message?.includes('Failed to fetch')) return new NovelDrawError('网络错误', ErrorType.NETWORK);
     if (e instanceof NovelDrawError) return e;
     return new NovelDrawError(e.message || '未知错误', ErrorType.UNKNOWN);
@@ -767,41 +893,137 @@ function handleFetchError(e) {
 // 设置管理
 // ═══════════════════════════════════════════════════════════════════════════
 
-function normalizeSettings(saved) {
-    const merged = { ...DEFAULT_SETTINGS, ...(saved || {}) };
-    merged.advancedMode = true;
-    merged.llmApi = normalizeDrawLlmApi({ ...DEFAULT_SETTINGS.llmApi, ...(saved?.llmApi || {}) });
-    merged.customPrompts = { ...DEFAULT_SETTINGS.customPrompts, ...(saved?.customPrompts || {}) };
-    merged.worldbooks = { ...DEFAULT_SETTINGS.worldbooks, ...(saved?.worldbooks || {}) };
-    if (!Array.isArray(merged.worldbooks.uploadedBooks)) merged.worldbooks.uploadedBooks = [];
-    delete merged.worldbooks.selectedBooks; // 迁移：旧格式不兼容，清除
+function normalizeV5QualityPresetId(value, qualityToggle) {
+    const id = String(value || '');
+    if (V5_QUALITY_IDS.includes(id)) return id;
+    return qualityToggle === false ? 'none' : 'standard';
+}
+
+function normalizeV5UcPresetId(value, legacyPreset) {
+    const id = String(value || '');
+    if (V5_UC_IDS.includes(id)) return id;
+    return ({ 0: 'heavy', 1: 'light', 2: 'humanFocus', 3: 'none' })[Number(legacyPreset)] || 'heavy';
+}
+
+function normalizeParamsPreset(preset, index) {
+    const source = preset && typeof preset === 'object' && !Array.isArray(preset) ? preset : {};
+    const params = source.params && typeof source.params === 'object' && !Array.isArray(source.params)
+        ? source.params
+        : {};
+    const qualityToggle = params.qualityToggle !== false;
+    const ucPreset = [0, 1, 2, 3].includes(Number(params.ucPreset)) ? Number(params.ucPreset) : 0;
+    const rawSeed = params.seed;
+    const seed = rawSeed == null || String(rawSeed).trim() === '' ? -1 : Number(rawSeed);
+    return {
+        id: String(source.id || `params-${Date.now()}-${index}`),
+        name: String(source.name || `配置-${index + 1}`),
+        positivePrefix: String(source.positivePrefix || ''),
+        negativePrefix: String(source.negativePrefix || ''),
+        maxImages: source.maxImages == null
+            ? 2
+            : Math.max(0, Number(source.maxImages) || 0),
+        maxCharactersPerImage: Math.max(0, Number(source.maxCharactersPerImage) || 0),
+        params: {
+            model: String(params.model || DEFAULT_PARAMS_PRESET.params.model).trim(),
+            sampler: String(params.sampler || DEFAULT_PARAMS_PRESET.params.sampler),
+            scheduler: String(params.scheduler || DEFAULT_PARAMS_PRESET.params.scheduler),
+            steps: Number(params.steps) > 0 ? Number(params.steps) : DEFAULT_PARAMS_PRESET.params.steps,
+            scale: Number.isFinite(Number(params.scale)) ? Number(params.scale) : DEFAULT_PARAMS_PRESET.params.scale,
+            width: Number(params.width) > 0 ? Number(params.width) : DEFAULT_PARAMS_PRESET.params.width,
+            height: Number(params.height) > 0 ? Number(params.height) : DEFAULT_PARAMS_PRESET.params.height,
+            seed: Number.isFinite(seed) ? seed : -1,
+            qualityToggle,
+            autoSmea: params.autoSmea === true,
+            ucPreset,
+            cfg_rescale: Number.isFinite(Number(params.cfg_rescale)) ? Number(params.cfg_rescale) : 0,
+            v5QualityPresetId: normalizeV5QualityPresetId(params.v5QualityPresetId, qualityToggle),
+            v5UcPresetId: normalizeV5UcPresetId(params.v5UcPresetId, ucPreset),
+            transparentBackground: params.transparentBackground === true,
+            variety_boost: params.variety_boost === true,
+            sm: params.sm === true,
+            sm_dyn: params.sm_dyn === true,
+            decrisper: params.decrisper === true,
+        },
+    };
+}
+
+function normalizeSettings(saved = {}) {
+    const source = saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+    const rawWorldbooks = source.worldbooks && typeof source.worldbooks === 'object'
+        && !Array.isArray(source.worldbooks)
+        ? source.worldbooks
+        : {};
+    const rawDelay = source.requestDelay && typeof source.requestDelay === 'object'
+        ? source.requestDelay
+        : {};
+    const merged = {
+        configVersion: Number(source.configVersion) || 0,
+        updatedAt: Number(source.updatedAt) || 0,
+        mode: source.mode === 'auto' ? 'auto' : 'manual',
+        apiKey: String(source.apiKey || ''),
+        apiBaseUrl: String(source.apiBaseUrl || '').trim(),
+        sendMode: source.sendMode === 'backend' ? 'backend' : 'frontend',
+        useImageBackendJobs: source.useImageBackendJobs === true,
+        insecureTLS: source.insecureTLS === true,
+        selectedParamsPresetId: source.selectedParamsPresetId == null
+            ? null
+            : String(source.selectedParamsPresetId),
+        paramsPresets: Array.isArray(source.paramsPresets)
+            ? source.paramsPresets.map(normalizeParamsPreset)
+            : [],
+        requestDelay: {
+            min: Number(rawDelay.min) > 0 ? Number(rawDelay.min) : DEFAULT_SETTINGS.requestDelay.min,
+            max: Number(rawDelay.max) > 0 ? Number(rawDelay.max) : DEFAULT_SETTINGS.requestDelay.max,
+        },
+        timeout: Number(source.timeout) > 0 ? Number(source.timeout) : DEFAULT_SETTINGS.timeout,
+        cacheDays: normalizeSharedCacheDays(source.cacheDays),
+        useWorldInfo: source.useWorldInfo === true,
+        characterTags: Array.isArray(source.characterTags) ? source.characterTags : [],
+        autoLearnCharacters: source.autoLearnCharacters === true,
+        autoLearnMode: source.autoLearnMode,
+        overrideSize: String(source.overrideSize || 'default'),
+        showFloorButton: source.showFloorButton !== false,
+        showFloatingButton: source.showFloatingButton === true,
+        advancedMode: true,
+        promptPresets: Array.isArray(source.promptPresets)
+            ? source.promptPresets.filter((preset) => preset && typeof preset === 'object')
+            : [],
+        selectedPromptPresetId: source.selectedPromptPresetId == null
+            ? null
+            : String(source.selectedPromptPresetId),
+        _promptTemplateVersion: Number(source._promptTemplateVersion) || 0,
+        worldbooks: {
+            enabled: rawWorldbooks.enabled === true,
+            uploadedBooks: Array.isArray(rawWorldbooks.uploadedBooks) ? rawWorldbooks.uploadedBooks : [],
+            keywordFilterMode: rawWorldbooks.keywordFilterMode === 'all_active' ? 'all_active' : 'auto',
+        },
+        danbooruLocalDB: source.danbooruLocalDB === true,
+        messageFilterRules: Array.isArray(source.messageFilterRules) ? source.messageFilterRules : [],
+    };
 
     if (!merged.paramsPresets?.length) {
         const id1 = generateSlotId();
         const id2 = generateSlotId();
         merged.paramsPresets = [
-            { ...JSON.parse(JSON.stringify(DEFAULT_PARAMS_PRESET)), id: id1 },
-            { ...JSON.parse(JSON.stringify(DEFAULT_PARAMS_PRESET_2)), id: id2 },
+            normalizeParamsPreset({ ...cloneSettingsObject(DEFAULT_PARAMS_PRESET), id: id1 }, 0),
+            normalizeParamsPreset({ ...cloneSettingsObject(DEFAULT_PARAMS_PRESET_2), id: id2 }, 1),
         ];
         merged.selectedParamsPresetId = id1;
-    }
-    // 确保每个 paramsPreset 都有 maxImages / maxCharactersPerImage
-    for (const p of merged.paramsPresets) {
-        if (typeof p.maxImages !== 'number') p.maxImages = 0;
-        if (typeof p.maxCharactersPerImage !== 'number') p.maxCharactersPerImage = 0;
     }
     if (!merged.selectedParamsPresetId) merged.selectedParamsPresetId = merged.paramsPresets[0]?.id;
     if (!Number.isFinite(Number(merged.updatedAt))) merged.updatedAt = 0;
 
     merged.characterTags = (merged.characterTags || []).map(char => ({
         id: char.id || generateSlotId(),
+        enabled: char.enabled !== false,
         name: char.name || '',
         aliases: char.aliases || [],
         type: char.type || 'girl',
         appearance: char.appearance || char.tags || '',
         negativeTags: char.negativeTags || '',
         danbooruTag: char.danbooruTag || '',
-        outfits: normalizeCharacterOutfits(char.outfits || char.costumes || char.clothes || []),
+        outfits: normalizeNamedTagList(char.outfits || char.costumes || char.clothes || []),
+        dynamicStates: normalizeNamedTagList(char.dynamicStates || []),
     }));
 
     merged.autoLearnCharacters = !!merged.autoLearnCharacters;
@@ -809,76 +1031,40 @@ function normalizeSettings(saved) {
     merged.autoLearnMode = ['new_only', 'auto_update'].includes(merged.autoLearnMode)
         ? merged.autoLearnMode : 'new_only';
 
-    delete merged.llmPresets;
-    delete merged.selectedLlmPresetId;
-
-    // ── 提示词预设迁移 ──
-    // 与参数预设一致：存储实际值，不使用 null-means-default
-    if (!Array.isArray(merged.promptPresets)) merged.promptPresets = [];
+    // 提示词预设存储实际值，不使用 null-means-default。
     if (!merged.promptPresets.length) {
         const id1 = generateSlotId();
         const id2 = generateSlotId();
-        const id3 = generateSlotId();
-        const cp = merged.customPrompts || {};
         merged.promptPresets = [
-            { id: id1, name: '默认-模型要求高',
+            { id: id1, name: '默认-完整规则',
               topSystem: DEFAULT_PROMPT_CONFIG.topSystem,
-              tagGuideContent: null,
-              userJsonFormat: DEFAULT_PROMPT_CONFIG.userJsonFormat },
-            { id: id2, name: '默认-第一人称视角',
+              sceneRules: DEFAULT_PROMPT_CONFIG.sceneRules },
+            { id: id2, name: '默认-第一人称完整规则',
               topSystem: DEFAULT_PROMPT_CONFIG.topSystemPov,
-              tagGuideContent: null,
-              userJsonFormat: DEFAULT_PROMPT_CONFIG.userJsonFormat },
-            { id: id3, name: '默认-模型要求低',
-              topSystem: cp.topSystem || DEFAULT_PROMPT_CONFIG.topSystem,
-              tagGuideContent: cp.tagGuideContent || null,
-              userJsonFormat: cp.userJsonFormat || LEGACY_USER_JSON_FORMAT },
+              sceneRules: DEFAULT_PROMPT_CONFIG.sceneRules },
         ];
         merged.selectedPromptPresetId = id1;
     }
-    // 迁移旧版预设名称
-    const presetNameMigration = { '默认1': '默认-模型要求高', '默认2': '默认-模型要求低' };
-    for (const p of merged.promptPresets) {
-        if (presetNameMigration[p.name]) p.name = presetNameMigration[p.name];
+    merged._promptTemplateVersion = PROMPT_TEMPLATE_VERSION;
+    merged.promptPresets = merged.promptPresets.map((preset, index) => {
+        const isPov = preset.name === '默认-第一人称完整规则';
+        return {
+            id: String(preset.id || `prompt-${Date.now()}-${index}`),
+            name: String(preset.name || `提示词预设 ${index + 1}`),
+            topSystem: typeof preset.topSystem === 'string'
+                ? preset.topSystem
+                : (isPov ? DEFAULT_PROMPT_CONFIG.topSystemPov : DEFAULT_PROMPT_CONFIG.topSystem),
+            sceneRules: typeof preset.sceneRules === 'string'
+                ? preset.sceneRules
+                : DEFAULT_PROMPT_CONFIG.sceneRules,
+            modelGuideOverrides: normalizeNovelPromptGuideOverrides(preset.modelGuideOverrides),
+            modelContractOverrides: normalizeNovelModelContractOverrides(preset.modelContractOverrides),
+        };
+    });
+    if (!merged.selectedPromptPresetId
+        || !merged.promptPresets.some(preset => preset.id === merged.selectedPromptPresetId)) {
+        merged.selectedPromptPresetId = merged.promptPresets[0]?.id || null;
     }
-    // 默认预设内容跟随代码更新：当模板版本号变化时，自动更新未被用户手动编辑的默认预设
-    const defaultPresetNames = ['默认-模型要求高', '默认-第一人称视角', '默认-模型要求低'];
-    const storedVersion = merged._promptTemplateVersion || 0;
-    if (storedVersion < PROMPT_TEMPLATE_VERSION) {
-        // v3: 注入新的第一人称视角预设（如果不存在）
-        if (!merged.promptPresets.some(p => p.name === '默认-第一人称视角')) {
-            const insertIdx = merged.promptPresets.findIndex(p => p.name === '默认-模型要求低');
-            const povPreset = {
-                id: generateSlotId(), name: '默认-第一人称视角',
-                topSystem: DEFAULT_PROMPT_CONFIG.topSystemPov,
-                tagGuideContent: null,
-                userJsonFormat: DEFAULT_PROMPT_CONFIG.userJsonFormat,
-            };
-            if (insertIdx >= 0) merged.promptPresets.splice(insertIdx, 0, povPreset);
-            else merged.promptPresets.push(povPreset);
-            console.log('[NovelDraw] 已注入新预设 "默认-第一人称视角"');
-        }
-        for (const p of merged.promptPresets) {
-            if (defaultPresetNames.includes(p.name)) {
-                if (p.name === '默认-第一人称视角') {
-                    p.topSystem = DEFAULT_PROMPT_CONFIG.topSystemPov;
-                } else {
-                    p.topSystem = DEFAULT_PROMPT_CONFIG.topSystem;
-                }
-                p.userJsonFormat = p.name === '默认-模型要求低' ? LEGACY_USER_JSON_FORMAT : DEFAULT_PROMPT_CONFIG.userJsonFormat;
-                p.tagGuideContent = null;
-                console.log(`[NovelDraw] 默认预设 "${p.name}" 已随版本更新 (v${storedVersion} → v${PROMPT_TEMPLATE_VERSION})`);
-            }
-        }
-        merged._promptTemplateVersion = PROMPT_TEMPLATE_VERSION;
-    }
-    // 迁移：将旧版 null 字段替换为具体默认值（tagGuideContent 需文件加载后处理）
-    for (const p of merged.promptPresets) {
-        if (p.topSystem == null) p.topSystem = DEFAULT_PROMPT_CONFIG.topSystem;
-        if (p.userJsonFormat == null) p.userJsonFormat = DEFAULT_PROMPT_CONFIG.userJsonFormat;
-    }
-    if (!merged.selectedPromptPresetId) merged.selectedPromptPresetId = merged.promptPresets[0]?.id;
-
     // ── 消息过滤规则规范化 ──
     if (!Array.isArray(merged.messageFilterRules)) merged.messageFilterRules = [];
     merged.messageFilterRules = merged.messageFilterRules
@@ -888,45 +1074,41 @@ function normalizeSettings(saved) {
     return merged;
 }
 
-/** tagGuideContent 依赖文件异步加载，normalizeSettings 时不可用；在 loadTagGuide 后调一次 */
-function migrateNullTagGuide() {
-    const guide = getLoadedTagGuide();
-    if (!guide) return;
-    const s = getSettings();
-    let migrated = false;
-    for (const p of s.promptPresets) {
-        if (p.tagGuideContent == null) {
-            p.tagGuideContent = guide;
-            migrated = true;
-        }
-    }
-    if (migrated) {
-        console.log('[NovelDraw] migrated null tagGuideContent → concrete default');
-        saveSettings(s);
-    }
-}
-
 async function loadSettings() {
     if (settingsLoaded && settingsCache) return settingsCache;
 
     try {
-        const saved = await NovelDrawStorage.get(SERVER_FILE_KEY, null);
+        const saved = await NovelDrawStorage.getStrict(SERVER_FILE_KEY, null);
         console.log('[NovelDraw] loadSettings from server: autoLearn=%s, advMode=%s',
             saved?.autoLearnCharacters, saved?.advancedMode);
-        settingsCache = normalizeSettings(saved || {});
+        const promptUpgrade = migrateLegacyNovelPromptSettings(saved || {}, DEFAULT_PROMPT_CONFIG, PROMPT_TEMPLATE_VERSION);
+        settingsCache = normalizeSettings(promptUpgrade.settings);
 
-        if (!saved || saved.configVersion !== CONFIG_VERSION) {
+        if (!saved
+            || saved.configVersion !== CONFIG_VERSION
+            || Number(saved._promptTemplateVersion) !== PROMPT_TEMPLATE_VERSION
+            || promptUpgrade.migrated) {
             settingsCache.configVersion = CONFIG_VERSION;
             settingsCache.updatedAt = Date.now();
-            await NovelDrawStorage.setAndSave(SERVER_FILE_KEY, settingsCache, { silent: true });
+            const storageValue = mergeNovelDrawProviderSettingsIntoStorageRoot(saved, settingsCache);
+            const savedMigration = await NovelDrawStorage.setAndSave(SERVER_FILE_KEY, storageValue, { silent: true });
+            if (!savedMigration) throw new Error('默认设置保存失败');
         }
+        settingsLoaded = true;
+        if (promptUpgrade.upstreamPresetCount > 0) {
+            const customNotice = promptUpgrade.customPresetCount > 0
+                ? `；其中 ${promptUpgrade.customPresetCount} 个自定义预设的旧规则已保留，请在提示词设置中检查`
+                : '';
+            showToast(`已升级 ${promptUpgrade.upstreamPresetCount} 个旧版 NovelAI 提示词预设${customNotice}`, 'info', 7000);
+        }
+        return settingsCache;
     } catch (e) {
         console.error('[NovelDraw] 加载设置失败:', e);
-        settingsCache = normalizeSettings({});
+        settingsCache = null;
+        settingsLoaded = false;
+        showToast('无法读取 NovelAI 配置，已禁止保存，请稍后重试', 'error', 5000);
+        throw e;
     }
-
-    settingsLoaded = true;
-    return settingsCache;
 }
 
 function getSettings() {
@@ -939,24 +1121,48 @@ function getSettings() {
         console.warn('[NovelDraw] promptPresets 为空，重新创建');
         const id1 = generateSlotId();
         const id2 = generateSlotId();
-        const id3 = generateSlotId();
         settingsCache.promptPresets = [
-            { id: id1, name: '默认-模型要求高',
+            { id: id1, name: '默认-完整规则',
               topSystem: DEFAULT_PROMPT_CONFIG.topSystem,
-              tagGuideContent: getLoadedTagGuide() || '',
-              userJsonFormat: DEFAULT_PROMPT_CONFIG.userJsonFormat },
-            { id: id2, name: '默认-第一人称视角',
+              sceneRules: DEFAULT_PROMPT_CONFIG.sceneRules },
+            { id: id2, name: '默认-第一人称完整规则',
               topSystem: DEFAULT_PROMPT_CONFIG.topSystemPov,
-              tagGuideContent: getLoadedTagGuide() || '',
-              userJsonFormat: DEFAULT_PROMPT_CONFIG.userJsonFormat },
-            { id: id3, name: '默认-模型要求低',
-              topSystem: DEFAULT_PROMPT_CONFIG.topSystem,
-              tagGuideContent: getLoadedTagGuide() || '',
-              userJsonFormat: LEGACY_USER_JSON_FORMAT },
+              sceneRules: DEFAULT_PROMPT_CONFIG.sceneRules },
         ];
         settingsCache.selectedPromptPresetId = id1;
     }
     return settingsCache;
+}
+
+/**
+ * NovelAI Provider 设置与共享画图设置共用同一存储根对象，但运行时所有共享字段
+ * 必须从 draw-settings 的单一缓存读取，避免其他 Provider 保存后仍使用旧副本。
+ */
+function getRuntimeSettings() {
+    const providerSettings = getSettings();
+    const sharedSettings = getSharedDrawSettings();
+    return {
+        ...providerSettings,
+        timeout: sharedSettings.timeout,
+        cacheDays: sharedSettings.cacheDays,
+        useWorldInfo: sharedSettings.useWorldInfo,
+        characterTags: sharedSettings.characterTags,
+        worldbooks: sharedSettings.worldbooks,
+        danbooruLocalDB: sharedSettings.danbooruLocalDB,
+        messageFilterRules: sharedSettings.messageFilterRules,
+    };
+}
+
+function getGenerationSnapshot() {
+    const settings = getSettings();
+    const overrideSize = String(settings.overrideSize || 'default');
+    return {
+        fingerprint: {
+            version: 1,
+            overrideSize,
+        },
+        execution: Object.freeze({ overrideSize }),
+    };
 }
 
 function cloneSettingsObject(obj) {
@@ -974,7 +1180,14 @@ function saveSettings(s) {
     return next;
 }
 
-async function persistSettings(s, okText = '已保存', { notify = true, silent = false, target = '' } = {}) {
+let settingsUpdateQueue = Promise.resolve();
+
+async function persistSettingsNow(s, okText = '已保存', { notify = true, silent = false, target = '' } = {}) {
+    if (!settingsLoaded) {
+        console.error('[NovelDraw] 设置尚未成功加载，拒绝保存');
+        if (notify) postStatus('error', '配置尚未成功加载，已禁止保存', target);
+        return false;
+    }
     const next = normalizeSettings(s);
     next.updatedAt = Date.now();
     next.configVersion = CONFIG_VERSION;
@@ -994,7 +1207,10 @@ async function persistSettings(s, okText = '已保存', { notify = true, silent 
     try {
         // 先切到最新内存态，避免“刚保存立刻生成”仍读到旧 key / 旧参数。
         settingsCache = next;
-        const ok = await NovelDrawStorage.setAndSave(SERVER_FILE_KEY, next, { silent });
+        const ok = await NovelDrawStorage.updateAndSave((storageRoot) => {
+            const latest = storageRoot[SERVER_FILE_KEY];
+            storageRoot[SERVER_FILE_KEY] = mergeNovelDrawProviderSettingsIntoStorageRoot(latest, next);
+        }, { silent });
         if (ok !== false) {
             if (notify) {
                 postStatus('success', okText, target);
@@ -1019,19 +1235,67 @@ async function persistSettings(s, okText = '已保存', { notify = true, silent 
     }
 }
 
-async function updateSettingsPersistent(mutator, okText = '已保存', options = {}) {
-    let base = getSettings();
-    try {
-        const latest = await NovelDrawStorage.get(SERVER_FILE_KEY, null);
-        if (latest && typeof latest === 'object') {
-            base = normalizeSettings(latest);
-        }
-    } catch {}
-    const draft = cloneSettingsObject(base);
-    if (typeof mutator === 'function') {
-        await mutator(draft);
+function persistSettings(s, okText = '已保存', options = {}) {
+    const update = () => persistSettingsNow(s, okText, options);
+    const result = settingsUpdateQueue.then(update, update);
+    settingsUpdateQueue = result.catch(() => {});
+    return result;
+}
+
+async function runSettingsPersistentUpdate(mutator, okText, options) {
+    if (!settingsLoaded) {
+        console.error('[NovelDraw] 设置尚未成功加载，拒绝保存');
+        if (options.notify !== false) postStatus('error', '配置尚未成功加载，已禁止保存', options.target || '');
+        return false;
     }
-    return persistSettings(draft, okText, options);
+    const { notify = true, silent = false, target = '' } = options;
+    const previous = settingsCache ? cloneSettingsObject(settingsCache) : null;
+    try {
+        const ok = await NovelDrawStorage.updateAndSave(async (storageRoot) => {
+            const latest = storageRoot[SERVER_FILE_KEY];
+            const base = normalizeSettings(latest || getSettings());
+            const draft = cloneSettingsObject(base);
+            if (typeof mutator === 'function') {
+                await mutator(draft);
+            }
+            const next = normalizeSettings(draft);
+            next.updatedAt = Date.now();
+            next.configVersion = CONFIG_VERSION;
+            settingsCache = next;
+            storageRoot[SERVER_FILE_KEY] = mergeNovelDrawProviderSettingsIntoStorageRoot(latest, next);
+        }, { silent });
+        if (ok !== false) {
+            if (notify) postStatus('success', okText, target);
+            return true;
+        }
+        settingsCache = previous;
+        if (notify) postStatus('error', '保存失败', target);
+        return false;
+    } catch (error) {
+        settingsCache = previous;
+        console.error('[NovelDraw] 更新设置失败:', error);
+        if (notify) postStatus('error', `保存失败：${error?.message || '配置写入失败'}`, target);
+        return false;
+    }
+}
+
+function updateSettingsPersistent(mutator, okText = '已保存', options = {}) {
+    const update = () => runSettingsPersistentUpdate(mutator, okText, options);
+    const result = settingsUpdateQueue.then(update, update);
+    settingsUpdateQueue = result.catch(() => {});
+    return result;
+}
+
+async function updateSharedSettingsPersistent(mutator, okText = '已保存', options = {}) {
+    const { notify = true, silent = false, target = '' } = options;
+    const ok = await updateSharedDrawSettingsPersistent(mutator, okText, {
+        notify: false,
+        silent,
+    });
+    if (notify) {
+        postStatus(ok ? 'success' : 'error', ok ? okText : '保存失败', target);
+    }
+    return ok;
 }
 
 async function saveSettingsAndToast(s, okText = '已保存') {
@@ -1043,9 +1307,24 @@ function getActiveParamsPreset() {
     return s.paramsPresets.find(p => p.id === s.selectedParamsPresetId) || s.paramsPresets[0];
 }
 
-function getActivePromptPreset() {
-    const s = getSettings();
+function getActivePromptPreset(s = getSettings()) {
     return s.promptPresets.find(p => p.id === s.selectedPromptPresetId) || s.promptPresets[0] || null;
+}
+
+function compactPromptGuideOverrides(value) {
+    const overrides = normalizeNovelPromptGuideOverrides(value);
+    for (const [guideId, content] of Object.entries(overrides)) {
+        if (content === getLoadedTagGuideById(guideId)) delete overrides[guideId];
+    }
+    return overrides;
+}
+
+function compactPromptContractOverrides(value) {
+    const overrides = normalizeNovelModelContractOverrides(value);
+    for (const [guideId, content] of Object.entries(overrides)) {
+        if (content === getDefaultNovelModelContractByGuideId(guideId)) delete overrides[guideId];
+    }
+    return overrides;
 }
 
 const NOVEL_QUICK_SIZE_OPTIONS = [
@@ -1111,6 +1390,33 @@ async function notifySettingsUpdated() {
 // JSZip
 // ═══════════════════════════════════════════════════════════════════════════
 
+async function loadMessagePackDecoder() {
+    if (!messagePackDecoderPromise) {
+        messagePackDecoderPromise = import('../../../../libs/msgpack.mjs')
+            .then(module => {
+                if (typeof module.decode !== 'function') {
+                    throw new TypeError('MessagePack vendor 未导出 decode');
+                }
+                return module.decode;
+            })
+            .catch(error => {
+                messagePackDecoderPromise = null;
+                throw error;
+            });
+    }
+    return messagePackDecoderPromise;
+}
+
+async function loadMessagePackDecoderForResponse(response, controller) {
+    try {
+        return await loadMessagePackDecoder();
+    } catch (error) {
+        await response.body?.cancel?.().catch(() => {});
+        controller.abort();
+        throw error;
+    }
+}
+
 async function ensureJSZip() {
     if (window.JSZip) return window.JSZip;
     if (jsZipLoaded) {
@@ -1135,30 +1441,17 @@ async function ensureJSZip() {
     });
 }
 
-async function extractImageFromZip(zipData) {
-    const JSZip = await ensureJSZip();
-    const zip = await JSZip.loadAsync(zipData);
-    const file = Object.values(zip.files).find(f => f.name.endsWith('.png') || f.name.endsWith('.webp'));
-    if (!file) throw new NovelDrawError('ZIP 无图片', ErrorType.PARSE);
-    return await file.async('base64');
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // 角色检测与标签组装
 // ═══════════════════════════════════════════════════════════════════════════
 
-function normalizeCharacterOutfits(outfits = []) {
-    return (Array.isArray(outfits) ? outfits : [])
-        .map(outfit => ({
-            name: String(outfit?.name || '').trim(),
-            tags: String(outfit?.tags || '').trim(),
+function normalizeNamedTagList(list = []) {
+    return (Array.isArray(list) ? list : [])
+        .map(item => ({
+            name: String(item?.name || '').trim(),
+            tags: String(item?.tags || '').trim(),
         }))
-        .filter(outfit => outfit.name || outfit.tags);
-}
-
-function buildKnownCharacterBasePrompt(character = {}) {
-    const naiTag = character.danbooruTag ? danbooruToNai(character.danbooruTag) : '';
-    return joinTags(naiTag, character.type, character.appearance);
+        .filter(item => item.name || item.tags);
 }
 
 function detectPresentCharacters(messageText, characterTags) {
@@ -1167,7 +1460,7 @@ function detectPresentCharacters(messageText, characterTags) {
     const present = [];
 
     for (const char of characterTags) {
-        if (!char.name) continue;
+        if (!isCharacterEnabled(char) || !char.name) continue;
         const names = [char.name, ...(char.aliases || [])].filter(Boolean);
         const isPresent = names.some(name => {
             const lowerName = name.toLowerCase();
@@ -1182,37 +1475,12 @@ function detectPresentCharacters(messageText, characterTags) {
                 appearance: char.appearance || '',
                 danbooruTag: char.danbooruTag || '',
                 negativeTags: char.negativeTags || '',
-                outfits: normalizeCharacterOutfits(char.outfits),
+                outfits: normalizeNamedTagList(char.outfits),
+                dynamicStates: normalizeNamedTagList(char.dynamicStates),
             });
         }
     }
     return present;
-}
-
-function assembleCharacterPrompts(sceneChars, knownCharacters) {
-    return sceneChars.map(char => {
-        const charLower = char.name.toLowerCase();
-        const known = knownCharacters.find(k =>
-            k.name.toLowerCase() === charLower
-            || (k.aliases || []).some(a => a.toLowerCase() === charLower)
-        );
-
-        if (known) {
-            const defaultCenter = { x: 0.5, y: 0.5 };
-            return {
-                prompt: joinTags(buildKnownCharacterBasePrompt(known), char.costume, char.action, char.interact),
-                uc: joinTags(known.negativeTags, char.uc),
-                center: gridToCoord(char.center) || defaultCenter
-            };
-        } else {
-            const naiTag = char.danbooru ? danbooruToNai(char.danbooru) : '';
-            return {
-                prompt: joinTags(naiTag, char.type, char.appear, char.costume, char.action, char.interact),
-                uc: char.uc || '',
-                center: gridToCoord(char.center) || { x: 0.5, y: 0.5 }
-            };
-        }
-    });
 }
 
 // ── 角色自动学习 ─────────────────────────────────────────────
@@ -1271,14 +1539,14 @@ function autoLearnFromTasks(tasks, settings) {
     const mode = settings.autoLearnMode || 'new_only';
 
     for (const [, char] of charMap) {
-        const found = knownTags.find(k =>
-            k.name.toLowerCase() === char.name.toLowerCase()
-            || (k.aliases || []).some(a => a.toLowerCase() === char.name.toLowerCase())
-        );
+        const match = resolveAutoLearnCharacter(char.name, knownTags);
+        if (match.action === 'skip') continue;
+        const found = match.character;
 
-        if (!found) {
+        if (match.action === 'create') {
             const newChar = {
                 id: generateSlotId(),
+                enabled: true,
                 name: char.name,
                 aliases: [],
                 type: char.type || 'girl',
@@ -1286,6 +1554,7 @@ function autoLearnFromTasks(tasks, settings) {
                 negativeTags: '',
                 danbooruTag: char.danbooru || '',
                 outfits: [],
+                dynamicStates: [],
             };
             // 本地 DB 自动匹配 danbooruTag
             if (isDanbooruDBLoaded() && !newChar.danbooruTag) {
@@ -1322,20 +1591,6 @@ function autoLearnFromTasks(tasks, settings) {
     return result;
 }
 
-// ── 5x5 网格坐标 → NAI 浮点映射 ──────────────────────────────────
-const GRID_COL = { A: 0.1, B: 0.3, C: 0.5, D: 0.7, E: 0.9 };
-const GRID_ROW = { 1: 0.1, 2: 0.3, 3: 0.5, 4: 0.7, 5: 0.9 };
-
-function gridToCoord(grid) {
-    if (!grid || typeof grid !== 'string') return null;
-    const m = grid.trim().toUpperCase().match(/^([A-E])([1-5])$/);
-    if (!m) {
-        console.warn(`[NovelDraw] 无效坐标 "${grid}"，使用默认中心位置`);
-        return null;
-    }
-    return { x: GRID_COL[m[1]], y: GRID_ROW[m[2]] };
-}
-
 function countFields(char) {
     return ['type', 'appear', 'costume', 'action', 'interact', 'danbooru']
         .filter(f => char[f]).length;
@@ -1345,256 +1600,568 @@ function countFields(char) {
 // Danbooru 工具函数
 // ═══════════════════════════════════════════════════════════════════════════
 
-function danbooruToNai(tag) {
-    return tag.replace(/_/g, ' ');
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // NovelAI API
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function testApiConnection(apiKey) {
-    if (!apiKey) throw new NovelDrawError('请填写 API Key', ErrorType.AUTH);
-    const controller = new AbortController();
-    const tid = setTimeout(() => controller.abort(), API_TEST_TIMEOUT);
+// 后端发送：前端负责解析完整端点，ST server plugin 只代发并返回 base64。
+async function generateViaBackend({ url, legacyBaseUrl, apiKey, insecure, payload, signal, timeout }) {
+    let res;
     try {
-        const res = await fetch(NOVELAI_IMAGE_API, {
+        const request = endpoint => fetch(endpoint, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ input: 'test', model: 'nai-diffusion-3', action: 'generate', parameters: { width: 64, height: 64, steps: 1 } }),
+            headers: getRequestHeaders(),
+            signal,
+            body: JSON.stringify({
+                url: endpoint === NAI_BACKEND_GENERATE ? legacyBaseUrl : url,
+                key: apiKey,
+                insecure: !!insecure,
+                payload,
+                timeout,
+            }),
+        });
+        res = await request(NAI_BACKEND_GENERATE_V2);
+        // Compatibility with the upstream-released v1.0.1 server plugin.
+        // Remove this fallback when that public backend API is retired.
+        if (res.status === 404) {
+            await res.body?.cancel?.().catch(() => {});
+            res = await request(NAI_BACKEND_GENERATE);
+        }
+    } catch (e) {
+        if (e?.name === 'AbortError') throw e;
+        throw new NovelDrawError('后端代发失败（未安装 littlewhitebox-image-jobs 插件或 SillyTavern 未开启 server plugins）', ErrorType.NETWORK);
+    }
+    if (res.status === 404) {
+        throw new NovelDrawError('后端端点不存在：请安装 plugins/littlewhitebox-image-jobs 并在 config.yaml 开启 enableServerPlugins 后重启酒馆', ErrorType.NETWORK);
+    }
+    if (!res.ok) {
+        throw parseApiError(res.status, await res.text().catch(() => ''));
+    }
+    const data = await res.json().catch(() => null);
+    if (!data || typeof data !== 'object' || data.ok !== true) {
+        const status = data?.status;
+        const msg = data?.error || '后端生图失败';
+        if (status) throw parseApiError(status, msg);
+        if (data?.code === 'timeout') throw new NovelDrawError('请求超时', ErrorType.TIMEOUT);
+        throw new NovelDrawError(msg, ErrorType.UNKNOWN);
+    }
+    if (typeof data.base64 !== 'string' || data.base64.length === 0) {
+        throw new NovelDrawError('后端返回的图片格式无效', ErrorType.PARSE);
+    }
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(data.mime)) {
+        throw new NovelDrawError('后端返回的图片类型无效', ErrorType.PARSE);
+    }
+    return formatImageBase64(data.base64, data.mime);
+}
+
+async function generateV5ViaBackend({ url, apiKey, insecure, payload, signal, timeout }) {
+    let response;
+    try {
+        response = await fetch(NAI_BACKEND_GENERATE_STREAM, {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            signal,
+            body: JSON.stringify({ url, key: apiKey, insecure: !!insecure, payload, timeout }),
+        });
+    } catch (error) {
+        if (error?.name === 'AbortError') throw error;
+        throw new NovelDrawError('V5 后端代发失败，请检查 littlewhitebox-image-jobs 插件', ErrorType.NETWORK);
+    }
+    if (response.status === 404) {
+        throw new NovelDrawError(
+            `V5 后端端点不存在：请安装当前 littlewhitebox-image-jobs（兼容后端最低 v${NAI_BACKEND_V5_MIN_VERSION}）`,
+            ErrorType.NETWORK,
+        );
+    }
+    if (!response.ok) {
+        throw parseApiError(response.status, await readNovelV5ErrorText(response), ErrorType.PROVIDER);
+    }
+    return response;
+}
+
+function imageBytesToBase64(bytes) {
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+    }
+    return formatImageBase64(btoa(binary), 'image/png');
+}
+
+async function testApiConnection(apiKey, baseUrl, opts = {}) {
+    if (!apiKey) throw new NovelDrawError('请填写 API Key', ErrorType.AUTH);
+    const settings = getRuntimeSettings();
+    const sendMode = opts.sendMode || settings.sendMode || 'frontend';
+    const insecure = opts.insecure ?? settings.insecureTLS === true;
+    const resolvedBase = baseUrl ?? settings.apiBaseUrl;
+    const timeout = (opts.timeout > 0)
+        ? opts.timeout
+        : (settings.timeout > 0 ? settings.timeout : DEFAULT_SETTINGS.timeout);
+    const model = String(
+        opts.model || getActiveParamsPreset()?.params?.model || DEFAULT_PARAMS_PRESET.params.model,
+    ).trim();
+    let probe;
+    let apiUrl;
+    try {
+        probe = buildNovelAIConnectionProbe(resolvedBase, model);
+        apiUrl = sendMode === 'backend'
+            ? resolveNovelAIBackendImageApi(resolvedBase, probe.transport, globalThis.location?.href)
+            : probe.url;
+    } catch (error) {
+        throw handleFetchError(error);
+    }
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), timeout);
+
+    try {
+        // 后端发送模式：前端提供最终端点与探针报文，server plugin 只负责传输。
+        if (sendMode === 'backend') {
+            if (probe.multipart) {
+                await assertV5BackendCapability(controller.signal);
+            }
+            const request = endpoint => fetch(endpoint, {
+                method: 'POST',
+                headers: getRequestHeaders(),
+                signal: controller.signal,
+                body: JSON.stringify({
+                    url: endpoint === NAI_BACKEND_TEST ? (resolvedBase || '') : apiUrl,
+                    key: apiKey,
+                    insecure: !!insecure,
+                    timeout,
+                    payload: probe.payload,
+                    multipart: probe.multipart,
+                }),
+            });
+            let res = await request(NAI_BACKEND_TEST_V2);
+            // V5 never falls back to the test-line v1.1 protocol. Legacy models retain
+            // the released v1.0.1 connection probe until that backend API is retired.
+            if (!probe.multipart && res.status === 404) {
+                await res.body?.cancel?.().catch(() => {});
+                res = await request(NAI_BACKEND_TEST);
+            }
+            if (res.status === 404) throw new NovelDrawError('后端端点不存在：请安装 plugins/littlewhitebox-image-jobs 并开启 enableServerPlugins 后重启酒馆', ErrorType.NETWORK);
+            const data = await res.json().catch(() => null);
+            if (data?.ok === true) return { success: true };
+            if (data?.status === 401) throw new NovelDrawError('API Key 无效', ErrorType.AUTH);
+            if (data?.code === 'timeout') throw new NovelDrawError('请求超时', ErrorType.TIMEOUT);
+            throw new NovelDrawError(data?.error || `返回: ${res.status}`, ErrorType.NETWORK);
+        }
+
+        // 前端直连模式。
+        const body = probe.multipart ? new FormData() : JSON.stringify(probe.payload);
+        if (probe.multipart) {
+            body.append('request', new Blob([JSON.stringify(probe.payload)], { type: 'application/json' }), 'blob');
+        }
+        const res = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                ...(!probe.multipart ? { 'Content-Type': 'application/json' } : {}),
+            },
+            body,
             signal: controller.signal,
         });
-        clearTimeout(tid);
         if (res.status === 401) throw new NovelDrawError('API Key 无效', ErrorType.AUTH);
-        if (res.status === 400 || res.status === 402 || res.ok) return { success: true };
+        if (res.status === 400 || res.status === 402 || res.ok) {
+            await res.body?.cancel?.().catch(() => {});
+            return { success: true };
+        }
         throw new NovelDrawError(`返回: ${res.status}`, ErrorType.NETWORK);
-    } catch (e) {
+    } catch (error) {
+        throw handleFetchError(error);
+    } finally {
         clearTimeout(tid);
-        throw handleFetchError(e);
     }
 }
 
-function buildNovelAIRequestBody({ scene, characterPrompts, negativePrompt, params }) {
-    const dp = DEFAULT_PARAMS_PRESET.params;
-    const width = params?.width ?? dp.width;
-    const height = params?.height ?? dp.height;
-    const seed = (params?.seed >= 0) ? params.seed : Math.floor(Math.random() * (MAX_SEED + 1));
-    const modelName = params?.model ?? dp.model;
-    const isV3 = modelName.includes('nai-diffusion-3') || modelName.includes('furry-3');
-    const isV45 = modelName.includes('nai-diffusion-4-5');
-
-    if (isV3) {
-        const allCharPrompts = characterPrompts.map(cp => cp.prompt).filter(Boolean).join(', ');
-        const fullPrompt = scene ? `${scene}, ${allCharPrompts}` : allCharPrompts;
-        const allNegative = [negativePrompt, ...characterPrompts.map(cp => cp.uc)].filter(Boolean).join(', ');
-
-        return {
-            action: 'generate',
-            input: String(fullPrompt || ''),
-            model: modelName,
-            parameters: {
-                width, height,
-                scale: params?.scale ?? dp.scale,
-                seed,
-                sampler: params?.sampler ?? dp.sampler,
-                noise_schedule: params?.scheduler ?? dp.scheduler,
-                steps: params?.steps ?? dp.steps,
-                n_samples: 1,
-                negative_prompt: String(allNegative || ''),
-                ucPreset: params?.ucPreset ?? dp.ucPreset,
-                sm: params?.sm ?? dp.sm,
-                sm_dyn: params?.sm_dyn ?? dp.sm_dyn,
-                dynamic_thresholding: params?.decrisper ?? dp.decrisper,
-            },
-        };
+function createNovelRequestSeed(params = {}) {
+    const model = String(params.model ?? DEFAULT_PARAMS_PRESET.params.model).trim();
+    const rawSeed = params.seed;
+    if (isNovelV5Model(model)) {
+        if (rawSeed !== undefined && Number(rawSeed) !== -1) return rawSeed;
+    } else if (Number(rawSeed) >= 0) {
+        return rawSeed;
     }
+    return Math.floor(Math.random() * (MAX_SEED + 1));
+}
 
-    let skipCfgAboveSigma = null;
-    if (isV45 && params?.variety_boost) {
-        skipCfgAboveSigma = Math.pow((width * height) / 1011712, 0.5) * 58;
+export function createNovelGenerationRecipe({
+    settings = getSettings(),
+    preset = getActiveParamsPreset(),
+    itemCount = 0,
+    resolveForBackend,
+} = {}) {
+    if (typeof resolveForBackend !== 'boolean') {
+        throw new TypeError('NovelAI generationRecipe 必须明确指定请求由浏览器还是后端发送');
     }
-
-    const charCaptions = characterPrompts.map(cp => ({
-        char_caption: cp.prompt || '',
-        centers: [cp.center || { x: 0.5, y: 0.5 }]
-    }));
-
-    const negativeCharCaptions = characterPrompts.map(cp => ({
-        char_caption: cp.uc || '',
-        centers: [cp.center || { x: 0.5, y: 0.5 }]
-    }));
-
+    const params = { ...DEFAULT_PARAMS_PRESET.params, ...(preset?.params || {}) };
     return {
-        action: 'generate',
-        input: String(scene || ''),
-        model: modelName,
-        parameters: {
-            params_version: 3,
-            width, height,
-            scale: params?.scale ?? dp.scale,
-            seed,
-            sampler: params?.sampler ?? dp.sampler,
-            noise_schedule: params?.scheduler ?? dp.scheduler,
-            steps: params?.steps ?? dp.steps,
-            n_samples: 1,
-            ucPreset: params?.ucPreset ?? dp.ucPreset,
-            qualityToggle: params?.qualityToggle ?? dp.qualityToggle,
-            autoSmea: params?.autoSmea ?? dp.autoSmea,
-            cfg_rescale: params?.cfg_rescale ?? dp.cfg_rescale,
-            dynamic_thresholding: false,
-            controlnet_strength: 1,
-            legacy: false,
-            legacy_v3_extend: false,
-            use_coords: characterPrompts.some(cp => cp.center && (cp.center.x !== 0.5 || cp.center.y !== 0.5)),
-            legacy_uc: false,
-            normalize_reference_strength_multiple: true,
-            deliberate_euler_ancestral_bug: false,
-            prefer_brownian: true,
-            image_format: 'png',
-            skip_cfg_above_sigma: skipCfgAboveSigma,
-            characterPrompts: characterPrompts.map(cp => ({
-                prompt: cp.prompt || '',
-                uc: cp.uc || '',
-                center: cp.center || { x: 0.5, y: 0.5 },
-                enabled: true
-            })),
-            v4_prompt: {
-                caption: {
-                    base_caption: String(scene || ''),
-                    char_captions: charCaptions
-                },
-                use_coords: characterPrompts.some(cp => cp.center && (cp.center.x !== 0.5 || cp.center.y !== 0.5)),
-                use_order: true
-            },
-            v4_negative_prompt: {
-                caption: {
-                    base_caption: String(negativePrompt || ''),
-                    char_captions: negativeCharCaptions
-                },
-                legacy_uc: false
-            },
-            negative_prompt: String(negativePrompt || ''),
+        apiBaseUrl: String(settings.apiBaseUrl || '').trim(),
+        apiKey: String(settings.apiKey || '').trim(),
+        insecureTLS: settings.insecureTLS === true,
+        timeout: Number(settings.timeout) || DEFAULT_SETTINGS.timeout,
+        requestDelay: {
+            min: Number(settings.requestDelay?.min) || DEFAULT_SETTINGS.requestDelay.min,
+            max: Number(settings.requestDelay?.max) || DEFAULT_SETTINGS.requestDelay.max,
         },
+        overrideSize: String(settings.overrideSize || 'default'),
+        baseHref: globalThis.location?.href,
+        resolveForBackend: resolveForBackend === true,
+        params: cloneSettingsObject(params),
+        positivePrefix: preset?.positivePrefix || '',
+        negativePrefix: preset?.negativePrefix || '',
+        knownCharacters: cloneSettingsObject(settings.characterTags || []),
+        autoLearnEnabled: settings.autoLearnCharacters === true,
+        autoLearnMode: ['new_only', 'auto_update'].includes(settings.autoLearnMode)
+            ? settings.autoLearnMode
+            : 'new_only',
+        seeds: Array.from(
+            { length: Math.max(0, Math.floor(Number(itemCount) || 0)) },
+            () => createNovelRequestSeed(params),
+        ),
     };
 }
 
-async function generateNovelImage({ scene, characterPrompts, negativePrompt, params, signal, onQueueStateChange }) {
-    return await enqueueImageRequest(async () => {
-        const settings = getSettings();
-        if (!settings.apiKey) throw new NovelDrawError('请先配置 API Key', ErrorType.AUTH);
+function prepareNovelImageRequest(
+    request,
+    requestConfig,
+    seed = createNovelRequestSeed(request.params),
+    resolveForBackend = requestConfig.sendMode === 'backend',
+) {
+    try {
+        return compileNovelImageRequest(request, {
+            apiBaseUrl: requestConfig.apiBaseUrl,
+            overrideSize: requestConfig.overrideSize,
+            defaultParams: DEFAULT_PARAMS_PRESET.params,
+            resolveForBackend,
+            baseHref: globalThis.location?.href,
+        }, seed);
+    } catch (error) {
+        throw handleFetchError(error);
+    }
+}
 
-        const finalParams = { ...params };
+async function executePreparedNovelRequest(prepared, requestConfig, signal) {
+    const controller = new AbortController();
+    const forwardAbort = () => controller.abort();
+    signal?.addEventListener('abort', forwardAbort, { once: true });
+    if (signal?.aborted) forwardAbort();
+    const timeoutId = setTimeout(() => controller.abort(), requestConfig.timeout);
+    const startedAt = Date.now();
 
-        if (settings.overrideSize && settings.overrideSize !== 'default') {
-            const { SIZE_OPTIONS } = await import('./floating-panel.js');
-            const sizeOpt = SIZE_OPTIONS.find(o => o.value === settings.overrideSize);
-            if (sizeOpt && sizeOpt.width && sizeOpt.height) {
-                finalParams.width = sizeOpt.width;
-                finalParams.height = sizeOpt.height;
+    try {
+        if (signal?.aborted) throw new NovelDrawError('已取消', ErrorType.ABORTED);
+        if (requestConfig.sendMode === 'backend') {
+            if (prepared.isV5) {
+                await assertV5BackendCapability(controller.signal);
+                const response = await generateV5ViaBackend({
+                    url: prepared.apiUrl,
+                    apiKey: requestConfig.apiKey,
+                    insecure: requestConfig.insecureTLS,
+                    payload: prepared.payload,
+                    signal: controller.signal,
+                    timeout: requestConfig.timeout,
+                });
+                const decodeMessagePack = await loadMessagePackDecoderForResponse(response, controller);
+                const image = await readNovelV5FinalImage(response, {
+                    decode: decodeMessagePack,
+                    signal: controller.signal,
+                });
+                console.log(`[NovelDraw] V5 完成(后端) ${Date.now() - startedAt}ms`);
+                return imageBytesToBase64(image);
             }
-        }
-
-        const controller = new AbortController();
-        const timeout = (settings.timeout > 0) ? settings.timeout : DEFAULT_SETTINGS.timeout;
-        const tid = setTimeout(() => controller.abort(), timeout);
-
-        if (signal) {
-            signal.addEventListener('abort', () => controller.abort(), { once: true });
-        }
-
-        const t0 = Date.now();
-
-        try {
-            if (signal?.aborted) throw new NovelDrawError('已取消', ErrorType.UNKNOWN);
-
-            const res = await fetch(NOVELAI_IMAGE_API, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` },
+            const base64 = await generateViaBackend({
+                url: prepared.apiUrl,
+                legacyBaseUrl: prepared.legacyBaseUrl,
+                apiKey: requestConfig.apiKey,
+                insecure: requestConfig.insecureTLS,
+                payload: prepared.payload,
                 signal: controller.signal,
-                body: JSON.stringify(buildNovelAIRequestBody({
-                    scene,
-                    characterPrompts,
-                    negativePrompt,
-                    params: finalParams
-                })),
+                timeout: requestConfig.timeout,
             });
-            if (!res.ok) throw parseApiError(res.status, await res.text().catch(() => ''));
-            const buffer = await res.arrayBuffer();
-            const base64 = await extractImageFromZip(buffer);
-            console.log(`[NovelDraw] 完成 ${Date.now() - t0}ms`);
+            console.log(`[NovelDraw] 完成(后端) ${Date.now() - startedAt}ms`);
             return base64;
-        } catch (e) {
-            if (signal?.aborted) throw new NovelDrawError('已取消', ErrorType.UNKNOWN);
-            throw handleFetchError(e);
-        } finally {
-            clearTimeout(tid);
         }
-    }, {
-        signal,
-        onQueued: (data) => onQueueStateChange?.('queued', data),
-        onStart: () => onQueueStateChange?.('start'),
-    });
+
+        const body = prepared.isV5 ? new FormData() : JSON.stringify(prepared.payload);
+        if (prepared.isV5) {
+            body.append('request', new Blob([JSON.stringify(prepared.payload)], { type: 'application/json' }), 'blob');
+        }
+        const response = await fetch(prepared.apiUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${requestConfig.apiKey}`,
+                ...(!prepared.isV5 ? { 'Content-Type': 'application/json' } : {}),
+            },
+            signal: controller.signal,
+            body,
+        });
+        if (!response.ok) {
+            const errorText = prepared.isV5
+                ? await readNovelV5ErrorText(response)
+                : await response.text().catch(() => '');
+            throw parseApiError(response.status, errorText, prepared.isV5 ? ErrorType.PROVIDER : ErrorType.UNKNOWN);
+        }
+        if (prepared.isV5) {
+            const decodeMessagePack = await loadMessagePackDecoderForResponse(response, controller);
+            const image = await readNovelV5FinalImage(response, {
+                decode: decodeMessagePack,
+                signal: controller.signal,
+            });
+            console.log(`[NovelDraw] V5 完成 ${Date.now() - startedAt}ms`);
+            return imageBytesToBase64(image);
+        }
+        const responseData = await readImageResponse(response, controller.signal);
+        const base64 = await extractImageFromResponse(responseData, ensureJSZip, controller.signal);
+        console.log(`[NovelDraw] 完成 ${Date.now() - startedAt}ms`);
+        return base64;
+    } catch (error) {
+        if (signal?.aborted) throw new NovelDrawError('已取消', ErrorType.ABORTED);
+        throw handleFetchError(error);
+    } finally {
+        clearTimeout(timeoutId);
+        signal?.removeEventListener('abort', forwardAbort);
+    }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// 锚点定位
-// ═══════════════════════════════════════════════════════════════════════════
+export { decodeNovelBackendJobResult };
 
-function findAnchorPosition(mes, anchor) {
-    if (!anchor || !mes) return -1;
-    const a = anchor.trim();
-    let idx = mes.indexOf(a);
-    if (idx !== -1) return idx + a.length;
-    if (a.length > 8) {
-        const short = a.slice(-10);
-        idx = mes.indexOf(short);
-        if (idx !== -1) return idx + short.length;
+function backendItemError(item) {
+    // alreadyDelivered 的项是成功事实（早先已交付并 ACK 过），必须从画廊恢复而不是报错。
+    if (item.alreadyDelivered === true) return null;
+    if (item.state === 'cancelled') return new NovelDrawError('已取消', ErrorType.ABORTED);
+    if (item.error?.code === 'timeout') return new NovelDrawError('请求超时', ErrorType.TIMEOUT);
+    if (Number.isInteger(item.error?.status)) {
+        return parseApiError(item.error.status, item.error.message || '');
     }
-    const norm = s => s.replace(/[\s，。！？、""''：；…\-\n\r]/g, '');
-    const normMes = norm(mes);
-    const normA = norm(a);
-    if (normA.length >= 4) {
-        const key = normA.slice(-6);
-        const normIdx = normMes.indexOf(key);
-        if (normIdx !== -1) {
-            let origIdx = 0, nIdx = 0;
-            while (origIdx < mes.length && nIdx < normIdx + key.length) {
-                if (norm(mes[origIdx]) === normMes[nIdx]) nIdx++;
-                origIdx++;
+    return new NovelDrawError(item.error?.message || '后端生图失败', ErrorType.UNKNOWN);
+}
+
+async function runNovelImageBatch({
+    requests,
+    compiledBatch,
+    generationConfig,
+    signal,
+    backendCancelSignal,
+    recoverable,
+    monitorGeneration,
+    queueBatch,
+    onStateChange,
+    onItemReady,
+    onItemSettled,
+}) {
+    if (!Array.isArray(requests) || requests.length === 0) return { mode: 'empty', outcomes: [] };
+    const settings = getRuntimeSettings();
+    const requestConfig = snapshotNovelRequestConfig(settings, generationConfig, DEFAULT_SETTINGS.timeout);
+    const transportMode = recoverable ? resolveNovelImageTransport(requestConfig) : requestConfig.sendMode;
+    if (!requestConfig.apiKey) throw new NovelDrawError('请先配置 API Key', ErrorType.AUTH);
+    if (signal?.aborted) throw new NovelDrawError('已取消', ErrorType.ABORTED);
+    const prepared = compiledBatch
+        ? compiledBatch.items.map(item => ({
+            apiUrl: item.request.url,
+            legacyBaseUrl: requestConfig.apiBaseUrl,
+            payload: item.request.payload,
+            transport: item.request.transport,
+            isV5: item.request.transport === 'msgpack-stream',
+        }))
+        : requests.map(request => (
+            prepareNovelImageRequest(
+                request,
+                requestConfig,
+                request.seed,
+                transportMode !== 'frontend',
+            )
+        ));
+    const outcomes = new Array(prepared.length);
+    const signalOwner = generationJobSignals.get(signal);
+    const effectiveCancelSignal = backendCancelSignal || signalOwner?.backendCancel.signal || signal;
+    const detachScope = transportMode === 'backend-job'
+        ? backendJobMonitors.createScope(
+            effectiveCancelSignal === signal ? null : signal,
+            monitorGeneration ?? backendJobMonitors.captureGeneration(),
+        )
+        : null;
+
+    if (transportMode !== 'frontend') {
+        let backendStatus;
+        try {
+            backendStatus = await checkBackendPluginStatus({ signal });
+        } catch (error) {
+            detachScope?.dispose();
+            if (signal?.aborted || error?.name === 'AbortError') {
+                throw new NovelDrawError('已取消', ErrorType.ABORTED);
             }
-            return origIdx;
+            throw handleFetchError(error);
+        }
+        if (!backendStatus.ready) {
+            detachScope?.dispose();
+            throw new NovelDrawError('NovelAI 后端插件状态探测失败，请检查插件安装和网络连接', ErrorType.NETWORK);
+        }
+        if (transportMode === 'backend-job') {
+            if (!hasImageBackendJobsCapability(backendStatus)) {
+                detachScope.dispose();
+                throw new NovelDrawError(
+                    '小白X后台批量任务不可用。请安装并启动当前 littlewhitebox-image-jobs，或关闭此选项后继续使用逐张后端发送。',
+                    ErrorType.NETWORK,
+                );
+            }
+            if (prepared.some(item => item.isV5) && !hasNovelV5FinalImageCapability(backendStatus)) {
+                detachScope.dispose();
+                throw new NovelDrawError(
+                    '当前后端插件仍会把 NovelAI V5 原始流交给浏览器。请安装并启动当前 littlewhitebox-image-jobs，或关闭“小白X后台任务”。',
+                    ErrorType.NETWORK,
+                );
+            }
+            const backendRequest = compiledBatch
+                ? {
+                    provider: compiledBatch.provider,
+                    context: compiledBatch.context,
+                    delay: compiledBatch.delay,
+                    items: compiledBatch.items,
+                }
+                : {
+                    provider: 'novelai',
+                    context: {
+                        key: requestConfig.apiKey,
+                        insecure: requestConfig.insecureTLS,
+                    },
+                    delay: {
+                        min: Number(settings.requestDelay?.min) || DEFAULT_SETTINGS.requestDelay.min,
+                        max: Number(settings.requestDelay?.max) || DEFAULT_SETTINGS.requestDelay.max,
+                    },
+                    items: prepared.map(item => ({
+                        request: {
+                            transport: item.transport,
+                            url: item.apiUrl,
+                            payload: item.payload,
+                        },
+                        timeout: requestConfig.timeout,
+                    })),
+                };
+            const backendHandlers = {
+                // 只有用户亲手取消才允许传导到后端；前端的其它停手理由都不能删掉
+                // 一个已经在跑、已经付过钱的任务。没提供就退回本地信号（画廊等一次性调用）。
+                cancelSignal: effectiveCancelSignal,
+                detachSignal: detachScope.signal,
+                onStateChange: (state, data) => reportImageBackendJobState(onStateChange, state, data),
+                onItemReady: async ({ index, kind, response }) => {
+                    const base64 = await decodeNovelBackendJobResult({ response, kind });
+                    await onItemReady?.({ index, base64 });
+                    outcomes[index] = { state: 'ready', base64 };
+                },
+                onItemSettled: async (item) => {
+                    // 早先已交付并 ACK 过的项是成功事实，绝不能触发失败 UI；
+                    // 它由恢复流程按记录的 imgId 从画廊还原。
+                    if (item.alreadyDelivered === true) {
+                        outcomes[item.index] = { state: 'consumed' };
+                        return;
+                    }
+                    const error = item.source === 'frontend' ? item.error : backendItemError(item);
+                    outcomes[item.index] = { state: item.state, error };
+                    await onItemSettled?.({ ...item, error });
+                },
+            };
+            let runResult;
+            try {
+                // 提供了恢复计划就走可恢复提交：先落交付日志、再 CAS 持久化占位符、
+                // 复核租约、最后才 POST。缺了这套顺序，刷新回来就再也认不回这批图。
+                runResult = await submitRecoverableImageJob({
+                    client: imageBackendJobsClient,
+                    provider: 'novelai',
+                    request: backendRequest,
+                    plan: recoverable.plan,
+                    commitPlacements: recoverable.commitPlacements,
+                    settlePlacements: recoverable.settlePlacements,
+                    resolveSettlement: recoverable.resolveSettlement,
+                    afterForget: recoverable.afterForget,
+                    ...backendHandlers,
+                });
+            } catch (error) {
+                if (error?.detached === true || error?.code === 'PENDING_JOB_LEASE_LOST') throw error;
+                if (signal?.aborted) throw new NovelDrawError('已取消', ErrorType.ABORTED);
+                if (error instanceof ImageBackendJobsError) {
+                    const normalized = new NovelDrawError(
+                        error.message,
+                        error.status === 429 ? ErrorType.BUSY : ErrorType.NETWORK,
+                    );
+                    normalized.cause = error;
+                    normalized.status = error.status;
+                    normalized.code = error.code;
+                    normalized.detached = error.detached === true;
+                    throw normalized;
+                }
+                throw handleFetchError(error);
+            } finally {
+                detachScope.dispose();
+            }
+            return { mode: 'backend-job', outcomes, job: runResult.job, aborted: runResult.abortRequested };
+        }
+
+        const message = '当前使用逐张后端发送（后台批量任务未开启）';
+        onStateChange?.('backend_legacy', { message });
+    }
+
+    for (let index = 0; index < prepared.length; index++) {
+        if (signal?.aborted) {
+            for (let pending = index; pending < prepared.length; pending++) {
+                const error = new NovelDrawError('已取消', ErrorType.ABORTED);
+                outcomes[pending] = { state: 'cancelled', error };
+                await onItemSettled?.({ index: pending, state: 'cancelled', error, source: 'frontend' });
+            }
+            break;
+        }
+        try {
+            const base64 = await enqueueImageRequest(
+                () => executePreparedNovelRequest(prepared[index], requestConfig, signal),
+                {
+                    signal,
+                    batchKey: queueBatch,
+                    onQueued: data => onStateChange?.('queued', { current: index + 1, total: prepared.length, ...data }),
+                    onStart: () => onStateChange?.('progress', { current: index + 1, total: prepared.length }),
+                    onCooldown: data => {
+                        if (index + 1 >= prepared.length) return;
+                        onStateChange?.('cooldown', {
+                            duration: data.duration,
+                            cooldownUntil: Date.now() + data.duration,
+                            nextIndex: index + 2,
+                            total: prepared.length,
+                        });
+                    },
+                },
+            );
+            await onItemReady?.({ index, base64 });
+            outcomes[index] = { state: 'ready', base64 };
+        } catch (error) {
+            const normalized = signal?.aborted
+                ? new NovelDrawError('已取消', ErrorType.ABORTED)
+                : handleFetchError(error);
+            const state = signal?.aborted ? 'cancelled' : 'failed';
+            outcomes[index] = { state, error: normalized };
+            await onItemSettled?.({ index, state, error: normalized, source: 'frontend' });
         }
     }
-    return -1;
+    return { mode: requestConfig.sendMode, outcomes, aborted: signal?.aborted === true };
 }
 
-function findNearestSentenceEnd(mes, startPos) {
-    if (startPos < 0 || !mes) return startPos;
-    if (startPos >= mes.length) return mes.length;
-
-    const maxLookAhead = 80;
-    const endLimit = Math.min(mes.length, startPos + maxLookAhead);
-    const basicEnders = new Set(['\u3002', '\uFF01', '\uFF1F', '!', '?', '\u2026']);
-    const closingMarks = new Set(['\u201D', '\u201C', '\u2019', '\u2018', '\u300D', '\u300F', '\u3011', '\uFF09', ')', '"', "'", '*', '~', '\uFF5E', ']']);
-
-    const eatClosingMarks = (pos) => {
-        while (pos < mes.length && closingMarks.has(mes[pos])) pos++;
-        return pos;
-    };
-
-    if (startPos > 0 && basicEnders.has(mes[startPos - 1])) {
-        return eatClosingMarks(startPos);
-    }
-
-    for (let i = 0; i < maxLookAhead && startPos + i < endLimit; i++) {
-        const pos = startPos + i;
-        const char = mes[pos];
-        if (char === '\n') return pos + 1;
-        if (basicEnders.has(char)) return eatClosingMarks(pos + 1);
-        if (char === '.' && mes.slice(pos, pos + 3) === '...') return eatClosingMarks(pos + 3);
-    }
-
-    return startPos;
+async function generateNovelImage({ scene, characterPrompts, negativePrompt, params, generationConfig, signal, queueBatch, onQueueStateChange }) {
+    let image = null;
+    let failure = null;
+    const monitorGeneration = backendJobMonitors.captureGeneration();
+    await runNovelImageBatch({
+        requests: [{ scene, characterPrompts, negativePrompt, params }],
+        generationConfig,
+        signal,
+        monitorGeneration,
+        queueBatch,
+        onStateChange: (state, data) => {
+            if (state === 'progress') onQueueStateChange?.('start', data);
+            else onQueueStateChange?.(state, data);
+        },
+        onItemReady: ({ base64 }) => { image = base64; },
+        onItemSettled: ({ error }) => { failure = error; },
+    });
+    if (image) return image;
+    throw failure || new NovelDrawError('NovelAI 未返回图片', ErrorType.UNKNOWN);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1609,7 +2176,7 @@ function buildImageHtml({ slotId, imgId, url, tags, positive, messageId, state =
 
     let indicator = '';
     if (state === ImageState.SAVING) indicator = '<div class="xb-nd-indicator">💾 保存中...</div>';
-    else if (state === ImageState.REFRESHING) indicator = '<div class="xb-nd-indicator">🔄 生成中...</div>';
+    else if (state === ImageState.REFRESHING) indicator = '<div class="xb-nd-indicator"><i class="fa-solid fa-rotate" aria-hidden="true"></i> 生成中...</div>';
 
     const border = isPreview ? 'border:1px dashed rgba(255,152,0,0.35);' : '';
     const lazyAttr = url.startsWith('data:') ? '' : 'loading="lazy"';
@@ -1697,7 +2264,7 @@ function setImageState(container, state) {
 
     container.querySelector('.xb-nd-indicator')?.remove();
     if (state === ImageState.SAVING) container.insertAdjacentHTML('afterbegin', '<div class="xb-nd-indicator">💾 保存中...</div>');
-    else if (state === ImageState.REFRESHING) container.insertAdjacentHTML('afterbegin', '<div class="xb-nd-indicator">🔄 生成中...</div>');
+    else if (state === ImageState.REFRESHING) container.insertAdjacentHTML('afterbegin', '<div class="xb-nd-indicator"><i class="fa-solid fa-rotate" aria-hidden="true"></i> 生成中...</div>');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2118,7 +2685,6 @@ async function saveEditedTags(container) {
             savedUrl: originalPreview.savedUrl,
             characterPrompts: newCharPrompts || originalPreview.characterPrompts,
             negativePrompt: originalPreview.negativePrompt,
-            anchor: originalPreview.anchor || '',
         });
 
         if (originalPreview.savedUrl) {
@@ -2143,6 +2709,13 @@ async function refreshSingleImage(container) {
     const slotId = container.dataset.slotId;
     const messageId = parseInt(container.dataset.mesid);
     const currentImgId = container.dataset.imgId;
+    const sourceContext = getContext();
+    const galleryMeta = {
+        chatId: String(sourceContext.chatId || sourceContext.characterId || 'unknown'),
+        characterName: getChatCharacterName(),
+    };
+    const sourceMessage = sourceContext.chat?.[messageId];
+    let job = null;
 
     if (!tags || currentState === ImageState.SAVING || currentState === ImageState.REFRESHING || !slotId) return;
 
@@ -2150,30 +2723,30 @@ async function refreshSingleImage(container) {
     setImageState(container, ImageState.REFRESHING);
 
     try {
+        job = createGenerationJob(`slot:${slotId}`);
         const preset = getActiveParamsPreset();
-        const settings = getSettings();
+        const settings = getRuntimeSettings();
 
         let characterPrompts = null;
         let negativePrompt = preset.negativePrefix || '';
-        let anchor = '';
 
         if (currentImgId) {
             const existingPreview = await getPreview(currentImgId);
+            if (existingPreview?.chatId) galleryMeta.chatId = existingPreview.chatId;
+            if (existingPreview?.characterName) galleryMeta.characterName = existingPreview.characterName;
             if (existingPreview?.characterPrompts?.length) {
                 characterPrompts = existingPreview.characterPrompts;
             }
             if (existingPreview?.negativePrompt) {
                 negativePrompt = existingPreview.negativePrompt;
             }
-            anchor = existingPreview?.anchor || '';
         }
 
         if (!characterPrompts) {
-            const ctx = getContext();
-            const message = ctx.chat?.[messageId];
+            const message = sourceContext.chat?.[messageId];
             const presentCharacters = detectPresentCharacters(String(message?.mes || ''), settings.characterTags || []);
             characterPrompts = presentCharacters.map(c => ({
-                prompt: buildKnownCharacterBasePrompt(c),
+                prompt: buildKnownCharacterPrompt(c),
                 uc: c.negativeTags || '',
                 center: { x: 0.5, y: 0.5 }
             }));
@@ -2185,11 +2758,13 @@ async function refreshSingleImage(container) {
             scene,
             characterPrompts,
             negativePrompt,
-            params: preset.params || {}
+            params: preset.params || {},
+            signal: job.controller.signal,
         });
 
         const newImgId = generateImgId();
         await storePreview({
+            ...galleryMeta,
             imgId: newImgId,
             slotId,
             messageId,
@@ -2198,27 +2773,43 @@ async function refreshSingleImage(container) {
             positive: scene,
             characterPrompts,
             negativePrompt,
-            anchor,
         });
         await setSlotSelection(slotId, newImgId);
+        const currentContext = getContext();
+        const stillAttached = currentContext.chatId === sourceContext.chatId
+            && currentContext.chat?.[messageId] === sourceMessage;
+        if (!stillAttached) {
+            showToast('聊天已切换，新图片已保留在画廊中', 'info', 5000);
+            return;
+        }
         await clearNovelDrawSavedEntry(messageId, slotId).catch(() => {});
-
-        container.querySelector('img').src = getPreviewDisplayUrl({ imgId: newImgId, base64 });
-        container.dataset.imgId = newImgId;
-        container.dataset.positive = escapeHtml(scene);
-        container.dataset.currentIndex = '0';
-        setImageState(container, ImageState.PREVIEW);
 
         const previews = await getPreviewsBySlot(slotId);
         const successPreviews = previews.filter(p => p.status !== 'failed' && (p.base64 || p.savedUrl));
-        container.dataset.historyCount = String(successPreviews.length);
-        updateNavControls(container, 0, successPreviews.length);
+        const activeContainer = getMesTextElement(messageId)?.querySelector(buildDrawSlotSelector(slotId));
+        if (activeContainer) {
+            activeContainer.querySelector('img').src = getPreviewDisplayUrl({ imgId: newImgId, base64 });
+            activeContainer.dataset.imgId = newImgId;
+            activeContainer.dataset.positive = escapeHtml(scene);
+            activeContainer.dataset.currentIndex = '0';
+            activeContainer.dataset.historyCount = String(successPreviews.length);
+            setImageState(activeContainer, ImageState.PREVIEW);
+            updateNavControls(activeContainer, 0, successPreviews.length);
+        }
 
         showToast(`图片已刷新（共 ${successPreviews.length} 个版本）`);
     } catch (e) {
         console.error('[NovelDraw] 刷新失败:', e);
-        alert('刷新失败: ' + e.message);
-        setImageState(container, ImageState.PREVIEW);
+        const currentContext = getContext();
+        const stillAttached = currentContext.chatId === sourceContext.chatId
+            && currentContext.chat?.[messageId] === sourceMessage;
+        if (stillAttached) {
+            alert('刷新失败: ' + e.message);
+            const activeContainer = getMesTextElement(messageId)?.querySelector(buildDrawSlotSelector(slotId));
+            if (activeContainer) setImageState(activeContainer, ImageState.PREVIEW);
+        }
+    } finally {
+        releaseGenerationJob(job);
     }
 }
 
@@ -2233,7 +2824,8 @@ async function saveSingleImage(container) {
     setImageState(container, ImageState.SAVING);
     try {
         const charName = preview.characterName || getChatCharacterName();
-        const url = await saveBase64AsFile(preview.base64, charName, `novel_${imgId}`, 'png');
+        const image = getBase64ImagePayload(preview.base64);
+        const url = await saveBase64AsFile(image.base64, charName, `novel_${imgId}`, image.format);
         preview.savedUrl = url;
         await updatePreviewSavedUrl(imgId, url);
         await setSlotSelection(slotId, imgId);
@@ -2303,6 +2895,13 @@ async function retryFailedImage(container) {
     const messageId = parseInt(container.dataset.mesid);
     const tags = container.dataset.tags;
     let latestFailed = null;
+    const sourceContext = getContext();
+    const sourceMessage = sourceContext.chat?.[messageId];
+    const galleryMeta = {
+        chatId: String(sourceContext.chatId || sourceContext.characterId || 'unknown'),
+        characterName: getChatCharacterName(),
+    };
+    let job = null;
     if (!slotId) return;
 
     // Template-only UI markup.
@@ -2310,24 +2909,26 @@ async function retryFailedImage(container) {
     container.innerHTML = `<div style="padding:30px;text-align:center;color:rgba(255,255,255,0.6);"><div style="font-size:24px;margin-bottom:8px;">🎨</div><div>生成中...</div></div>`;
 
     try {
+        job = createGenerationJob(`slot:${slotId}`);
         const preset = getActiveParamsPreset();
-        const settings = getSettings();
+        const settings = getRuntimeSettings();
         const scene = tags ? joinTags(preset.positivePrefix, tags) : preset.positivePrefix;
         const negativePrompt = preset.negativePrefix || '';
 
         let characterPrompts = null;
         const failedPreviews = await getPreviewsBySlot(slotId);
         latestFailed = failedPreviews.find(p => p.status === 'failed');
+        if (latestFailed?.chatId) galleryMeta.chatId = latestFailed.chatId;
+        if (latestFailed?.characterName) galleryMeta.characterName = latestFailed.characterName;
         if (latestFailed?.characterPrompts?.length) {
             characterPrompts = latestFailed.characterPrompts;
         }
 
         if (!characterPrompts) {
-            const ctx = getContext();
-            const message = ctx.chat?.[messageId];
+            const message = sourceContext.chat?.[messageId];
             const presentCharacters = detectPresentCharacters(String(message?.mes || ''), settings.characterTags || []);
             characterPrompts = presentCharacters.map(c => ({
-                prompt: buildKnownCharacterBasePrompt(c),
+                prompt: buildKnownCharacterPrompt(c),
                 uc: c.negativeTags || '',
                 center: { x: 0.5, y: 0.5 }
             }));
@@ -2337,11 +2938,13 @@ async function retryFailedImage(container) {
             scene,
             characterPrompts,
             negativePrompt,
-            params: preset.params || {}
+            params: preset.params || {},
+            signal: job.controller.signal,
         });
 
         const newImgId = generateImgId();
         await storePreview({
+            ...galleryMeta,
             imgId: newImgId,
             slotId,
             messageId,
@@ -2350,10 +2953,17 @@ async function retryFailedImage(container) {
             positive: scene,
             characterPrompts,
             negativePrompt,
-            anchor: latestFailed?.anchor || '',
         });
         await deleteFailedRecordsForSlot(slotId);
         await setSlotSelection(slotId, newImgId);
+
+        const currentContext = getContext();
+        const stillAttached = currentContext.chatId === sourceContext.chatId
+            && currentContext.chat?.[messageId] === sourceMessage;
+        if (!stillAttached) {
+            showToast('聊天已切换，新图片已保留在画廊中', 'info', 5000);
+            return;
+        }
 
         const imgHtml = buildImageHtml({
             slotId,
@@ -2366,25 +2976,31 @@ async function retryFailedImage(container) {
             historyCount: 1,
             currentIndex: 0
         });
+        const activeContainer = getMesTextElement(messageId)?.querySelector(buildDrawSlotSelector(slotId));
         // Template-only UI markup built locally.
         // eslint-disable-next-line no-unsanitized/property
-        container.outerHTML = imgHtml;
+        if (activeContainer) activeContainer.outerHTML = imgHtml;
         showToast('图片生成成功！');
     } catch (e) {
         console.error('[NovelDraw] 重试失败:', e);
         const errorType = classifyError(e);
         await storeFailedPlaceholder({
+            ...galleryMeta,
             slotId,
             messageId,
             tags: tags || '',
             positive: container.dataset.positive || '',
             errorType: errorType.code,
-            anchor: latestFailed?.anchor || '',
             errorMessage: errorType.desc
         });
+        const currentContext = getContext();
+        const stillAttached = currentContext.chatId === sourceContext.chatId
+            && currentContext.chat?.[messageId] === sourceMessage;
+        if (!stillAttached) return;
+        const activeContainer = getMesTextElement(messageId)?.querySelector(buildDrawSlotSelector(slotId));
         // Template-only UI markup built locally.
         // eslint-disable-next-line no-unsanitized/property
-        container.outerHTML = buildFailedPlaceholderHtml({
+        if (activeContainer) activeContainer.outerHTML = buildFailedPlaceholderHtml({
             slotId,
             messageId,
             tags: tags || '',
@@ -2393,6 +3009,8 @@ async function retryFailedImage(container) {
             errorMessage: errorType.desc
         });
         showToast(`重试失败: ${errorType.desc}`, 'error');
+    } finally {
+        releaseGenerationJob(job);
     }
 }
 
@@ -2417,7 +3035,7 @@ async function removePlaceholder(container) {
     await clearNovelDrawSavedEntry(messageId, slotId);
     const ctx = getContext();
     const message = ctx.chat?.[messageId];
-    if (message) message.mes = message.mes.replace(createPlaceholder(slotId), '');
+    if (message) message.mes = removeSceneSlotPlaceholders(message.mes, [slotId]);
     container.remove();
     await persistChatSilently();
     showToast('占位符已移除');
@@ -2482,7 +3100,11 @@ function buildTextSourceGalleryMeta(options = {}) {
                 : `tavern:${messageOrder ?? role}`,
         };
     }
-    return {};
+    const context = getContext();
+    return {
+        chatId: String(options.chatId || context.chatId || context.characterId || 'unknown'),
+        characterName: String(options.characterName || getChatCharacterName()),
+    };
 }
 
 async function maybeAutoLearnFromTasks(tasks = [], settings = {}) {
@@ -2496,552 +3118,903 @@ async function maybeAutoLearnFromTasks(tasks = [], settings = {}) {
             if (learnResult.newChars.length) parts.push(`新角色: ${learnResult.newChars.join(', ')}`);
             if (learnResult.updatedChars.length) parts.push(`更新: ${learnResult.updatedChars.join(', ')}`);
             const msg = `已学习 ${parts.join(' | ')}`;
-            updateSettingsPersistent((draft) => {
+            const ok = await updateSharedSettingsPersistent((draft) => {
                 draft.characterTags = tagsCopy;
-            }, msg)
-                .then((ok) => { if (ok && overlayCreated && frameReady) sendInitData(); })
-                .catch(e => {
-                    console.warn('[NovelDraw] 自动学习保存失败:', e);
-                });
+            }, msg);
+            if (ok && overlayCreated && frameReady) sendInitData();
         }
     } catch (e) {
         console.warn('[NovelDraw] 自动学习角色失败:', e);
     }
 }
 
-async function buildTextSourceTasks({ messageText, presentCharacters, settings, preset, signal, useWorldbook = false }) {
+// 后台 Planner 的角色事实随 handoff 进入短生命周期 journal。接管转 active 前
+// 在浏览器侧复用原有学习逻辑；该逻辑只新增角色/补空字段，重复执行保持幂等。
+export async function applyNovelDrawRunAutoLearn(record = {}) {
+    const metadata = (Array.isArray(record.items) ? record.items : [])
+        .map(item => item.previewMetadata?.providerMetadata)
+        .find(value => Array.isArray(value?.autoLearnCharacters)
+            && value.autoLearnCharacters.length > 0);
+    if (!metadata) return;
+    const tasks = (Array.isArray(record.items) ? record.items : []).map(item => ({
+        chars: JSON.parse(JSON.stringify(
+            Array.isArray(item.previewMetadata?.providerMetadata?.autoLearnCharacters)
+                ? item.previewMetadata.providerMetadata.autoLearnCharacters
+                : [],
+        )),
+    })).filter(task => task.chars.length > 0);
+    if (tasks.length === 0) return;
+    try {
+        await loadSettings();
+        await loadSharedDrawSettings();
+        await maybeAutoLearnFromTasks(tasks, {
+            ...getRuntimeSettings(),
+            autoLearnCharacters: true,
+            autoLearnMode: metadata.autoLearnMode,
+        });
+    } catch (error) {
+        // 自动学习是已有的 best-effort 辅助行为，不能阻断已付费图片的接管。
+        console.warn('[NovelDraw] 后台规划角色自动学习失败:', error);
+    }
+}
+
+function notifySceneImageLimitAdjusted(adjustment) {
+    if (adjustment?.message) toastr.info(adjustment.message, '小白X画图');
+}
+
+function notifyDetachedGeneration(successCount) {
+    const count = Math.max(0, Number(successCount) || 0);
+    if (count > 0) {
+        toastr.info(`聊天或楼层已经变化，已生成 ${count} 张图片但未写入原楼层；可在画图设置的图片管理中查看。`, '小白X画图');
+    }
+}
+
+async function buildNovelScenePlannerOptions({
+    sceneSource,
+    presentCharacters,
+    settings,
+    preset,
+    signal,
+    useWorldbook = true,
+    onStateChange,
+}) {
     let worldbookEntries = null;
-    const customPrompts = getActivePromptPreset() || DEFAULT_PROMPT_CONFIG;
+    const customPrompts = getActivePromptPreset(settings) || DEFAULT_PROMPT_CONFIG;
+    const model = preset.params?.model || DEFAULT_PARAMS_PRESET.params.model;
+    const capability = getNovelModelCapability(model);
     if (useWorldbook && settings.worldbooks?.enabled && settings.worldbooks.uploadedBooks?.length) {
         const processor = new WorldbookProcessor();
         const charNames = presentCharacters.map(c => c.name).join(' ');
         const allEntries = settings.worldbooks.uploadedBooks.flatMap(b => b.entries || []);
         worldbookEntries = processor.processFromEntries({
             entries: allEntries,
-            contextText: `${messageText} ${charNames}`,
+            contextText: `${sceneSource.content} ${charNames}`,
             keywordFilterMode: settings.worldbooks.keywordFilterMode || 'auto',
         });
     }
 
-    let tasks = await generateAndParseScenePlan({
-        messageText,
+    return {
+        sceneSource,
         presentCharacters,
-        llmApi: settings.llmApi,
-        useStream: settings.useStream,
         useWorldInfo: useWorldbook && settings.useWorldInfo,
         customPrompts,
         promptDefaults: DEFAULT_PROMPT_CONFIG,
         worldbookEntries,
-        timeout: settings.timeout || 120000,
         maxImages: preset.maxImages || 0,
         maxCharactersPerImage: preset.maxCharactersPerImage || 0,
-        disablePrefill: !!settings.disablePrefill,
+        absoluteMaxCharactersPerImage: capability.maxCharactersPerImage,
+        modelGuide: getEffectiveNovelModelGuide(model, customPrompts),
+        modelContract: getEffectiveNovelModelContract(model, customPrompts),
+        centerMode: capability.centerMode,
+        onImageLimitAdjusted: notifySceneImageLimitAdjusted,
+        onDiagnosticUpdate: diagnostic => onStateChange?.('llm', toScenePlannerProgress(diagnostic)),
         signal,
-    });
+    };
+}
 
-    const maxImg = preset.maxImages || 0;
-    const maxChar = preset.maxCharactersPerImage || 0;
-    if (maxImg > 0 && tasks.length > maxImg) tasks = tasks.slice(0, maxImg);
-    if (maxChar > 0) {
-        tasks = tasks.map(task => ({
-            ...task,
-            chars: Array.isArray(task.chars) ? task.chars.slice(0, maxChar) : [],
-        }));
-    }
-    return tasks;
+async function buildTextSourceTasks(options) {
+    return generateAndParseScenePlan(await buildNovelScenePlannerOptions(options));
 }
 
 async function generateImagesFromText(options = {}) {
-    const text = String(options.text || '').trim();
-    if (!text) throw new NovelDrawError('正文内容为空，无法配图', ErrorType.PARSE);
+    const monitorGeneration = backendJobMonitors.captureGeneration();
+    const text = String(options.text || '');
+    if (!text.trim()) throw new NovelDrawError('正文内容为空，无法配图', ErrorType.PARSE);
     const galleryMeta = buildTextSourceGalleryMeta(options);
     const messageId = String(options.messageId || galleryMeta.messageId || `text:${Date.now()}`);
     const job = createGenerationJob(messageId);
+    const forwardExternalAbort = () => {
+        job.abortReason ||= 'user';
+        job.backendCancel.abort();
+        job.controller.abort();
+    };
+    options.signal?.addEventListener('abort', forwardExternalAbort, { once: true });
+    if (options.signal?.aborted) forwardExternalAbort();
 
     try {
         await loadSettings();
+        await loadSharedDrawSettings();
         ensureStyles();
         await openDB();
 
-        const signal = options.signal || job.controller.signal;
-        const settings = getSettings();
-        const preset = getActiveParamsPreset();
+        const signal = job.controller.signal;
+        const settings = cloneSettingsObject(getRuntimeSettings());
+        const preset = cloneSettingsObject(getActiveParamsPreset());
         if (!preset) throw new NovelDrawError('无可用的 NovelAI 参数预设', ErrorType.PARSE);
 
-        const rawText = text
-            .replace(PLACEHOLDER_REGEX, '')
-            .replace(/\[ebook-image:[a-z0-9\-_]+\]/gi, '')
-            .trim();
         const filterRules = settings.messageFilterRules?.length
             ? settings.messageFilterRules
             : DEFAULT_MESSAGE_FILTER_RULES;
-        const messageText = applyMessageFilterRules(rawText, filterRules);
-        if (!messageText) throw new NovelDrawError('正文内容为空（可能被过滤规则清空）', ErrorType.PARSE);
+        const sceneSource = createSceneSource(text, { filterRules });
+        if (!sceneSource.content) throw new NovelDrawError('正文内容为空（可能被过滤规则清空）', ErrorType.PARSE);
 
-        const presentCharacters = detectPresentCharacters(messageText, settings.characterTags || []);
-        options.onStateChange?.('llm', {});
-        if (signal.aborted) throw new NovelDrawError('已取消', ErrorType.UNKNOWN);
+        const presentCharacters = detectPresentCharacters(sceneSource.content, settings.characterTags || []);
+        job.phase = 'llm';
+        options.onStateChange?.('llm', toScenePlannerProgress());
+        if (signal.aborted) throw new NovelDrawError('已取消', ErrorType.ABORTED);
 
         let tasks = [];
         try {
             tasks = await buildTextSourceTasks({
-                messageText,
+                sceneSource,
                 presentCharacters,
                 settings,
                 preset,
                 signal,
                 useWorldbook: !!options.useWorldbook,
+                onStateChange: options.onStateChange,
             });
         } catch (e) {
             console.error('[NovelDraw] 文本配图场景分析失败:', e);
-            if (signal.aborted) throw new NovelDrawError('已取消', ErrorType.UNKNOWN);
-            if (e instanceof LLMServiceError) {
-                throw new NovelDrawError(`场景分析失败: ${e.message}`, classifyError(e));
-            }
+            if (signal.aborted) throw new NovelDrawError('已取消', ErrorType.ABORTED);
             throw e;
         }
 
-        if (signal.aborted) throw new NovelDrawError('已取消', ErrorType.UNKNOWN);
+        if (signal.aborted) throw new NovelDrawError('已取消', ErrorType.ABORTED);
         await maybeAutoLearnFromTasks(tasks, settings);
 
-        const images = [];
+        const images = new Array(tasks.length);
         let successCount = 0;
+        job.phase = 'gen';
         options.onStateChange?.('gen', { current: 0, total: tasks.length });
 
-        for (let i = 0; i < tasks.length; i++) {
-            if (signal.aborted) break;
-            const task = tasks[i];
-            const slotId = generateSlotId();
-            const scene = joinTags(preset.positivePrefix, task.scene);
-            const characterPrompts = assembleCharacterPrompts(task.chars || [], settings.characterTags || []);
-            const tagsForStore = task.scene || '';
-            const negativePrompt = preset.negativePrefix || '';
-
-            options.onStateChange?.('progress', { current: i + 1, total: tasks.length });
-
-            try {
-                const base64 = await generateNovelImage({
+        const compiledBatch = compileNovelScenePlan(
+            tasks,
+            createNovelGenerationRecipe({
+                settings,
+                preset,
+                itemCount: tasks.length,
+                resolveForBackend: settings.sendMode === 'backend',
+            }),
+        );
+        const batchItems = compiledBatch.artifacts.map(({ task, promptData }) => {
+            const { scene, characterPrompts, negativePrompt } = promptData;
+            return {
+                task,
+                slotId: generateSlotId(),
+                scene,
+                characterPrompts,
+                tagsForStore: task.scene || '',
+                negativePrompt,
+                request: {
                     scene,
                     characterPrompts,
                     negativePrompt,
                     params: preset.params || {},
-                    signal,
-                    onQueueStateChange: (queueState, queueData) => {
-                        if (queueState === 'queued') {
-                            options.onStateChange?.('queued', { current: i + 1, total: tasks.length, ...queueData });
-                        }
-                        if (queueState === 'start') {
-                            options.onStateChange?.('progress', { current: i + 1, total: tasks.length });
-                        }
-                    },
-                });
+                },
+            };
+        });
+        const batchResult = await runNovelImageBatch({
+            requests: batchItems.map(item => item.request),
+            compiledBatch,
+            signal,
+            monitorGeneration,
+            queueBatch: job,
+            onStateChange: options.onStateChange,
+            onItemReady: async ({ index, base64 }) => {
+                const item = batchItems[index];
                 const imgId = generateImgId();
                 await storePreview({
                     ...galleryMeta,
                     imgId,
-                    slotId,
+                    slotId: item.slotId,
                     messageId,
                     base64,
-                    tags: tagsForStore,
-                    positive: scene,
-                    characterPrompts,
-                    negativePrompt,
-                    anchor: task.anchor || '',
+                    tags: item.tagsForStore,
+                    positive: item.scene,
+                    characterPrompts: item.characterPrompts,
+                    negativePrompt: item.negativePrompt,
                 });
-                await setSlotSelection(slotId, imgId);
+                await setSlotSelection(item.slotId, imgId);
                 successCount++;
-                images.push({
-                    slotId,
+                images[index] = {
+                    slotId: item.slotId,
                     imgId,
-                    anchor: task.anchor || '',
-                    tags: tagsForStore,
-                    positive: scene,
-                    negativePrompt,
+                    placement: item.task.placement,
+                    tags: item.tagsForStore,
+                    positive: item.scene,
+                    negativePrompt: item.negativePrompt,
                     displayUrl: getPreviewDisplayUrl({ imgId, base64 }),
                     success: true,
-                });
-            } catch (e) {
-                if (signal.aborted) break;
-                console.error(`[NovelDraw] 文本配图 ${i + 1} 失败:`, e);
-                const errorType = classifyError(e);
+                };
+            },
+            onItemSettled: async ({ index, state, error }) => {
+                if (state === 'cancelled') return;
+                const item = batchItems[index];
+                console.error(`[NovelDraw] 文本配图 ${index + 1} 失败:`, error);
+                const errorType = classifyError(error);
                 await storeFailedPlaceholder({
                     ...galleryMeta,
-                    slotId,
+                    slotId: item.slotId,
                     messageId,
-                    tags: tagsForStore,
-                    positive: scene,
+                    tags: item.tagsForStore,
+                    positive: item.scene,
                     errorType: errorType.code,
                     errorMessage: errorType.desc,
-                    characterPrompts,
-                    negativePrompt,
-                    anchor: task.anchor || '',
+                    characterPrompts: item.characterPrompts,
+                    negativePrompt: item.negativePrompt,
                 });
-                images.push({
-                    slotId,
-                    anchor: task.anchor || '',
-                    tags: tagsForStore,
-                    positive: scene,
-                    negativePrompt,
+                images[index] = {
+                    slotId: item.slotId,
+                    placement: item.task.placement,
+                    tags: item.tagsForStore,
+                    positive: item.scene,
+                    negativePrompt: item.negativePrompt,
                     success: false,
                     error: errorType,
-                });
-            }
+                };
+            },
+        });
 
-            if (signal.aborted) break;
-            if (i < tasks.length - 1) {
-                const delay = randomDelay(settings.requestDelay?.min, settings.requestDelay?.max);
-                options.onStateChange?.('cooldown', { duration: delay, nextIndex: i + 2, total: tasks.length });
-                await new Promise(resolve => {
-                    const tid = setTimeout(resolve, delay);
-                    signal.addEventListener('abort', () => { clearTimeout(tid); resolve(); }, { once: true });
-                });
-            }
-        }
-
-        options.onStateChange?.('success', { success: successCount, total: tasks.length, aborted: signal.aborted });
+        const aborted = signal.aborted || batchResult.aborted === true;
+        options.onStateChange?.('success', { success: successCount, total: tasks.length, aborted });
         return {
             ok: true,
             source: options.source || 'text',
             success: successCount,
             total: tasks.length,
-            images,
-            aborted: signal.aborted,
+            images: images.filter(Boolean),
+            sourceHash: sceneSource.sourceHash,
+            aborted,
         };
     } finally {
+        options.signal?.removeEventListener('abort', forwardExternalAbort);
         releaseGenerationJob(job);
     }
 }
 
-async function generateAndInsertImages({ messageId, onStateChange, skipLock = false }) {
+async function generateAndInsertImages({
+    messageId,
+    onStateChange,
+    skipLock = false,
+    automatic = false,
+}) {
+    const monitorGeneration = backendJobMonitors.captureGeneration();
     if (skipLock) {
         // 兼容旧调用：当前改为 message 级去重 + 图片请求队列，不再使用全局生成锁
     }
 
     const job = createGenerationJob(messageId);
+    let placementLifecycle = null;
 
     try {
         await loadSettings();
+        await loadSharedDrawSettings();
         const ctx = getContext();
         const message = ctx.chat?.[messageId];
         if (!message) throw new NovelDrawError('消息不存在', ErrorType.PARSE);
 
         const signal = job.controller.signal;
-        const settings = getSettings();
-        const preset = getActiveParamsPreset();
+        const settings = cloneSettingsObject(getRuntimeSettings());
+        const preset = cloneSettingsObject(getActiveParamsPreset());
 
-        const rawText = String(message.mes || '').replace(PLACEHOLDER_REGEX, '').trim();
         const filterRules = settings.messageFilterRules?.length
             ? settings.messageFilterRules
             : DEFAULT_MESSAGE_FILTER_RULES;
-        const messageText = applyMessageFilterRules(rawText, filterRules);
-        if (!messageText) throw new NovelDrawError('消息内容为空（可能被过滤规则清空）', ErrorType.PARSE);
+        const sceneSource = createSceneSource(
+            normalizeMessageSceneSourceText(message.mes),
+            { filterRules },
+        );
+        if (!sceneSource.content) throw new NovelDrawError('消息内容为空（可能被过滤规则清空）', ErrorType.PARSE);
 
-        const presentCharacters = detectPresentCharacters(messageText, settings.characterTags || []);
+        const presentCharacters = detectPresentCharacters(sceneSource.content, settings.characterTags || []);
 
-        onStateChange?.('llm', {});
+        if (isNovelImageBackendJobEnabled(settings)) {
+            job.phase = 'submitting';
+            return await submitProviderDrawRun({
+                ctx,
+                message,
+                messageId,
+                provider: DRAW_RUN_PROVIDER,
+                signal,
+                preparePlanner: async ({ maxPlanImages }) => {
+                    job.phase = 'llm';
+                    return prepareScenePlannerInput({
+                        ...await buildNovelScenePlannerOptions({
+                            sceneSource,
+                            presentCharacters,
+                            settings,
+                            preset,
+                            signal,
+                            onStateChange,
+                        }),
+                        maxPlanImages,
+                    });
+                },
+                createGenerationRecipe: prepared => createNovelGenerationRecipe({
+                    settings,
+                    preset,
+                    itemCount: prepared.planner.validationContext.maxPlanImages,
+                    resolveForBackend: true,
+                }),
+                automatic,
+                getCurrentContext: getContext,
+                syncActiveSwipe: syncMesToSwipe,
+                isMessageBeingEdited,
+                onStateChange,
+            });
+        }
 
-        if (signal.aborted) throw new NovelDrawError('已取消', ErrorType.UNKNOWN);
+        job.phase = 'llm';
+        onStateChange?.('llm', toScenePlannerProgress());
+
+        if (signal.aborted) throw new NovelDrawError('已取消', ErrorType.ABORTED);
 
         let tasks = [];
         try {
-            let worldbookEntries = null;
-            let customPrompts = getActivePromptPreset() || DEFAULT_PROMPT_CONFIG;
-            if (settings.worldbooks?.enabled && settings.worldbooks.uploadedBooks?.length) {
-                const processor = new WorldbookProcessor();
-                const charNames = presentCharacters.map(c => c.name).join(' ');
-                const allEntries = settings.worldbooks.uploadedBooks.flatMap(b => b.entries || []);
-                worldbookEntries = processor.processFromEntries({
-                    entries: allEntries,
-                    contextText: messageText + ' ' + charNames,
-                    keywordFilterMode: settings.worldbooks.keywordFilterMode || 'auto',
-                });
-            }
-
-            tasks = await generateAndParseScenePlan({
-                messageText,
+            tasks = await generateAndParseScenePlan(await buildNovelScenePlannerOptions({
+                sceneSource,
                 presentCharacters,
-                llmApi: settings.llmApi,
-                useStream: settings.useStream,
-                useWorldInfo: settings.useWorldInfo,
-                customPrompts,
-                promptDefaults: DEFAULT_PROMPT_CONFIG,
-                worldbookEntries,
-                timeout: settings.timeout || 120000,
-                maxImages: preset.maxImages || 0,
-                maxCharactersPerImage: preset.maxCharactersPerImage || 0,
-                disablePrefill: !!settings.disablePrefill,
+                settings,
+                preset,
                 signal,
-            });
+                onStateChange,
+            }));
         } catch (e) {
             console.error('[NovelDraw] 场景分析原始错误:', e);
             console.error('[NovelDraw] 错误详情:', { message: e?.message, code: e?.code, name: e?.name, stack: e?.stack });
-            if (signal.aborted) throw new NovelDrawError('已取消', ErrorType.UNKNOWN);
-            if (e instanceof LLMServiceError) {
-                throw new NovelDrawError(`场景分析失败: ${e.message}`, classifyError(e));
-            }
+            if (signal.aborted) throw new NovelDrawError('已取消', ErrorType.ABORTED);
             throw e;
         }
 
-        if (signal.aborted) throw new NovelDrawError('已取消', ErrorType.UNKNOWN);
+        if (signal.aborted) throw new NovelDrawError('已取消', ErrorType.ABORTED);
 
-        // 硬上限：截断图片数量和每张图角色数量
-        const maxImg = preset.maxImages || 0;
-        const maxChar = preset.maxCharactersPerImage || 0;
-        if (maxImg > 0 && tasks.length > maxImg) {
-            console.log(`[NovelDraw] 硬上限截断: ${tasks.length} → ${maxImg} 张图`);
-            tasks = tasks.slice(0, maxImg);
-        }
-        if (maxChar > 0) {
-            for (const task of tasks) {
-                if (task.chars && task.chars.length > maxChar) {
-                    task.chars = task.chars.slice(0, maxChar);
-                }
-            }
-        }
-
-        // 自动学习未知角色
-        if (settings.autoLearnCharacters) {
-            try {
-                // 先在副本上操作，保存成功后才写回内存状态
-                const tagsCopy = JSON.parse(JSON.stringify(settings.characterTags || []));
-                const settingsCopy = { ...settings, characterTags: tagsCopy };
-                const learnResult = autoLearnFromTasks(tasks, settingsCopy);
-                if (learnResult.newChars.length || learnResult.updatedChars.length) {
-                    const parts = [];
-                    if (learnResult.newChars.length) parts.push(`新角色: ${learnResult.newChars.join(', ')}`);
-                    if (learnResult.updatedChars.length) parts.push(`更新: ${learnResult.updatedChars.join(', ')}`);
-                    const msg = `已学习 ${parts.join(' | ')}`;
-                    updateSettingsPersistent((draft) => {
-                        draft.characterTags = tagsCopy;
-                    }, msg)
-                        .then((ok) => { if (ok && overlayCreated && frameReady) sendInitData(); })
-                        .catch(e => {
-                            console.warn('[NovelDraw] 自动学习保存失败:', e);
-                        });
-                }
-            } catch (e) {
-                console.warn('[NovelDraw] 自动学习角色失败:', e);
-            }
-        }
+        await maybeAutoLearnFromTasks(tasks, settings);
 
         const initialChatId = ctx.chatId;
-        const originalMes = message.mes; // 修改前备份，abort 时可回滚
-        message.mes = message.mes.replace(PLACEHOLDER_REGEX, '');
+        const galleryMeta = {
+            chatId: String(ctx.chatId || ctx.characterId || 'unknown'),
+            characterName: getChatCharacterName(),
+        };
+        if (isMessageBeingEdited(messageId)) {
+            throw new ScenePlacementError('该楼层正在编辑，请保存或取消编辑后再配图。', 'SCENE_MESSAGE_EDITING');
+        }
+        const originalMes = message.mes;
+        const replacedSlotIds = getSceneSlotIds(originalMes);
+        const slotIds = tasks.map(() => generateSlotId());
+        const results = new Array(tasks.length);
+        let successCount = 0;
+        const strippedNow = normalizeMessageSceneSourceText(message.mes);
+        assertSceneSourceUnchanged(strippedNow, sceneSource.sourceHash);
+        const plannedMes = insertScenePlacementsPreservingSlots(originalMes, tasks.map((task, index) => ({
+            placement: task.placement,
+            content: createPlaceholder(slotIds[index]),
+        })), { block: true });
 
+        placementLifecycle = {
+            message,
+            originalMes,
+            slotIds,
+            results,
+            getSuccessCount: () => successCount,
+            initialChatId,
+            plannedMes,
+            syncRenderedMessage: null,
+            settled: false,
+            // 占位符是否已经提前持久化进正文。只有后台链路会置位：它必须在 POST 之前
+            // 把槽位落盘，否则刷新回来图有了却无处安放。本地链路一直到最后才写正文。
+            committedEarly: false,
+        };
+
+        // 前端停手 ≠ 取消后端任务。job.controller 一旦 abort，本地循环、DOM 更新全部停下；
+        // 但只有用户亲手取消才允许把取消传导到后端，因为那一步会连带删掉已经生成好的结果。
+        // 聊天切换、正文变化、扩展卸载都只是「这个页面不再照看它了」，任务要继续跑。
+        const { messageFormatting } = await import('../../../../../../../../script.js');
+        const syncRenderedMessage = async (sourceText = plannedMes) => {
+            if (isMessageBeingEdited(messageId)) return;
+            const formatted = messageFormatting(sourceText, message.name, message.is_system, message.is_user, messageId);
+            $(`[mesid="${messageId}"] .mes_text`).html(formatted);
+        };
+        const renderPendingSlots = () => {
+            const settledSlotIds = new Set(results.filter(Boolean).map((item) => item.slotId));
+            slotIds.forEach((slotId, index) => {
+                if (settledSlotIds.has(slotId)) return;
+                insertPreviewIntoRenderedMessage({
+                    messageId,
+                    slotId,
+                    html: buildPendingImageHtml({
+                        slotId,
+                        messageId,
+                        index: index + 1,
+                        total: slotIds.length,
+                    }),
+                });
+            });
+        };
+        const recoverRenderedSlots = async () => {
+            await syncRenderedMessage();
+            renderPendingSlots();
+            await renderSharedPreviewsForMessage(messageId);
+        };
+        placementLifecycle.syncRenderedMessage = syncRenderedMessage;
+        if (message.mes !== originalMes) {
+            throw new ScenePlacementError('正文在准备插图位置时发生变化，未写入图片。', 'SCENE_SOURCE_CHANGED');
+        }
+        await syncRenderedMessage();
+        renderPendingSlots();
+
+        job.phase = 'gen';
         onStateChange?.('gen', { current: 0, total: tasks.length });
 
-        const results = [];
-        const { messageFormatting } = await import('../../../../../../../../script.js');
-        let successCount = 0;
         let requiresFinalDomSync = false;
-
-        for (let i = 0; i < tasks.length; i++) {
-            if (signal.aborted) {
-                console.log('[NovelDraw] 用户中止，停止生成');
-                break;
+        let terminationReason = '';
+        const checkPlacementContext = () => {
+            if (terminationReason) return false;
+            if (!moduleInitialized) {
+                terminationReason = 'detached';
+                job.controller.abort();
+                return false;
             }
-
             const currentCtx = getContext();
             if (currentCtx.chatId !== initialChatId) {
                 console.warn('[NovelDraw] 聊天已切换，中止生成');
-                break;
+                terminationReason = 'detached';
+                job.controller.abort();
+                return false;
             }
             const currentMsg = currentCtx.chat?.[messageId];
-            if (!currentMsg || currentMsg !== message) {
+            if (!placementLifecycle.committedEarly && (!currentMsg || currentMsg !== message)) {
                 console.warn('[NovelDraw] 消息已删除或被替换，中止生成');
-                break;
+                terminationReason = 'detached';
+                job.controller.abort();
+                return false;
             }
-
-            const task = tasks[i];
-            const slotId = generateSlotId();
-
-            onStateChange?.('progress', { current: i + 1, total: tasks.length });
-
-            let position = findAnchorPosition(message.mes, task.anchor);
-
-            const scene = joinTags(preset.positivePrefix, task.scene);
-            const characterPrompts = assembleCharacterPrompts(task.chars, settings.characterTags || []);
-            const tagsForStore = task.scene;
-            let incrementalHtml = '';
-
+            // 正文变化在两条链路上的后果完全不同，所以判断也必须不同。
+            //
+            // 本地链路的占位符还没落盘，最终要拿 originalMes 当基准一次性写进去，正文一变
+            // 这个基准就失效了，只能停手。
+            //
+            // 后台链路的占位符早已落盘：正文里那些槽位是真实存在的，图回来就有地方放。
+            // 此时用户改正文只说明「分析结果和新正文对不上」，不代表他不要这些图；为此
+            // 中止一批已经付过钱的任务是在替他做主。每张图交付前会单独确认自己的槽位还在，
+            // 用户删掉的槽位自然不会被交付，这比整批停手精确得多。
+            if (isMessageBeingEdited(messageId)) {
+                if (!placementLifecycle.committedEarly) {
+                    console.warn('[NovelDraw] 楼层正在编辑，中止生成');
+                    terminationReason = 'source_changed';
+                    job.controller.abort();
+                }
+                return false;
+            }
+            if (!placementLifecycle.committedEarly && message.mes !== originalMes) {
+                console.warn('[NovelDraw] 正文已变化，中止生成');
+                terminationReason = 'source_changed';
+                job.controller.abort();
+                return false;
+            }
+            return true;
+        };
+        const renderSettledSlot = async (slotId, createHtml) => {
+            if (!checkPlacementContext()) return;
+            const target = placementLifecycle.committedEarly
+                ? resolveDeliveryTarget(slotId)
+                : { messageId, isActiveSwipe: true };
+            if (!target?.isActiveSwipe) return;
+            const html = typeof createHtml === 'function' ? createHtml(target.messageId) : createHtml;
             try {
-                const base64 = await generateNovelImage({
+                const inserted = insertPreviewIntoRenderedMessage({ messageId: target.messageId, slotId, html });
+                if (!inserted) {
+                    requiresFinalDomSync = true;
+                    if (!placementLifecycle.committedEarly) await recoverRenderedSlots();
+                }
+            } catch (error) {
+                requiresFinalDomSync = true;
+                console.warn('[NovelDraw] 增量渲染失败, 继续生成:', error);
+            }
+        };
+        const compiledBatch = compileNovelScenePlan(
+            tasks,
+            createNovelGenerationRecipe({
+                settings,
+                preset,
+                itemCount: tasks.length,
+                resolveForBackend: resolveNovelImageTransport(settings) !== 'frontend',
+            }),
+        );
+        const batchItems = compiledBatch.artifacts.map(({ task, promptData }, index) => {
+            const { scene, characterPrompts, negativePrompt } = promptData;
+            return {
+                task,
+                slotId: slotIds[index],
+                // imgId 必须在提交之前就分配好：接回时按同一个 imgId 落库，重复交付天然幂等，
+                // 不会因为「已经落过一次」而在画廊里留下两张同样的图。
+                imgId: generateImgId(),
+                scene,
+                characterPrompts,
+                tagsForStore: task.scene,
+                negativePrompt,
+                request: {
                     scene,
                     characterPrompts,
-                    negativePrompt: preset.negativePrefix || '',
+                    negativePrompt,
                     params: preset.params || {},
-                    signal,
-                    onQueueStateChange: (queueState, queueData) => {
-                        if (queueState === 'queued') {
-                            onStateChange?.('queued', { current: i + 1, total: tasks.length, ...queueData });
-                        }
-                        if (queueState === 'start') {
-                            onStateChange?.('progress', { current: i + 1, total: tasks.length });
-                        }
-                    }
-                });
-                const imgId = generateImgId();
-                await storePreview({
-                    imgId,
+                },
+            };
+        });
+
+        // 后台链路的恢复记录：只记「槽位事实」，不记密钥、不记排版。
+        // 排版是当前正文的属性，刷新后必须重新观察，把它冻在记录里只会覆盖用户后来的编辑。
+        const recoverablePlan = {
+            delivery: {
+                mode: 'slots',
+                chatId: String(initialChatId || ''),
+                messageId: String(messageId),
+            },
+            replacedSlotIds,
+            gallery: { ...galleryMeta, messageId: String(messageId) },
+            items: batchItems.map((item, index) => ({
+                index,
+                slotId: item.slotId,
+                imgId: item.imgId,
+                previewMetadata: {
+                    tags: item.tagsForStore,
+                    positive: item.scene,
+                    characterPrompts: item.characterPrompts,
+                    negativePrompt: item.negativePrompt,
+                },
+            })),
+        };
+
+        // 后台链路提交前的唯一一次正文写入。
+        //
+        // 读取、比对、赋值三步之间不得出现 await：一旦中间让出执行权，用户的编辑就会插在
+        // 「比对通过」和「写入」之间，被我们连带覆盖掉。所以严格 CAS 必须发生在真正持久化
+        // 的这一刻，而不是写之前某个更早的检查点。
+        const commitPlannedPlacements = async () => {
+            const committed = await commitRecoverableScenePlacements({
+                getCurrentChatId: () => getContext().chatId,
+                getCurrentMessage: id => getContext().chat?.[id],
+                expectedChatId: initialChatId,
+                messageId,
+                message,
+                originalText: originalMes,
+                plannedText: plannedMes,
+                slotIds,
+                isEditing: isMessageBeingEdited,
+                persist: persistChatSilently,
+                syncAfterRollback: async (sourceText) => {
+                    await syncRenderedMessage(sourceText);
+                    await renderSharedPreviewsForMessage(messageId);
+                },
+            });
+            if (committed) placementLifecycle.committedEarly = true;
+            return committed;
+        };
+
+        const resolveDeliveryTarget = (slotId) => {
+            const currentCtx = getContext();
+            return requireImageJobDeliveryTarget({
+                currentChatId: currentCtx.chatId,
+                targetChatId: initialChatId,
+                chat: currentCtx.chat,
+                slotId,
+            });
+        };
+        const renderBatchPreviews = async ({ final = false } = {}) => {
+            const currentCtx = getContext();
+            if (String(currentCtx.chatId || '') !== String(initialChatId || '')) return;
+            const messageIds = new Set();
+            for (const slotId of slotIds) {
+                const target = classifyImageJobDeliveryTarget({
+                    currentChatId: currentCtx.chatId,
+                    targetChatId: initialChatId,
+                    chat: currentCtx.chat,
                     slotId,
-                    messageId,
-                    base64,
-                    tags: tagsForStore,
-                    positive: scene,
-                    characterPrompts,
-                    negativePrompt: preset.negativePrefix,
-                    anchor: task.anchor,
                 });
-                await setSlotSelection(slotId, imgId);
-                results.push({ slotId, imgId, tags: tagsForStore, success: true });
-                incrementalHtml = buildImageHtml({
-                    slotId,
+                if (target.state === ImageJobDeliveryTargetState.ALIVE && target.isActiveSwipe) {
+                    messageIds.add(target.messageId);
+                }
+            }
+            if (messageIds.size === 0) {
+                const currentMessageId = currentCtx.chat?.indexOf(message) ?? -1;
+                if (currentMessageId >= 0) messageIds.add(currentMessageId);
+            }
+            await Promise.all([...messageIds].map(currentMessageId => renderSharedPreviewsForMessage(
+                currentMessageId,
+                final ? { refreshSlotIds: [...new Set([...slotIds, ...replacedSlotIds])] } : undefined,
+            )));
+        };
+        const renderRemovedTargets = async (targets, removedSlotIds) => {
+            const messageIds = new Set((Array.isArray(targets) ? targets : [])
+                .filter(target => target?.isActiveSwipe)
+                .map(target => target.messageId));
+            await Promise.all([...messageIds].map(targetMessageId => renderSharedPreviewsForMessage(
+                targetMessageId,
+                { refreshSlotIds: removedSlotIds },
+            )));
+        };
+
+        const recordSlotFailure = async (index, error, guard = async () => {}) => {
+            const item = batchItems[index];
+            if (!item || results[index]) return null;
+            console.error(`[NovelDraw] 图${index + 1} 失败:`, error?.message || error);
+            const errorType = classifyError(error);
+            const failedImgId = `failed-${item.imgId}`;
+            const committed = await commitSceneSlotDelivery({
+                committedEarly: placementLifecycle.committedEarly,
+                resolveTarget: () => resolveDeliveryTarget(item.slotId),
+                guard,
+                persist: target => storeFailedPlaceholder({
+                    ...galleryMeta,
+                    imgId: failedImgId,
+                    slotId: item.slotId,
+                    messageId: target?.messageId ?? messageId,
+                    tags: item.tagsForStore,
+                    positive: item.scene,
+                    errorType: errorType.code,
+                    errorMessage: errorType.desc,
+                    characterPrompts: item.characterPrompts,
+                    negativePrompt: item.negativePrompt,
+                }),
+                rollbackPersisted: () => deletePreview(failedImgId),
+                select: () => setSlotSelection(item.slotId, failedImgId),
+                rollbackSelection: () => clearSlotSelection(item.slotId),
+            });
+            if (!committed) return null;
+            results[index] = { slotId: item.slotId, tags: item.tagsForStore, success: false, error: errorType };
+            return errorType;
+        };
+
+        // 后台链路的结算。只有一种情况允许删除槽位：用户亲手取消。
+        //
+        // 失败的槽位要留下可重试的失败卡，还在后台跑的槽位要留着等接回。把它们一起删掉
+        // 才是最糟的选择——用户既看不到失败原因，也再也接不回那些已经付过钱的图。
+        const settleBackendPlacements = async ({ error, guard = async () => {} } = {}) => {
+            const unfinished = slotIds.filter((slotId, index) => !results[index]);
+            if (job.abortReason === 'user') {
+                let removedTargets = [];
+                if (unfinished.length > 0) {
+                    removedTargets = await commitImageJobDeliverySlotRemoval({
+                        slotIds: unfinished,
+                        resolveTarget: resolveDeliveryTarget,
+                        isEditing: isMessageBeingEdited,
+                        isAnyEditing: isAnyMessageBeingEdited,
+                        guard,
+                        persist: persistChatSilently,
+                    });
+                }
+                await renderRemovedTargets(removedTargets, unfinished).catch(() => {});
+                await renderBatchPreviews().catch(() => {});
+                return;
+            }
+
+            if (error) {
+                // 整批失败（比如后端连接断了）：单项 settled 通知根本没来过，
+                // 这里补齐每个槽位的失败记录，槽位一律保留。
+                for (const index of slotIds.keys()) {
+                    if (results[index]) continue;
+                    const errorType = await recordSlotFailure(index, error, guard);
+                    if (!errorType) continue;
+                    const item = batchItems[index];
+                    await renderSettledSlot(item.slotId, targetMessageId => buildFailedPlaceholderHtml({
+                        slotId: item.slotId,
+                        messageId: targetMessageId,
+                        tags: item.tagsForStore,
+                        positive: item.scene,
+                        errorType: errorType.label,
+                        errorMessage: errorType.desc,
+                    }));
+                }
+            }
+            if (replacedSlotIds.length > 0) {
+                const removedTargets = await commitImageJobDeliverySlotRemoval({
+                    slotIds: replacedSlotIds,
+                    resolveTarget: resolveDeliveryTarget,
+                    isEditing: isMessageBeingEdited,
+                    isAnyEditing: isAnyMessageBeingEdited,
+                    guard,
+                    persist: persistChatSilently,
+                });
+                await renderRemovedTargets(removedTargets, replacedSlotIds).catch(() => {});
+            }
+        };
+        const resolveBackendSettlement = ({ error } = {}) => {
+            if (job.abortReason === 'user') return { mode: 'discard' };
+            if (!error) return { mode: 'complete' };
+            const errorType = classifyError(error);
+            return { mode: 'fail', errorType };
+        };
+
+        const batchResult = await runNovelImageBatch({
+            requests: batchItems.map(item => item.request),
+            compiledBatch,
+            signal,
+            backendCancelSignal: job.backendCancel.signal,
+            monitorGeneration,
+            recoverable: {
+                plan: recoverablePlan,
+                commitPlacements: commitPlannedPlacements,
+                settlePlacements: settleBackendPlacements,
+                resolveSettlement: resolveBackendSettlement,
+                afterForget: () => renderBatchPreviews({ final: true }),
+            },
+            queueBatch: job,
+            onStateChange: (state, data) => {
+                checkPlacementContext();
+                onStateChange?.(state, data);
+            },
+            onItemReady: async ({ index, base64, guard = async () => {} }) => {
+                const item = batchItems[index];
+                const imgId = item.imgId;
+                // 落库与选中先做完，再谈渲染：这两步是这张图唯一的持久事实，
+                // 而后端只有在它们都落定之后才会收到 ACK 并丢掉结果。
+                const committed = await commitSceneSlotDelivery({
+                    committedEarly: placementLifecycle.committedEarly,
+                    resolveTarget: () => resolveDeliveryTarget(item.slotId),
+                    guard,
+                    persist: target => storePreview({
+                        ...galleryMeta,
+                        imgId,
+                        slotId: item.slotId,
+                        messageId: target?.messageId ?? messageId,
+                        base64,
+                        tags: item.tagsForStore,
+                        positive: item.scene,
+                        characterPrompts: item.characterPrompts,
+                        negativePrompt: item.negativePrompt,
+                    }),
+                    rollbackPersisted: () => deletePreview(imgId),
+                    select: () => setSlotSelection(item.slotId, imgId),
+                    rollbackSelection: () => clearSlotSelection(item.slotId),
+                });
+                if (!committed) return;
+                results[index] = { slotId: item.slotId, imgId, tags: item.tagsForStore, success: true };
+                successCount++;
+                await renderSettledSlot(item.slotId, targetMessageId => buildImageHtml({
+                    slotId: item.slotId,
                     imgId,
                     url: getPreviewDisplayUrl({ imgId, base64 }),
-                    tags: tagsForStore,
-                    positive: scene,
-                    messageId,
+                    tags: item.tagsForStore,
+                    positive: item.scene,
+                    messageId: targetMessageId,
                     state: ImageState.PREVIEW,
                     historyCount: 1,
                     currentIndex: 0,
-                });
-                successCount++;
-            } catch (e) {
-                if (signal.aborted) {
-                    console.log('[NovelDraw] 图片生成被中止');
-                    break;
-                }
-                console.error(`[NovelDraw] 图${i + 1} 失败:`, e.message);
-                const errorType = classifyError(e);
-                await storeFailedPlaceholder({
-                    slotId,
-                    messageId,
-                    tags: tagsForStore,
-                    positive: scene,
-                    errorType: errorType.code,
-                    errorMessage: errorType.desc,
-                    characterPrompts,
-                    negativePrompt: preset.negativePrefix,
-                    anchor: task.anchor,
-                });
-                results.push({ slotId, tags: tagsForStore, success: false, error: errorType });
-                incrementalHtml = buildFailedPlaceholderHtml({
-                    slotId,
-                    messageId,
-                    tags: tagsForStore,
-                    positive: scene,
+                }));
+            },
+            onItemSettled: async ({ index, state, error, guard = async () => {} }) => {
+                if (state === 'cancelled') return;
+                // 失败记录是持久事实，不能被渲染守卫挡掉：聊天切走了、楼层正在编辑，
+                // 都不改变「这张图失败了」，用户回来时必须看到失败卡而不是一个空占位符。
+                const errorType = await recordSlotFailure(index, error, guard);
+                if (!errorType) return;
+                const item = batchItems[index];
+                await renderSettledSlot(item.slotId, targetMessageId => buildFailedPlaceholderHtml({
+                    slotId: item.slotId,
+                    messageId: targetMessageId,
+                    tags: item.tagsForStore,
+                    positive: item.scene,
                     errorType: errorType.label,
-                    errorMessage: errorType.desc
-                });
-            }
-
-            if (signal.aborted) break;
-
-            const msgCheck = getContext().chat?.[messageId];
-            if (!msgCheck || msgCheck !== message) {
-                console.warn('[NovelDraw] 消息已删除或被替换（swipe/重新生成），停止生图');
-                break;
-            }
-
-            const placeholder = createPlaceholder(slotId);
-
-            if (position >= 0) {
-                position = findNearestSentenceEnd(message.mes, position);
-                const before = message.mes.slice(0, position);
-                const after = message.mes.slice(position);
-                let insertText = placeholder;
-                if (before.length > 0 && !before.endsWith('\n')) insertText = '\n' + insertText;
-                if (after.length > 0 && !after.startsWith('\n')) insertText = insertText + '\n';
-                message.mes = before + insertText + after;
-            } else {
-                const needNewline = message.mes.length > 0 && !message.mes.endsWith('\n');
-                message.mes += (needNewline ? '\n' : '') + placeholder;
-            }
-
-
-            // ── 增量渲染：每张图完成后立即显示 ──
-            try {
-                const incCtx = getContext();
-                const incMsg = incCtx.chat?.[messageId];
-                if (incCtx.chatId === initialChatId && incMsg === message && !isMessageBeingEdited(messageId)) {
-                    const inserted = insertPreviewIntoRenderedMessage({
-                        messageId,
-                        slotId,
-                        html: incrementalHtml,
-                        anchor: task.anchor,
-                    });
-
-                    if (!inserted) {
-                        requiresFinalDomSync = true;
-                        const formatted = messageFormatting(message.mes, message.name, message.is_system, message.is_user, messageId);
-                        $(`[mesid="${messageId}"] .mes_text`).html(formatted);
-                        await renderSharedPreviewsForMessage(messageId);
-                    }
-                }
-            } catch (e) {
-                requiresFinalDomSync = true;
-                console.warn('[NovelDraw] 增量渲染失败, 继续生成:', e);
-            }
-
-            if (i < tasks.length - 1) {
-                const delay = randomDelay(settings.requestDelay?.min, settings.requestDelay?.max);
-                onStateChange?.('cooldown', { duration: delay, nextIndex: i + 2, total: tasks.length });
-
-                await new Promise(r => {
-                    const tid = setTimeout(r, delay);
-                    signal.addEventListener('abort', () => { clearTimeout(tid); r(); }, { once: true });
-                });
-            }
+                    errorMessage: errorType.desc,
+                }));
+            },
+        });
+        if (batchResult.aborted && !terminationReason) {
+            terminationReason = job.abortReason === 'user' ? 'aborted' : 'detached';
         }
 
-        if (signal.aborted) {
-            // ── abort 清理：恢复内容 / 同步 DOM / 保存 ──
+        if (signal.aborted || terminationReason) {
             const abortCtx = getContext();
             const abortMsgValid = abortCtx.chatId === initialChatId && abortCtx.chat?.[messageId] === message;
-
-            if (successCount === 0) {
-                // 没有任何成功的图 → 完全回滚到原始内容
-                message.mes = originalMes;
+            const canCommit = !placementLifecycle.committedEarly
+                && abortMsgValid
+                && message.mes === originalMes
+                && !isMessageBeingEdited(messageId);
+            const canSync = abortMsgValid
+                && !isMessageBeingEdited(messageId)
+                && (placementLifecycle.committedEarly || canCommit);
+            if (canCommit) {
+                setActiveMessageText(message, commitSettledScenePlacements(plannedMes, {
+                    allSlotIds: slotIds,
+                    settledSlotIds: results.filter(Boolean).map(item => item.slotId),
+                }));
             }
 
-            if (abortMsgValid && !isMessageBeingEdited(messageId)) {
+            if (canSync) {
                 try {
-                    if (successCount === 0 || requiresFinalDomSync) {
-                        const formatted = messageFormatting(message.mes, message.name, message.is_system, message.is_user, messageId);
-                        $(`[mesid="${messageId}"] .mes_text`).html(formatted);
-                        await renderSharedPreviewsForMessage(messageId);
-                    }
+                    await syncRenderedMessage(message.mes);
+                    await renderSharedPreviewsForMessage(messageId);
                 } catch (e) {
                     console.warn('[NovelDraw] abort DOM 同步失败:', e);
                 }
+            }
+            if (canCommit) {
                 persistChatSilently().catch(() => {});
             }
 
-            onStateChange?.('success', { success: successCount, total: tasks.length, aborted: true });
-            return { success: successCount, total: tasks.length, results, aborted: true };
+            placementLifecycle.settled = true;
+            if (terminationReason === 'source_changed') {
+                throw new ScenePlacementError(
+                    '正文在配图期间发生变化或正在编辑；已生成图片保留在画廊中，未写入楼层。',
+                    'SCENE_SOURCE_CHANGED',
+                );
+            }
+            const aborted = terminationReason === 'aborted' || (signal.aborted && !terminationReason);
+            if (!aborted) notifyDetachedGeneration(successCount);
+            onStateChange?.('success', { success: successCount, total: tasks.length, aborted, detached: !aborted });
+            return {
+                success: successCount,
+                total: tasks.length,
+                results: results.filter(Boolean),
+                aborted,
+                terminationReason: aborted ? 'aborted' : 'detached',
+            };
+        }
+
+        if (placementLifecycle.committedEarly) {
+            placementLifecycle.settled = true;
+            onStateChange?.('success', { success: successCount, total: tasks.length });
+            return { success: successCount, total: tasks.length, results: results.filter(Boolean) };
         }
 
         const finalCtx = getContext();
-        const shouldUpdateDom = finalCtx.chatId === initialChatId &&
-            finalCtx.chat?.[messageId] === message &&
-            !isMessageBeingEdited(messageId);
+        const messageAttached = finalCtx.chatId === initialChatId && finalCtx.chat?.[messageId] === message;
+        if (!messageAttached) {
+            placementLifecycle.settled = true;
+            notifyDetachedGeneration(successCount);
+            onStateChange?.('success', { success: successCount, total: tasks.length, detached: true });
+            return { success: successCount, total: tasks.length, results: results.filter(Boolean), aborted: false, terminationReason: 'detached' };
+        }
+        const shouldUpdateDom = !isMessageBeingEdited(messageId)
+            && (placementLifecycle.committedEarly || message.mes === originalMes);
+        if (!placementLifecycle.committedEarly && !shouldUpdateDom) {
+            placementLifecycle.settled = true;
+            throw new ScenePlacementError(
+                '正文在配图期间发生变化或正在编辑；已生成图片保留在画廊中，未写入楼层。',
+                'SCENE_SOURCE_CHANGED',
+            );
+        }
+        if (!placementLifecycle.committedEarly) {
+            try {
+                await commitSceneSlotReplacement({
+                    message,
+                    stagedText: plannedMes,
+                    replacedSlotIds,
+                    persist: persistChatSilently,
+                });
+                if (replacedSlotIds.length > 0) requiresFinalDomSync = true;
+            } catch (error) {
+                requiresFinalDomSync = true;
+                console.warn('[NovelDraw] 替换旧图片槽位的保存未确认，已保留旧槽位:', error);
+            }
+        }
 
         if (shouldUpdateDom && requiresFinalDomSync) {
-            const formatted = messageFormatting(
-                message.mes,
-                message.name,
-                message.is_system,
-                message.is_user,
-                messageId
-            );
-            $('[mesid="' + messageId + '"] .mes_text').html(formatted);
-
-            await renderSharedPreviewsForMessage(messageId);
-
             try {
+                const formatted = messageFormatting(
+                    message.mes,
+                    message.name,
+                    message.is_system,
+                    message.is_user,
+                    messageId
+                );
+                $('[mesid="' + messageId + '"] .mes_text').html(formatted);
+                await renderSharedPreviewsForMessage(messageId);
                 const { processMessageById } = await import('../../../iframe-renderer.js');
                 processMessageById(messageId, true);
-            } catch {}
+            } catch (error) {
+                console.warn('[NovelDraw] 最终 DOM 同步失败:', error);
+            }
         } else if (shouldUpdateDom) {
             console.log('[NovelDraw] 已跳过最终 full rerender，仅后台保存正文与局部 DOM patch');
         }
@@ -3051,17 +4024,37 @@ async function generateAndInsertImages({ messageId, onStateChange, skipLock = fa
 
         onStateChange?.('success', { success: successCount, total: tasks.length });
 
-        if (shouldUpdateDom) {
-            persistChatSilently().then(() => {
-                console.log('[NovelDraw] 聊天已保存');
-            }).catch(e => {
-                console.warn('[NovelDraw] 保存聊天失败:', e);
-            });
-        }
-
-        return { success: successCount, total: tasks.length, results };
+        placementLifecycle.settled = true;
+        return { success: successCount, total: tasks.length, results: results.filter(Boolean) };
 
     } finally {
+        if (placementLifecycle && !placementLifecycle.settled) {
+            const {
+                message,
+                originalMes,
+                slotIds,
+                results,
+                initialChatId,
+                plannedMes,
+                syncRenderedMessage,
+                committedEarly,
+            } = placementLifecycle;
+            const currentCtx = getContext();
+            const canCommit = !committedEarly
+                && currentCtx.chatId === initialChatId
+                && currentCtx.chat?.[messageId] === message
+                && message.mes === originalMes
+                && !isMessageBeingEdited(messageId);
+            if (canCommit) {
+                setActiveMessageText(message, commitSettledScenePlacements(plannedMes, {
+                    allSlotIds: slotIds,
+                    settledSlotIds: results.filter(Boolean).map(item => item.slotId),
+                }));
+                if (syncRenderedMessage) await syncRenderedMessage(message.mes).catch(() => {});
+                await renderSharedPreviewsForMessage(messageId).catch(() => {});
+                await persistChatSilently().catch(() => {});
+            }
+        }
         releaseGenerationJob(job);
     }
 }
@@ -3082,11 +4075,10 @@ async function autoGenerateForLastAI() {
     const lastMessage = chat[lastIdx];
     if (!lastMessage || lastMessage.is_user) return;
     
-    const content = String(lastMessage.mes || '').replace(PLACEHOLDER_REGEX, '').trim();
+    const content = stripDrawImageSlots(lastMessage.mes).trim();
     if (content.length < 50) return;
     
-    lastMessage.extra ||= {};
-    if (lastMessage.extra.xb_novel_auto_done) return;
+    if (lastMessage.extra?.xb_novel_auto_done) return;
 
     if (autoBusy || hasGenerationJob(lastIdx)) {
         console.log('[NovelDraw] 自动模式：当前楼层已有任务进行中，跳过');
@@ -3116,11 +4108,21 @@ async function autoGenerateForLastAI() {
             }
         }
         
-        await generateAndInsertImages({
+        const result = await generateAndInsertImages({
             messageId: lastIdx,
             skipLock: true,
+            automatic: true,
             onStateChange: (state, data) => {
                 switch (state) {
+                    case 'submitting':
+                        updateState(FloatState.SUBMITTING, data);
+                        break;
+                    case 'accepted':
+                        updateState(FloatState.ACCEPTED, data);
+                        break;
+                    case 'uncertain':
+                        updateState(FloatState.UNCERTAIN, data);
+                        break;
                     case 'queued':
                         updateState(FloatState.QUEUED, data);
                         break;
@@ -3134,6 +4136,15 @@ async function autoGenerateForLastAI() {
                     case 'cooldown': 
                         updateState(FloatState.COOLDOWN, data); 
                         break;
+                    case 'reconnecting':
+                        updateState(FloatState.RECONNECTING, data);
+                        break;
+                    case 'cancelling':
+                        updateState(FloatState.CANCELLING, data);
+                        break;
+                    case 'backend_legacy':
+                        updateState(FloatState.BACKEND_LEGACY, data);
+                        break;
                     case 'success': 
                         updateState(
                             (data.aborted && data.success === 0) ? FloatState.IDLE
@@ -3146,7 +4157,12 @@ async function autoGenerateForLastAI() {
             }
         });
         
-        lastMessage.extra.xb_novel_auto_done = true;
+        // 后台流程由 automatic marker 在成功 handoff 时原子转成 auto_done；
+        // 浏览器流程仍沿用原有完成标记。
+        if (!['accepted', 'uncertain'].includes(result?.status)) {
+            lastMessage.extra ||= {};
+            lastMessage.extra.xb_novel_auto_done = true;
+        }
         
     } catch (e) {
         console.error('[NovelDraw] 自动配图失败:', e);
@@ -3155,6 +4171,27 @@ async function autoGenerateForLastAI() {
             const floatingOn = s.showFloatingButton === true;
             const floorOn = s.showFloorButton !== false;
             const useFloatingOnly = floatingOn && floorOn;
+
+            if (e?.uncertain === true) {
+                if (useFloatingOnly || (floatingOn && !floorOn)) {
+                    setFloatingState?.(FloatState.UNCERTAIN);
+                } else if (floorOn) {
+                    setStateForMessage(lastIdx, FloatState.UNCERTAIN);
+                }
+                return;
+            }
+            if (isDrawRunPendingError(e)) {
+                toastr?.info?.(e.message);
+                return;
+            }
+            if (isDrawRunCancelledError(e)) {
+                if (useFloatingOnly || (floatingOn && !floorOn)) {
+                    setFloatingState?.(FloatState.IDLE);
+                } else if (floorOn) {
+                    setStateForMessage(lastIdx, FloatState.IDLE);
+                }
+                return;
+            }
 
             if (useFloatingOnly || (floatingOn && !floorOn)) {
                 setFloatingState?.(FloatState.ERROR, { error: classifyError(e) });
@@ -3227,6 +4264,8 @@ function showOverlay() {
 }
 
 function hideOverlay() {
+    agentSettingsSurface?.destroy();
+    agentSettingsSurface = null;
     const overlay = document.getElementById('xiaobaix-novel-draw-overlay');
     if (overlay) overlay.remove();
     overlayCreated = false;
@@ -3246,7 +4285,7 @@ async function sendInitData() {
     const iframe = document.getElementById('xiaobaix-novel-draw-iframe');
     if (!iframe?.contentWindow) { console.warn('[NovelDraw] sendInitData: no iframe'); return; }
     // Send the usable settings first; cache/gallery IndexedDB work can be slow for upgraded installs.
-    const settings = getSettings();
+    const settings = getRuntimeSettings();
     console.log('[NovelDraw] sendInitData: autoLearn=%s, advancedMode=%s, promptPresets=%d',
         settings.autoLearnCharacters, settings.advancedMode, settings.promptPresets?.length);
     const buildPayload = (stats = { count: 0, sizeMB: 0 }, gallerySummary = {}) => ({
@@ -3255,15 +4294,16 @@ async function sendInitData() {
             enabled: moduleInitialized,
             mode: settings.mode,
             apiKey: settings.apiKey,
+            apiBaseUrl: settings.apiBaseUrl || '',
+            sendMode: settings.sendMode || 'frontend',
+            useImageBackendJobs: settings.useImageBackendJobs === true,
+            insecureTLS: settings.insecureTLS === true,
             timeout: settings.timeout,
             requestDelay: settings.requestDelay,
             cacheDays: getSharedDrawSettings().cacheDays,
             selectedParamsPresetId: settings.selectedParamsPresetId,
             paramsPresets: settings.paramsPresets,
-            llmApi: settings.llmApi,
-            useStream: settings.useStream,
             useWorldInfo: settings.useWorldInfo,
-            disablePrefill: !!settings.disablePrefill,
             characterTags: settings.characterTags,
             autoLearnCharacters: !!settings.autoLearnCharacters,
             autoLearnMode: settings.autoLearnMode || 'new_only',
@@ -3272,21 +4312,21 @@ async function sendInitData() {
             showFloorButton: settings.showFloorButton !== false,
             showFloatingButton: settings.showFloatingButton === true,
             advancedMode: !!settings.advancedMode,
-            customPrompts: settings.customPrompts || DEFAULT_SETTINGS.customPrompts,
-            // 安全网：确保 tagGuideContent 在发送时已解析为具体值
-            promptPresets: (settings.promptPresets || []).map(p =>
-                p.tagGuideContent != null ? p : { ...p, tagGuideContent: getLoadedTagGuide() || '' }
-            ),
+            promptPresets: settings.promptPresets || [],
             selectedPromptPresetId: settings.selectedPromptPresetId || null,
+            modelGuideDefaults: Object.fromEntries(
+                Object.values(NOVEL_PROMPT_GUIDES)
+                    .map(guideId => [guideId, getLoadedTagGuideById(guideId)]),
+            ),
+            modelContractDefaults: Object.fromEntries(
+                Object.values(NOVEL_PROMPT_GUIDES)
+                    .map(guideId => [guideId, getDefaultNovelModelContractByGuideId(guideId)]),
+            ),
+            modelCapabilities: getNovelModelCapabilitiesForUi(),
             worldbooks: settings.worldbooks || DEFAULT_SETTINGS.worldbooks,
             messageFilterRules: settings.messageFilterRules || [],
         },
-        defaultPrompts: {
-            topSystem: DEFAULT_PROMPT_CONFIG.topSystem,
-            topSystemPov: DEFAULT_PROMPT_CONFIG.topSystemPov,
-            tagGuideContent: getLoadedTagGuide(),
-            userJsonFormat: DEFAULT_PROMPT_CONFIG.userJsonFormat,
-        },
+        defaultPrompts: { ...DEFAULT_PROMPT_CONFIG },
         cacheStats: stats,
         gallerySummary,
     });
@@ -3311,6 +4351,23 @@ function postStatus(state, text, target = '') {
     if (iframe) postToIframe(iframe, { type: 'STATUS', state, text, target }, 'LittleWhiteBox-NovelDraw');
 }
 
+function getAgentSettingsSurfaceRoot() {
+    return document.getElementById('xiaobaix-novel-draw-iframe')
+        ?.contentDocument
+        ?.getElementById('nd-agent-settings-surface') || null;
+}
+
+function ensureAgentSettingsSurface() {
+    agentSettingsSurface = attachDrawAgentSettingsSurface({
+        surface: agentSettingsSurface,
+        getRoot: getAgentSettingsSurfaceRoot,
+        showToast: (message) => toastr.info(String(message || ''), 'Agent API'),
+        source: 'draw-novelai',
+        logPrefix: 'NovelDraw',
+    });
+    return agentSettingsSurface;
+}
+
 async function handleFrameMessage(event) {
     const iframe = document.getElementById('xiaobaix-novel-draw-iframe');
     if (!isTrustedMessage(event, iframe, 'NovelDraw-Frame')) return;
@@ -3321,8 +4378,9 @@ async function handleFrameMessage(event) {
         case 'FRAME_READY':
             frameReady = true;
             sendInitData();
+            ensureAgentSettingsSurface();
             // 若本地 Danbooru DB 已启用，预加载（失败只警告，不修改用户设置）
-            if (getSettings().danbooruLocalDB) {
+            if (getSharedDrawSettings().danbooruLocalDB) {
                 const datUrl = `${extensionFolderPath}/modules/draw/shared/data/danbooru-chars.dat`;
                 loadLocalDanbooruDB(datUrl).catch(e => {
                     console.warn('[NovelDraw] Eager load of local Danbooru DB failed:', e);
@@ -3376,25 +4434,47 @@ async function handleFrameMessage(event) {
         }
 
         case 'SAVE_API_CONFIG': {
-            await updateSettingsPersistent((settings) => {
+            const nextTimeout = typeof data.timeout === 'number' && data.timeout > 0
+                ? data.timeout
+                : null;
+            const providerOk = await updateSettingsPersistent((settings) => {
                 if (typeof data.apiKey === 'string') {
                     settings.apiKey = data.apiKey.trim();
                 }
-                if (typeof data.timeout === 'number' && data.timeout > 0) {
-                    settings.timeout = data.timeout;
+                if (typeof data.apiBaseUrl === 'string') {
+                    settings.apiBaseUrl = data.apiBaseUrl.trim();
+                }
+                if (data.sendMode === 'frontend' || data.sendMode === 'backend') {
+                    settings.sendMode = data.sendMode;
+                }
+                if (typeof data.useImageBackendJobs === 'boolean') {
+                    settings.useImageBackendJobs = data.useImageBackendJobs;
+                }
+                if (typeof data.insecureTLS === 'boolean') {
+                    settings.insecureTLS = data.insecureTLS;
                 }
                 if (data.requestDelay?.min > 0 && data.requestDelay?.max > 0) {
                     settings.requestDelay = data.requestDelay;
                 }
-            }, '已保存', { target: 'api' });
+            }, '已保存', { notify: false, silent: false });
+            const sharedOk = nextTimeout == null || await updateSharedSettingsPersistent((settings) => {
+                settings.timeout = nextTimeout;
+            }, '已保存', { notify: false, silent: false });
+            postStatus(providerOk && sharedOk ? 'success' : 'error', providerOk && sharedOk ? '已保存' : '保存失败', 'api');
             break;
         }
 
         case 'SAVE_TIMEOUT': {
-            await updateSettingsPersistent((settings) => {
-                if (typeof data.timeout === 'number' && data.timeout > 0) settings.timeout = data.timeout;
+            const nextTimeout = typeof data.timeout === 'number' && data.timeout > 0
+                ? data.timeout
+                : null;
+            const providerOk = await updateSettingsPersistent((settings) => {
                 if (data.requestDelay?.min > 0 && data.requestDelay?.max > 0) settings.requestDelay = data.requestDelay;
-            }, '已保存', { target: 'api' });
+            }, '已保存', { notify: false, silent: false });
+            const sharedOk = nextTimeout == null || await updateSharedSettingsPersistent((settings) => {
+                settings.timeout = nextTimeout;
+            }, '已保存', { notify: false, silent: false });
+            postStatus(providerOk && sharedOk ? 'success' : 'error', providerOk && sharedOk ? '已保存' : '保存失败', 'api');
             break;
         }
 
@@ -3411,13 +4491,26 @@ async function handleFrameMessage(event) {
         case 'TEST_API': {
             try {
                 postStatus('loading', '测试中...', 'api');
-                await testApiConnection(data.apiKey);
+                await testApiConnection(data.apiKey, data.apiBaseUrl, {
+                    sendMode: data.sendMode,
+                    insecure: data.insecureTLS,
+                    timeout: data.timeout,
+                    model: data.model,
+                });
                 postStatus('success', '连接成功', 'api');
             } catch (e) {
                 postStatus('error', e?.message, 'api');
             }
             break;
         }
+
+        case 'CHECK_BACKEND_PLUGIN': {
+            const status = await checkBackendPluginStatus();
+            const iframe = document.getElementById('xiaobaix-novel-draw-iframe');
+            if (iframe) postToIframe(iframe, { type: 'BACKEND_PLUGIN_STATUS', status }, 'LittleWhiteBox-NovelDraw');
+            break;
+        }
+
 
         case 'SAVE_PARAMS_PRESET': {
             const ok = await updateSettingsPersistent((settings) => {
@@ -3482,7 +4575,7 @@ async function handleFrameMessage(event) {
         // ═══════════════════════════════════════════════════════════════
         case 'OPEN_CLOUD_PRESETS': {
             openCloudPresetsModal(async (presetData) => {
-                const newPreset = parsePresetData(presetData, generateSlotId);
+                const { preset: newPreset, warnings: importWarnings } = parsePresetData(presetData, generateSlotId);
                 const ok = await updateSettingsPersistent((settings) => {
                     settings.paramsPresets.push(newPreset);
                     settings.selectedParamsPresetId = newPreset.id;
@@ -3490,6 +4583,7 @@ async function handleFrameMessage(event) {
                 if (ok) {
                     await notifySettingsUpdated();
                     sendInitData();
+                    if (importWarnings.length) showToast(importWarnings.join('；'), 'info', 5000);
                 }
             });
             break;
@@ -3509,38 +4603,56 @@ async function handleFrameMessage(event) {
 
         // ═══════════════════════════════════════════════════════════════
 
-        case 'SAVE_LLM_API': {
-            const ok = await updateSettingsPersistent((settings) => {
-                if (data.llmApi && typeof data.llmApi === 'object') {
-                    const allowed = ['provider', 'url', 'key', 'model', 'modelCache'];
-                    const clean = Object.fromEntries(allowed.filter(k => k in data.llmApi).map(k => [k, data.llmApi[k]]));
-                    settings.llmApi = normalizeDrawLlmApi({ ...settings.llmApi, ...clean });
-                }
-                if (typeof data.useStream === 'boolean') settings.useStream = data.useStream;
-                if (typeof data.useWorldInfo === 'boolean') settings.useWorldInfo = data.useWorldInfo;
-                if (typeof data.disablePrefill === 'boolean') settings.disablePrefill = data.disablePrefill;
-            }, '已保存', { target: 'llm' });
-            if (ok) sendInitData();
-            break;
-        }
-
         case 'RESET_CUSTOM_PROMPT': {
             const key = data.key;
-            const ALLOWED_PROMPT_KEYS = ['topSystem', 'tagGuideContent', 'userJsonFormat'];
-            if (key && ALLOWED_PROMPT_KEYS.includes(key)) {
-                await updateSettingsPersistent((settings) => {
-                    const presetId = data.selectedPromptPresetId || settings.selectedPromptPresetId;
-                    const active = settings.promptPresets.find(p => p.id === presetId);
-                    const isPov = active?.name === '默认-第一人称视角';
+            const ALLOWED_PROMPT_KEYS = ['topSystem', 'sceneRules'];
+            const guideId = String(data.guideId || '');
+            const presetId = String(data.selectedPromptPresetId || '');
+            const isGuideReset = key === 'modelGuide'
+                && Object.values(NOVEL_PROMPT_GUIDES).includes(guideId);
+            const isContractReset = key === 'modelContract'
+                && Object.values(NOVEL_PROMPT_GUIDES).includes(guideId);
+            if (isGuideReset || isContractReset || (key && ALLOWED_PROMPT_KEYS.includes(key))) {
+                let presetFound = false;
+                const ok = await updateSettingsPersistent((settings) => {
+                    const targetPresetId = presetId || settings.selectedPromptPresetId;
+                    const active = settings.promptPresets.find(p => p.id === targetPresetId);
+                    if (!active) return;
+                    presetFound = true;
+                    if (isGuideReset) {
+                        const overrides = normalizeNovelPromptGuideOverrides(active.modelGuideOverrides);
+                        delete overrides[guideId];
+                        active.modelGuideOverrides = overrides;
+                        return;
+                    }
+                    if (isContractReset) {
+                        const overrides = normalizeNovelModelContractOverrides(active.modelContractOverrides);
+                        delete overrides[guideId];
+                        active.modelContractOverrides = overrides;
+                        return;
+                    }
+                    const isPov = active?.name === '默认-第一人称完整规则';
                     const resetDefaults = {
                         topSystem: isPov ? DEFAULT_PROMPT_CONFIG.topSystemPov : DEFAULT_PROMPT_CONFIG.topSystem,
-                        tagGuideContent: getLoadedTagGuide() || '',
-                        userJsonFormat: DEFAULT_PROMPT_CONFIG.userJsonFormat,
+                        sceneRules: DEFAULT_PROMPT_CONFIG.sceneRules,
                     };
                     const defaultVal = resetDefaults[key];
-                    if (settings.customPrompts) settings.customPrompts[key] = defaultVal;
-                    if (active) active[key] = defaultVal;
-                }, '已恢复默认', { target: 'prompts' });
+                    active[key] = defaultVal;
+                }, '已恢复默认', { target: 'prompts', notify: false });
+                const reset = ok && presetFound;
+                postStatus(
+                    reset ? 'success' : 'error',
+                    reset ? '已恢复默认' : ok ? '目标提示词预设已不存在' : '保存失败',
+                    'prompts',
+                );
+                postToIframe(iframe, {
+                    type: 'PROMPT_RESET_RESULT',
+                    key,
+                    guideId,
+                    presetId,
+                    draftRevision: data.draftRevision,
+                    ok: reset,
+                }, 'LittleWhiteBox-NovelDraw');
             }
             sendInitData();
             break;
@@ -3551,21 +4663,22 @@ async function handleFrameMessage(event) {
         // ═══════════════════════════════════════════════════════════════
 
         case 'SELECT_PROMPT_PRESET': {
-            if (data.id && getSettings().promptPresets.some(p => p.id === data.id)) {
+            if (data.id) {
                 // 仅持久化，不回传 INIT_DATA — iframe 已在 change handler 中完成 UI 更新
                 // 避免 sendInitData 的异步延迟导致下拉框 innerHTML 全量重建引起状态闪烁
+                let presetFound = false;
                 const ok = await updateSettingsPersistent((settings) => {
+                    if (!settings.promptPresets.some(p => p.id === data.id)) return;
+                    presetFound = true;
                     settings.selectedPromptPresetId = data.id;
-                    const active = settings.promptPresets.find(p => p.id === data.id);
-                    if (active) {
-                        settings.customPrompts = {
-                            topSystem: active.topSystem,
-                            tagGuideContent: active.tagGuideContent,
-                            userJsonFormat: active.userJsonFormat,
-                        };
-                    }
-                }, '已切换预设', { target: 'prompt-preset' });
-                if (!ok) {
+                }, '已切换预设', { target: 'prompt-preset', notify: false });
+                const selected = ok && presetFound;
+                postStatus(
+                    selected ? 'success' : 'error',
+                    selected ? '已切换预设' : ok ? '目标提示词预设已不存在' : '保存失败',
+                    'prompt-preset',
+                );
+                if (!selected) {
                     sendInitData();
                 }
             }
@@ -3574,77 +4687,147 @@ async function handleFrameMessage(event) {
 
         case 'ADD_PROMPT_PRESET': {
             const id = generateSlotId();
-            const current = getActivePromptPreset();
+            const sourcePresetId = String(data.sourcePresetId || getSettings().selectedPromptPresetId || '');
+            let sourceFound = false;
             const ok = await updateSettingsPersistent((settings) => {
+                const current = settings.promptPresets.find(p => p.id === sourcePresetId);
+                if (!current) return;
+                sourceFound = true;
                 const newPreset = {
                     id,
                     name: (typeof data.name === 'string' && data.name.trim()) ? data.name.trim() : `提示词-${settings.promptPresets.length + 1}`,
                     topSystem: current?.topSystem ?? DEFAULT_PROMPT_CONFIG.topSystem,
-                    tagGuideContent: current?.tagGuideContent ?? getLoadedTagGuide() ?? '',
-                    userJsonFormat: current?.userJsonFormat ?? DEFAULT_PROMPT_CONFIG.userJsonFormat,
+                    sceneRules: current?.sceneRules ?? DEFAULT_PROMPT_CONFIG.sceneRules,
+                    modelGuideOverrides: normalizeNovelPromptGuideOverrides(current?.modelGuideOverrides),
+                    modelContractOverrides: normalizeNovelModelContractOverrides(current?.modelContractOverrides),
                 };
                 settings.promptPresets.push(newPreset);
                 settings.selectedPromptPresetId = id;
-                settings.customPrompts = { topSystem: newPreset.topSystem, tagGuideContent: newPreset.tagGuideContent, userJsonFormat: newPreset.userJsonFormat };
-            }, '已创建', { target: 'prompt-preset' });
+            }, '已创建', { target: 'prompt-preset', notify: false });
+            postStatus(
+                ok && sourceFound ? 'success' : 'error',
+                ok && sourceFound ? '已创建' : ok ? '源提示词预设已不存在' : '保存失败',
+                'prompt-preset',
+            );
+            if (ok && sourceFound) sendInitData();
+            break;
+        }
+
+        case 'IMPORT_PROMPT_PRESET': {
+            let imported;
+            try {
+                imported = parseNovelPromptPresetImport(data.payload, {
+                    fallbackName: data.fallbackName,
+                });
+            } catch (error) {
+                postStatus('error', `导入失败：${error?.message || '模板格式无效'}`, 'prompt-preset');
+                break;
+            }
+            const id = generateSlotId();
+            const ok = await updateSettingsPersistent((settings) => {
+                settings.promptPresets.push({
+                    id,
+                    ...imported,
+                    modelGuideOverrides: compactPromptGuideOverrides(imported.modelGuideOverrides),
+                    modelContractOverrides: compactPromptContractOverrides(imported.modelContractOverrides),
+                });
+                settings.selectedPromptPresetId = id;
+            }, '已导入为新预设', { target: 'prompt-preset' });
             if (ok) sendInitData();
             break;
         }
 
         case 'DEL_PROMPT_PRESET': {
             const s = getSettings();
-            if (s.promptPresets.length <= 1) {
-                postStatus('error', '至少保留一个预设', 'prompt-preset');
-                break;
-            }
+            const presetId = String(data.id || s.selectedPromptPresetId || '');
+            let deleteResult = 'missing';
             const ok = await updateSettingsPersistent((settings) => {
-                const idx = settings.promptPresets.findIndex(p => p.id === settings.selectedPromptPresetId);
-                if (idx >= 0) settings.promptPresets.splice(idx, 1);
-                settings.selectedPromptPresetId = settings.promptPresets[0]?.id || null;
-                const active = settings.promptPresets.find(p => p.id === settings.selectedPromptPresetId);
-                if (active) {
-                    settings.customPrompts = { topSystem: active.topSystem, tagGuideContent: active.tagGuideContent, userJsonFormat: active.userJsonFormat };
+                if (settings.promptPresets.length <= 1) {
+                    deleteResult = 'last';
+                    return;
                 }
-            }, '已删除', { target: 'prompt-preset' });
+                const idx = settings.promptPresets.findIndex(p => p.id === presetId);
+                if (idx < 0) return;
+                settings.promptPresets.splice(idx, 1);
+                settings.selectedPromptPresetId = settings.promptPresets[0]?.id || null;
+                deleteResult = 'deleted';
+            }, '已删除', { target: 'prompt-preset', notify: false });
+            if (!ok) {
+                postStatus('error', '保存失败', 'prompt-preset');
+            } else if (deleteResult === 'last') {
+                postStatus('error', '至少保留一个预设', 'prompt-preset');
+            } else if (deleteResult === 'missing') {
+                postStatus('error', '要删除的预设已不存在', 'prompt-preset');
+            } else {
+                postStatus('success', '已删除', 'prompt-preset');
+            }
             if (ok) sendInitData();
             break;
         }
 
         case 'RENAME_PROMPT_PRESET': {
-            const active = getSettings().promptPresets.find(p => p.id === getSettings().selectedPromptPresetId);
+            const presetId = String(data.id || getSettings().selectedPromptPresetId || '');
+            const active = getSettings().promptPresets.find(p => p.id === presetId);
             if (active && typeof data.name === 'string' && data.name.trim()) {
-                await updateSettingsPersistent((settings) => {
-                    const preset = settings.promptPresets.find(p => p.id === settings.selectedPromptPresetId);
-                    if (preset) preset.name = data.name.trim();
-                }, '已重命名', { target: 'prompt-preset' });
+                let presetFound = false;
+                const ok = await updateSettingsPersistent((settings) => {
+                    const preset = settings.promptPresets.find(p => p.id === presetId);
+                    if (!preset) return;
+                    presetFound = true;
+                    preset.name = data.name.trim();
+                }, '已重命名', { target: 'prompt-preset', notify: false });
+                postStatus(
+                    ok && presetFound ? 'success' : 'error',
+                    ok && presetFound ? '已重命名' : ok ? '目标提示词预设已不存在' : '保存失败',
+                    'prompt-preset',
+                );
                 sendInitData();
             }
             break;
         }
 
         case 'SAVE_PROMPT_PRESET': {
-            const active = getSettings().promptPresets.find(p => p.id === (data.selectedPromptPresetId || getSettings().selectedPromptPresetId));
-            if (active && data.customPrompts && typeof data.customPrompts === 'object') {
+            const presetId = String(data.selectedPromptPresetId || getSettings().selectedPromptPresetId || '');
+            let saved = false;
+            if (data.promptDraft && typeof data.promptDraft === 'object') {
                 const statusTarget = data.statusTarget === 'prompt-preset' ? 'prompt-preset' : 'prompts';
-                await updateSettingsPersistent((settings) => {
-                    if (data.selectedPromptPresetId && settings.promptPresets.some(p => p.id === data.selectedPromptPresetId)) {
-                        settings.selectedPromptPresetId = data.selectedPromptPresetId;
-                    }
-                    const current = settings.promptPresets.find(p => p.id === settings.selectedPromptPresetId);
+                let presetFound = false;
+                const ok = await updateSettingsPersistent((settings) => {
+                    const current = settings.promptPresets.find(p => p.id === presetId);
                     if (!current) return;
-                    const cp = data.customPrompts;
+                    presetFound = true;
+                    settings.selectedPromptPresetId = presetId;
+                    const cp = data.promptDraft;
                     if ('topSystem' in cp) current.topSystem = cp.topSystem;
-                    if ('tagGuideContent' in cp) current.tagGuideContent = cp.tagGuideContent;
-                    if ('userJsonFormat' in cp) current.userJsonFormat = cp.userJsonFormat;
-                    settings.customPrompts = { topSystem: current.topSystem, tagGuideContent: current.tagGuideContent, userJsonFormat: current.userJsonFormat };
-                }, '提示词预设已保存', { target: statusTarget });
+                    if ('sceneRules' in cp) current.sceneRules = cp.sceneRules;
+                    if ('modelGuideOverrides' in cp) {
+                        current.modelGuideOverrides = compactPromptGuideOverrides(cp.modelGuideOverrides);
+                    }
+                    if ('modelContractOverrides' in cp) {
+                        current.modelContractOverrides = compactPromptContractOverrides(cp.modelContractOverrides);
+                    }
+                }, '提示词预设已保存', { target: statusTarget, notify: false });
+                saved = ok && presetFound;
+                postStatus(
+                    saved ? 'success' : 'error',
+                    saved ? '提示词预设已保存' : ok ? '目标提示词预设已不存在' : '保存失败',
+                    statusTarget,
+                );
+            }
+            if (data.resetAll === true) {
+                postToIframe(iframe, {
+                    type: 'PROMPT_RESET_ALL_RESULT',
+                    presetId,
+                    draftRevision: data.draftRevision,
+                    ok: saved,
+                }, 'LittleWhiteBox-NovelDraw');
             }
             sendInitData();
             break;
         }
 
         case 'SAVE_WORLDBOOK_CONFIG': {
-            const ok = await updateSettingsPersistent((settings) => {
+            const ok = await updateSharedSettingsPersistent((settings) => {
                 if (typeof data.useWorldInfo === 'boolean') {
                     settings.useWorldInfo = data.useWorldInfo;
                 }
@@ -3660,30 +4843,16 @@ async function handleFrameMessage(event) {
             break;
         }
 
-        case 'FETCH_LLM_MODELS': {
-            try {
-                postStatus('loading', '连接中...', 'llm-fetch');
-                const apiCfg = normalizeDrawLlmApi(data.llmApi || {});
-                const models = await fetchDrawLlmModels(apiCfg);
-
-                const ok = await updateSettingsPersistent((settings) => {
-                    settings.llmApi.provider = apiCfg.provider;
-                    settings.llmApi.url = apiCfg.url;
-                    settings.llmApi.key = apiCfg.key;
-                    settings.llmApi.modelCache = [...new Set(models)];
-                    if (!settings.llmApi.model && models.length) settings.llmApi.model = models[0];
-                }, `获取 ${models.length} 个模型`, { target: 'llm-fetch' });
-                if (ok) sendInitData();
-            } catch (e) {
-                postStatus('error', '连接失败：' + (e.message || '请检查配置'), 'llm-fetch');
-            }
+        case 'ENSURE_AGENT_SETTINGS': {
+            ensureAgentSettingsSurface();
             break;
         }
 
         case 'SAVE_CHARACTER_TAGS': {
-            await updateSettingsPersistent((settings) => {
+            const ok = await updateSharedSettingsPersistent((settings) => {
                 if (Array.isArray(data.characterTags)) settings.characterTags = data.characterTags;
             }, '角色标签已保存');
+            if (!ok) await sendInitData();
             break;
         }
 
@@ -3706,7 +4875,7 @@ async function handleFrameMessage(event) {
                     const datUrl = `${extensionFolderPath}/modules/draw/shared/data/danbooru-chars.dat`;
                     const db = await loadLocalDanbooruDB(datUrl);
                     if (!db) break; // 被并发 OFF toggle 取消
-                    const ok = await updateSettingsPersistent((settings) => {
+                    const ok = await updateSharedSettingsPersistent((settings) => {
                         settings.danbooruLocalDB = true;
                     }, `Danbooru 本地库已加载 (${db.length} 条)`);
                     if (!ok) {
@@ -3714,14 +4883,14 @@ async function handleFrameMessage(event) {
                     }
                 } catch (e) {
                     unloadLocalDanbooruDB();
-                    await updateSettingsPersistent((settings) => {
+                    await updateSharedSettingsPersistent((settings) => {
                         settings.danbooruLocalDB = false;
                     }, 'Danbooru 本地库加载失败');
                     console.warn('[NovelDraw] Failed to load local Danbooru DB:', e);
                 }
             } else {
                 unloadLocalDanbooruDB();
-                await updateSettingsPersistent((settings) => {
+                await updateSharedSettingsPersistent((settings) => {
                     settings.danbooruLocalDB = false;
                 }, 'Danbooru 本地库已关闭');
             }
@@ -3747,7 +4916,7 @@ async function handleFrameMessage(event) {
             break;
 
         case 'SAVE_MESSAGE_FILTER_RULES': {
-            await updateSettingsPersistent((settings) => {
+            await updateSharedSettingsPersistent((settings) => {
                 settings.messageFilterRules = Array.isArray(data.rules) ? data.rules : [];
             }, '过滤规则已保存', { target: 'filter' });
             break;
@@ -3786,9 +4955,29 @@ async function handleFrameMessage(event) {
 
         case 'GET_PROMPT_CHAIN': {
             const { getPromptChainPreview } = await import('./novel-prompts.js');
-            const chain = getPromptChainPreview(getSettings().customPrompts);
-            const iframe = document.getElementById('xiaobaix-novel-draw-iframe');
-            if (iframe) postToIframe(iframe, { type: 'PROMPT_CHAIN_DATA', chain }, 'LittleWhiteBox-NovelDraw');
+            const currentPrompts = getActivePromptPreset() || {};
+            const model = String(data.model || getActiveParamsPreset()?.params?.model || '');
+            const promptDraft = data.promptDraft && typeof data.promptDraft === 'object'
+                ? {
+                    ...currentPrompts,
+                    topSystem: String(data.promptDraft.topSystem ?? currentPrompts.topSystem ?? ''),
+                    sceneRules: String(data.promptDraft.sceneRules ?? currentPrompts.sceneRules ?? ''),
+                    modelGuideOverrides: normalizeNovelPromptGuideOverrides(
+                        data.promptDraft.modelGuideOverrides ?? currentPrompts.modelGuideOverrides,
+                    ),
+                    modelContractOverrides: normalizeNovelModelContractOverrides(
+                        data.promptDraft.modelContractOverrides ?? currentPrompts.modelContractOverrides,
+                    ),
+                }
+                : currentPrompts;
+            const chain = getPromptChainPreview(promptDraft, model);
+            const modelContractContent = getEffectiveNovelModelContract(model, promptDraft);
+            if (iframe?.isConnected) postToIframe(iframe, {
+                type: 'PROMPT_CHAIN_DATA',
+                requestId: data.requestId,
+                chain,
+                modelContractContent,
+            }, 'LittleWhiteBox-NovelDraw');
             break;
         }
 
@@ -3796,7 +4985,7 @@ async function handleFrameMessage(event) {
             if (iframe) {
                 postToIframe(iframe, {
                     type: 'LAST_LLM_REQUEST_DATA',
-                    snapshot: getLastDrawLlmRequestSnapshot(),
+                    snapshot: getLastDrawAgentDiagnostic(),
                 }, 'LittleWhiteBox-NovelDraw');
             }
             break;
@@ -3819,7 +5008,8 @@ async function handleFrameMessage(event) {
                     break;
                 }
                 const charName = preview.characterName || getChatCharacterName();
-                const url = await saveBase64AsFile(preview.base64, charName, `novel_${data.imgId}`, 'png');
+                const image = getBase64ImagePayload(preview.base64);
+                const url = await saveBase64AsFile(image.base64, charName, `novel_${data.imgId}`, image.format);
                 preview.savedUrl = url;
                 await updatePreviewSavedUrl(data.imgId, url);
                 if (Number.isFinite(preview.messageId)) await syncNovelDrawSavedFromPreview(preview.messageId, preview, { savedUrl: url });
@@ -3877,11 +5067,24 @@ async function handleFrameMessage(event) {
                 const result = await generateAndInsertImages({
                     messageId,
                     onStateChange: (state, d) => {
+                        if (state === 'submitting') postStatus('loading', '提交后台...');
+                        if (state === 'accepted') postStatus('loading', '提交后台完成，可关闭页面');
+                        if (state === 'uncertain') postStatus('loading', '后台任务确认中...');
                         if (state === 'progress') postStatus('loading', `${d.current}/${d.total}`);
                         if (state === 'queued') postStatus('loading', d.ahead > 0 ? `排队中·前方 ${d.ahead}` : '排队中');
+                        if (state === 'cooldown') postStatus('loading', `冷却中 ${Math.max(0, (Number(d.cooldownUntil) - Date.now()) / 1000).toFixed(1)}s`);
+                        if (state === 'reconnecting') postStatus('loading', '后端重连中...');
+                        if (state === 'cancelling') postStatus('loading', '取消中...');
+                        if (state === 'backend_legacy') postStatus('loading', '后端兼容模式');
                     }
                 });
-                postStatus('success', `完成! ${result.success} 张`);
+                if (result?.status === 'accepted') {
+                    postStatus('success', '提交后台完成，可关闭页面');
+                } else if (result?.status === 'uncertain') {
+                    postStatus('loading', '后台任务确认中，请勿重复提交');
+                } else {
+                    postStatus('success', `完成! ${result.success} 张`);
+                }
             } catch (e) {
                 postStatus('error', e?.message);
             }
@@ -3898,7 +5101,7 @@ async function handleFrameMessage(event) {
                 const base64 = await generateNovelImage({ scene, characterPrompts: [], negativePrompt: preset?.negativePrefix || '', params: preset?.params || {} });
                 {
                     const iframe = document.getElementById('xiaobaix-novel-draw-iframe');
-                    if (iframe) postToIframe(iframe, { type: 'TEST_RESULT', url: `data:image/png;base64,${base64}` }, 'LittleWhiteBox-NovelDraw');
+                    if (iframe) postToIframe(iframe, { type: 'TEST_RESULT', url: getPreviewDisplayUrl({ base64 }) }, 'LittleWhiteBox-NovelDraw');
                 }
                 postStatus('success', `完成 ${((Date.now() - t0) / 1000).toFixed(1)}s`);
             } catch (e) {
@@ -3914,19 +5117,45 @@ async function handleFrameMessage(event) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function openNovelDrawSettings() {
-    await loadSettings();
-    await loadSharedDrawSettings();
+    try {
+        await loadSettings();
+        await loadSharedDrawSettings();
+    } catch {
+        return false;
+    }
     showOverlay();
+    return true;
 }
 
 export async function initNovelDraw() {
     if (window?.isXiaobaixEnabled === false) return;
-    if (moduleInitialized) return;
+    if (moduleInitialized) return true;
+    const initGeneration = ++moduleLifecycleGeneration;
 
-    await loadPromptTemplates();
-    await loadSettings();
-    const sharedDrawSettings = await loadSharedDrawSettings();
+    const [templatesOk, guidesOk] = await Promise.all([
+        loadPromptTemplates(),
+        loadTagGuide(),
+    ]);
+    if (initGeneration !== moduleLifecycleGeneration || window?.isXiaobaixEnabled === false) return false;
+    if (!templatesOk || !guidesOk) {
+        showToast('NovelAI 提示词资源加载失败，已停止初始化', 'error', 5000);
+        return false;
+    }
+    let sharedDrawSettings;
+    try {
+        await loadSettings();
+        sharedDrawSettings = await loadSharedDrawSettings();
+    } catch {
+        return false;
+    }
+    const [floatingPanel] = await Promise.all([
+        import('./floating-panel.js'),
+        openDB().then(() => clearExpiredCache(sharedDrawSettings.cacheDays)).catch(() => {}),
+    ]);
+    if (initGeneration !== moduleLifecycleGeneration || window?.isXiaobaixEnabled === false) return false;
+
     moduleInitialized = true;
+    backendJobMonitors.activate();
     initAfterAiGate();
     afterAiGateDispose?.();
     afterAiGateDispose = registerAfterAiHandler(MODULE_KEY, ({ chatId, messageId }) => {
@@ -3935,24 +5164,15 @@ export async function initNovelDraw() {
     });
     ensureStyles();
 
-    await loadTagGuide();
-
-    // tagGuideContent 依赖文件加载，在此处完成 null → 具体值的迁移
-    migrateNullTagGuide();
-
     setupEventDelegation();
-    await openDB().then(() => {
-        clearExpiredCache(sharedDrawSettings.cacheDays);
-    }).catch(() => {});
     startSharedDrawPreviewRuntime();
 
     // ════════════════════════════════════════════════════════════════════
     // 动态导入 floating-panel（避免循环依赖）
     // ════════════════════════════════════════════════════════════════════
-    
-    const { ensureNovelDrawPanel: ensureNovelDrawPanelFn, initFloatingPanel } = await import('./floating-panel.js');
-    ensureNovelDrawPanelRef = ensureNovelDrawPanelFn;
-    initFloatingPanel?.();
+
+    ensureNovelDrawPanelRef = floatingPanel.ensureNovelDrawPanel;
+    floatingPanel.initFloatingPanel?.();
 
     // 为现有消息创建画图面板
     const renderExistingPanels = () => {
@@ -3977,6 +5197,12 @@ export async function initNovelDraw() {
     events.on(event_types.CHARACTER_MESSAGE_RENDERED, (data) => {
         const messageId = typeof data === 'number' ? data : data?.messageId ?? data?.mesId;
         if (messageId === undefined) return;
+
+        // 悬浮按钮的目标是当前最后一条 AI 消息，不能依赖楼层按钮顺带刷新；
+        // 用户关闭楼层按钮时，新消息也必须独立重读自己的 Draw Run 事实。
+        if (Number(messageId) === findLastAIMessageId()) {
+            floatingPanel.refreshDrawRunUiState?.();
+        }
         
         const messageEl = document.querySelector(`.mes[mesid="${messageId}"]`);
         if (!messageEl) return;
@@ -4002,15 +5228,17 @@ export async function initNovelDraw() {
 
     // ST 停止键 / Escape → 同时中止 novel-draw 生成
     events.on(event_types.GENERATION_STOPPED, () => {
-        if (isGenerating()) {
-            console.log('[NovelDraw] ST 停止信号，中止图片生成');
-            abortGeneration();
-        }
+        console.log('[NovelDraw] ST 停止信号，中止图片生成');
+        abortGeneration();
     });
 
     // 聊天切换时重新创建面板
     events.on(event_types.CHAT_CHANGED, () => {
+        floatingPanel.refreshDrawRunUiState?.();
         setTimeout(renderExistingPanels, 200);
+    });
+    events.on(event_types.MESSAGE_SWIPED, () => {
+        floatingPanel.refreshDrawRunUiState?.();
     });
 
     // ════════════════════════════════════════════════════════════════════
@@ -4025,6 +5253,7 @@ export async function initNovelDraw() {
 
     window.xiaobaixNovelDraw = {
         getSettings,
+        getGenerationSnapshot,
         saveSettings,
         getQuickSettings,
         updateQuickSettings,
@@ -4044,7 +5273,6 @@ export async function initNovelDraw() {
         clearExpiredCache,
         clearAllCache,
         detectPresentCharacters,
-        assembleCharacterPrompts,
         getPreviewsBySlot,
         getDisplayPreviewForSlot,
         openGallery,
@@ -4055,9 +5283,11 @@ export async function initNovelDraw() {
 
     window.registerModuleCleanup?.(MODULE_KEY, cleanupNovelDraw);
     console.log('[NovelDraw] 模块已初始化');
+    return true;
 }
 
 export async function cleanupNovelDraw() {
+    const cleanupGeneration = ++moduleLifecycleGeneration;
     moduleInitialized = false;
     settingsCache = null;
     settingsLoaded = false;
@@ -4071,10 +5301,10 @@ export async function cleanupNovelDraw() {
     overlayCreated = false;
     frameReady = false;
 
-    abortGeneration();
-    generationJobs.clear();
-    imageRequestQueue = [];
-    activeImageRequest = null;
+    backendJobMonitors.deactivate();
+    abortGeneration(null, { reason: 'teardown' });
+    generationJobs = new Map();
+    novelImageRequestQueue.clear();
 
     window.removeEventListener('message', handleFrameMessage);
     // 移除事件委托监听器（防止累积泄漏）
@@ -4089,15 +5319,14 @@ export async function cleanupNovelDraw() {
         overlayResizeHandler = null;
     }
     document.getElementById('xiaobaix-novel-draw-overlay')?.remove();
+    delete window.xiaobaixNovelDraw;
+    delete window._xbNovelEventsBound;
 
     // 动态导入并清理
     try {
         const { destroyFloatingPanel } = await import('./floating-panel.js');
-        destroyFloatingPanel();
+        if (cleanupGeneration === moduleLifecycleGeneration) destroyFloatingPanel();
     } catch {}
-
-    delete window.xiaobaixNovelDraw;
-    delete window._xbNovelEventsBound;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -4124,17 +5353,11 @@ export {
     renderSharedPreviewsForMessage as renderPreviewsForMessage,
     buildImageHtml,
     insertPreviewIntoRenderedMessage,
-    findAnchorPosition,
-    findNearestSentenceEnd,
     detectPresentCharacters,
-    assembleCharacterPrompts,
-    applyMessageFilterRules,
-    DEFAULT_MESSAGE_FILTER_RULES,
     joinTags,
     ensureStyles as ensureNovelDrawStyles,
     classifyError,
     ErrorType,
-    PROVIDER_MAP,
     abortGeneration,
     isGenerating,
 };

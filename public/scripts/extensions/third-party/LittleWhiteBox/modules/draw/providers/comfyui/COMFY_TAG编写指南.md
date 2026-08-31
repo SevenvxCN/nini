@@ -86,10 +86,10 @@ tag--        → 降低
 
 **已录入角色（已知角色）：**
 - 不要输出 `type` 和 `appear`（系统自动注入）
-- 必须输出: `costume`, `action`, `interact`, `uc`, `center`
+- 必须输出 `name` 和 `action`；`danbooru`, `costume`, `interact`, `uc`, `center` 仅在有对应内容时输出
 
 **未知角色：**
-- 必须输出所有字段: `type`, `appear`, `costume`, `action`, `interact`, `uc`, `center`
+- 必须输出 `name`, `type`, `appear`, `action`；`danbooru`, `costume`, `interact`, `uc`, `center` 仅在有对应内容时输出
 
 ---
 
@@ -158,6 +158,6 @@ tag--        → 降低
 
 ## 输出纪律
 
-- anchor 必须复制原文 5-15 个字，最好到标点结束
+- insert_after 填 `<content>` 中标注的【插图点 N】编号，选择画面发生处之后最近的那个点；多张图的编号必须严格递增且不重复
 - tags 用空格不用下划线（除非是角色 canonical tag 如 `hatsune_miku`）
 - 总量保持紧凑：整张图组装后约 50-80 个 tag

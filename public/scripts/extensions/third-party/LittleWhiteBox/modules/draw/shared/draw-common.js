@@ -3,12 +3,25 @@ import {
     getDisplayPreviewForSlot,
     getPreviewsBySlot,
     getPreviewDisplayUrl,
+    subscribeGalleryCacheChanges,
     warmSlotPreviewNeighbors,
 } from "./gallery-cache.js";
-import { LLMServiceError } from "./scene-planner.js";
+import {
+    ScenePlannerError,
+} from "./scene-plan-contract.js";
+import { ScenePlacementError } from './scene-placement.js';
+import { getPendingImageJobSlots, PendingJobState } from './pending-image-jobs.js';
+import { createDrawImageSlotRegex } from './image-marker-syntax.js';
+import { classifyScenePlannerErrorForUi } from "./scene-planner-error-ui.js";
+import { isCharacterEnabled } from './character-selection.js';
+import { joinTags } from './character-prompts.js';
 import { createModuleEvents, event_types } from "../../../core/event-manager.js";
+import {
+    GENERATE_INTERCEPTOR_ORDER,
+    registerGenerateInterceptor,
+    unregisterGenerateInterceptor,
+} from "../../../shared/common/generate-interceptor.js";
 
-const PLACEHOLDER_REGEX = /\[image\s*:\s*([a-z0-9\-_]+)\]/gi;
 const DRAW_IMAGE_HTML_REGEX = /<div\b[^>]*class=(["'])[^"']*\bxb-nd-img\b[^"']*\1[^>]*>[\s\S]*?<\/div>/gi;
 const DRAW_SAVED_EXTRA_KEY = 'xiaobaixDrawSaved';
 const LEGACY_NOVEL_SAVED_EXTRA_KEY = 'novelDrawSaved';
@@ -18,7 +31,9 @@ let drawPreviewRuntimeEvents = null;
 let drawPreviewRuntimeRefs = 0;
 let drawPreviewMessageObserver = null;
 let drawPreviewRuntimeGeneration = 0;
+let drawPreviewCacheSyncCleanup = null;
 const drawPreviewPendingTimers = new Set();
+const drawPreviewRenderQueues = new WeakMap();
 
 export const ImageState = {
     PREVIEW: 'preview',
@@ -29,6 +44,7 @@ export const ImageState = {
 };
 
 export const ErrorType = {
+    INPUT: { code: 'input', label: '正文输入', desc: '正文没有可用的配图内容' },
     NETWORK: { code: 'network', label: '网络', desc: '连接超时或网络不稳定' },
     AUTH: { code: 'auth', label: '认证', desc: '认证信息无效或过期' },
     QUOTA: { code: 'quota', label: '额度', desc: '额度不足' },
@@ -37,8 +53,17 @@ export const ErrorType = {
     LLM: { code: 'llm', label: 'LLM失败', desc: '场景分析失败' },
     LLM_EMPTY: { code: 'llm_empty', label: '空回', desc: 'LLM 未返回内容' },
     TIMEOUT: { code: 'timeout', label: '超时', desc: '请求超时' },
+    AGENT_CONFIG: { code: 'agent_config', label: 'Agent 配置', desc: '共享 Agent 主预设不可用' },
+    PROMPT_EXPANSION: { code: 'prompt_expansion', label: 'Prompt 展开', desc: 'Prompt 宏展开失败，请检查提示词中的变量宏' },
+    TOOL_PROTOCOL: { code: 'tool_protocol', label: 'Tool 协议', desc: '模型没有按要求调用场景规划 Tool' },
+    SCENE_SCHEMA: { code: 'scene_schema', label: '计划校验', desc: '模型提交的场景计划不符合契约' },
+    PROVIDER: { code: 'provider', label: 'Provider', desc: '模型 Provider 请求失败' },
+    SCENE_PLACEMENT: { code: 'scene_placement', label: '插图位置', desc: '正文位置已变化，未写入图片' },
+    ABORTED: { code: 'aborted', label: '已取消', desc: '场景规划已取消' },
     UNKNOWN: { code: 'unknown', label: '错误', desc: '未知错误' },
     CACHE_LOST: { code: 'cache_lost', label: '缓存丢失', desc: '图片缓存已过期' },
+    JOB_EXPIRED: { code: 'job_expired', label: '后台任务已失效', desc: '后台任务已过期或被清理，可重新生成' },
+    JOB_NOT_SUBMITTED: { code: 'job_not_submitted', label: '任务未提交', desc: '后台任务未提交成功，可重新生成' },
 };
 
 export const DEFAULT_MESSAGE_FILTER_RULES = [
@@ -53,6 +78,15 @@ export const DEFAULT_MESSAGE_FILTER_RULES = [
     { start: '<—',         end: '—>' },
     { start: '',           end: '</think>' },
 ];
+
+export function toScenePlannerProgress(diagnostic = {}) {
+    const phase = diagnostic?.progress?.phase;
+    return { phase: phase === 'correction' ? 'correction' : 'analysis' };
+}
+
+export function formatScenePlannerProgress(progress = {}) {
+    return toScenePlannerProgress({ progress }).phase === 'correction' ? '纠错' : '分析';
+}
 
 export function createPlaceholder(slotId) {
     return `[image:${slotId}]`;
@@ -72,7 +106,7 @@ function stripDrawImageHtml(text) {
 }
 
 export function stripDrawArtifactsFromMessage(text) {
-    return stripDrawImageHtml(text).replace(PLACEHOLDER_REGEX, '');
+    return stripDrawImageHtml(text).replace(createDrawImageSlotRegex(), '');
 }
 
 export function stripDrawArtifactsFromChat(chat) {
@@ -96,23 +130,17 @@ export function stripDrawArtifactsFromChat(chat) {
 
 export function setupDrawGenerateInterceptor(options = {}) {
     const shouldStrip = typeof options.shouldStrip === 'function' ? options.shouldStrip : () => true;
-    globalThis.xiaobaixGenerateInterceptor = function (chat) {
+    registerGenerateInterceptor('draw', (chat) => {
         if (!shouldStrip()) return;
         stripDrawArtifactsFromChat(chat);
-    };
+    }, GENERATE_INTERCEPTOR_ORDER.DRAW);
 }
 
 export function cleanupDrawGenerateInterceptor() {
-    delete globalThis.xiaobaixGenerateInterceptor;
+    unregisterGenerateInterceptor('draw');
 }
 
-export function joinTags(...parts) {
-    return parts
-        .filter(Boolean)
-        .map(p => String(p).trim().replace(/[，、]/g, ',').replace(/^,+|,+$/g, ''))
-        .filter(p => p.length > 0)
-        .join(', ');
-}
+export { joinTags };
 
 export function escapeHtml(str) {
     return String(str || '')
@@ -127,53 +155,13 @@ function escapeRegexChars(str) {
     return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-export function applyMessageFilterRules(text, rules) {
-    if (!Array.isArray(rules) || !rules.length) return text;
-    let result = String(text);
-    for (const { start, end } of rules) {
-        const s = (start || '').trim();
-        const e = (end || '').trim();
-        if (!s && !e) continue;
-        if (s && e) {
-            result = result.replace(new RegExp(escapeRegexChars(s) + '[\\s\\S]*?' + escapeRegexChars(e), 'gi'), '');
-        } else if (s) {
-            const idx = result.toLowerCase().indexOf(s.toLowerCase());
-            if (idx >= 0) result = result.slice(0, idx);
-        } else {
-            const idx = result.toLowerCase().indexOf(e.toLowerCase());
-            if (idx >= 0) result = result.slice(idx + e.length);
-        }
-    }
-    return result.trim();
-}
-
-function normalizeCharacterOutfits(outfits = []) {
-    return (Array.isArray(outfits) ? outfits : [])
-        .map(outfit => ({
-            name: String(outfit?.name || '').trim(),
-            tags: String(outfit?.tags || '').trim(),
+function normalizeNamedTagList(list = []) {
+    return (Array.isArray(list) ? list : [])
+        .map(item => ({
+            name: String(item?.name || '').trim(),
+            tags: String(item?.tags || '').trim(),
         }))
-        .filter(outfit => outfit.name || outfit.tags);
-}
-
-function formatDanbooruTag(tag, options = {}) {
-    const value = String(tag || '').trim();
-    return options.preserveDanbooruCanonical ? value : value.replace(/_/g, ' ');
-}
-
-function buildKnownCharacterBasePrompt(character = {}, options = {}) {
-    const danbooruTag = character.danbooruTag ? formatDanbooruTag(character.danbooruTag, options) : '';
-    return joinTags(danbooruTag, character.type, character.appearance);
-}
-
-const GRID_COL = { A: 0.1, B: 0.3, C: 0.5, D: 0.7, E: 0.9 };
-const GRID_ROW = { 1: 0.1, 2: 0.3, 3: 0.5, 4: 0.7, 5: 0.9 };
-
-function gridToCoord(grid) {
-    if (!grid || typeof grid !== 'string') return null;
-    const match = grid.trim().toUpperCase().match(/^([A-E])([1-5])$/);
-    if (!match) return null;
-    return { x: GRID_COL[match[1]], y: GRID_ROW[match[2]] };
+        .filter(item => item.name || item.tags);
 }
 
 export function detectPresentCharacters(messageText, characterTags) {
@@ -182,7 +170,7 @@ export function detectPresentCharacters(messageText, characterTags) {
     const present = [];
 
     for (const char of characterTags) {
-        if (!char.name) continue;
+        if (!isCharacterEnabled(char) || !char.name) continue;
         const names = [char.name, ...(char.aliases || [])].filter(Boolean);
         const isPresent = names.some(name => {
             const lowerName = String(name).toLowerCase();
@@ -197,38 +185,12 @@ export function detectPresentCharacters(messageText, characterTags) {
                 appearance: char.appearance || '',
                 danbooruTag: char.danbooruTag || '',
                 negativeTags: char.negativeTags || '',
-                outfits: normalizeCharacterOutfits(char.outfits),
+                outfits: normalizeNamedTagList(char.outfits),
+                dynamicStates: normalizeNamedTagList(char.dynamicStates),
             });
         }
     }
     return present;
-}
-
-export function assembleCharacterPrompts(sceneChars, knownCharacters, options = {}) {
-    return sceneChars.map(char => {
-        const charLower = String(char.name || '').toLowerCase();
-        const known = knownCharacters.find(k =>
-            String(k.name || '').toLowerCase() === charLower
-            || (k.aliases || []).some(a => String(a || '').toLowerCase() === charLower)
-        );
-
-        if (known) {
-            return {
-                name: known.name || char.name,
-                prompt: joinTags(buildKnownCharacterBasePrompt(known, options), char.costume, char.action, char.interact),
-                uc: joinTags(known.negativeTags, char.uc),
-                center: gridToCoord(char.center) || { x: 0.5, y: 0.5 },
-            };
-        }
-
-        const danbooruTag = char.danbooru ? formatDanbooruTag(char.danbooru, options) : '';
-        return {
-            name: char.name,
-            prompt: joinTags(danbooruTag, char.type, char.appear, char.costume, char.action, char.interact),
-            uc: char.uc || '',
-            center: gridToCoord(char.center) || { x: 0.5, y: 0.5 },
-        };
-    });
 }
 
 export function findLastAIMessageId() {
@@ -239,77 +201,20 @@ export function findLastAIMessageId() {
     return id;
 }
 
-export function findAnchorPosition(mes, anchor) {
-    if (!anchor || !mes) return -1;
-    const a = anchor.trim();
-    let idx = mes.indexOf(a);
-    if (idx !== -1) return idx + a.length;
-    if (a.length > 8) {
-        const short = a.slice(-10);
-        idx = mes.indexOf(short);
-        if (idx !== -1) return idx + short.length;
-    }
-    const norm = s => String(s || '').replace(/[\s，。！？、""''：；…\-\n\r]/g, '');
-    const normMes = norm(mes);
-    const normA = norm(a);
-    if (normA.length >= 4) {
-        const key = normA.slice(-6);
-        const normIdx = normMes.indexOf(key);
-        if (normIdx !== -1) {
-            let origIdx = 0;
-            let nIdx = 0;
-            while (origIdx < mes.length && nIdx < normIdx + key.length) {
-                if (norm(mes[origIdx]) === normMes[nIdx]) nIdx++;
-                origIdx++;
-            }
-            return origIdx;
-        }
-    }
-    return -1;
-}
-
-export function findNearestSentenceEnd(mes, startPos) {
-    if (startPos < 0 || !mes) return startPos;
-    if (startPos >= mes.length) return mes.length;
-
-    const maxLookAhead = 80;
-    const endLimit = Math.min(mes.length, startPos + maxLookAhead);
-    const basicEnders = new Set(['\u3002', '\uFF01', '\uFF1F', '!', '?', '\u2026']);
-    const closingMarks = new Set(['\u201D', '\u201C', '\u2019', '\u2018', '\u300D', '\u300F', '\u3011', '\uFF09', ')', '"', "'", '*', '~', '\uFF5E', ']']);
-
-    const eatClosingMarks = (pos) => {
-        while (pos < mes.length && closingMarks.has(mes[pos])) pos++;
-        return pos;
-    };
-
-    if (startPos > 0 && basicEnders.has(mes[startPos - 1])) {
-        return eatClosingMarks(startPos);
-    }
-
-    for (let i = 0; i < maxLookAhead && startPos + i < endLimit; i++) {
-        const pos = startPos + i;
-        const char = mes[pos];
-        if (char === '\n') return pos + 1;
-        if (basicEnders.has(char)) return eatClosingMarks(pos + 1);
-        if (char === '.' && mes.slice(pos, pos + 3) === '...') return eatClosingMarks(pos + 3);
-    }
-
-    return startPos;
-}
-
 export function classifyError(error) {
-    if (error instanceof LLMServiceError) {
-        const code = String(error.code || '').toUpperCase();
-        const message = String(error.message || '').toLowerCase();
-        if (code === 'EMPTY_OUTPUT' || message.includes('输出为空') || message.includes('未返回内容')) {
-            return ErrorType.LLM_EMPTY;
-        }
-        if (code === 'PARSE_ERROR' || message.includes('无法解析') || message.includes('未解析到图片任务')) {
-            return ErrorType.PARSE;
-        }
-        return ErrorType.LLM;
+    if (error instanceof ScenePlannerError) {
+        return classifyScenePlannerErrorForUi(error, ErrorType);
+    }
+    if (error instanceof ScenePlacementError) {
+        return { ...ErrorType.SCENE_PLACEMENT, desc: error.message || ErrorType.SCENE_PLACEMENT.desc };
     }
     if (error?.errorType) return error.errorType;
+    // 带 HTTP status 的后端错误优先按 status 分类：上游正文常常不写数字，靠 message 匹配会退化成未知错误。
+    const status = Number(error?.status) || 0;
+    if (status === 401 || status === 403) return ErrorType.AUTH;
+    if (status === 402) return ErrorType.QUOTA;
+    if (status === 429) return ErrorType.BUSY;
+    if (status === 408 || status === 504) return ErrorType.TIMEOUT;
     const msg = String(error?.message || error || '').toLowerCase();
     if (msg.includes('network') || msg.includes('fetch') || msg.includes('failed to fetch')) return ErrorType.NETWORK;
     if (msg.includes('401') || msg.includes('key') || msg.includes('auth')) return ErrorType.AUTH;
@@ -331,6 +236,7 @@ export function ensureDrawImageStyles() {
 .xb-nd-img{margin:0.8em 0;text-align:center;position:relative;display:block;width:100%;border-radius:14px;padding:4px}
 .xb-nd-img[data-state="preview"]{border:1px dashed rgba(255,152,0,0.35)}
 .xb-nd-img[data-state="failed"]{border:1px dashed rgba(248,113,113,0.5);background:rgba(248,113,113,0.05);padding:20px}
+.xb-nd-img[data-state="pending"]{border:1px dashed rgba(212,165,116,0.4);background:rgba(212,165,116,0.06);padding:18px;color:inherit}
 .xb-nd-img.busy img{opacity:0.5}
 .xb-nd-img-wrap{position:relative;overflow:hidden;border-radius:10px;touch-action:pan-y pinch-zoom}
 .xb-nd-img img{width:auto;height:auto;max-width:100%;border-radius:10px;cursor:pointer;box-shadow:0 3px 15px rgba(0,0,0,0.25);display:block;user-select:none;-webkit-user-drag:none;transition:transform 0.25s ease,opacity 0.2s ease}
@@ -342,11 +248,13 @@ export function ensureDrawImageStyles() {
 @keyframes ndSlideOutRight{from{transform:translateX(0);opacity:1}to{transform:translateX(30%);opacity:0}}
 @keyframes ndSlideInLeft{from{transform:translateX(30%);opacity:0}to{transform:translateX(0);opacity:1}}
 @keyframes ndSlideInRight{from{transform:translateX(-30%);opacity:0}to{transform:translateX(0);opacity:1}}
-.xb-nd-nav-pill{position:absolute;bottom:10px;left:10px;display:inline-flex;align-items:center;gap:2px;background:rgba(0,0,0,0.75);border-radius:20px;padding:4px 6px;font-size:12px;color:rgba(255,255,255,0.9);font-weight:500;user-select:none;z-index:5;opacity:0.85;transition:opacity 0.2s}
+.xb-nd-nav-pill{position:absolute;bottom:10px;left:10px;display:inline-flex;align-items:center;gap:2px;background:rgba(0,0,0,0.75);border-radius:20px;padding:4px 6px;font-size:12px;color:rgba(255,255,255,0.9);font-weight:500;user-select:none;z-index:5;opacity:0.72;transition:opacity 0.2s}
+.xb-nd-nav-pill:hover{opacity:0.92}
 .xb-nd-nav-arrow{width:24px;height:24px;border:none;background:transparent;color:rgba(255,255,255,0.8);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:14px;transition:background 0.15s,color 0.15s;padding:0}
 .xb-nd-nav-arrow:hover{background:rgba(255,255,255,0.15);color:#fff}
 .xb-nd-nav-arrow:disabled{opacity:0.3;cursor:not-allowed}
 .xb-nd-nav-text{min-width:36px;text-align:center;font-variant-numeric:tabular-nums;padding:0 2px}
+@media(hover:none),(pointer:coarse){.xb-nd-nav-pill{opacity:0.78;padding:5px 8px}}
 .xb-nd-menu-wrap{position:absolute;top:8px;right:8px;z-index:10}
 .xb-nd-menu-wrap.busy{pointer-events:none;opacity:0.3}
 .xb-nd-menu-trigger{width:32px;height:32px;border-radius:50%;border:none;background:rgba(0,0,0,0.75);color:rgba(255,255,255,0.85);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;opacity:0.85}
@@ -383,7 +291,7 @@ export function buildImageHtml({ slotId, imgId, url, tags, positive, messageId, 
     const isBusy = state === ImageState.SAVING || state === ImageState.REFRESHING;
     let indicator = '';
     if (state === ImageState.SAVING) indicator = '<div class="xb-nd-indicator">💾 保存中...</div>';
-    else if (state === ImageState.REFRESHING) indicator = '<div class="xb-nd-indicator">🔄 生成中...</div>';
+    else if (state === ImageState.REFRESHING) indicator = '<div class="xb-nd-indicator"><i class="fa-solid fa-rotate" aria-hidden="true"></i> 生成中...</div>';
 
     const border = isPreview ? 'border:1px dashed rgba(255,152,0,0.35);' : '';
     const lazyAttr = String(url || '').startsWith('data:') ? '' : 'loading="lazy"';
@@ -422,16 +330,43 @@ ${menuHtml}
 </div>`;
 }
 
-function getMesTextElement(messageId) {
-    if (!Number.isFinite(messageId)) return null;
-    return document.querySelector(`#chat .mes[mesid="${messageId}"] .mes_text`);
+// 未完成槽位的统一占位卡。label 由调用方按真实状态给出（等待生成 / 接回后台任务 /
+// 等待重新连接…），绝不伪造进度：chat 正文里只持久化 [image:slotId] 这个排版事实，
+// 状态文案永远是当前运行时和后端状态动态渲染出来的。
+export function buildPendingImageHtml({ slotId, messageId, index = 0, total = 0, label = '等待生成' }) {
+    const progress = total > 0 ? `${Math.max(1, Number(index) || 1)} / ${total}` : '';
+    return `<div class="xb-nd-img" data-slot-id="${escapeHtml(slotId)}" data-mesid="${escapeHtml(messageId)}" data-state="pending" style="margin:0.8em 0;text-align:center;position:relative;display:block;width:100%;border:1px dashed rgba(212,165,116,0.4);border-radius:14px;padding:18px;background:rgba(212,165,116,0.06);color:inherit;">
+<div class="xb-nd-indicator" style="position:static;transform:none;display:inline-block;">🎨 ${escapeHtml(label)}${progress ? ` · ${progress}` : ''}</div>
+</div>`;
 }
 
-function isMessageBeingEdited(messageId) {
-    if (!Number.isFinite(messageId)) return false;
-    const mesElement = document.querySelector(`.mes[mesid="${messageId}"]`);
+function getMesTextElement(messageId) {
+    const id = Number(messageId);
+    if (!Number.isInteger(id) || id < 0) return null;
+    return document.querySelector(`#chat .mes[mesid="${id}"] .mes_text`);
+}
+
+export function isMessageBeingEdited(messageId) {
+    const id = Number(messageId);
+    if (!Number.isInteger(id) || id < 0) return false;
+    const mesElement = document.querySelector(`.mes[mesid="${id}"]`);
     if (!mesElement) return false;
     return mesElement.querySelector('textarea.edit_textarea') !== null || mesElement.classList.contains('editing');
+}
+
+export function isAnyMessageBeingEdited() {
+    return document.querySelector('#chat .mes.editing, #chat .mes textarea.edit_textarea') !== null;
+}
+
+export function buildDrawSlotSelector(slotId) {
+    const escaped = Array.from(String(slotId ?? '')).map((char) => {
+        const code = char.codePointAt(0);
+        if (char === '\0') return '\\fffd ';
+        if ((code >= 1 && code <= 31) || code === 127) return `\\${code.toString(16)} `;
+        if (char === '"' || char === '\\') return `\\${char}`;
+        return char;
+    }).join('');
+    return `.xb-nd-img[data-slot-id="${escaped}"]`;
 }
 
 function createNodeFromHtml(html) {
@@ -446,7 +381,7 @@ export function extractSlotIds(mes) {
     const ids = new Set();
     if (!mes) return ids;
     let match;
-    const regex = new RegExp(PLACEHOLDER_REGEX.source, 'gi');
+    const regex = createDrawImageSlotRegex();
     while ((match = regex.exec(mes)) !== null) ids.add(match[1]);
     return ids;
 }
@@ -491,7 +426,6 @@ function normalizeDrawSavedEntry(slotId, data = {}) {
         savedUrl: data.savedUrl,
         tags: data.tags || '',
         positive: data.positive || '',
-        anchor: data.anchor || '',
         updatedAt: Number.isFinite(data.updatedAt) ? data.updatedAt : Date.now(),
     };
 }
@@ -517,8 +451,7 @@ export async function setDrawSavedEntry(messageId, slotId, data) {
         previous.imgId === entry.imgId &&
         previous.savedUrl === entry.savedUrl &&
         previous.tags === entry.tags &&
-        previous.positive === entry.positive &&
-        previous.anchor === entry.anchor;
+        previous.positive === entry.positive;
     const legacyMap = getSavedMap(message, LEGACY_NOVEL_SAVED_EXTRA_KEY);
     const hasLegacyEntry = !!legacyMap?.[slotId];
     if (unchanged && !hasLegacyEntry) return true;
@@ -562,7 +495,6 @@ export async function syncDrawSavedFromPreview(messageId, preview, overrides = {
         savedUrl: overrides.savedUrl || preview?.savedUrl,
         tags: overrides.tags ?? preview?.tags ?? '',
         positive: overrides.positive ?? preview?.positive ?? '',
-        anchor: overrides.anchor ?? preview?.anchor ?? '',
     });
 }
 
@@ -594,16 +526,26 @@ function removeIfEmptyFlowContainer(container) {
 }
 
 function replacePlaceholdersInDomBatch(root, replacements) {
+    const resolvedSlotIds = new Set();
+    for (const item of replacements) {
+        if (!item?.slotId || !item?.html) continue;
+        const existing = root.querySelector(buildDrawSlotSelector(item.slotId));
+        if (!existing) continue;
+        const replacement = createNodeFromHtml(item.html);
+        if (!replacement) continue;
+        existing.replaceWith(replacement);
+        resolvedSlotIds.add(item.slotId);
+    }
     const pending = replacements.filter(item =>
         item?.slotId &&
         item?.html &&
-        !root.querySelector(`.xb-nd-img[data-slot-id="${item.slotId}"]`)
+        !resolvedSlotIds.has(item.slotId) &&
+        !root.querySelector(buildDrawSlotSelector(item.slotId))
     );
-    if (pending.length === 0) return new Set();
+    if (pending.length === 0) return resolvedSlotIds;
 
     const placeholderMap = new Map(pending.map(item => [createPlaceholder(item.slotId), item]));
     const placeholderRegex = new RegExp(Array.from(placeholderMap.keys()).map(escapeRegexChars).join('|'), 'g');
-    const resolvedSlotIds = new Set();
     const nodePlans = new Map();
     const groupedByContainer = new Map();
     const orderedContainers = [];
@@ -665,66 +607,12 @@ function replacePlaceholdersInDomBatch(root, replacements) {
     return resolvedSlotIds;
 }
 
-function collectRenderedTextSegments(root) {
-    const segments = [];
-    let text = '';
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
-        acceptNode(node) {
-            if (node.nodeType === Node.ELEMENT_NODE) {
-                const el = node;
-                if (el.classList?.contains('xb-nd-img')) return NodeFilter.FILTER_REJECT;
-                if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return NodeFilter.FILTER_REJECT;
-                if (el.tagName === 'BR') return NodeFilter.FILTER_ACCEPT;
-                return NodeFilter.FILTER_SKIP;
-            }
-            return node.parentElement?.closest('.xb-nd-img')
-                ? NodeFilter.FILTER_REJECT
-                : NodeFilter.FILTER_ACCEPT;
-        },
-    });
-
-    let node;
-    while ((node = walker.nextNode())) {
-        const chunk = node.nodeType === Node.TEXT_NODE ? node.nodeValue : '\n';
-        if (!chunk) continue;
-        const start = text.length;
-        text += chunk;
-        segments.push({ node, start, end: text.length, text: chunk });
-    }
-    return { text, segments };
-}
-
-function insertPreviewByAnchor(root, slotId, anchor, html) {
-    if (!root || !slotId || !anchor) return false;
-    if (root.querySelector(`.xb-nd-img[data-slot-id="${slotId}"]`)) return true;
-    const { text, segments } = collectRenderedTextSegments(root);
-    if (!text || !segments.length) return false;
-    let position = findAnchorPosition(text, anchor);
-    if (position < 0) return false;
-    position = findNearestSentenceEnd(text, position);
-    const segment = segments.find(item => item.end >= position) || segments[segments.length - 1];
-    const replacementNode = createNodeFromHtml(html);
-    if (!segment || !replacementNode) return false;
-    const topLevelContainer = findTopLevelFlowContainer(root, segment.node);
-    if (topLevelContainer) {
-        let ref = topLevelContainer;
-        while (ref.nextElementSibling?.classList?.contains('xb-nd-img')) {
-            ref = ref.nextElementSibling;
-        }
-        ref.insertAdjacentElement('afterend', replacementNode);
-        return true;
-    }
-    root.appendChild(replacementNode);
-    return true;
-}
-
-export function insertPreviewIntoRenderedMessage({ messageId, slotId, html, anchor = '' }) {
+export function insertPreviewIntoRenderedMessage({ messageId, slotId, html }) {
     const mesTextEl = getMesTextElement(messageId);
     if (!mesTextEl || !slotId || !html) return false;
-    const insertedSlotIds = replacePlaceholdersInDomBatch(mesTextEl, [{ slotId, html, anchor }]);
+    const insertedSlotIds = replacePlaceholdersInDomBatch(mesTextEl, [{ slotId, html }]);
     if (insertedSlotIds.has(slotId)) return true;
-    if (mesTextEl.querySelector(`.xb-nd-img[data-slot-id="${slotId}"]`)) return true;
-    return insertPreviewByAnchor(mesTextEl, slotId, anchor, html);
+    return mesTextEl.querySelector(buildDrawSlotSelector(slotId)) !== null;
 }
 
 async function resolveRenderPreviewForSlot(message, messageId, slotId) {
@@ -743,7 +631,6 @@ async function resolveRenderPreviewForSlot(message, messageId, slotId) {
                 savedUrl: savedEntry.savedUrl,
                 tags: savedEntry.tags ?? matchedPreview?.tags ?? '',
                 positive: savedEntry.positive ?? matchedPreview?.positive ?? '',
-                anchor: savedEntry.anchor ?? matchedPreview?.anchor ?? '',
                 messageId,
             },
             historyCount: selectedIndex >= 0 ? successPreviews.length : 1,
@@ -780,26 +667,98 @@ function buildFailedPlaceholderHtml({ slotId, messageId, tags, positive, errorTy
 </div>`;
 }
 
-export async function renderPreviewsForMessage(messageId) {
+async function rebuildRenderedMessageFromState(messageId, {
+    chatId,
+    expectedMessage,
+} = {}) {
     const ctx = getContext();
     const message = ctx.chat?.[messageId];
-    if (!message?.mes) return;
+    if (!message || (chatId !== undefined && String(ctx.chatId || '') !== String(chatId || ''))
+        || (expectedMessage && message !== expectedMessage) || isMessageBeingEdited(messageId)) return false;
+    const { messageFormatting } = await import('../../../../../../../script.js');
+    const live = getContext();
+    if (String(live.chatId || '') !== String(ctx.chatId || '')
+        || live.chat?.[messageId] !== message || isMessageBeingEdited(messageId)) return false;
+    const mesTextEl = getMesTextElement(messageId);
+    if (!mesTextEl) return false;
+    const formatted = messageFormatting(
+        message.mes,
+        message.name,
+        message.is_system,
+        message.is_user,
+        messageId,
+    );
+    // Host-generated message markup.
+    // eslint-disable-next-line no-unsanitized/property
+    mesTextEl.innerHTML = formatted;
+    return true;
+}
 
-    const slotIds = extractSlotIds(message.mes);
+function renderedMessageContainsSlot(mesTextEl, slotId) {
+    if (mesTextEl.querySelector(buildDrawSlotSelector(slotId))) return true;
+    return String(mesTextEl.textContent || '').includes(createPlaceholder(slotId));
+}
+
+async function renderPreviewsForMessageNow(messageId, {
+    refreshSlotIds = [],
+    expectedChatId,
+    expectedMessage,
+} = {}) {
+    const ctx = getContext();
+    const message = ctx.chat?.[messageId];
+    if (!message?.mes
+        || String(ctx.chatId || '') !== String(expectedChatId || '')
+        || message !== expectedMessage) return;
+
+    const sourceText = message.mes;
+    const slotIds = extractSlotIds(sourceText);
+    let mesTextEl = getMesTextElement(messageId);
+    if (!mesTextEl) return;
+    if ([...slotIds].some(slotId => !renderedMessageContainsSlot(mesTextEl, slotId))) {
+        // message.mes 是持久化排版事实。adoption 当下若恰逢聊天切换或宿主 DOM
+        // 尚未挂载，一次局部 patch 可能没有锚点；先按前台生成相同的宿主格式
+        // 重建楼层，再在下面统一投影 pending 卡或图片。
+        const rebuilt = await rebuildRenderedMessageFromState(messageId, {
+            chatId: ctx.chatId,
+            expectedMessage: message,
+        });
+        if (!rebuilt) return;
+        mesTextEl = getMesTextElement(messageId);
+        if (!mesTextEl) return;
+    }
+    const refreshSlots = new Set((Array.isArray(refreshSlotIds) ? refreshSlotIds : [])
+        .map(slotId => String(slotId || '').trim())
+        .filter(Boolean));
+    for (const slotId of refreshSlots) {
+        if (!slotIds.has(slotId)) mesTextEl.querySelector(buildDrawSlotSelector(slotId))?.remove();
+    }
     if (slotIds.size === 0) return;
 
-    const mesTextEl = getMesTextElement(messageId);
-    if (!mesTextEl) return;
-
     const replacements = [];
+    // 待接回的后台任务槽位：只在真的需要判定时读一次，避免每条消息都白跑一次 IndexedDB。
+    let pendingSlotsPromise = null;
+    const resolvePendingSlot = async (slotId) => {
+        pendingSlotsPromise ??= getPendingImageJobSlots().catch(() => new Map());
+        return (await pendingSlotsPromise).get(slotId) || null;
+    };
     for (const slotId of slotIds) {
-        if (mesTextEl.querySelector(`.xb-nd-img[data-slot-id="${slotId}"]`)) continue;
+        if (!refreshSlots.has(slotId) && mesTextEl.querySelector(buildDrawSlotSelector(slotId))) continue;
         let replacementHtml;
-        let anchor = '';
         try {
             const displayData = await resolveRenderPreviewForSlot(message, messageId, slotId);
-            anchor = displayData.preview?.anchor || '';
-            if (displayData.isFailed) {
+            const hasImage = displayData.hasData && !displayData.isFailed && displayData.preview;
+            // 后台任务仍在等待接回时，占位卡必须压过陈旧的失败卡和「缓存丢失」；
+            // 只有真的已经有图，才不必再问恢复记录。
+            const pendingSlot = hasImage ? null : await resolvePendingSlot(slotId);
+            if (pendingSlot) {
+                replacementHtml = buildPendingImageHtml({
+                    slotId,
+                    messageId,
+                    index: pendingSlot.index + 1,
+                    total: pendingSlot.total,
+                    label: pendingSlot.state === PendingJobState.CANCELLING ? '正在取消' : '生成中',
+                });
+            } else if (displayData.isFailed) {
                 replacementHtml = buildFailedPlaceholderHtml({
                     slotId,
                     messageId,
@@ -843,10 +802,16 @@ export async function renderPreviewsForMessage(messageId) {
                 errorMessage: error?.message || '未知错误',
             });
         }
-        replacements.push({ slotId, html: replacementHtml, anchor });
+        replacements.push({ slotId, html: replacementHtml });
     }
 
     if (replacements.length === 0) return;
+    const live = getContext();
+    if (String(live.chatId || '') !== String(ctx.chatId || '')
+        || live.chat?.[messageId] !== message
+        || message.mes !== sourceText
+        || getMesTextElement(messageId) !== mesTextEl
+        || isMessageBeingEdited(messageId)) return;
     const insertedSlotIds = replacePlaceholdersInDomBatch(mesTextEl, replacements);
     const pendingFallback = replacements.filter(item => !insertedSlotIds.has(item.slotId));
     if (pendingFallback.length === 0) return;
@@ -861,20 +826,48 @@ export async function renderPreviewsForMessage(messageId) {
         fallbackReplaced = true;
     }
 
-    let anchorInserted = false;
-    if (!fallbackReplaced) {
-        pendingFallback.forEach(item => {
-            if (insertPreviewByAnchor(mesTextEl, item.slotId, item.anchor || '', item.html)) {
-                anchorInserted = true;
-            }
-        });
-    }
-
-    if (fallbackReplaced && !anchorInserted && !isMessageBeingEdited(messageId)) {
+    if (fallbackReplaced && !isMessageBeingEdited(messageId)) {
         // Template-only UI markup built locally.
         // eslint-disable-next-line no-unsanitized/property
         mesTextEl.innerHTML = html;
     }
+}
+
+// 同一楼层只允许一个异步投影在运行。图片落库、恢复状态变化和消息事件可能在同一时刻
+// 发起刷新；串行执行保证较早读取的旧事实一定先完成，最后留在 DOM 的总是较新的投影。
+// 队列只绑定当前 message 对象，聊天切换或宿主替换消息对象后，旧任务会被上面的身份守卫丢弃。
+export function renderPreviewsForMessage(messageId, { refreshSlotIds = [] } = {}) {
+    const ctx = getContext();
+    const message = ctx.chat?.[messageId];
+    if (!message?.mes) return Promise.resolve();
+    const expectedChatId = ctx.chatId;
+
+    let queue = drawPreviewRenderQueues.get(message);
+    if (!queue) {
+        queue = { tail: Promise.resolve() };
+        drawPreviewRenderQueues.set(message, queue);
+    }
+    const requestedSlots = Array.isArray(refreshSlotIds) ? [...refreshSlotIds] : [];
+    const render = queue.tail.then(() => renderPreviewsForMessageNow(messageId, {
+        refreshSlotIds: requestedSlots,
+        expectedChatId,
+        expectedMessage: message,
+    }));
+    const tail = render.catch(() => {});
+    queue.tail = tail;
+    void tail.then(() => {
+        if (queue.tail === tail) drawPreviewRenderQueues.delete(message);
+    });
+    return render;
+}
+
+// Draw Run adoption 会在酒馆完成楼层渲染之后才把 slots 写进 message.mes。
+// 仅替换已有 DOM 锚点不够，必须先按宿主规则重建活动楼层，再把 slots 渲染成 pending/图片卡。
+export async function syncRenderedMessageFromState(messageId, { chatId, expectedMessage } = {}) {
+    const rebuilt = await rebuildRenderedMessageFromState(messageId, { chatId, expectedMessage });
+    if (!rebuilt) return false;
+    await renderPreviewsForMessage(messageId);
+    return true;
 }
 
 function initDrawPreviewMessageObserver() {
@@ -968,6 +961,21 @@ function handleDrawPreviewMessageModified(data) {
     }, 100);
 }
 
+function handleGalleryCacheChanged({ slotIds } = {}) {
+    const changedSlots = slotIds === null ? null : new Set(Array.isArray(slotIds) ? slotIds : []);
+    if (changedSlots && changedSlots.size === 0) return;
+    const chat = getContext().chat || [];
+    for (let messageId = 0; messageId < chat.length; messageId++) {
+        const messageSlots = extractSlotIds(chat[messageId]?.mes);
+        const refreshSlotIds = changedSlots
+            ? [...messageSlots].filter(slotId => changedSlots.has(slotId))
+            : [...messageSlots];
+        if (refreshSlotIds.length > 0) {
+            void renderPreviewsForMessage(messageId, { refreshSlotIds });
+        }
+    }
+}
+
 export function startSharedDrawPreviewRuntime() {
     drawPreviewRuntimeRefs++;
     if (drawPreviewRuntimeEvents) return;
@@ -981,6 +989,7 @@ export function startSharedDrawPreviewRuntime() {
     drawPreviewRuntimeEvents.on(event_types.MESSAGE_EDITED, handleDrawPreviewMessageModified);
     drawPreviewRuntimeEvents.on(event_types.MESSAGE_UPDATED, handleDrawPreviewMessageModified);
     drawPreviewRuntimeEvents.on(event_types.MESSAGE_SWIPED, handleDrawPreviewMessageModified);
+    drawPreviewCacheSyncCleanup = subscribeGalleryCacheChanges(handleGalleryCacheChanged);
 
     setTimeout(() => {
         if (!drawPreviewRuntimeEvents) return;
@@ -994,6 +1003,8 @@ export function stopSharedDrawPreviewRuntime() {
 
     drawPreviewRuntimeEvents?.cleanup();
     drawPreviewRuntimeEvents = null;
+    drawPreviewCacheSyncCleanup?.();
+    drawPreviewCacheSyncCleanup = null;
     drawPreviewRuntimeGeneration++;
     clearPendingDrawPreviewTimers();
     cleanupDrawPreviewMessageObserver();

@@ -20,7 +20,12 @@ import {
     toArrayBuffer,
     toFloat32,
 } from './scoring.js';
+import { throwIfSignalAborted } from '../../../../shared/common/abort-utils.js';
 import { diffuseFromSeeds } from '../retrieval/diffusion.js';
+import {
+    createSessionLeaseRegistry,
+    DEFAULT_SESSION_LEASE_TTL_MS,
+} from './session-lease-registry.js';
 
 const MODULE_ID = 'recall-runtime';
 const WORKER_TIMEOUT_MS = 30000;
@@ -123,7 +128,7 @@ let lastStats = [];
 let lastError = null;
 const dirtyRefreshTimers = new Map();
 const dirtyChats = new Map();
-const activeSessionCounts = new Map();
+const localSessionLeases = createSessionLeaseRegistry();
 
 function hasBackendStarted() {
     return !!backend || !!backendInitPromise;
@@ -138,23 +143,18 @@ function normalizeChatId(chatId) {
     return key || null;
 }
 
-function rememberLocalSession(chatId) {
-    const key = normalizeChatId(chatId);
-    if (!key) return;
-    activeSessionCounts.set(key, (activeSessionCounts.get(key) || 0) + 1);
+function rememberLocalSession(lease) {
+    if (!lease?.chatId || !lease?.leaseId) return;
+    localSessionLeases.add(lease.chatId, lease.leaseId, lease);
 }
 
-function forgetLocalSession(chatId) {
-    const key = normalizeChatId(chatId);
-    if (!key) return;
-    const next = Math.max(0, (activeSessionCounts.get(key) || 0) - 1);
-    if (next) activeSessionCounts.set(key, next);
-    else activeSessionCounts.delete(key);
+function forgetLocalSession(lease) {
+    if (!lease?.chatId || !lease?.leaseId) return;
+    localSessionLeases.release(lease.chatId, lease.leaseId);
 }
 
 function hasLocalSession(chatId) {
-    const key = normalizeChatId(chatId);
-    return !!key && (activeSessionCounts.get(key) || 0) > 0;
+    return localSessionLeases.hasChat(chatId);
 }
 
 function createSessionIdleStats(chatId, overrides = {}) {
@@ -188,17 +188,28 @@ async function createWorkerBackend() {
             else xbLog.info(moduleId, message);
         },
     });
-    await rpc.call('ping', {}, { timeoutMs: 5000 });
+    try {
+        await rpc.call('ping', {}, { timeoutMs: 5000 });
+    } catch (error) {
+        rpc.rejectAll(error);
+        worker.terminate();
+        throw error;
+    }
     logRuntimeInfo('init worker backend ready');
+    let terminated = false;
 
     return {
         kind: 'worker',
         async call(type, payload, options = {}) {
+            if (terminated) throw new Error('RecallRuntime worker terminated');
             return await rpc.call(type, payload, {
                 timeoutMs: options.timeoutMs || WORKER_TIMEOUT_MS,
+                signal: options.signal || null,
             });
         },
         terminate() {
+            if (terminated) return;
+            terminated = true;
             rpc.rejectAll(new Error('RecallRuntime worker terminated'));
             worker.terminate();
         },
@@ -225,7 +236,14 @@ function createEntry(chatId) {
 
 function createMainBackend() {
     const entries = new Map();
-    const sessionsByChatId = new Map();
+    let terminated = false;
+    const sessionLeases = createSessionLeaseRegistry({
+        ttlMs: DEFAULT_SESSION_LEASE_TTL_MS,
+        onExpire({ chatId, leaseId, activeSessions }) {
+            if (!activeSessions) entries.delete(chatId);
+            logRuntimeWarn('main backend session expired', `chat=${chatId} lease=${leaseId} active=${activeSessions}`);
+        },
+    });
 
     function createIdleStats(chatId, overrides = {}) {
         return createEmptyStats({
@@ -366,7 +384,7 @@ function createMainBackend() {
             stateVectors: entry.stateVectorsById.size,
             refreshedAt: entry.refreshedAt,
             version: entry.version,
-            activeSessions: sessionsByChatId.get(entry.chatId)?.leases?.size || 0,
+            activeSessions: sessionLeases.count(entry.chatId),
             timings: entry.timings || {},
         });
     }
@@ -426,6 +444,11 @@ function createMainBackend() {
                 loadFromDBMs,
                 buildEntryMs,
             };
+            if (!sessionLeases.hasChat(entry.chatId)) {
+                const expiredResult = { ready: false, stale: true, expired: true, reason, stats: createIdleStats(entry.chatId) };
+                logRuntimeWarn('main backend refresh discarded without active session', `chat=${entry.chatId} reason=${reason}`);
+                return expiredResult;
+            }
             entries.set(entry.chatId, next);
             const success = { ready: true, stale: false, reason, stats: stats(next) };
             logRuntimeInfo('main backend refresh success', `chat=${entry.chatId} reason=${reason} after=${compactStats(success)}`);
@@ -451,6 +474,7 @@ function createMainBackend() {
         if (entry.ready) return entry;
         logRuntimeInfo('main backend ensureReady trigger refresh', `chat=${entry.chatId} status=${entry.status} ready=${entry.ready ? 1 : 0}`);
         const result = await refresh(chatId, 'ensure-ready');
+        if (result?.expired) return null;
         if (!result?.ready) {
             logRuntimeWarn('main backend ensureReady retry', `chat=${entry.chatId} first=${compactStats(result)}`);
             await refresh(chatId, 'ensure-ready-retry');
@@ -462,29 +486,24 @@ function createMainBackend() {
         const key = normalizeChatId(chatId);
         if (!key) return null;
         const startedAt = performance.now();
-        const sessionStartedAt = Date.now();
         const leaseId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-        let session = sessionsByChatId.get(key);
-        if (!session) {
-            session = { count: 0, leases: new Set(), startedAt: Date.now() };
-            sessionsByChatId.set(key, session);
-        }
-        session.count++;
-        session.leases.add(leaseId);
+        const lease = sessionLeases.add(key, leaseId);
         try {
             const entry = await ensureReady(key);
+            if (!sessionLeases.hasLease(key, leaseId)) {
+                throw new Error(`RecallRuntime session expired while loading: ${key}`);
+            }
             if (entry) {
                 entry.timings = {
                     ...(entry.timings || {}),
                     beginSessionTotalMs: Math.round(performance.now() - startedAt),
                 };
             }
-            logRuntimeInfo('main backend begin session', `chat=${key} lease=${leaseId} reason=${reason} active=${session.leases.size}`);
-            return { chatId: key, leaseId, ready: !!entry?.ready, startedAt: sessionStartedAt, stats: stats(entry) };
+            logRuntimeInfo('main backend begin session', `chat=${key} lease=${leaseId} reason=${reason} active=${sessionLeases.count(key)}`);
+            return { ...lease, ready: !!entry?.ready, stats: stats(entry) };
         } catch (error) {
-            session.leases.delete(leaseId);
-            session.count = Math.max(0, session.count - 1);
-            if (!session.count || !session.leases.size) sessionsByChatId.delete(key);
+            const released = sessionLeases.release(key, leaseId);
+            if (!released.activeSessions) entries.delete(key);
             throw error;
         }
     }
@@ -494,15 +513,12 @@ function createMainBackend() {
         const leaseId = lease.leaseId;
         if (!key || !leaseId) return createIdleStats(key, { endSessionClearMs: 0 });
         const startedAt = performance.now();
-        const session = sessionsByChatId.get(key);
-        if (!session || !session.leases.has(leaseId)) {
+        const released = sessionLeases.release(key, leaseId);
+        if (!released.released) {
             logRuntimeWarn('main backend end session ignored', `chat=${key} lease=${leaseId}`);
             return entries.has(key) ? stats(entries.get(key)) : createIdleStats(key, { endSessionClearMs: 0 });
         }
-        session.leases.delete(leaseId);
-        session.count = Math.max(0, session.count - 1);
-        if (!session.count || !session.leases.size) {
-            sessionsByChatId.delete(key);
+        if (!released.activeSessions) {
             entries.delete(key);
             const endSessionClearMs = Math.round(performance.now() - startedAt);
             logRuntimeInfo('main backend end session cleared', `chat=${key} lease=${leaseId} clear=${endSessionClearMs}ms`);
@@ -515,7 +531,7 @@ function createMainBackend() {
                 endSessionClearMs: Math.round(performance.now() - startedAt),
             };
         }
-        logRuntimeInfo('main backend end session retained', `chat=${key} lease=${leaseId} active=${session.leases.size}`);
+        logRuntimeInfo('main backend end session retained', `chat=${key} lease=${leaseId} active=${released.activeSessions}`);
         return entry ? stats(entry) : createIdleStats(key);
     }
 
@@ -568,6 +584,7 @@ function createMainBackend() {
     return {
         kind: 'main-fallback',
         async call(type, payload = {}) {
+            if (terminated) throw new Error('RecallRuntime main backend terminated');
             switch (type) {
                 case 'ping':
                     return { pong: true, backend: 'main-fallback' };
@@ -583,7 +600,7 @@ function createMainBackend() {
                     const keep = payload.chatId ? String(payload.chatId) : null;
                     for (const key of [...entries.keys()]) {
                         if (keep && key === keep) continue;
-                        if (sessionsByChatId.get(key)?.leases?.size) continue;
+                        if (sessionLeases.hasChat(key)) continue;
                         entries.delete(key);
                     }
                     return [...entries.values()].map(stats);
@@ -591,10 +608,10 @@ function createMainBackend() {
                 case 'clear': {
                     if (payload.chatId) {
                         const key = String(payload.chatId || '');
-                        if (!sessionsByChatId.get(key)?.leases?.size) clearDomain(getEntry(payload.chatId), payload.domain || 'all');
+                        if (!sessionLeases.hasChat(key)) clearDomain(getEntry(payload.chatId), payload.domain || 'all');
                     } else {
                         for (const key of [...entries.keys()]) {
-                            if (sessionsByChatId.get(key)?.leases?.size) continue;
+                            if (sessionLeases.hasChat(key)) continue;
                             entries.delete(key);
                         }
                     }
@@ -677,7 +694,12 @@ function createMainBackend() {
                     throw new Error(`Unknown RecallRuntime request: ${type}`);
             }
         },
-        terminate() {},
+        terminate() {
+            if (terminated) return;
+            terminated = true;
+            sessionLeases.clear();
+            entries.clear();
+        },
     };
 }
 
@@ -744,11 +766,14 @@ function retainOnlyLastStats(chatId = null) {
 
 async function callRuntime(type, payload = {}, options = {}) {
     const current = await getBackend();
+    throwIfSignalAborted(options.signal, `RecallRuntime request aborted: ${type}`);
     try {
         const result = await current.call(type, payload, options);
+        throwIfSignalAborted(options.signal, `RecallRuntime request aborted: ${type}`);
         rememberStats(result);
         return result;
     } catch (error) {
+        if (error?.name === 'AbortError') throw error;
         lastError = error?.message || String(error);
         rememberStats(createEmptyStats({
             backend: backendKind,
@@ -817,9 +842,11 @@ export async function beginRecallRuntimeSession(chatId, options = {}) {
     const reason = options.reason || 'recall';
     const requestedAt = Date.now();
     logRuntimeInfo('begin session request', `chat=${key} reason=${reason}`);
-    const result = await callRuntime('beginSession', { chatId: key, reason }, { timeoutMs: options.timeoutMs || SESSION_TIMEOUT_MS });
+    const result = await callRuntime('beginSession', { chatId: key, reason }, {
+        timeoutMs: options.timeoutMs || SESSION_TIMEOUT_MS,
+    });
     if (result?.leaseId) {
-        rememberLocalSession(key);
+        rememberLocalSession(result);
         const dirty = dirtyChats.get(key);
         if (dirty && dirty.updatedAt <= (result.startedAt || requestedAt)) {
             dirtyChats.delete(key);
@@ -830,6 +857,9 @@ export async function beginRecallRuntimeSession(chatId, options = {}) {
 
 export async function endRecallRuntimeSession(lease, options = {}) {
     if (!lease?.chatId || !lease?.leaseId) return null;
+    if (!localSessionLeases.hasLease(lease.chatId, lease.leaseId)) {
+        return createSessionIdleStats(lease.chatId, { endSessionClearMs: 0 });
+    }
     logRuntimeInfo('end session request', `chat=${lease.chatId} lease=${lease.leaseId}`);
     try {
         const result = await callRuntime('endSession', { lease }, { timeoutMs: options.timeoutMs || SHORT_TIMEOUT_MS });
@@ -845,7 +875,7 @@ export async function endRecallRuntimeSession(lease, options = {}) {
         }
         return result;
     } finally {
-        forgetLocalSession(lease.chatId);
+        forgetLocalSession(lease);
     }
 }
 
@@ -862,8 +892,11 @@ async function callRuntimePrimitive(chatId, type, payload = {}, options = {}) {
     if (!chatId || hasLocalSession(chatId)) {
         return await callRuntime(type, payload, options);
     }
-    const lease = await beginRecallRuntimeSession(chatId, { reason: `single-call:${type}` });
+    const lease = await beginRecallRuntimeSession(chatId, {
+        reason: `single-call:${type}`,
+    });
     try {
+        throwIfSignalAborted(options.signal, `RecallRuntime request aborted: ${type}`);
         return await callRuntime(type, payload, options);
     } finally {
         if (lease) await endRecallRuntimeSession(lease);
@@ -910,12 +943,47 @@ export async function retainRecallRuntimeOnly(chatId) {
     return result;
 }
 
-export async function getRecallRuntimeMeta(chatId) {
-    return await callRuntimePrimitive(chatId, 'getMeta', { chatId }, { timeoutMs: WORKER_TIMEOUT_MS });
+export async function shutdownRecallRuntime() {
+    logRuntimeInfo('shutdown request');
+    for (const timer of dirtyRefreshTimers.values()) clearTimeout(timer);
+    dirtyRefreshTimers.clear();
+    dirtyChats.clear();
+    localSessionLeases.clear();
+
+    const pendingInit = backendInitPromise;
+    let current = backend;
+    if (!current && pendingInit) {
+        try {
+            current = await pendingInit;
+        } catch {
+            current = null;
+        }
+    }
+
+    try {
+        current?.terminate?.();
+    } finally {
+        if (backend === current) backend = null;
+        if (backendInitPromise === pendingInit) backendInitPromise = null;
+        backendKind = 'uninitialized';
+        lastStats = [];
+        lastError = null;
+    }
+    logRuntimeInfo('shutdown complete');
 }
 
-export async function getRecallRuntimeEventVectorsByIds(chatId, eventIds = []) {
-    const response = await callRuntimePrimitive(chatId, 'getEventVectorsByIds', { chatId, eventIds }, { timeoutMs: WORKER_TIMEOUT_MS });
+export async function getRecallRuntimeMeta(chatId, options = {}) {
+    return await callRuntimePrimitive(chatId, 'getMeta', { chatId }, {
+        timeoutMs: WORKER_TIMEOUT_MS,
+        signal: options.signal || null,
+    });
+}
+
+export async function getRecallRuntimeEventVectorsByIds(chatId, eventIds = [], options = {}) {
+    const response = await callRuntimePrimitive(chatId, 'getEventVectorsByIds', { chatId, eventIds }, {
+        timeoutMs: WORKER_TIMEOUT_MS,
+        signal: options.signal || null,
+    });
     const records = (response?.records || []).map((record) => ({
         ...record,
         vector: toFloat32(record.vector),
@@ -924,16 +992,25 @@ export async function getRecallRuntimeEventVectorsByIds(chatId, eventIds = []) {
     return records;
 }
 
-export async function scoreRecallRuntimeAnchors(chatId, queryVector) {
-    return await callRuntimePrimitive(chatId, 'scoreAnchors', { chatId, queryVector }, { timeoutMs: WORKER_TIMEOUT_MS });
+export async function scoreRecallRuntimeAnchors(chatId, queryVector, options = {}) {
+    return await callRuntimePrimitive(chatId, 'scoreAnchors', { chatId, queryVector }, {
+        timeoutMs: WORKER_TIMEOUT_MS,
+        signal: options.signal || null,
+    });
 }
 
-export async function scoreRecallRuntimeEvents(chatId, queryVector) {
-    return await callRuntimePrimitive(chatId, 'scoreEvents', { chatId, queryVector }, { timeoutMs: WORKER_TIMEOUT_MS });
+export async function scoreRecallRuntimeEvents(chatId, queryVector, options = {}) {
+    return await callRuntimePrimitive(chatId, 'scoreEvents', { chatId, queryVector }, {
+        timeoutMs: WORKER_TIMEOUT_MS,
+        signal: options.signal || null,
+    });
 }
 
-export async function scoreRecallRuntimeL1(chatId, floors, queryVector) {
-    const response = await callRuntimePrimitive(chatId, 'scoreL1', { chatId, floors, queryVector }, { timeoutMs: WORKER_TIMEOUT_MS });
+export async function scoreRecallRuntimeL1(chatId, floors, queryVector, options = {}) {
+    const response = await callRuntimePrimitive(chatId, 'scoreL1', { chatId, floors, queryVector }, {
+        timeoutMs: WORKER_TIMEOUT_MS,
+        signal: options.signal || null,
+    });
     const result = new Map();
     for (const chunk of response?.result || []) {
         if (!result.has(chunk.floor)) result.set(chunk.floor, []);
@@ -954,7 +1031,10 @@ export async function diffuseRecallRuntimeL0(chatId, seeds, allAtoms, queryVecto
         allAtoms,
         queryVector,
         name1: options.name1 || '',
-    }, { timeoutMs: WORKER_TIMEOUT_MS });
+    }, {
+        timeoutMs: WORKER_TIMEOUT_MS,
+        signal: options.signal || null,
+    });
 }
 
 export function getRecallRuntimeStats() {

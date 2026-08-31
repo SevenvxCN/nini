@@ -7,6 +7,18 @@
             <button id="image-cache-deselect-all" class="st-chatu8-btn">取消全选</button>
             <button id="image-cache-download-selected" class="st-chatu8-btn"><i class="fa-solid fa-download"></i> 下载选中</button>
             <button id="image-cache-delete-selected" class="st-chatu8-btn danger"><i class="fa-solid fa-trash"></i> 删除选中</button>
+            <button id="image-cache-recalc-size" class="st-chatu8-btn"><i class="fa-solid fa-calculator"></i> 计算大小</button>
+            <button id="image-cache-recalc-all" class="st-chatu8-btn"><i class="fa-solid fa-rotate"></i> 全部重算</button>
+        </div>
+        <div id="image-cache-recalc-progress" class="st-chatu8-recalc-progress" style="display: none;">
+            <div class="st-chatu8-recalc-header">
+                <span id="image-cache-recalc-title">正在统计...</span>
+                <button id="image-cache-recalc-cancel" class="st-chatu8-btn danger">取消</button>
+            </div>
+            <div class="st-chatu8-recalc-bar-track">
+                <div id="image-cache-recalc-bar" class="st-chatu8-recalc-bar-fill"></div>
+            </div>
+            <div id="image-cache-recalc-detail" class="st-chatu8-recalc-detail"></div>
         </div>
         <div id="image-cache-grid" class="st-chatu8-image-cache-grid">
             <!-- Images will be loaded here -->

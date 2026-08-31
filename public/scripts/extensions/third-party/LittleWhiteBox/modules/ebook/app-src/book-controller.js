@@ -9,6 +9,7 @@ import {
     listBooks,
     renameBook,
     setSelectedBookId,
+    updateBookFileContentIfMatches,
     upsertBookFile,
 } from '../shared/ebook-db.js';
 import {
@@ -20,9 +21,12 @@ import {
 import { normalizeBookFilePath } from '../shared/book-paths.js';
 import {
     EBOOK_BOOK_TRANSFER_REQUEST_TIMEOUT_MS,
-    EBOOK_DRAW_REQUEST_TIMEOUT_MS,
     EBOOK_TTS_REQUEST_TIMEOUT_MS,
 } from './constants.js';
+import {
+    ScenePlacementError,
+    insertScenePlacements,
+} from '../../draw/shared/scene-placement.js';
 
 const DEFAULT_DRAFT_PATH = 'book/chapters/001.md';
 const CHAPTER_PATH_REGEX = /^book\/chapters\/.+\.md$/;
@@ -110,106 +114,28 @@ function formatChapterTitle(path = '') {
     return raw || '章节';
 }
 
-function findAnchorPosition(content = '', anchor = '') {
-    const text = String(content || '');
-    const value = String(anchor || '').trim();
-    if (!text || !value) return -1;
-    let index = text.indexOf(value);
-    if (index !== -1) return index + value.length;
-    if (value.length > 8) {
-        const short = value.slice(-10);
-        index = text.indexOf(short);
-        if (index !== -1) return index + short.length;
-    }
-
-    const normalize = (input) => String(input || '').replace(/[\s，。！？、""''：；…\-\n\r]/g, '');
-    const normalizedText = normalize(text);
-    const normalizedAnchor = normalize(value);
-    if (normalizedAnchor.length < 4) return -1;
-    const key = normalizedAnchor.slice(-6);
-    const normalizedIndex = normalizedText.indexOf(key);
-    if (normalizedIndex === -1) return -1;
-    let originalIndex = 0;
-    let walkIndex = 0;
-    while (originalIndex < text.length && walkIndex < normalizedIndex + key.length) {
-        if (normalize(text[originalIndex]) === normalizedText[walkIndex]) walkIndex += 1;
-        originalIndex += 1;
-    }
-    return originalIndex;
-}
-
-function findNearestSentenceEnd(content = '', startPos = -1) {
-    const text = String(content || '');
-    if (startPos < 0 || !text) return startPos;
-    if (startPos >= text.length) return text.length;
-
-    const maxLookAhead = 80;
-    const endLimit = Math.min(text.length, startPos + maxLookAhead);
-    const basicEnders = new Set(['。', '！', '？', '!', '?', '…']);
-    const closingMarks = new Set(['”', '“', '’', '‘', '」', '』', '】', '）', ')', '"', "'", '*', '~', '～', ']']);
-    const eatClosingMarks = (position) => {
-        let next = position;
-        while (next < text.length && closingMarks.has(text[next])) next += 1;
-        return next;
-    };
-
-    if (startPos > 0 && basicEnders.has(text[startPos - 1])) return eatClosingMarks(startPos);
-    for (let offset = 0; offset < maxLookAhead && startPos + offset < endLimit; offset += 1) {
-        const position = startPos + offset;
-        const char = text[position];
-        if (char === '\n') return position + 1;
-        if (basicEnders.has(char)) return eatClosingMarks(position + 1);
-        if (char === '.' && text.slice(position, position + 3) === '...') return eatClosingMarks(position + 3);
-    }
-    return startPos;
-}
-
-function insertEbookImageMarker(content = '', image = {}) {
-    const slotId = String(image?.slotId || '').trim();
-    if (!slotId) return { content, inserted: false, appended: false };
-    const marker = `[ebook-image:${slotId}]`;
-    const text = String(content || '');
-    if (text.includes(marker)) return { content: text, inserted: false, appended: false };
-
-    let position = findAnchorPosition(text, image.anchor || '');
-    if (position >= 0) position = findNearestSentenceEnd(text, position);
-    if (position >= 0) {
-        const before = text.slice(0, position);
-        const after = text.slice(position);
-        let insertText = marker;
-        if (before.length > 0 && !before.endsWith('\n')) insertText = `\n${insertText}`;
-        if (after.length > 0 && !after.startsWith('\n')) insertText = `${insertText}\n`;
-        return {
-            content: `${before}${insertText}${after}`,
-            inserted: true,
-            appended: false,
-        };
-    }
-
-    const needNewline = text.length > 0 && !text.endsWith('\n');
-    return {
-        content: `${text}${needNewline ? '\n' : ''}${marker}`,
-        inserted: true,
-        appended: true,
-    };
-}
-
 function insertEbookImageMarkers(content = '', images = []) {
-    let nextContent = String(content || '');
-    let inserted = 0;
-    let appended = 0;
-    (Array.isArray(images) ? images : []).forEach((image) => {
-        if (!image?.slotId || image.success === false) return;
-        const result = insertEbookImageMarker(nextContent, image);
-        nextContent = result.content;
-        if (result.inserted) inserted += 1;
-        if (result.appended) appended += 1;
-    });
+    const text = String(content || '');
+    const insertions = (Array.isArray(images) ? images : [])
+        .filter((image) => image?.slotId && image.success !== false)
+        .map((image) => ({
+            placement: image.placement,
+            content: `[ebook-image:${String(image.slotId).trim()}]`,
+        }))
+        .filter((insertion) => !text.includes(insertion.content));
+    if (!insertions.length) return { content: text, inserted: 0 };
+    const nextContent = insertScenePlacements(text, insertions, { block: true });
     return {
         content: nextContent,
-        inserted,
-        appended,
+        inserted: insertions.length,
     };
+}
+
+function insertEbookImageMarkersAtTail(content = '', images = []) {
+    return insertEbookImageMarkers(content, (Array.isArray(images) ? images : []).map((image) => ({
+        ...image,
+        placement: { mode: 'tail' },
+    })));
 }
 
 export function formatDrawProgress(stateName = '', data = {}) {
@@ -680,47 +606,128 @@ export function createBookController(deps = {}) {
                 chapterPath: drawChapterPath,
                 chapterTitle: drawChapterTitle,
             }, {
-                timeoutMs: EBOOK_DRAW_REQUEST_TIMEOUT_MS,
+                timeoutMs: null,
                 signal: activeDrawController.signal,
             });
             if (activeDrawController.signal.aborted || result?.aborted) {
                 showToast?.('配图已取消');
                 return;
             }
-            const stillEditingTarget = state.book?.id === drawBookId && state.selectedPath === drawChapterPath;
-            const storedTarget = stillEditingTarget ? null : await getBookFile(drawBookId, drawChapterPath);
-            const targetContent = stillEditingTarget
-                ? state.editorContent
-                : (storedTarget?.content ?? drawSourceText);
-            const insertion = insertEbookImageMarkers(targetContent, result?.images || []);
-            if (!insertion.inserted) {
-                showToast?.(`配图完成，但没有成功图片可插入（${result?.success || 0}/${result?.total || 0}）`);
-                return;
-            }
             const targetBook = await getBook(drawBookId);
+            const storedTarget = await getBookFile(drawBookId, drawChapterPath);
             if (!targetBook) {
-                showToast?.('配图完成，但原书已删除，未写入');
+                showToast?.('配图完成，但原书已删除，图片仍保留在画廊中');
                 return;
             }
-            await upsertBookFile(drawBookId, drawChapterPath, insertion.content);
+            if (!storedTarget) {
+                showToast?.('配图完成，但原章节已删除，图片仍保留在画廊中');
+                return;
+            }
+            const isActiveTarget = () => state.book?.id === drawBookId && state.selectedPath === drawChapterPath;
+            let targetContent = isActiveTarget() ? state.editorContent : storedTarget.content;
+            let expectedStoredContent = storedTarget.content;
+            let insertion;
+            let tailFallbackAccepted = false;
+            const keepInsertionInDirtyEditor = () => {
+                if (!isActiveTarget()
+                    || state.editorContent !== targetContent
+                    || targetContent === expectedStoredContent) {
+                    return false;
+                }
+                state.editorContent = insertion.content;
+                state.drawProgressText = '';
+                completionNotice = '图片占位符已插入，请保存章节';
+                showToast?.(completionNotice);
+                return true;
+            };
+            try {
+                insertion = insertEbookImageMarkers(targetContent, result?.images || []);
+            } catch (error) {
+                if (error instanceof ScenePlacementError) {
+                    tailFallbackAccepted = confirm('章节正文在配图期间发生了变化。本次图片已经生成，是否改为插到当前章节末尾？\n\n不会重新生成，也不会再次消耗额度。');
+                    if (!tailFallbackAccepted) {
+                        showToast?.('本次图片已保留在画廊中，未写入正文');
+                        return;
+                    }
+                    targetContent = isActiveTarget() ? state.editorContent : storedTarget.content;
+                    insertion = insertEbookImageMarkersAtTail(targetContent, result?.images || []);
+                } else {
+                    throw error;
+                }
+            }
+            if (!insertion.inserted) {
+                showToast?.(Number(result?.success) > 0
+                    ? '本次图片已经在章节中，无需重复插入'
+                    : `配图完成，但没有成功图片可插入（${result?.success || 0}/${result?.total || 0}）`);
+                return;
+            }
+
+            if (isActiveTarget() && state.editorContent !== targetContent) {
+                if (!tailFallbackAccepted) {
+                    tailFallbackAccepted = confirm('章节正文刚刚又发生了变化。本次图片已经生成，是否改为插到当前章节末尾？\n\n不会重新生成，也不会再次消耗额度。');
+                    if (!tailFallbackAccepted) {
+                        showToast?.('本次图片已保留在画廊中，未写入正文');
+                        return;
+                    }
+                }
+                targetContent = state.editorContent;
+                insertion = insertEbookImageMarkersAtTail(targetContent, result?.images || []);
+            }
+
+            if (keepInsertionInDirtyEditor()) return;
+
+            let insertionAlreadyPresent = false;
+            let writeResult = await updateBookFileContentIfMatches(
+                drawBookId,
+                drawChapterPath,
+                expectedStoredContent,
+                insertion.content,
+            );
+            if (!writeResult.ok && writeResult.reason === 'conflict' && writeResult.current) {
+                if (!tailFallbackAccepted) {
+                    tailFallbackAccepted = confirm('章节正文刚刚在另一处被更新。本次图片已经生成，是否改为插到最新正文末尾？\n\n不会重新生成，也不会再次消耗额度。');
+                    if (!tailFallbackAccepted) {
+                        showToast?.('本次图片已保留在画廊中，未写入正文');
+                        return;
+                    }
+                }
+                expectedStoredContent = writeResult.current.content;
+                targetContent = isActiveTarget() ? state.editorContent : writeResult.current.content;
+                insertion = insertEbookImageMarkersAtTail(targetContent, result?.images || []);
+                insertionAlreadyPresent = insertion.inserted === 0;
+                if (keepInsertionInDirtyEditor()) return;
+                writeResult = insertion.inserted
+                    ? await updateBookFileContentIfMatches(
+                        drawBookId,
+                        drawChapterPath,
+                        expectedStoredContent,
+                        insertion.content,
+                    )
+                    : { ok: true, reason: '', file: writeResult.current };
+            }
+            if (!writeResult.ok) {
+                const message = writeResult.reason === 'missing'
+                    ? '原章节已删除，图片仍保留在画廊中'
+                    : '章节正文仍在变化，本次图片已保留在画廊中，未写入正文';
+                showToast?.(message);
+                return;
+            }
+
+            const refreshedFiles = await listBookFiles(drawBookId);
             if (state.book?.id === drawBookId) {
-                const activePath = state.selectedPath;
-                const activeEditorContent = state.editorContent;
-                const activeSavedContent = state.savedContent;
-                state.files = await listBookFiles(drawBookId);
-                state.selectedPath = activePath;
-                if (stillEditingTarget) {
+                state.files = refreshedFiles;
+                if (state.selectedPath === drawChapterPath && state.editorContent === targetContent) {
                     state.editorContent = insertion.content;
                     state.savedContent = insertion.content;
-                } else {
-                    state.editorContent = activeEditorContent;
-                    state.savedContent = activeSavedContent;
+                } else if (state.selectedPath === drawChapterPath) {
+                    state.savedContent = insertion.content;
                 }
             }
             state.drawProgressText = '';
-            const fallbackText = insertion.appended ? `，${insertion.appended} 张追加到章末` : '';
-            completionNotice = DRAW_COMPLETION_NOTICE_TEXT;
-            showToast?.(`${DRAW_COMPLETION_NOTICE_TEXT}${fallbackText}`);
+            completionNotice = insertionAlreadyPresent
+                ? '本次图片已经在章节中，无需重复插入'
+                : DRAW_COMPLETION_NOTICE_TEXT;
+            showToast?.(completionNotice);
         } catch (error) {
             if (activeDrawController.signal.aborted || /已取消|abort/i.test(String(error?.message || error || ''))) {
                 showToast?.('配图已取消');

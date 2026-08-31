@@ -29,6 +29,7 @@ import { renderAppChrome, renderContextHint } from './ui/app-chrome.js';
 import { buildAppMarkup as buildAssistantAppMarkup } from './ui/app-shell.js';
 import { createChatUi } from './ui/chat-ui.js';
 import { createSettingsPanel } from './ui/settings-panel.js';
+import { syncAgentSettingsPanelFeedback } from '../../agent-core/ui/settings-markup.js';
 import { setHostChatCompletionsRequestHeadersProvider } from '../../../shared/host-llm/chat-completions/client.js';
 import { createLocalSourcesManager } from './workspace/local-sources.js';
 import { buildWorkspaceTree } from './workspace/local-workspace-tree.js';
@@ -54,8 +55,8 @@ const SOURCE = 'xb-assistant-app';
 const ROOT_ID = 'xb-assistant-root';
 const REQUEST_TIMEOUT_MS = 180000;
 const MAX_TOOL_ROUNDS = 64;
-const MAX_CONTEXT_TOKENS = 188000;
-const SUMMARY_TRIGGER_TOKENS = 158000;
+const MAX_CONTEXT_TOKENS = 258000;
+const SUMMARY_TRIGGER_TOKENS = 228000;
 const HISTORY_SUMMARY_MAX_TOKENS = 10000;
 const DEFAULT_PRESERVED_TURNS = 2;
 const MIN_PRESERVED_TURNS = 1;
@@ -71,7 +72,10 @@ const CONTEXT_STATS_RENDER_THROTTLE_MS = 600;
 const currentPlanContextLedger = createPlanLedger({ plansTable: assistantPlansTable });
 const state = {
     config: null,
+    configLoadError: '',
     configDraft: null,
+    configDirty: false,
+    configExternalChangePending: false,
     runtime: null,
     workspaceDrafts: {},
     pendingApproval: null,
@@ -1136,6 +1140,11 @@ const settingsPanel = createSettingsPanel({
         beginConfigSave(requestId);
         post('xb-assistant:save-config', payload);
     },
+    reloadConfig: () => {
+        post('xb-assistant:reload-config', {
+            preserveDraft: state.configDirty === true,
+        });
+    },
     getRuntimeSummaryText: ({ draft, providerLabel }) => state.runtime
         ? `预设「${draft.currentPresetName || DEFAULT_PRESET_NAME}」 · ${providerLabel} · 已索引 ${state.runtime.indexedFileCount || 0} 个前端源码文件`
         : providerLabel,
@@ -1464,9 +1473,21 @@ sessionStore = createSessionStore({
     getActiveContextMessages,
 });
 
-function applyConfig(config) {
-    state.config = normalizeAssistantConfig(config || {});
+function applyConfig(config, options = {}) {
+    const nextConfig = normalizeAssistantConfig(config || {});
+    state.configLoadError = '';
+    const preserveDraft = options.preserveDraft === true && state.configDirty === true;
+    state.config = nextConfig;
+    if (preserveDraft) {
+        state.configExternalChangePending = true;
+        state.configFormSyncPending = true;
+        showToast('共享 API 配置已在其他页面更新；当前未保存编辑已保留。');
+        render();
+        return;
+    }
     state.configDraft = null;
+    state.configDirty = false;
+    state.configExternalChangePending = false;
     requestConfigFormSync();
     render();
 }
@@ -1628,6 +1649,14 @@ function render() {
             clearLocalSources();
         },
     });
+    syncAgentSettingsPanelFeedback(root, {
+        configSave: state.configSave,
+        inlineToastText: state.toast,
+        isBusy: state.isBusy,
+        canDeletePreset: (state.config?.presetNames || []).length > 1,
+        configLoadError: state.configLoadError,
+        configExternalChangePending: state.configExternalChangePending,
+    });
 }
 
 function bindEvents(root) {
@@ -1765,13 +1794,11 @@ function bindEvents(root) {
 
     root.querySelector('#xb-assistant-sidebar-toggle')?.addEventListener('click', () => {
         state.sidebarCollapsed = !state.sidebarCollapsed;
-        persistSession();
         render();
     });
 
     root.querySelector('#xb-assistant-mobile-settings')?.addEventListener('click', () => {
         state.sidebarCollapsed = !state.sidebarCollapsed;
-        persistSession();
         render();
     });
 
@@ -1805,7 +1832,6 @@ function bindEvents(root) {
     root.querySelector('#xb-assistant-mobile-backdrop')?.addEventListener('click', () => {
         if (state.sidebarCollapsed) return;
         state.sidebarCollapsed = true;
-        persistSession();
         render();
     });
 
@@ -2144,7 +2170,14 @@ window.addEventListener('message', (event) => {
         if (state.workspacePanelMode === 'memory') {
             ensureSkillSelection();
         }
-        applyConfig(data.payload?.config || {});
+        state.configLoadError = String(data.payload?.configLoadError || '');
+        if (data.payload?.config && typeof data.payload.config === 'object') {
+            applyConfig(data.payload.config, {
+                preserveDraft: data.payload?.externalChange === true,
+            });
+        } else {
+            render();
+        }
         return;
     }
 
@@ -2223,7 +2256,11 @@ window.addEventListener('message', (event) => {
     }
 
     if (data.type === 'xb-assistant:config-save-error') {
-        applyConfig(data.payload?.config || {});
+        if (data.payload?.conflict === true && data.payload?.config && typeof data.payload.config === 'object') {
+            state.config = normalizeAssistantConfig(data.payload.config);
+            state.configExternalChangePending = true;
+            state.configFormSyncPending = true;
+        }
         completeConfigSave(data.payload?.requestId || '', { ok: false, error: data.payload?.error || '网络异常' });
         showToast(`保存失败：${data.payload?.error || '网络异常'}`);
         return;

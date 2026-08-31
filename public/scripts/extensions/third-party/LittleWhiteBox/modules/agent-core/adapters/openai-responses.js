@@ -1,5 +1,45 @@
 import OpenAI from 'openai';
-import { buildSdkRequestInspection } from './request-inspection.js';
+import {
+    buildEffectiveReasoningConfig,
+    buildSdkRequestInspection,
+} from './request-inspection.js';
+import {
+    resolveTaskReasoning,
+    shouldOmitTemperatureForReasoning,
+} from '../reasoning-capabilities.js';
+import { isReasoningOutputVisible } from '../reasoning-config.js';
+
+function cloneJson(value) {
+    if (value === undefined) return undefined;
+    try {
+        return JSON.parse(JSON.stringify(value));
+    } catch {
+        return undefined;
+    }
+}
+
+function buildReplayableResponseOutput(output) {
+    const cloned = cloneJson(Array.isArray(output) ? output : []);
+    if (!Array.isArray(cloned)) return [];
+
+    cloned.forEach((item) => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) return;
+
+        // OpenAI's streaming SDK adds parsed projections to finalResponse().
+        // They are useful to SDK consumers but are not legal Responses input fields.
+        if (item.type === 'function_call') {
+            delete item.parsed_arguments;
+        }
+        if (item.type === 'message' && Array.isArray(item.content)) {
+            item.content.forEach((part) => {
+                if (!part || typeof part !== 'object' || Array.isArray(part)) return;
+                delete part.parsed;
+            });
+        }
+    });
+
+    return cloned;
+}
 
 function buildUserOrSystemMessage(role, content) {
     return {
@@ -97,11 +137,6 @@ function resolveInstructions(task) {
 }
 
 function extractResponseText(response) {
-    const legacyChoiceContent = response?.choices?.[0]?.message?.content;
-    if (typeof legacyChoiceContent === 'string' && legacyChoiceContent.trim()) {
-        return legacyChoiceContent.trim();
-    }
-
     if (typeof response?.output_text === 'string' && response.output_text.trim()) {
         return response.output_text.trim();
     }
@@ -131,17 +166,17 @@ function extractResponseText(response) {
     return chunks.join('\n').trim();
 }
 
-function detectProxyEndpointError(response) {
-    const choice = response?.choices?.[0];
-    const content = choice?.message?.content;
-    const finishReason = String(choice?.finish_reason || '');
-    if (typeof content !== 'string' || !content.trim()) return null;
-
-    const normalized = content.toLowerCase();
-    if (!normalized.includes('proxy error')) return null;
-    if (!normalized.includes('/responses') && !finishReason.toLowerCase().includes('proxy error')) return null;
-
-    return content.trim();
+function assertResponsesResponseShape(response) {
+    if (response && typeof response === 'object'
+        && !Array.isArray(response)
+        && !Object.prototype.hasOwnProperty.call(response, 'choices')
+        && Array.isArray(response.output)) {
+        return;
+    }
+    const error = new Error('当前端点返回的不是 Responses API，请改用 OpenAI 兼容。');
+    error.name = 'OpenAIResponsesEndpointMismatchError';
+    error.code = 'OPENAI_RESPONSES_ENDPOINT_MISMATCH';
+    throw error;
 }
 
 function buildInputMessages(task) {
@@ -158,6 +193,13 @@ function buildInputMessages(task) {
                 call_id: message.tool_call_id || 'missing_tool_call_id',
                 output: message.content,
             });
+            continue;
+        }
+
+        if (message.role === 'assistant'
+            && Array.isArray(message?.providerPayload?.openAIResponseOutput)
+            && message.providerPayload.openAIResponseOutput.length) {
+            input.push(...buildReplayableResponseOutput(message.providerPayload.openAIResponseOutput));
             continue;
         }
 
@@ -211,6 +253,13 @@ function buildInputMessagesWithSystem(task) {
                 call_id: message.tool_call_id || 'missing_tool_call_id',
                 output: message.content,
             });
+            continue;
+        }
+
+        if (message.role === 'assistant'
+            && Array.isArray(message?.providerPayload?.openAIResponseOutput)
+            && message.providerPayload.openAIResponseOutput.length) {
+            input.push(...buildReplayableResponseOutput(message.providerPayload.openAIResponseOutput));
             continue;
         }
 
@@ -289,7 +338,12 @@ export class OpenAIResponsesAdapter {
         });
     }
 
-    buildRequestBody(task, legacySystemInInput = false) {
+    buildRequestBody(
+        task,
+        legacySystemInInput = false,
+        effectiveReasoning = resolveTaskReasoning('openai-responses', this.config, task.reasoning),
+    ) {
+        const reasoning = effectiveReasoning;
         const body = {
             model: this.config.model,
             instructions: legacySystemInInput ? undefined : (resolveInstructions(task) || undefined),
@@ -307,14 +361,24 @@ export class OpenAIResponsesAdapter {
                 : {}),
             ...(task.maxTokens ? { max_output_tokens: task.maxTokens } : {}),
         };
-        if (!task.reasoning?.enabled && typeof task.temperature === 'number') {
+        if (!shouldOmitTemperatureForReasoning(
+            { ...this.config, provider: 'openai-responses' },
+            reasoning,
+        ) && typeof task.temperature === 'number') {
             body.temperature = task.temperature;
         }
-        if (task.reasoning?.enabled) {
+        if (reasoning.mode === 'on' || reasoning.mode === 'off') {
             body.reasoning = {
-                effort: task.reasoning.effort,
-                summary: 'detailed',
+                effort: reasoning.mode === 'off' ? 'none' : reasoning.effort,
+                ...(reasoning.mode === 'on' && isReasoningOutputVisible(reasoning)
+                    ? { summary: 'auto' }
+                    : {}),
             };
+        } else if (isReasoningOutputVisible(reasoning)) {
+            body.reasoning = { summary: 'auto' };
+        }
+        if (reasoning.mode !== 'off' && reasoning.profileId.startsWith('openai-')) {
+            body.include = ['reasoning.encrypted_content'];
         }
         return body;
     }
@@ -323,6 +387,9 @@ export class OpenAIResponsesAdapter {
         const stream = typeof task.onStreamProgress === 'function';
         const legacySystemInInput = options.legacySystemInInput === true;
         const baseUrl = String(this.config.baseUrl || 'https://api.openai.com/v1').replace(/\/$/, '');
+        const effectiveReasoning = options.effectiveReasoning
+            || resolveTaskReasoning('openai-responses', this.config, task.reasoning);
+        const body = options.body || this.buildRequestBody(task, legacySystemInInput, effectiveReasoning);
         return buildSdkRequestInspection({
             provider: 'openai-responses',
             model: this.config.model,
@@ -332,24 +399,46 @@ export class OpenAIResponsesAdapter {
                 'Content-Type': 'application/json',
                 Authorization: this.config.apiKey ? `Bearer ${this.config.apiKey}` : '',
             },
-            body: options.body || this.buildRequestBody(task, legacySystemInInput),
+            body,
             sdk: stream ? 'client.responses.stream' : 'client.responses.create',
+            effectiveConfig: buildEffectiveReasoningConfig(task, {
+                reasoning: effectiveReasoning,
+                effort: body.reasoning?.effort,
+                controlFields: {
+                    ...(body.reasoning ? { reasoning: body.reasoning } : {}),
+                    ...(body.include ? { include: body.include } : {}),
+                },
+            }),
         });
     }
 
     async chat(task) {
-        let requestInspection = this.inspectRequest(task);
-        const parseResponse = (response) => {
-            const proxyError = detectProxyEndpointError(response);
-            if (proxyError) {
-                const error = new Error(proxyError);
-                error.name = 'ProxyEndpointError';
-                error.rawDisplay = proxyError;
-                throw error;
+        const effectiveReasoning = resolveTaskReasoning('openai-responses', this.config, task.reasoning);
+        const requestAttempts = [];
+        const buildRequestInspection = () => {
+            const latest = requestAttempts.at(-1)?.inspection || {};
+            return {
+                ...latest,
+                requestCount: requestAttempts.length,
+                fallbackCount: Math.max(0, requestAttempts.length - 1),
+                requests: requestAttempts.map(({ reason, inspection }, index) => ({
+                    index: index + 1,
+                    reason,
+                    request: inspection.request,
+                    effectiveConfig: inspection.effectiveConfig,
+                })),
+            };
+        };
+        const attachRequestInspection = (error) => {
+            if (error && typeof error === 'object') {
+                error.requestInspection = buildRequestInspection();
             }
-
-            const output = Array.isArray(response.output) ? response.output : [];
-            const thoughts = extractThoughts(output);
+            return error;
+        };
+        const parseResponse = (response) => {
+            assertResponsesResponseShape(response);
+            const output = response.output;
+            const thoughts = isReasoningOutputVisible(effectiveReasoning) ? extractThoughts(output) : [];
             const toolCalls = output
                 .filter((item) => item.type === 'function_call' && item.name)
                 .map((item, index) => ({
@@ -361,84 +450,112 @@ export class OpenAIResponsesAdapter {
             return { output, thoughts, toolCalls, text };
         };
 
-        const createRequest = async (legacySystemInInput = false) => {
-            const body = this.buildRequestBody(task, legacySystemInInput);
-            requestInspection = this.inspectRequest(task, { body, legacySystemInInput });
-            return await this.client.responses.create(body, {
-                signal: task.signal,
+        const recordRequest = (body, legacySystemInInput, reason) => {
+            const inspection = this.inspectRequest(task, {
+                body,
+                legacySystemInInput,
+                effectiveReasoning,
             });
+            requestAttempts.push({ reason, inspection });
         };
 
-        const createStreamRequest = async (legacySystemInInput = false) => {
-            const body = this.buildRequestBody(task, legacySystemInInput);
-            requestInspection = this.inspectRequest(task, { body, legacySystemInInput });
-            const stream = this.client.responses.stream(body, {
-                signal: task.signal,
-            });
-            const textByPart = new Map();
-            const reasoningByPart = new Map();
-            const summaryByPart = new Map();
-
-            const emitSnapshot = () => {
-                const thoughts = [];
-                Array.from(reasoningByPart.entries())
-                    .sort(([left], [right]) => comparePartKeys(left, right))
-                    .forEach(([, text]) => pushThought(thoughts, '推理文本', text));
-                Array.from(summaryByPart.entries())
-                    .sort(([left], [right]) => comparePartKeys(left, right))
-                    .forEach(([, text]) => pushThought(thoughts, '推理摘要', text));
-                emitStreamProgress(task, {
-                    text: Array.from(textByPart.entries())
-                        .sort(([left], [right]) => comparePartKeys(left, right))
-                        .map(([, text]) => text)
-                        .join('\n')
-                        .trim(),
-                    thoughts,
+        const createRequest = async (legacySystemInInput = false, reason = 'initial') => {
+            const body = this.buildRequestBody(task, legacySystemInInput, effectiveReasoning);
+            recordRequest(body, legacySystemInInput, reason);
+            try {
+                return await this.client.responses.create(body, {
+                    signal: task.signal,
                 });
-            };
+            } catch (error) {
+                throw attachRequestInspection(error);
+            }
+        };
 
-            stream.on('response.output_text.delta', (event) => {
-                const key = `${event.output_index}:${event.content_index}`;
-                textByPart.set(key, `${textByPart.get(key) || ''}${event.delta}`);
-                emitSnapshot();
-            });
-            stream.on('response.reasoning_text.delta', (event) => {
-                const key = `${event.output_index}:${event.content_index}`;
-                reasoningByPart.set(key, `${reasoningByPart.get(key) || ''}${event.delta}`);
-                emitSnapshot();
-            });
-            stream.on('response.reasoning_summary_text.delta', (event) => {
-                const key = `${event.output_index}:${event.summary_index}`;
-                summaryByPart.set(key, `${summaryByPart.get(key) || ''}${event.delta}`);
-                emitSnapshot();
-            });
+        const createStreamRequest = async (legacySystemInInput = false, reason = 'initial') => {
+            const body = this.buildRequestBody(task, legacySystemInInput, effectiveReasoning);
+            recordRequest(body, legacySystemInInput, reason);
+            try {
+                const stream = this.client.responses.stream(body, {
+                    signal: task.signal,
+                });
+                const textByPart = new Map();
+                const reasoningByPart = new Map();
+                const summaryByPart = new Map();
 
-            return await stream.finalResponse();
+                const emitSnapshot = () => {
+                    const thoughts = [];
+                    if (isReasoningOutputVisible(effectiveReasoning)) {
+                        Array.from(reasoningByPart.entries())
+                            .sort(([left], [right]) => comparePartKeys(left, right))
+                            .forEach(([, text]) => pushThought(thoughts, '推理文本', text));
+                        Array.from(summaryByPart.entries())
+                            .sort(([left], [right]) => comparePartKeys(left, right))
+                            .forEach(([, text]) => pushThought(thoughts, '推理摘要', text));
+                    }
+                    emitStreamProgress(task, {
+                        text: Array.from(textByPart.entries())
+                            .sort(([left], [right]) => comparePartKeys(left, right))
+                            .map(([, text]) => text)
+                            .join('\n')
+                            .trim(),
+                        thoughts,
+                    });
+                };
+
+                stream.on('response.output_text.delta', (event) => {
+                    const key = `${event.output_index}:${event.content_index}`;
+                    textByPart.set(key, `${textByPart.get(key) || ''}${event.delta}`);
+                    emitSnapshot();
+                });
+                stream.on('response.reasoning_text.delta', (event) => {
+                    const key = `${event.output_index}:${event.content_index}`;
+                    reasoningByPart.set(key, `${reasoningByPart.get(key) || ''}${event.delta}`);
+                    emitSnapshot();
+                });
+                stream.on('response.reasoning_summary_text.delta', (event) => {
+                    const key = `${event.output_index}:${event.summary_index}`;
+                    summaryByPart.set(key, `${summaryByPart.get(key) || ''}${event.delta}`);
+                    emitSnapshot();
+                });
+
+                return await stream.finalResponse();
+            } catch (error) {
+                throw attachRequestInspection(error);
+            }
         };
 
         const allowCompatibilityFallback = !isOfficialOpenAIBaseUrl(this.config.baseUrl);
+        const sendRequest = typeof task.onStreamProgress === 'function'
+            ? createStreamRequest
+            : createRequest;
         let response;
         let parsed;
 
         try {
-            response = typeof task.onStreamProgress === 'function'
-                ? await createStreamRequest(false)
-                : await createRequest(false);
+            response = await sendRequest(false, 'initial');
             parsed = parseResponse(response);
-            if (allowCompatibilityFallback && !parsed.text && !parsed.toolCalls.length) {
-                response = typeof task.onStreamProgress === 'function'
-                    ? await createStreamRequest(true)
-                    : await createRequest(true);
-                parsed = parseResponse(response);
-            }
         } catch (error) {
             if (!allowCompatibilityFallback || !shouldRetryWithLegacySystem(error)) {
-                throw error;
+                throw attachRequestInspection(error);
             }
-            response = typeof task.onStreamProgress === 'function'
-                ? await createStreamRequest(true)
-                : await createRequest(true);
-            parsed = parseResponse(response);
+            response = await sendRequest(true, 'legacy_system_error');
+            try {
+                parsed = parseResponse(response);
+            } catch (retryError) {
+                throw attachRequestInspection(retryError);
+            }
+        }
+
+        if (allowCompatibilityFallback
+            && requestAttempts.length < 2
+            && !parsed.text
+            && !parsed.toolCalls.length) {
+            response = await sendRequest(true, 'empty_response');
+            try {
+                parsed = parseResponse(response);
+            } catch (retryError) {
+                throw attachRequestInspection(retryError);
+            }
         }
 
         return {
@@ -448,7 +565,10 @@ export class OpenAIResponsesAdapter {
             finishReason: response.incomplete_details?.reason || response.status || 'stop',
             model: response.model || this.config.model,
             provider: 'openai-responses',
-            requestInspection,
+            providerPayload: parsed.output.length
+                ? { openAIResponseOutput: buildReplayableResponseOutput(parsed.output) }
+                : undefined,
+            requestInspection: buildRequestInspection(),
         };
     }
 }

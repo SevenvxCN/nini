@@ -20,10 +20,12 @@ import {
     LOOKUP_SCOPE_LOCAL,
     assertLookupScopePath,
     assertLookupScopePattern,
+    filterLookupFilesByPath,
     isLocalLookupTarget,
     normalizeLookupScope,
 } from "./shared/lookup-scope.js";
 import {
+    AGENT_SETTINGS_CONFIG_VERSION,
     DEFAULT_PRESET_NAME,
     buildDefaultPreset,
     cloneDefaultModelConfigs,
@@ -33,7 +35,11 @@ import {
     normalizePresetName,
 } from "../agent-core/config.js";
 import { createPlanLedger, isPlanToolName } from "../agent-core/plan-ledger.js";
-import { getPathExtension, isSupportedPublicTextPath } from "../agent-core/tools/text-file-types.js";
+import {
+    loadSharedAgentSettings,
+    saveSharedAgentSettings,
+    subscribeSharedAgentSettingsChanged,
+} from "../agent-core/settings-repository.js";
 import { plansTable as assistantPlansTable } from "./shared/session-db.js";
 import {
     findLocalDirectoryByPath as kernelFindLocalDirectoryByPath,
@@ -98,8 +104,7 @@ const READ_LINE_TRUNCATION_SUFFIX = `... (line truncated to ${MAX_READ_LINE_CHAR
 const READ_STREAM_HEAD_EXTRA_LINES = 8;
 const READ_STREAM_HEAD_EXTRA_CHARS = MAX_READ_LINE_CHARS * 2;
 const MAX_PATH_SUGGESTIONS = 3;
-const SERVER_FILE_KEY = 'settings';
-const CONFIG_VERSION = 1;
+const CONFIG_VERSION = AGENT_SETTINGS_CONFIG_VERSION;
 
 let hostWindow = null;
 let manifestCache = null;
@@ -109,6 +114,7 @@ const activeToolControllers = new Map();
 const activeSkillProposalTokens = new Map();
 let settingsCache = null;
 let settingsLoaded = false;
+let unsubscribeSharedAgentSettingsChanged = null;
 let localSourcesCache = [];
 let editorContextCache = null;
 let localSourcesToolRuntime = null;
@@ -191,6 +197,7 @@ function handleAssistantEditorContextEvent(event) {
 }
 
 async function persistAssistantSettings(settings, { silent = true } = {}) {
+    const expectedUpdatedAt = Number(settings?.expectedUpdatedAt);
     const next = normalizeAssistantSettings({
         ...settings,
         updatedAt: Date.now(),
@@ -199,55 +206,53 @@ async function persistAssistantSettings(settings, { silent = true } = {}) {
         defaultWorkspaceFileName: DEFAULT_WORKSPACE_FILE,
         normalizeWorkspaceName,
     });
-    settingsCache = next;
-
-    try {
-        const data = await AssistantStorage.load();
-        data[SERVER_FILE_KEY] = next;
-        AssistantStorage._dirtyVersion = (AssistantStorage._dirtyVersion || 0) + 1;
-        await AssistantStorage.saveNow({ silent });
-        return { ok: true, settings: next };
-    } catch (error) {
-        return {
-            ok: false,
-            settings: next,
-            error: error instanceof Error ? error.message : String(error || 'unknown_error'),
-        };
+    const result = await saveSharedAgentSettings({
+        ...next,
+        ...(Number.isFinite(expectedUpdatedAt) ? { expectedUpdatedAt } : {}),
+    }, {
+        storage: AssistantStorage,
+        silent,
+        source: 'assistant',
+        normalizeOptions: {
+            defaultWorkspaceFileName: DEFAULT_WORKSPACE_FILE,
+            normalizeWorkspaceName,
+        },
+    });
+    if ((result.ok || result.conflict) && result.config) {
+        settingsCache = result.config;
+        settingsLoaded = true;
     }
+    return {
+        ok: result.ok,
+        conflict: result.conflict === true,
+        settings: result.config,
+        error: result.error,
+    };
 }
 
-async function loadAssistantSettings() {
-    if (settingsLoaded && settingsCache) return settingsCache;
+async function loadAssistantSettings(options = {}) {
+    if (options.force !== true && settingsLoaded && settingsCache) return settingsCache;
 
-    try {
-        const saved = await AssistantStorage.get(SERVER_FILE_KEY, null);
-        settingsCache = normalizeAssistantSettings(saved || {}, {
+    const loaded = await loadSharedAgentSettings({
+        storage: AssistantStorage,
+        normalizeOptions: {
             defaultWorkspaceFileName: DEFAULT_WORKSPACE_FILE,
             normalizeWorkspaceName,
-        });
-
-        if (!saved || settingsCache.configVersion !== CONFIG_VERSION) {
-            await persistAssistantSettings(settingsCache, { silent: true });
-        }
-    } catch {
-        settingsCache = normalizeAssistantSettings({}, {
-            defaultWorkspaceFileName: DEFAULT_WORKSPACE_FILE,
-            normalizeWorkspaceName,
-        });
-    }
-
+        },
+    });
+    settingsCache = normalizeAssistantSettings(loaded || {}, {
+        defaultWorkspaceFileName: DEFAULT_WORKSPACE_FILE,
+        normalizeWorkspaceName,
+    });
     settingsLoaded = true;
     return settingsCache;
 }
 
 function getAssistantSettings() {
-    if (!settingsCache) {
-        settingsCache = normalizeAssistantSettings({}, {
-            defaultWorkspaceFileName: DEFAULT_WORKSPACE_FILE,
-            normalizeWorkspaceName,
-        });
-    }
-    return settingsCache;
+    return settingsCache || normalizeAssistantSettings({}, {
+        defaultWorkspaceFileName: DEFAULT_WORKSPACE_FILE,
+        normalizeWorkspaceName,
+    });
 }
 
 function buildRuntimeConfig() {
@@ -255,6 +260,7 @@ function buildRuntimeConfig() {
     const currentPreset = settings.presets?.[settings.currentPresetName] || buildDefaultPreset();
     return {
         enabled: !!settings.enabled,
+        updatedAt: Number(settings.updatedAt) || 0,
         provider: currentPreset.provider || 'openai-compatible',
         workspaceFileName: settings.workspaceFileName || DEFAULT_WORKSPACE_FILE,
         jsApiPermission: normalizeJsApiPermission(settings.jsApiPermission),
@@ -263,6 +269,7 @@ function buildRuntimeConfig() {
         currentPresetName: settings.currentPresetName || DEFAULT_PRESET_NAME,
         delegatePresetName: settings.delegatePresetName || settings.currentPresetName || DEFAULT_PRESET_NAME,
         delegateConfig: settings.delegateConfig || {},
+        delegateConfigured: settings.delegateConfigured === true,
         presetNames: Object.keys(settings.presets || {}),
         presets: settings.presets || {},
         tavilyApiKey: settings.tavilyApiKey || '',
@@ -1118,22 +1125,6 @@ async function readTextFile(publicPath, options = {}) {
     return text;
 }
 
-function normalizeDirectReadablePublicPath(rawPath) {
-    const normalized = String(rawPath || '').trim().replace(/\\/g, '/').replace(/^\/+/, '');
-    if (!normalized) return '';
-    if (normalized.includes('..')) return '';
-    if (normalized.includes('?') || normalized.includes('#')) return '';
-    if (normalized.startsWith('api/') || normalized.startsWith('user/')) return '';
-    if (normalized.startsWith('local/')) return '';
-
-    if (!isSupportedPublicTextPath(normalized)) return '';
-    return normalized;
-}
-
-function pathExtension(pathText = '') {
-    return getPathExtension(pathText);
-}
-
 function escapeRegExp(text) {
     return String(text || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -1301,12 +1292,6 @@ function normalizeIndexedDirectoryPath(rawPath = '') {
     return normalized.endsWith('/') ? normalized : `${normalized}/`;
 }
 
-function scopeIndexedFilesByDirectory(files, rawPath = '') {
-    const directoryPath = normalizeIndexedDirectoryPath(rawPath);
-    if (!directoryPath) return files;
-    return files.filter((entry) => String(entry.publicPath || '').startsWith(directoryPath));
-}
-
 function buildDirectoryItems(files, directoryPath, localSources = localSourcesCache) {
     const normalizedPrefix = directoryPath.toLowerCase();
     const entryMap = new Map();
@@ -1455,7 +1440,7 @@ async function globFiles(args = {}, options = {}) {
     assertLookupScopePattern(pattern, scope);
     assertLookupScopePath(searchPath, scope);
     const files = getLookupIndexedFiles(manifest, options.localSources, scope);
-    const matched = scopeIndexedFilesByDirectory(files, searchPath)
+    const matched = filterLookupFilesByPath(files, searchPath)
         .filter((entry) => matchesGlob(entry.publicPath, entry.relativePath, matcher))
         .sort((a, b) => String(a.publicPath || '').localeCompare(String(b.publicPath || ''), 'zh-CN'));
 
@@ -1618,7 +1603,6 @@ async function readFile(args = {}, options = {}) {
         throw new Error('file_not_indexed');
     }
     assertLookupScopePath(targetPath, scope);
-    const directReadablePath = normalizeDirectReadablePublicPath(targetPath);
     const indexedFiles = getLookupIndexedFiles(manifest, options.localSources, scope);
     const directoryPath = normalizeIndexedDirectoryPath(targetPath);
     const directoryItems = buildDirectoryItems(indexedFiles, directoryPath || targetPath, options.localSources);
@@ -1626,15 +1610,8 @@ async function readFile(args = {}, options = {}) {
     const requestedOffset = Math.max(1, Math.trunc(Number(args.offset ?? args.startLine) || 1));
     const requestedLimit = resolveReadLimit(args.limit);
     const requestedTail = resolveReadTail(args.tail);
-    const entry = indexedFiles.find((item) => item.publicPath === targetPath)
-        || (directReadablePath
-            ? {
-                publicPath: directReadablePath,
-                relativePath: directReadablePath,
-                source: 'direct-public-path',
-                extension: pathExtension(directReadablePath),
-            }
-            : null);
+    // The manifest is the project-read authorization boundary. Never fetch an unindexed public path directly.
+    const entry = indexedFiles.find((item) => item.publicPath === targetPath) || null;
     const requestedEndAlias = Number(args.endLine);
     const hasTailConflictRange = Number.isFinite(Number(args.offset))
         || Number.isFinite(Number(args.limit))
@@ -2130,7 +2107,7 @@ async function grepFiles(args = {}, options = {}) {
     assertLookupScopePath(searchPath, scope);
     assertLookupScopePattern(include, scope);
     const files = getLookupIndexedFiles(manifest, options.localSources, scope);
-    const scopedFiles = scopeIndexedFilesByDirectory(files, searchPath);
+    const scopedFiles = filterLookupFilesByPath(files, searchPath);
     const fileMatcher = include ? compileGlobPattern(include) : null;
     const candidateFiles = fileMatcher
         ? scopedFiles.filter((entry) => matchesGlob(entry.publicPath, entry.relativePath, fileMatcher))
@@ -3519,19 +3496,27 @@ function openAssistant() {
     window.addEventListener('message', handleIframeMessage);
 }
 
-async function pushAssistantConfigToIframe() {
+async function pushAssistantConfigToIframe(options = {}) {
     if (!assistantFrameReady) return false;
     const iframe = getAssistantHostWindow().getIframe();
     if (!iframe?.contentWindow) return false;
-    await loadAssistantSettings();
-    const config = buildRuntimeConfig();
+    let config = null;
+    let configLoadError = '';
+    try {
+        await loadAssistantSettings({ force: options.force === true });
+        config = buildRuntimeConfig();
+    } catch (error) {
+        configLoadError = `共享 Agent API 配置读取失败：${error instanceof Error ? error.message : String(error || 'unknown_error')}`;
+    }
     const runtimePayload = await buildAssistantRuntimePayload();
     const workspaceState = getLocalSourcesToolRuntime().getWorkspaceState();
     postToIframe(iframe, {
         type: 'xb-assistant:config',
         payload: {
             hostRequestHeaders: getRequestHeaders(),
-            config,
+            ...(config ? { config } : {}),
+            configLoadError,
+            externalChange: options.externalChange === true,
             runtime: {
                 ...runtimePayload,
                 workspace: {
@@ -3621,6 +3606,9 @@ async function handleIframeMessage(event) {
                 delegateConfig: patch.delegateConfig && typeof patch.delegateConfig === 'object'
                     ? patch.delegateConfig
                     : current.delegateConfig,
+                delegateConfigured: typeof patch.delegateConfigured === 'boolean'
+                    ? patch.delegateConfigured
+                    : current.delegateConfigured,
                 presets: patch.presets && typeof patch.presets === 'object'
                     ? patch.presets
                     : current.presets,
@@ -3629,7 +3617,10 @@ async function handleIframeMessage(event) {
                 normalizeWorkspaceName,
             });
 
-            const result = await persistAssistantSettings(next, { silent: false });
+            const result = await persistAssistantSettings({
+                ...next,
+                expectedUpdatedAt: patch.expectedUpdatedAt,
+            }, { silent: false });
             if (result.ok) {
                 postToIframe(iframe, {
                     type: CONFIG_SAVED,
@@ -3638,14 +3629,14 @@ async function handleIframeMessage(event) {
                         config: buildRuntimeConfig(),
                     },
                 });
-                window.xiaobaixEbook?.refreshConfig?.();
             } else {
                 postToIframe(iframe, {
                     type: CONFIG_SAVE_ERROR,
                     payload: {
                         requestId,
                         error: result.error || '保存失败',
-                        config: buildRuntimeConfig(),
+                        conflict: result.conflict === true,
+                        ...(result.conflict ? { config: buildRuntimeConfig() } : {}),
                     },
                 });
             }
@@ -3655,6 +3646,12 @@ async function handleIframeMessage(event) {
             replyAssistantHostResult(String(payload?.requestId || ''), {
                 ok: true,
                 hostRequestHeaders: getRequestHeaders(),
+            });
+            break;
+        case 'xb-assistant:reload-config':
+            await pushAssistantConfigToIframe({
+                force: true,
+                externalChange: payload?.preserveDraft === true,
             });
             break;
         case WORKSPACE_MESSAGE_TYPES.HYDRATE:
@@ -3775,19 +3772,34 @@ async function handleIframeMessage(event) {
 }
 
 export async function initAssistant() {
-    await loadAssistantSettings();
+    try {
+        await loadAssistantSettings();
+    } catch {
+        // The settings surface reports the read failure and offers an explicit retry.
+    }
+    unsubscribeSharedAgentSettingsChanged?.();
+    unsubscribeSharedAgentSettingsChanged = subscribeSharedAgentSettingsChanged((detail) => {
+        if (String(detail?.source || '') === 'assistant') return;
+        settingsLoaded = false;
+        void pushAssistantConfigToIframe({ force: true, externalChange: true });
+    });
     document.addEventListener('xb-assistant:editor-context', handleAssistantEditorContextEvent);
     window.xiaobaixAssistant = {
         openSettings: openAssistantSettings,
         closeSettings: closeAssistant,
         getSettings: () => ({ ...getAssistantSettings() }),
-        refreshConfig: () => void pushAssistantConfigToIframe(),
+        refreshConfig: () => {
+            settingsLoaded = false;
+            void pushAssistantConfigToIframe({ force: true });
+        },
         setEditorContext: (payload) => setAssistantEditorContext(payload),
         clearEditorContext: () => clearAssistantEditorContext(),
     };
 }
 
 export function cleanupAssistant() {
+    unsubscribeSharedAgentSettingsChanged?.();
+    unsubscribeSharedAgentSettingsChanged = null;
     document.removeEventListener('xb-assistant:editor-context', handleAssistantEditorContextEvent);
     closeAssistant();
     delete window.xiaobaixAssistant;

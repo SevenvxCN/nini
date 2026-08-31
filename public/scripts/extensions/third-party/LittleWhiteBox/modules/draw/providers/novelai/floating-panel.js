@@ -3,6 +3,7 @@
  * NovelDraw 画图按钮面板 - 支持楼层按钮和悬浮按钮双模式
  */
 
+import { getContext } from '../../../../../../../extensions.js';
 import {
     openNovelDrawSettings,
     generateAndInsertImages,
@@ -10,8 +11,25 @@ import {
     updateSettingsPersistent,
     findLastAIMessageId,
     classifyError,
+    getGenerationPhase,
 } from './novel-draw.js';
 import { registerToToolbar, removeFromToolbar } from '../../../../widgets/message-toolbar.js';
+import { formatScenePlannerProgress } from '../../shared/draw-common.js';
+import {
+    resolveCurrentDrawRunActivityTarget,
+    subscribeDrawRunActivity,
+} from '../../shared/draw-run-activity.js';
+import {
+    cancelPendingChildDrawRuns,
+    getPendingDrawWorkState,
+} from '../../shared/draw-run-controls.js';
+import { isDrawRunCancelledError, isDrawRunPendingError } from '../../shared/draw-run-production.js';
+import {
+    formatDrawRunProgress,
+    hasDrawRunProgressDetail,
+    resolveDrawRunActivityDetail,
+    resolveDrawRunUiState,
+} from '../../shared/draw-run-ui-state.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 常量
@@ -19,13 +37,20 @@ import { registerToToolbar, removeFromToolbar } from '../../../../widgets/messag
 
 const FLOAT_POS_KEY = 'xb_novel_float_pos';
 const AUTO_RESET_DELAY = 8000;
+const DRAW_RUN_PROVIDER = 'novelai';
 
 const FloatState = {
     IDLE: 'idle',
+    SUBMITTING: 'submitting',
+    ACCEPTED: 'accepted',
+    UNCERTAIN: 'uncertain',
     QUEUED: 'queued',
     LLM: 'llm',
     GEN: 'gen',
     COOLDOWN: 'cooldown',
+    RECONNECTING: 'reconnecting',
+    CANCELLING: 'cancelling',
+    BACKEND_LEGACY: 'backend_legacy',
     SUCCESS: 'success',
     PARTIAL: 'partial',
     ERROR: 'error',
@@ -62,6 +87,7 @@ let $floatingCache = {};
 
 // 通用状态
 let stylesInjected = false;
+let drawRunActivityDispose = null;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 样式 - 统一样式（楼层+悬浮共用）
@@ -650,10 +676,29 @@ function setFloorState(messageId, state, data = {}) {
     el.classList.remove('working', 'cooldown', 'success', 'partial', 'error', 'show-detail');
 
     const { statusIcon, statusText } = panelData.$cache;
+    if (statusText) statusText.className = 'nd-status-text';
 
     switch (state) {
         case FloatState.IDLE:
             panelData.result = { success: 0, total: 0, error: null, startTime: 0 };
+            break;
+        case FloatState.SUBMITTING:
+            el.classList.add('working');
+            if (!panelData.result.startTime) panelData.result.startTime = Date.now();
+            if (statusIcon) { statusIcon.textContent = '↥'; statusIcon.className = 'nd-status-icon nd-spin'; }
+            if (statusText) statusText.textContent = '提交后台';
+            break;
+        case FloatState.ACCEPTED:
+            el.classList.add('working');
+            if (!panelData.result.startTime) panelData.result.startTime = Date.now();
+            if (statusIcon) { statusIcon.textContent = '🎨'; statusIcon.className = 'nd-status-icon nd-spin'; }
+            if (statusText) statusText.textContent = formatDrawRunProgress(data);
+            break;
+        case FloatState.UNCERTAIN:
+            el.classList.add('working');
+            if (!panelData.result.startTime) panelData.result.startTime = Date.now();
+            if (statusIcon) { statusIcon.textContent = '↻'; statusIcon.className = 'nd-status-icon nd-spin'; }
+            if (statusText) statusText.textContent = '确认中';
             break;
         case FloatState.QUEUED:
             el.classList.add('working');
@@ -664,9 +709,9 @@ function setFloorState(messageId, state, data = {}) {
             break;
         case FloatState.LLM:
             el.classList.add('working');
-            panelData.result.startTime = Date.now();
+            if (!panelData.result.startTime) panelData.result.startTime = Date.now();
             if (statusIcon) { statusIcon.textContent = '⏳'; statusIcon.className = 'nd-status-icon nd-spin'; }
-            if (statusText) statusText.textContent = '分析';
+            if (statusText) statusText.textContent = formatScenePlannerProgress(data);
             break;
         case FloatState.GEN:
             el.classList.add('working');
@@ -677,7 +722,22 @@ function setFloorState(messageId, state, data = {}) {
         case FloatState.COOLDOWN:
             el.classList.add('cooldown');
             if (statusIcon) { statusIcon.textContent = '⏳'; statusIcon.className = 'nd-status-icon nd-spin'; }
-            startFloorCooldownTimer(panelData, data.duration);
+            startFloorCooldownTimer(panelData, data);
+            break;
+        case FloatState.RECONNECTING:
+            el.classList.add('working');
+            if (statusIcon) { statusIcon.textContent = '↻'; statusIcon.className = 'nd-status-icon nd-spin'; }
+            if (statusText) statusText.textContent = '重连';
+            break;
+        case FloatState.CANCELLING:
+            el.classList.add('working');
+            if (statusIcon) { statusIcon.textContent = '⏳'; statusIcon.className = 'nd-status-icon nd-spin'; }
+            if (statusText) statusText.textContent = '取消中';
+            break;
+        case FloatState.BACKEND_LEGACY:
+            el.classList.add('working');
+            if (statusIcon) { statusIcon.textContent = '↪'; statusIcon.className = 'nd-status-icon'; }
+            if (statusText) statusText.textContent = '兼容模式';
             break;
         case FloatState.SUCCESS:
             el.classList.add('success');
@@ -705,8 +765,100 @@ function setFloorState(messageId, state, data = {}) {
     }
 }
 
-function startFloorCooldownTimer(panelData, duration) {
-    panelData.cooldownEndTime = Date.now() + duration;
+async function syncDrawRunPanelState(messageId, detail = {}) {
+    // 当前 swipe 最多只有一个 Draw Run；即使用户切换了图片 Provider，
+    // 活动任务仍应在新面板可见并可取消。
+    const markerState = await getPendingDrawWorkState(messageId).catch(() => null);
+    if (!markerState) return;
+    const ctx = getContext();
+    const chatId = String(ctx?.chatId || '');
+    const message = ctx?.chat?.[Number(messageId)];
+    if (!chatId || !message) return;
+    const activeSwipeIndex = Number.isInteger(message.swipe_id) ? message.swipe_id : 0;
+    const swipeIndex = Number.isSafeInteger(markerState.swipeIndex)
+        ? markerState.swipeIndex
+        : activeSwipeIndex;
+    const provider = markerState.provider || detail?.provider || DRAW_RUN_PROVIDER;
+    const runId = markerState.runId || detail?.runId || '';
+    const activityTarget = { chatId, messageId, swipeIndex, provider, runId };
+    const matchedDetail = resolveDrawRunActivityDetail({
+        detail,
+        pending: markerState.pending,
+        ...activityTarget,
+    });
+    const progressDetail = markerState.backendAccepted && !hasDrawRunProgressDetail(matchedDetail)
+        ? { ...matchedDetail, stage: 'reattaching' }
+        : matchedDetail;
+    const effectiveDetail = markerState.cancelling
+        ? { ...progressDetail, ...activityTarget, phase: 'cancelling' }
+        : markerState.backendAccepted
+            ? { ...progressDetail, ...activityTarget, phase: 'active' }
+            : progressDetail;
+    const panelData = panelMap.get(messageId);
+    if (panelData) {
+        const next = resolveDrawRunUiState({
+            currentState: panelData.state,
+            pending: markerState.pending,
+            detail: effectiveDetail,
+            ...activityTarget,
+        });
+        if (next !== panelData.state
+            || (next === FloatState.ACCEPTED && hasDrawRunProgressDetail(matchedDetail))) {
+            setFloorState(messageId, next, effectiveDetail);
+        }
+    }
+    if (floatingEl && Number(messageId) === findLastAIMessageId()) {
+        const next = resolveDrawRunUiState({
+            currentState: floatingState,
+            pending: markerState.pending,
+            detail: effectiveDetail,
+            ...activityTarget,
+        });
+        if (markerState.pending) floatingMessageId = Number(messageId);
+        if (next !== floatingState
+            || (next === FloatState.ACCEPTED && hasDrawRunProgressDetail(matchedDetail))) {
+            setFloatingState(next, effectiveDetail);
+        }
+    }
+}
+
+function syncDrawRunActivity(detail = {}) {
+    const currentTarget = resolveCurrentDrawRunActivityTarget(detail, getContext());
+    if (!currentTarget) return;
+    const lastMessageId = findLastAIMessageId();
+    if (panelMap.has(currentTarget.messageId)
+        || (floatingEl && currentTarget.messageId === lastMessageId)) {
+        void syncDrawRunPanelState(currentTarget.messageId, detail);
+    }
+}
+
+export function refreshDrawRunUiState() {
+    const messageId = findLastAIMessageId();
+    if (floatingEl) {
+        const generationPhase = messageId >= 0 ? getGenerationPhase(messageId) : null;
+        if (generationPhase) {
+            floatingMessageId = messageId;
+            setFloatingState(generationPhase === 'llm'
+                ? FloatState.LLM
+                : generationPhase === 'submitting'
+                    ? FloatState.SUBMITTING
+                    : FloatState.GEN);
+        } else {
+            setFloatingState(FloatState.IDLE);
+        }
+    }
+    if (messageId >= 0) void syncDrawRunPanelState(messageId);
+}
+
+function resolveCooldownEndTime({ cooldownUntil, duration } = {}) {
+    const absolute = Number(cooldownUntil);
+    if (Number.isFinite(absolute) && absolute > 0) return absolute;
+    return Date.now() + Math.max(0, Number(duration) || 0);
+}
+
+function startFloorCooldownTimer(panelData, data) {
+    if (panelData.cooldownRafId) cancelAnimationFrame(panelData.cooldownRafId);
+    panelData.cooldownEndTime = resolveCooldownEndTime(data);
 
     function tick() {
         if (!panelData.cooldownEndTime) return;
@@ -762,17 +914,25 @@ function updateFloorDetailPopup(messageId) {
 async function handleFloorDrawClick(messageId) {
     const panelData = panelMap.get(messageId);
     if (!panelData || panelData.state !== FloatState.IDLE) return;
+    const targetChatId = String(getContext()?.chatId || '');
 
     try {
         await generateAndInsertImages({
             messageId,
             onStateChange: (state, data) => {
+                if (String(getContext()?.chatId || '') !== targetChatId) return;
                 switch (state) {
+                    case 'submitting': setFloorState(messageId, FloatState.SUBMITTING, data); break;
+                    case 'accepted': setFloorState(messageId, FloatState.ACCEPTED, data); break;
+                    case 'uncertain': setFloorState(messageId, FloatState.UNCERTAIN, data); break;
                     case 'queued': setFloorState(messageId, FloatState.QUEUED, data); break;
-                    case 'llm': setFloorState(messageId, FloatState.LLM); break;
+                    case 'llm': setFloorState(messageId, FloatState.LLM, data); break;
                     case 'gen': setFloorState(messageId, FloatState.GEN, data); break;
                     case 'progress': setFloorState(messageId, FloatState.GEN, data); break;
                     case 'cooldown': setFloorState(messageId, FloatState.COOLDOWN, data); break;
+                    case 'reconnecting': setFloorState(messageId, FloatState.RECONNECTING, data); break;
+                    case 'cancelling': setFloorState(messageId, FloatState.CANCELLING, data); break;
+                    case 'backend_legacy': setFloorState(messageId, FloatState.BACKEND_LEGACY, data); break;
                     case 'success':
                         if (data.aborted && data.success === 0) {
                             setFloorState(messageId, FloatState.IDLE);
@@ -787,10 +947,16 @@ async function handleFloorDrawClick(messageId) {
         });
     } catch (e) {
         console.error('[NovelDraw]', e);
-        if (e.message === '已取消' || e.message?.includes('已有任务进行中') || e.message?.includes('该楼层已有任务进行中')) {
+        if (String(getContext()?.chatId || '') !== targetChatId) return;
+        if (e?.uncertain === true) {
+            setFloorState(messageId, FloatState.UNCERTAIN);
+        } else if (isDrawRunPendingError(e)) {
+            toastr?.info?.(e.message);
+        } else if (isDrawRunCancelledError(e) || e.message?.includes('已有任务进行中') || e.message?.includes('该楼层已有任务进行中')) {
             setFloorState(messageId, FloatState.IDLE);
             if (e.message?.includes('任务进行中')) toastr?.info?.(e.message);
         } else {
+            toastr?.error?.(e?.message || '后台画图提交失败', '小白X画图');
             setFloorState(messageId, FloatState.ERROR, { error: classifyError(e) });
         }
     }
@@ -799,9 +965,15 @@ async function handleFloorDrawClick(messageId) {
 async function handleFloorAbort(messageId) {
     try {
         const { abortGeneration } = await import('./novel-draw.js');
-        if (abortGeneration(messageId)) {
-            setFloorState(messageId, FloatState.IDLE);
-            toastr?.info?.('已中止');
+        const aborted = abortGeneration(messageId);
+        if (aborted) {
+            setFloorState(messageId, FloatState.CANCELLING);
+            toastr?.info?.('正在中止');
+        }
+        const cancelledChild = await cancelPendingChildDrawRuns(messageId);
+        if (!aborted && cancelledChild) {
+            toastr?.info?.('正在中止');
+            void syncDrawRunPanelState(messageId, { messageId, phase: 'cancelling' });
         }
     } catch (e) {
         console.error('[NovelDraw] 中止失败:', e);
@@ -829,7 +1001,7 @@ function bindFloorPanelEvents(panelData) {
     el.querySelector('.nd-layer-active')?.addEventListener('click', (e) => {
         e.stopPropagation();
         const state = panelData.state;
-        if ([FloatState.QUEUED, FloatState.LLM, FloatState.GEN, FloatState.COOLDOWN].includes(state)) {
+        if ([FloatState.SUBMITTING, FloatState.ACCEPTED, FloatState.UNCERTAIN, FloatState.QUEUED, FloatState.LLM, FloatState.GEN, FloatState.COOLDOWN, FloatState.RECONNECTING, FloatState.BACKEND_LEGACY].includes(state)) {
             handleFloorAbort(messageId);
         } else if ([FloatState.SUCCESS, FloatState.PARTIAL, FloatState.ERROR].includes(state)) {
             updateFloorDetailPopup(messageId);
@@ -864,6 +1036,11 @@ function bindFloorPanelEvents(panelData) {
 
     panelData._cleanup = () => {
         document.removeEventListener('click', closeMenu);
+        if (panelData.autoResetTimer) clearTimeout(panelData.autoResetTimer);
+        panelData.autoResetTimer = null;
+        if (panelData.cooldownRafId) cancelAnimationFrame(panelData.cooldownRafId);
+        panelData.cooldownRafId = null;
+        panelData.cooldownEndTime = null;
     };
 }
 
@@ -916,7 +1093,10 @@ async function toggleQuickAutoMode() {
 function mountFloorPanel(messageEl, messageId) {
     if (panelMap.has(messageId)) {
         const existing = panelMap.get(messageId);
-        if (existing.root?.isConnected) return existing;
+        if (existing.root?.isConnected) {
+            void syncDrawRunPanelState(messageId);
+            return existing;
+        }
         existing._cleanup?.();
         panelMap.delete(messageId);
     }
@@ -938,6 +1118,7 @@ function mountFloorPanel(messageEl, messageId) {
     bindFloorPanelEvents(panelData);
 
     panelMap.set(messageId, panelData);
+    void syncDrawRunPanelState(messageId);
     return panelData;
 }
 
@@ -1066,9 +1247,9 @@ function clearFloatingCooldownTimer() {
     floatingCooldownEndTime = 0;
 }
 
-function startFloatingCooldownTimer(duration) {
+function startFloatingCooldownTimer(data) {
     clearFloatingCooldownTimer();
-    floatingCooldownEndTime = Date.now() + duration;
+    floatingCooldownEndTime = resolveCooldownEndTime(data);
 
     function tick() {
         if (!floatingCooldownEndTime) return;
@@ -1106,11 +1287,33 @@ function setFloatingState(state, data = {}) {
 
     const { statusIcon, statusText } = $floatingCache;
     if (!statusIcon || !statusText) return;
+    statusText.className = 'nd-status-text';
 
     switch (state) {
         case FloatState.IDLE:
             floatingMessageId = null;
             floatingResult = { success: 0, total: 0, error: null, startTime: 0 };
+            break;
+        case FloatState.SUBMITTING:
+            floatingEl.classList.add('working');
+            if (!floatingResult.startTime) floatingResult.startTime = Date.now();
+            statusIcon.textContent = '↥';
+            statusIcon.className = 'nd-status-icon nd-spin';
+            statusText.textContent = '提交后台';
+            break;
+        case FloatState.ACCEPTED:
+            floatingEl.classList.add('working');
+            if (!floatingResult.startTime) floatingResult.startTime = Date.now();
+            statusIcon.textContent = '🎨';
+            statusIcon.className = 'nd-status-icon nd-spin';
+            statusText.textContent = formatDrawRunProgress(data);
+            break;
+        case FloatState.UNCERTAIN:
+            floatingEl.classList.add('working');
+            if (!floatingResult.startTime) floatingResult.startTime = Date.now();
+            statusIcon.textContent = '↻';
+            statusIcon.className = 'nd-status-icon nd-spin';
+            statusText.textContent = '确认中';
             break;
         case FloatState.QUEUED:
             floatingEl.classList.add('working');
@@ -1121,10 +1324,10 @@ function setFloatingState(state, data = {}) {
             break;
         case FloatState.LLM:
             floatingEl.classList.add('working');
-            floatingResult.startTime = Date.now();
+            if (!floatingResult.startTime) floatingResult.startTime = Date.now();
             statusIcon.textContent = '⏳';
             statusIcon.className = 'nd-status-icon nd-spin';
-            statusText.textContent = '分析';
+            statusText.textContent = formatScenePlannerProgress(data);
             break;
         case FloatState.GEN:
             floatingEl.classList.add('working');
@@ -1137,7 +1340,25 @@ function setFloatingState(state, data = {}) {
             floatingEl.classList.add('cooldown');
             statusIcon.textContent = '⏳';
             statusIcon.className = 'nd-status-icon nd-spin';
-            startFloatingCooldownTimer(data.duration);
+            startFloatingCooldownTimer(data);
+            break;
+        case FloatState.RECONNECTING:
+            floatingEl.classList.add('working');
+            statusIcon.textContent = '↻';
+            statusIcon.className = 'nd-status-icon nd-spin';
+            statusText.textContent = '重连';
+            break;
+        case FloatState.CANCELLING:
+            floatingEl.classList.add('working');
+            statusIcon.textContent = '⏳';
+            statusIcon.className = 'nd-status-icon nd-spin';
+            statusText.textContent = '取消中';
+            break;
+        case FloatState.BACKEND_LEGACY:
+            floatingEl.classList.add('working');
+            statusIcon.textContent = '↪';
+            statusIcon.className = 'nd-status-icon';
+            statusText.textContent = '兼容模式';
             break;
         case FloatState.SUCCESS:
             floatingEl.classList.add('success');
@@ -1256,7 +1477,7 @@ function routeFloatingClick(target) {
         }
         floatingEl.classList.toggle('expanded');
     } else if (target.closest('.nd-layer-active')) {
-        if ([FloatState.QUEUED, FloatState.LLM, FloatState.GEN, FloatState.COOLDOWN].includes(floatingState)) {
+        if ([FloatState.SUBMITTING, FloatState.ACCEPTED, FloatState.UNCERTAIN, FloatState.QUEUED, FloatState.LLM, FloatState.GEN, FloatState.COOLDOWN, FloatState.RECONNECTING, FloatState.BACKEND_LEGACY].includes(floatingState)) {
             handleFloatingAbort();
         } else if ([FloatState.SUCCESS, FloatState.PARTIAL, FloatState.ERROR].includes(floatingState)) {
             updateFloatingDetailPopup();
@@ -1275,17 +1496,25 @@ async function handleFloatingDrawClick() {
     }
 
     floatingMessageId = messageId;
+    const targetChatId = String(getContext()?.chatId || '');
 
     try {
         await generateAndInsertImages({
             messageId,
             onStateChange: (state, data) => {
+                if (String(getContext()?.chatId || '') !== targetChatId) return;
                 switch (state) {
+                    case 'submitting': setFloatingState(FloatState.SUBMITTING, data); break;
+                    case 'accepted': setFloatingState(FloatState.ACCEPTED, data); break;
+                    case 'uncertain': setFloatingState(FloatState.UNCERTAIN, data); break;
                     case 'queued': setFloatingState(FloatState.QUEUED, data); break;
-                    case 'llm': setFloatingState(FloatState.LLM); break;
+                    case 'llm': setFloatingState(FloatState.LLM, data); break;
                     case 'gen': setFloatingState(FloatState.GEN, data); break;
                     case 'progress': setFloatingState(FloatState.GEN, data); break;
                     case 'cooldown': setFloatingState(FloatState.COOLDOWN, data); break;
+                    case 'reconnecting': setFloatingState(FloatState.RECONNECTING, data); break;
+                    case 'cancelling': setFloatingState(FloatState.CANCELLING, data); break;
+                    case 'backend_legacy': setFloatingState(FloatState.BACKEND_LEGACY, data); break;
                     case 'success':
                         if (data.aborted && data.success === 0) {
                             setFloatingState(FloatState.IDLE);
@@ -1300,10 +1529,16 @@ async function handleFloatingDrawClick() {
         });
     } catch (e) {
         console.error('[NovelDraw]', e);
-        if (e.message === '已取消' || e.message?.includes('已有任务进行中') || e.message?.includes('该楼层已有任务进行中')) {
+        if (String(getContext()?.chatId || '') !== targetChatId) return;
+        if (e?.uncertain === true) {
+            setFloatingState(FloatState.UNCERTAIN);
+        } else if (isDrawRunPendingError(e)) {
+            toastr?.info?.(e.message);
+        } else if (isDrawRunCancelledError(e) || e.message?.includes('已有任务进行中') || e.message?.includes('该楼层已有任务进行中')) {
             setFloatingState(FloatState.IDLE);
             if (e.message?.includes('任务进行中')) toastr?.info?.(e.message);
         } else {
+            toastr?.error?.(e?.message || '后台画图提交失败', '小白X画图');
             setFloatingState(FloatState.ERROR, { error: classifyError(e) });
         }
     }
@@ -1313,9 +1548,15 @@ async function handleFloatingAbort() {
     try {
         const { abortGeneration } = await import('./novel-draw.js');
         const messageId = floatingMessageId;
-        if (messageId >= 0 && abortGeneration(messageId)) {
-            setFloatingState(FloatState.IDLE);
-            toastr?.info?.('已中止');
+        const aborted = messageId >= 0 && abortGeneration(messageId);
+        if (aborted) {
+            setFloatingState(FloatState.CANCELLING);
+            toastr?.info?.('正在中止');
+        }
+        const cancelledChild = messageId >= 0 && await cancelPendingChildDrawRuns(messageId);
+        if (!aborted && cancelledChild) {
+            toastr?.info?.('正在中止');
+            void syncDrawRunPanelState(messageId, { messageId, phase: 'cancelling' });
         }
     } catch (e) {
         console.error('[NovelDraw] 中止失败:', e);
@@ -1467,6 +1708,8 @@ function createFloatingButton() {
 
     document.addEventListener('click', handleFloatingOutsideClick, { passive: true });
     window.addEventListener('resize', applyFloatingPosition);
+    const messageId = findLastAIMessageId();
+    if (messageId >= 0) void syncDrawRunPanelState(messageId);
 }
 
 function destroyFloatingButton() {
@@ -1556,12 +1799,16 @@ export function updateButtonVisibility(showFloor, showFloating) {
 export function initFloatingPanel() {
     const settings = getSettings();
 
+    drawRunActivityDispose ??= subscribeDrawRunActivity(syncDrawRunActivity);
+
     if (settings.showFloatingButton === true) {
         createFloatingButton();
     }
 }
 
 export function destroyFloatingPanel() {
+    drawRunActivityDispose?.();
+    drawRunActivityDispose = null;
     panelMap.forEach((data, messageId) => {
         if (data.autoResetTimer) clearTimeout(data.autoResetTimer);
         if (data.cooldownRafId) cancelAnimationFrame(data.cooldownRafId);

@@ -46,173 +46,178 @@ import { saveSettingsDebounced as saveSettingsDebounced9 } from "../../../../scr
 import { eventSource as eventSource9 } from "../../../../script.js";
 import { extension_settings as extension_settings17 } from "../../../extensions.js";
 import { saveSettingsDebounced as saveSettingsDebounced10 } from "../../../../script.js";
-import { extension_settings as extension_settings18 } from "../../../extensions.js";
 import { saveSettingsDebounced as saveSettingsDebounced11 } from "../../../../script.js";
+import { extension_settings as extension_settings18 } from "../../../extensions.js";
+import { saveSettingsDebounced as saveSettingsDebounced12 } from "../../../../script.js";
 import { extension_settings as extension_settings19 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced12, eventSource as eventSource10 } from "../../../../script.js";
+import { saveSettingsDebounced as saveSettingsDebounced13, eventSource as eventSource10 } from "../../../../script.js";
 import { getContext as getContext6 } from "../../../st-context.js";
 import { extension_settings as extension_settings20 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced13, eventSource as eventSource11, event_types as event_types2 } from "../../../../script.js";
-import { eventSource as eventSource12 } from "../../../../script.js";
-import { extension_settings as extension_settings21 } from "../../../extensions.js";
-import { getContext as getContext7 } from "../../../st-context.js";
 import { saveSettingsDebounced as saveSettingsDebounced14 } from "../../../../script.js";
-import { eventSource as eventSource13 } from "../../../../script.js";
+import { extension_settings as extension_settings21 } from "../../../extensions.js";
+import { saveSettingsDebounced as saveSettingsDebounced15, eventSource as eventSource11, event_types as event_types2 } from "../../../../script.js";
+import { eventSource as eventSource12 } from "../../../../script.js";
 import { extension_settings as extension_settings22 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced15 } from "../../../../script.js";
+import { getContext as getContext7 } from "../../../st-context.js";
+import { saveSettingsDebounced as saveSettingsDebounced16 } from "../../../../script.js";
+import { eventSource as eventSource13 } from "../../../../script.js";
 import { extension_settings as extension_settings23 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced16, eventSource as eventSource14 } from "../../../../script.js";
-import { getContext as getContext8 } from "../../../st-context.js";
-import { extension_settings as extension_settings24 } from "../../../extensions.js";
-import { extension_settings as extension_settings25 } from "../../../extensions.js";
 import { saveSettingsDebounced as saveSettingsDebounced17 } from "../../../../script.js";
-import { getContext as getContext9 } from "../../../st-context.js";
+import { extension_settings as extension_settings24 } from "../../../extensions.js";
+import { saveSettingsDebounced as saveSettingsDebounced18, eventSource as eventSource14 } from "../../../../script.js";
+import { getContext as getContext8 } from "../../../st-context.js";
+import { extension_settings as extension_settings25 } from "../../../extensions.js";
 import { extension_settings as extension_settings26 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced18 } from "../../../../script.js";
-import { extension_settings as extension_settings27 } from "../../../extensions.js";
 import { saveSettingsDebounced as saveSettingsDebounced19 } from "../../../../script.js";
-import { extension_settings as extension_settings28 } from "../../../extensions.js";
+import { getContext as getContext9 } from "../../../st-context.js";
+import { extension_settings as extension_settings27 } from "../../../extensions.js";
 import { saveSettingsDebounced as saveSettingsDebounced20 } from "../../../../script.js";
+import { extension_settings as extension_settings28 } from "../../../extensions.js";
+import { saveSettingsDebounced as saveSettingsDebounced21 } from "../../../../script.js";
 import { extension_settings as extension_settings29 } from "../../../extensions.js";
+import { saveSettingsDebounced as saveSettingsDebounced22 } from "../../../../script.js";
 import { extension_settings as extension_settings30 } from "../../../extensions.js";
 import { extension_settings as extension_settings31 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced21, eventSource as eventSource15, event_types as event_types3, saveChatConditional as saveChatConditional3, chat as chat2, messageFormatting as messageFormatting2 } from "../../../../script.js";
 import { extension_settings as extension_settings32 } from "../../../extensions.js";
+import { saveSettingsDebounced as saveSettingsDebounced23, eventSource as eventSource15, event_types as event_types3, saveChatConditional as saveChatConditional3, chat as chat2, messageFormatting as messageFormatting2 } from "../../../../script.js";
+import { extension_settings as extension_settings33 } from "../../../extensions.js";
 import { getContext as getContext10 } from "../../../st-context.js";
 import { eventSource as eventSource16 } from "../../../../script.js";
-import { extension_settings as extension_settings33 } from "../../../extensions.js";
+import { extension_settings as extension_settings34 } from "../../../extensions.js";
 import { getContext as getContext11 } from "../../../st-context.js";
 import { eventSource as eventSource17 } from "../../../../script.js";
 import { getContext as getContext12 } from "../../../st-context.js";
-import { extension_settings as extension_settings34 } from "../../../extensions.js";
-import { getContext as getContext13 } from "../../../st-context.js";
 import { extension_settings as extension_settings35 } from "../../../extensions.js";
+import { getContext as getContext13 } from "../../../st-context.js";
 import { extension_settings as extension_settings36 } from "../../../extensions.js";
 import { extension_settings as extension_settings37 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced22 } from "../../../../script.js";
 import { extension_settings as extension_settings38 } from "../../../extensions.js";
-import { eventSource as eventSource18 } from "../../../../script.js";
+import { saveSettingsDebounced as saveSettingsDebounced24 } from "../../../../script.js";
 import { extension_settings as extension_settings39 } from "../../../extensions.js";
+import { eventSource as eventSource18 } from "../../../../script.js";
 import { extension_settings as extension_settings40 } from "../../../extensions.js";
+import { extension_settings as extension_settings41 } from "../../../extensions.js";
 import { eventSource as eventSource19, saveChatConditional as saveChatConditional4 } from "../../../../script.js";
 import { getContext as getContext14 } from "../../../st-context.js";
-import { extension_settings as extension_settings41 } from "../../../extensions.js";
+import { extension_settings as extension_settings42 } from "../../../extensions.js";
 import { eventSource as eventSource20 } from "../../../../script.js";
 import { eventSource as eventSource21, event_types as event_types4 } from "../../../../script.js";
-import { extension_settings as extension_settings42 } from "../../../extensions.js";
+import { extension_settings as extension_settings43 } from "../../../extensions.js";
 import { getContext as getContext15 } from "../../../st-context.js";
-import { extension_settings as extension_settings69 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced45 } from "../../../../script.js";
-import { eventSource as eventSource28, event_types as event_types5, saveSettingsDebounced as saveSettingsDebounced46, saveChatConditional as saveChatConditional5 } from "../../../../script.js";
-import { extension_settings as extension_settings70 } from "../../../extensions.js";
-import { getContext as getContext16 } from "../../../st-context.js";
 import { extension_settings as extension_settings71 } from "../../../extensions.js";
+import { saveSettingsDebounced as saveSettingsDebounced48 } from "../../../../script.js";
+import { eventSource as eventSource28, event_types as event_types5, saveSettingsDebounced as saveSettingsDebounced49, saveChatConditional as saveChatConditional5, saveMetadata } from "../../../../script.js";
+import { extension_settings as extension_settings72 } from "../../../extensions.js";
+import { getContext as getContext16 } from "../../../st-context.js";
+import { extension_settings as extension_settings73 } from "../../../extensions.js";
 import { getContext as getContext17 } from "../../../st-context.js";
 import { eventSource as eventSource29 } from "../../../../script.js";
 import { eventSource as eventSource30 } from "../../../../script.js";
 import { getContext as getContext18 } from "../../../st-context.js";
-import { extension_settings as extension_settings72 } from "../../../extensions.js";
-import { extension_settings as extension_settings75 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced48 } from "../../../../script.js";
-import { world_info as world_info2 } from "../../../world-info.js";
-import { extension_settings as extension_settings76 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced49 } from "../../../../script.js";
+import { extension_settings as extension_settings74 } from "../../../extensions.js";
 import { extension_settings as extension_settings77 } from "../../../extensions.js";
+import { saveSettingsDebounced as saveSettingsDebounced51 } from "../../../../script.js";
+import { world_info as world_info2 } from "../../../world-info.js";
 import { extension_settings as extension_settings78 } from "../../../extensions.js";
-import { extension_settings as extension_settings81 } from "../../../extensions.js";
-import { extension_settings as extension_settings82 } from "../../../extensions.js";
-import { eventSource as eventSource32, saveSettingsDebounced as saveSettingsDebounced52 } from "../../../../script.js";
-import { eventSource as eventSource33, saveSettingsDebounced as saveSettingsDebounced53 } from "../../../../script.js";
+import { saveSettingsDebounced as saveSettingsDebounced52 } from "../../../../script.js";
+import { extension_settings as extension_settings79 } from "../../../extensions.js";
+import { extension_settings as extension_settings80 } from "../../../extensions.js";
 import { extension_settings as extension_settings83 } from "../../../extensions.js";
 import { extension_settings as extension_settings84 } from "../../../extensions.js";
+import { eventSource as eventSource32, saveSettingsDebounced as saveSettingsDebounced55 } from "../../../../script.js";
+import { eventSource as eventSource33, saveSettingsDebounced as saveSettingsDebounced56 } from "../../../../script.js";
 import { extension_settings as extension_settings85 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced54 } from "../../../../script.js";
 import { extension_settings as extension_settings86 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced55 } from "../../../../script.js";
 import { extension_settings as extension_settings87 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced56 } from "../../../../script.js";
-import { eventSource as eventSource34 } from "../../../../script.js";
+import { saveSettingsDebounced as saveSettingsDebounced57 } from "../../../../script.js";
 import { extension_settings as extension_settings88 } from "../../../extensions.js";
-import { eventSource as eventSource35 } from "../../../../script.js";
+import { saveSettingsDebounced as saveSettingsDebounced58 } from "../../../../script.js";
 import { extension_settings as extension_settings89 } from "../../../extensions.js";
+import { saveSettingsDebounced as saveSettingsDebounced59 } from "../../../../script.js";
+import { eventSource as eventSource34 } from "../../../../script.js";
 import { extension_settings as extension_settings90 } from "../../../extensions.js";
+import { eventSource as eventSource35 } from "../../../../script.js";
 import { extension_settings as extension_settings91 } from "../../../extensions.js";
-import { getContext as getContext20 } from "../../../st-context.js";
 import { extension_settings as extension_settings92 } from "../../../extensions.js";
 import { extension_settings as extension_settings93 } from "../../../extensions.js";
-import { eventSource as eventSource36, saveSettingsDebounced as saveSettingsDebounced57 } from "../../../../script.js";
-import { extension_settings as extension_settings100, extensionTypes } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced60, eventSource as eventSource40, event_types as event_types8, reloadCurrentChat, saveChatConditional as saveChatConditional6, chat as chat3, messageFormatting as messageFormatting3, saveChat } from "../../../../script.js";
-import { extension_settings as extension_settings47 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced26, eventSource as eventSource25 } from "../../../../script.js";
-import { extension_settings as extension_settings46 } from "../../../extensions.js";
-import { eventSource as eventSource24 } from "../../../../script.js";
-import { extension_settings as extension_settings45 } from "../../../extensions.js";
-import { saveChatDebounced, saveSettingsDebounced as saveSettingsDebounced25, eventSource as eventSource23 } from "../../../../script.js";
-import { extension_settings as extension_settings43 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced23, eventSource as eventSource22 } from "../../../../script.js";
-import { extension_settings as extension_settings44 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced24 } from "../../../../script.js";
-import { extension_settings as extension_settings51 } from "../../../extensions.js";
-import { saveChatDebounced as saveChatDebounced2, saveSettingsDebounced as saveSettingsDebounced29, eventSource as eventSource26 } from "../../../../script.js";
+import { getContext as getContext20 } from "../../../st-context.js";
+import { extension_settings as extension_settings94 } from "../../../extensions.js";
+import { extension_settings as extension_settings95 } from "../../../extensions.js";
+import { eventSource as eventSource36, saveSettingsDebounced as saveSettingsDebounced60 } from "../../../../script.js";
+import { extension_settings as extension_settings102, extensionTypes } from "../../../extensions.js";
+import { saveSettingsDebounced as saveSettingsDebounced63, eventSource as eventSource40, event_types as event_types8, reloadCurrentChat, saveChatConditional as saveChatConditional6, chat as chat3, messageFormatting as messageFormatting3, saveChat } from "../../../../script.js";
 import { extension_settings as extension_settings48 } from "../../../extensions.js";
-import { extension_settings as extension_settings50 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced28 } from "../../../../script.js";
-import { extension_settings as extension_settings49 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced27 } from "../../../../script.js";
-import { extension_settings as extension_settings97 } from "../../../extensions.js";
-import { getContext as getContext22 } from "../../../st-context.js";
-import { saveSettingsDebounced as saveSettingsDebounced59 } from "../../../../script.js";
+import { saveSettingsDebounced as saveSettingsDebounced28, eventSource as eventSource25 } from "../../../../script.js";
+import { extension_settings as extension_settings47 } from "../../../extensions.js";
+import { eventSource as eventSource24 } from "../../../../script.js";
+import { extension_settings as extension_settings46 } from "../../../extensions.js";
+import { saveChatDebounced, saveSettingsDebounced as saveSettingsDebounced27, eventSource as eventSource23 } from "../../../../script.js";
+import { extension_settings as extension_settings44 } from "../../../extensions.js";
+import { saveSettingsDebounced as saveSettingsDebounced25, eventSource as eventSource22 } from "../../../../script.js";
+import { extension_settings as extension_settings45 } from "../../../extensions.js";
+import { saveSettingsDebounced as saveSettingsDebounced26 } from "../../../../script.js";
 import { extension_settings as extension_settings52 } from "../../../extensions.js";
+import { saveChatDebounced as saveChatDebounced2, saveSettingsDebounced as saveSettingsDebounced31, eventSource as eventSource26 } from "../../../../script.js";
+import { extension_settings as extension_settings49 } from "../../../extensions.js";
+import { extension_settings as extension_settings51 } from "../../../extensions.js";
 import { saveSettingsDebounced as saveSettingsDebounced30 } from "../../../../script.js";
-import { extension_settings as extension_settings54 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced31 } from "../../../../script.js";
-import { eventSource as eventSource27 } from "../../../../script.js";
+import { extension_settings as extension_settings50 } from "../../../extensions.js";
+import { saveSettingsDebounced as saveSettingsDebounced29 } from "../../../../script.js";
+import { extension_settings as extension_settings99 } from "../../../extensions.js";
+import { getContext as getContext22 } from "../../../st-context.js";
+import { saveSettingsDebounced as saveSettingsDebounced62 } from "../../../../script.js";
 import { extension_settings as extension_settings53 } from "../../../extensions.js";
-import { extension_settings as extension_settings56 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced33 } from "../../../../script.js";
-import { extension_settings as extension_settings55 } from "../../../extensions.js";
 import { saveSettingsDebounced as saveSettingsDebounced32 } from "../../../../script.js";
-import { extension_settings as extension_settings57 } from "../../../extensions.js";
+import { extension_settings as extension_settings54 } from "../../../extensions.js";
+import { saveSettingsDebounced as saveSettingsDebounced33 } from "../../../../script.js";
+import { extension_settings as extension_settings56 } from "../../../extensions.js";
 import { saveSettingsDebounced as saveSettingsDebounced34 } from "../../../../script.js";
-import { extension_settings as extension_settings59 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced35 } from "../../../../script.js";
+import { eventSource as eventSource27 } from "../../../../script.js";
+import { extension_settings as extension_settings55 } from "../../../extensions.js";
 import { extension_settings as extension_settings58 } from "../../../extensions.js";
-import { extension_settings as extension_settings60 } from "../../../extensions.js";
 import { saveSettingsDebounced as saveSettingsDebounced36 } from "../../../../script.js";
-import { extension_settings as extension_settings61 } from "../../../extensions.js";
+import { extension_settings as extension_settings57 } from "../../../extensions.js";
+import { saveSettingsDebounced as saveSettingsDebounced35 } from "../../../../script.js";
+import { extension_settings as extension_settings59 } from "../../../extensions.js";
 import { saveSettingsDebounced as saveSettingsDebounced37 } from "../../../../script.js";
-import { extension_settings as extension_settings62 } from "../../../extensions.js";
+import { extension_settings as extension_settings61 } from "../../../extensions.js";
 import { saveSettingsDebounced as saveSettingsDebounced38 } from "../../../../script.js";
-import { extension_settings as extension_settings63 } from "../../../extensions.js";
+import { extension_settings as extension_settings60 } from "../../../extensions.js";
+import { extension_settings as extension_settings62 } from "../../../extensions.js";
 import { saveSettingsDebounced as saveSettingsDebounced39 } from "../../../../script.js";
-import { extension_settings as extension_settings64 } from "../../../extensions.js";
+import { extension_settings as extension_settings63 } from "../../../extensions.js";
 import { saveSettingsDebounced as saveSettingsDebounced40 } from "../../../../script.js";
-import { extension_settings as extension_settings65 } from "../../../extensions.js";
+import { extension_settings as extension_settings64 } from "../../../extensions.js";
 import { saveSettingsDebounced as saveSettingsDebounced41 } from "../../../../script.js";
-import { extension_settings as extension_settings66 } from "../../../extensions.js";
+import { extension_settings as extension_settings65 } from "../../../extensions.js";
 import { saveSettingsDebounced as saveSettingsDebounced42 } from "../../../../script.js";
+import { extension_settings as extension_settings66 } from "../../../extensions.js";
 import { saveSettingsDebounced as saveSettingsDebounced43 } from "../../../../script.js";
 import { extension_settings as extension_settings67 } from "../../../extensions.js";
-import { extension_settings as extension_settings74 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced47, eventSource as eventSource31 } from "../../../../script.js";
-import { extension_settings as extension_settings68 } from "../../../extensions.js";
 import { saveSettingsDebounced as saveSettingsDebounced44 } from "../../../../script.js";
+import { extension_settings as extension_settings68 } from "../../../extensions.js";
+import { saveSettingsDebounced as saveSettingsDebounced45 } from "../../../../script.js";
+import { saveSettingsDebounced as saveSettingsDebounced46 } from "../../../../script.js";
+import { extension_settings as extension_settings69 } from "../../../extensions.js";
+import { extension_settings as extension_settings76 } from "../../../extensions.js";
+import { saveSettingsDebounced as saveSettingsDebounced50, eventSource as eventSource31 } from "../../../../script.js";
+import { extension_settings as extension_settings70 } from "../../../extensions.js";
+import { saveSettingsDebounced as saveSettingsDebounced47 } from "../../../../script.js";
 import { getContext as getContext19 } from "../../../st-context.js";
-import { extension_settings as extension_settings73 } from "../../../extensions.js";
-import { extension_settings as extension_settings79 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced50 } from "../../../../script.js";
-import { extension_settings as extension_settings80 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced51 } from "../../../../script.js";
-import { extension_settings as extension_settings94 } from "../../../extensions.js";
-import { saveSettingsDebounced as saveSettingsDebounced58 } from "../../../../script.js";
-import { extension_settings as extension_settings95 } from "../../../extensions.js";
-import { eventSource as eventSource37, event_types as event_types6 } from "../../../../script.js";
+import { extension_settings as extension_settings75 } from "../../../extensions.js";
+import { extension_settings as extension_settings81 } from "../../../extensions.js";
+import { saveSettingsDebounced as saveSettingsDebounced53 } from "../../../../script.js";
+import { extension_settings as extension_settings82 } from "../../../extensions.js";
+import { saveSettingsDebounced as saveSettingsDebounced54 } from "../../../../script.js";
 import { extension_settings as extension_settings96 } from "../../../extensions.js";
-import { getContext as getContext21 } from "../../../st-context.js";
-import { extension_settings as extension_settings99 } from "../../../extensions.js";
-import { eventSource as eventSource39, event_types as event_types7 } from "../../../../script.js";
+import { saveSettingsDebounced as saveSettingsDebounced61 } from "../../../../script.js";
+import { extension_settings as extension_settings97 } from "../../../extensions.js";
+import { eventSource as eventSource37, event_types as event_types6 } from "../../../../script.js";
 import { extension_settings as extension_settings98 } from "../../../extensions.js";
+import { getContext as getContext21 } from "../../../st-context.js";
+import { extension_settings as extension_settings101 } from "../../../extensions.js";
+import { eventSource as eventSource39, event_types as event_types7 } from "../../../../script.js";
+import { extension_settings as extension_settings100 } from "../../../extensions.js";
 import { eventSource as eventSource38 } from "../../../../script.js";
 
 var __defProp = Object.defineProperty;
@@ -1794,6 +1799,7 @@ var init_config = __esm({
       clickToPreview: "true",
       nai3VibeTransfer: "false",
       enableVibeGroupTransfer: "false",
+      randomVibeGroup: "false",
       normalizeRefStrength: "false",
       nai3CharRef: "false",
       nai3StylePerception: "false",
@@ -1825,6 +1831,7 @@ var init_config = __esm({
       editWorkerid: "\u56FE\u50CF\u7F16\u8F91",
       editWorker: editwk,
       novelaimode: "nai-diffusion-4-5-full",
+      novelai_straight_alpha: false,
       novelaisite: "\u5B98\u7F51",
       novelaiOtherSite: "http://localhost:9696/get-new-token",
       enableCloudQueue: "false",
@@ -2124,6 +2131,7 @@ var init_config = __esm({
         editModel: "",
         videoModel: "",
         aspectRatio: "1:1",
+        imageSize: "1024x1024",
         useGrokFormat: "false",
         conversationPresetId: "\u9ED8\u8BA4",
         editPresetId: "\u9ED8\u8BA4",
@@ -2206,8 +2214,10 @@ var init_config = __esm({
           dyn: "true",
           nai3Variety: "true",
           nai3Deceisp: "true",
+          novelai_straight_alpha: false,
           // Vibe Transfer
           enableVibeGroupTransfer: "false",
+          randomVibeGroup: "false",
           normalizeRefStrength: "false",
           // 生成参数
           novelai_width: "1024",
@@ -2371,6 +2381,14 @@ function base64ToArrayBuffer(base64) {
   }
   return bytes.buffer;
 }
+function base64ByteLength(base64) {
+  if (!base64) return 0;
+  const len = base64.length;
+  let padding = 0;
+  if (base64[len - 1] === "=") padding++;
+  if (base64[len - 2] === "=") padding++;
+  return Math.floor(len * 3 / 4) - padding;
+}
 function arrayBufferToBase64(buffer) {
   let binary = "";
   const bytes = new Uint8Array(buffer);
@@ -2420,11 +2438,12 @@ async function getMergedAndSortedImages(md5) {
   }
   const metadata = await getMetadata();
   const dbEntry = metadata[md5];
-  let dbCurrentUUID = null;
   if (dbEntry && Array.isArray(dbEntry.images) && dbEntry.images.length > 0) {
     result.hasDB = true;
-    if (serverIndex == 0) {
-      serverIndex = dbEntry.index;
+    if (!result.hasServer) {
+      serverIndex = dbEntry.index || 0;
+    } else {
+      serverIndex = Math.max(serverIndex, dbEntry.index || 0);
     }
     dbEntry.images.forEach((img) => {
       result.images.push({
@@ -2435,13 +2454,19 @@ async function getMergedAndSortedImages(md5) {
     });
   }
   result.images.sort((a, b) => a.date - b.date);
+  if (!Number.isInteger(serverIndex) || serverIndex < 0) {
+    serverIndex = 0;
+  } else if (serverIndex >= result.images.length) {
+    serverIndex = result.images.length - 1;
+  }
   result.currentIndex = serverIndex;
   return result;
 }
-async function syncIndexToStorage(md5, globalIndex, sortedImages) {
+async function syncIndexToStorage(md5, globalIndex, sortedImages, skipStego = false) {
   let correctedIndex = globalIndex;
   if (correctedIndex < 0) correctedIndex = 0;
-  if (correctedIndex >= sortedImages.length) correctedIndex = sortedImages.length - 1;
+  if (sortedImages.length === 0) correctedIndex = 0;
+  else if (correctedIndex >= sortedImages.length) correctedIndex = sortedImages.length - 1;
   let jiuguanStorageModified = false;
   const storage = extension_settings[extensionName].jiuguanStorage;
   if (storage && storage[md5]) {
@@ -2458,7 +2483,7 @@ async function syncIndexToStorage(md5, globalIndex, sortedImages) {
       await setMetadata(metadata);
     }
   }
-  if (jiuguanStorageModified) {
+  if (jiuguanStorageModified && !skipStego) {
     await updateStegoImage();
   }
   return correctedIndex;
@@ -2960,7 +2985,7 @@ async function getItemImg(tag, index = null) {
   return [false, false, false, false, ""];
 }
 async function setItemImg(tag, imgBase64, options = { format: "png" }) {
-  const { change = "", characterName = "chatu8", filename, format, isVideo = false, originalUrl = "" } = options;
+  const { change = "", characterName = "chatu8", filename, format, isVideo = false, originalUrl = "", genParams = null } = options;
   if (extension_settings[extensionName].jiuguanchucun === "true") {
     const md5 = CryptoJS.MD5(tag).toString();
     const uuid = generateUUID();
@@ -3002,6 +3027,7 @@ async function setItemImg(tag, imgBase64, options = { format: "png" }) {
       const result = await response.json();
       const imagePath = result.path;
       let thumbnailPath = null;
+      let thumbnailSize = 0;
       try {
         let thumbnailBlob;
         if (isVideo) {
@@ -3031,6 +3057,7 @@ async function setItemImg(tag, imgBase64, options = { format: "png" }) {
         if (thumbnailResponse.ok) {
           const thumbnailResult = await thumbnailResponse.json();
           thumbnailPath = thumbnailResult.path;
+          thumbnailSize = base64ByteLength(thumbnailData);
         } else {
           console.error("Failed to upload thumbnail:", thumbnailResponse.statusText);
         }
@@ -3048,7 +3075,11 @@ async function setItemImg(tag, imgBase64, options = { format: "png" }) {
         thumbnail_path: thumbnailPath,
         date: newDate,
         isVideo,
-        originalUrl: originalUrl || ""
+        originalUrl: originalUrl || "",
+        size: base64ByteLength(base64Data),
+        thumbnail_size: thumbnailSize,
+        // 生成参数快照（可能为 null，此时整个字段省略以控制体积）
+        ...genParams ? { genParams } : {}
       };
       const entry = storage[md5];
       if (entry) {
@@ -3063,7 +3094,11 @@ async function setItemImg(tag, imgBase64, options = { format: "png" }) {
         };
       }
       const merged = await getMergedAndSortedImages(md5);
-      storage[md5].index = merged.images.length > 0 ? merged.images.length - 1 : 0;
+      let newIndex = merged.images.findIndex((img) => img.uuid === uuid);
+      if (newIndex === -1) {
+        newIndex = merged.images.length > 0 ? merged.images.length - 1 : 0;
+      }
+      await syncIndexToStorage(md5, newIndex, merged.images, true);
       saveSettingsDebounced();
       await new Promise((resolve) => setTimeout(resolve, 50));
       if (!window.imagesid) window.imagesid = {};
@@ -3080,6 +3115,7 @@ async function setItemImg(tag, imgBase64, options = { format: "png" }) {
     const uuid = generateUUID();
     const newDate = (/* @__PURE__ */ new Date()).getTime();
     const thumbnailUUID = generateUUID();
+    let thumbnailSize = 0;
     try {
       let thumbnailBlob;
       if (isVideo) {
@@ -3088,6 +3124,7 @@ async function setItemImg(tag, imgBase64, options = { format: "png" }) {
         thumbnailBlob = await createThumbnailFromBuffer(imageBuffer);
       }
       const thumbnailBuffer = await thumbnailBlob.arrayBuffer();
+      thumbnailSize = thumbnailBuffer.byteLength;
       await storeReadWrite({ id: thumbnailUUID, data: thumbnailBuffer });
     } catch (error) {
       console.error("Failed to create or store thumbnail:", error);
@@ -3100,23 +3137,30 @@ async function setItemImg(tag, imgBase64, options = { format: "png" }) {
       thumbnail_uuid: thumbnailUUID,
       date: newDate,
       isVideo,
-      originalUrl: originalUrl || ""
+      originalUrl: originalUrl || "",
+      size: imageBuffer.byteLength,
+      thumbnail_size: thumbnailSize,
+      // 生成参数快照（可能为 null，此时整个字段省略以控制体积）
+      ...genParams ? { genParams } : {}
     };
     if (entry) {
       if (!entry.images) entry.images = [];
       entry.images.push(newImageEntry);
-      const merged = await getMergedAndSortedImages(md5);
       entry.change = change;
-      entry.index = merged.images.length || 0;
     } else {
-      const merged = await getMergedAndSortedImages(md5);
       metadata[md5] = {
         images: [newImageEntry],
-        index: merged.images.length || 0,
+        index: 0,
         change
       };
     }
     await setMetadata(metadata);
+    const merged = await getMergedAndSortedImages(md5);
+    let newIndex = merged.images.findIndex((img) => img.uuid === uuid);
+    if (newIndex === -1) {
+      newIndex = merged.images.length > 0 ? merged.images.length - 1 : 0;
+    }
+    await syncIndexToStorage(md5, newIndex, merged.images);
     if (!window.imagesid) window.imagesid = {};
     window.imagesid[md5] = newDate;
     return "indexeddb_saved";
@@ -3650,6 +3694,393 @@ async function getAllImageMetadata() {
   }
   return mergedMetadata;
 }
+function isRemoteJiuguan() {
+  const host = window.location.hostname;
+  if (!host) return true;
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]") return false;
+  if (/^10\./.test(host)) return false;
+  if (/^192\.168\./.test(host)) return false;
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(host)) return false;
+  if (host.endsWith(".local")) return false;
+  return true;
+}
+function notifySizeCalcListeners(payload) {
+  for (const fn of sizeCalcListeners) {
+    try {
+      fn(payload);
+    } catch (e) {
+      console.error("[DB] \u5C3A\u5BF8\u7EDF\u8BA1\u76D1\u542C\u5668\u5F02\u5E38:", e);
+    }
+  }
+}
+function subscribeSizeCalcProgress(fn) {
+  sizeCalcListeners.add(fn);
+  return () => sizeCalcListeners.delete(fn);
+}
+function getSizeCalcTask() {
+  if (!sizeCalcTask) return null;
+  return {
+    running: sizeCalcTask.running,
+    lastProgress: sizeCalcTask.lastProgress,
+    startedAt: sizeCalcTask.startedAt
+  };
+}
+function cancelSizeCalc() {
+  if (sizeCalcTask && sizeCalcTask.running) {
+    sizeCalcTask.controller.abort();
+    return true;
+  }
+  return false;
+}
+async function calculateAllImageSizes(options = {}) {
+  if (sizeCalcTask && sizeCalcTask.running) {
+    console.log("[DB] \u5C3A\u5BF8\u7EDF\u8BA1\u5DF2\u5728\u8FDB\u884C\u4E2D\uFF0C\u590D\u7528\u73B0\u6709\u4EFB\u52A1");
+    return sizeCalcTask.promise;
+  }
+  const controller = new AbortController();
+  const task = {
+    running: true,
+    controller,
+    startedAt: Date.now(),
+    lastProgress: null,
+    promise: null
+  };
+  sizeCalcTask = task;
+  const onProgress = (payload) => {
+    task.lastProgress = payload;
+    notifySizeCalcListeners(payload);
+  };
+  task.promise = (async () => {
+    try {
+      const report = await runSizeCalculation({
+        ...options,
+        signal: controller.signal,
+        onProgress
+      });
+      task.running = false;
+      notifySizeCalcListeners({ phase: "finished", report, current: 1, total: 1, detail: "" });
+      return report;
+    } catch (error) {
+      task.running = false;
+      notifySizeCalcListeners({ phase: "error", error, current: 0, total: 1, detail: error.message });
+      throw error;
+    }
+  })();
+  return task.promise;
+}
+async function runSizeCalculation(options = {}) {
+  const { onProgress = null, signal = null, force = false } = options;
+  const BATCH_SIZE = 200;
+  const READ_CHUNK = 25;
+  const remote = isRemoteJiuguan();
+  const HEAD_CONCURRENCY = remote ? 2 : 6;
+  const BATCH_DELAY_MS = remote ? 300 : 0;
+  const isReservedKey = (key) => key === metadataId || typeof key === "string" && key.startsWith("cache_");
+  const report = {
+    dbCount: 0,
+    dbBytes: 0,
+    serverCount: 0,
+    serverBytes: 0,
+    thumbnailCount: 0,
+    thumbnailBytes: 0,
+    orphanCount: 0,
+    orphanBytes: 0,
+    failedCount: 0,
+    skippedCount: 0,
+    // 断点继续时跳过的已统计项
+    cancelled: false,
+    remote,
+    // 是否走了云酒馆限流
+    concurrency: HEAD_CONCURRENCY,
+    errors: []
+  };
+  const checkCancel = () => {
+    if (signal && signal.aborted) {
+      report.cancelled = true;
+      return true;
+    }
+    return false;
+  };
+  const emit = (phase, current, total, detail) => {
+    if (onProgress) onProgress({ phase, current, total, detail, report });
+  };
+  const tallyTotals = () => {
+    report.dbCount = 0;
+    report.dbBytes = 0;
+    report.serverCount = 0;
+    report.serverBytes = 0;
+    report.thumbnailCount = 0;
+    report.thumbnailBytes = 0;
+    for (const md5 in dbMetadata) {
+      const entry = dbMetadata[md5];
+      if (!entry || !Array.isArray(entry.images)) continue;
+      for (const img of entry.images) {
+        if (typeof img.size === "number") {
+          report.dbCount++;
+          report.dbBytes += img.size;
+        }
+        if (typeof img.thumbnail_size === "number") {
+          report.thumbnailCount++;
+          report.thumbnailBytes += img.thumbnail_size;
+        }
+      }
+    }
+    for (const md5 in serverStorage) {
+      const entry = serverStorage[md5];
+      if (!entry || !Array.isArray(entry.images)) continue;
+      for (const img of entry.images) {
+        if (typeof img.size === "number") {
+          report.serverCount++;
+          report.serverBytes += img.size;
+        }
+        if (typeof img.thumbnail_size === "number") {
+          report.thumbnailCount++;
+          report.thumbnailBytes += img.thumbnail_size;
+        }
+      }
+    }
+  };
+  const dbMetadata = await getMetadata();
+  const serverStorage = extension_settings[extensionName].jiuguanStorage || {};
+  const knownDbIds = /* @__PURE__ */ new Set();
+  const dbTargets = /* @__PURE__ */ new Map();
+  for (const md5 in dbMetadata) {
+    const entry = dbMetadata[md5];
+    if (!entry || !Array.isArray(entry.images)) continue;
+    for (const img of entry.images) {
+      if (img.uuid) {
+        knownDbIds.add(img.uuid);
+        if (force || typeof img.size !== "number") {
+          dbTargets.set(img.uuid, { img, field: "size" });
+        } else {
+          report.skippedCount++;
+        }
+      }
+      if (img.thumbnail_uuid) {
+        knownDbIds.add(img.thumbnail_uuid);
+        if (force || typeof img.thumbnail_size !== "number") {
+          dbTargets.set(img.thumbnail_uuid, { img, field: "thumbnail_size" });
+        } else {
+          report.skippedCount++;
+        }
+      }
+    }
+  }
+  const database = await openDB();
+  let totalRows = 0;
+  try {
+    totalRows = await new Promise((resolve, reject) => {
+      const tx = database.transaction([objectStoreName], "readonly");
+      const req = tx.objectStore(objectStoreName).count();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  } catch (e) {
+    report.errors.push(`\u7EDF\u8BA1\u8BB0\u5F55\u6570\u5931\u8D25: ${e.message}`);
+  }
+  let lastKey = null;
+  let scanned = 0;
+  let measuredSinceSave = 0;
+  let dbDirty = false;
+  emit("db", 0, totalRows, "\u6B63\u5728\u626B\u63CF\u6D4F\u89C8\u5668\u6570\u636E\u5E93...");
+  const flushDbMetadata = async () => {
+    if (!dbDirty) return;
+    await setMetadata(dbMetadata);
+    dbDirty = false;
+    measuredSinceSave = 0;
+  };
+  while (true) {
+    if (checkCancel()) {
+      await flushDbMetadata();
+      tallyTotals();
+      return report;
+    }
+    const keys = await new Promise((resolve, reject) => {
+      const tx = database.transaction([objectStoreName], "readonly");
+      const store = tx.objectStore(objectStoreName);
+      const range = lastKey === null ? null : IDBKeyRange.lowerBound(lastKey, true);
+      const req = store.openKeyCursor(range);
+      const out = [];
+      req.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (!cursor || out.length >= BATCH_SIZE) {
+          resolve(out);
+          return;
+        }
+        out.push(cursor.key);
+        cursor.continue();
+      };
+      req.onerror = () => reject(req.error);
+    });
+    if (keys.length === 0) break;
+    lastKey = keys[keys.length - 1];
+    const toMeasure = keys.filter((key) => {
+      if (isReservedKey(key)) return false;
+      return dbTargets.has(key) || !knownDbIds.has(key);
+    });
+    const measured = [];
+    for (let c = 0; c < toMeasure.length; c += READ_CHUNK) {
+      if (checkCancel()) {
+        await flushDbMetadata();
+        tallyTotals();
+        return report;
+      }
+      const chunk = toMeasure.slice(c, c + READ_CHUNK);
+      const rows = await new Promise((resolve, reject) => {
+        const tx = database.transaction([objectStoreName], "readonly");
+        const store = tx.objectStore(objectStoreName);
+        const out = [];
+        let pending = chunk.length;
+        let failed = false;
+        for (const key of chunk) {
+          const req = store.get(key);
+          req.onsuccess = () => {
+            if (failed) return;
+            const row = req.result;
+            const bytes = row && row.data && typeof row.data.byteLength === "number" ? row.data.byteLength : null;
+            out.push({ key, bytes });
+            if (--pending === 0) resolve(out);
+          };
+          req.onerror = () => {
+            if (failed) return;
+            failed = true;
+            reject(req.error);
+          };
+        }
+      });
+      measured.push(...rows);
+    }
+    for (const { key, bytes } of measured) {
+      if (bytes === null) continue;
+      const target = dbTargets.get(key);
+      if (target) {
+        target.img[target.field] = bytes;
+        dbDirty = true;
+        measuredSinceSave++;
+      } else {
+        report.orphanCount++;
+        report.orphanBytes += bytes;
+      }
+    }
+    scanned += keys.length;
+    if (measuredSinceSave >= BATCH_SIZE) {
+      await flushDbMetadata();
+    }
+    emit("db", scanned, totalRows, `\u6D4F\u89C8\u5668\u6570\u636E\u5E93: ${scanned} / ${totalRows} \u6761`);
+    await new Promise((r) => setTimeout(r, 0));
+  }
+  await flushDbMetadata();
+  const serverTargets = [];
+  for (const md5 in serverStorage) {
+    const entry = serverStorage[md5];
+    if (!entry || !Array.isArray(entry.images)) continue;
+    for (const img of entry.images) {
+      if (img.path) {
+        if (force || typeof img.size !== "number") {
+          serverTargets.push({ img, path: img.path, field: "size" });
+        } else {
+          report.skippedCount++;
+        }
+      }
+      if (img.thumbnail_path) {
+        if (force || typeof img.thumbnail_size !== "number") {
+          serverTargets.push({ img, path: img.thumbnail_path, field: "thumbnail_size" });
+        } else {
+          report.skippedCount++;
+        }
+      }
+    }
+  }
+  const probeSize2 = async (path) => {
+    try {
+      const head = await fetch(path, { method: "HEAD", signal });
+      if (head.ok) {
+        const len = head.headers.get("Content-Length");
+        if (len !== null) return parseInt(len, 10);
+      }
+    } catch (e) {
+      if (e.name === "AbortError") throw e;
+    }
+    if (remote) {
+      throw new Error("HEAD \u4E0D\u53EF\u7528\uFF0C\u4E91\u9152\u9986\u4E0B\u8DF3\u8FC7\uFF08\u907F\u514D\u4E0B\u8F7D\u6574\u56FE\uFF09");
+    }
+    const res = await fetch(path, { signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    return blob.size;
+  };
+  let probed = 0;
+  let serverDirty = false;
+  const flushServerMetadata = async () => {
+    if (!serverDirty) return;
+    saveSettingsDebounced();
+    serverDirty = false;
+    try {
+      await updateStegoImage();
+    } catch (e) {
+      report.errors.push(`\u66F4\u65B0\u9690\u5199\u56FE\u7247\u5931\u8D25: ${e.message}`);
+    }
+  };
+  if (serverTargets.length > 0) {
+    const modeLabel = remote ? `\u4E91\u9152\u9986\u9650\u6D41\u6A21\u5F0F (\u5E76\u53D1 ${HEAD_CONCURRENCY})` : `\u672C\u5730\u6A21\u5F0F (\u5E76\u53D1 ${HEAD_CONCURRENCY})`;
+    emit("server", 0, serverTargets.length, `\u6B63\u5728\u63A2\u6D4B\u9152\u9986\u6587\u4EF6\u5927\u5C0F... ${modeLabel}`);
+    for (let i = 0; i < serverTargets.length; i += HEAD_CONCURRENCY) {
+      if (checkCancel()) {
+        await flushServerMetadata();
+        tallyTotals();
+        return report;
+      }
+      const slice = serverTargets.slice(i, i + HEAD_CONCURRENCY);
+      await Promise.all(slice.map(async (target) => {
+        try {
+          const bytes = await probeSize2(target.path);
+          if (Number.isFinite(bytes) && bytes >= 0) {
+            target.img[target.field] = bytes;
+            serverDirty = true;
+          } else {
+            report.failedCount++;
+          }
+        } catch (e) {
+          if (e.name === "AbortError") return;
+          report.failedCount++;
+          if (report.errors.length < 20) {
+            report.errors.push(`${target.path}: ${e.message}`);
+          }
+        }
+        probed++;
+      }));
+      emit(
+        "server",
+        probed,
+        serverTargets.length,
+        `\u9152\u9986\u5B58\u50A8: ${probed} / ${serverTargets.length} \u4E2A\u6587\u4EF6 \xB7 ${modeLabel}`
+      );
+      if (BATCH_DELAY_MS > 0 && i + HEAD_CONCURRENCY < serverTargets.length) {
+        await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
+      }
+    }
+    if (serverDirty) {
+      saveSettingsDebounced();
+      serverDirty = false;
+    }
+  }
+  if (checkCancel()) {
+    tallyTotals();
+    return report;
+  }
+  emit("writeback", 0, 1, "\u6B63\u5728\u4FDD\u5B58\u7EDF\u8BA1\u7ED3\u679C...");
+  tallyTotals();
+  if (serverTargets.length > 0) {
+    saveSettingsDebounced();
+    try {
+      await updateStegoImage();
+    } catch (e) {
+      report.errors.push(`\u66F4\u65B0\u9690\u5199\u56FE\u7247\u5931\u8D25: ${e.message}`);
+    }
+  }
+  emit("done", 1, 1, "\u7EDF\u8BA1\u5B8C\u6210");
+  return report;
+}
 async function deleteMultipleImages(md5s) {
   if (!Array.isArray(md5s) || md5s.length === 0) {
     return;
@@ -4141,6 +4572,71 @@ async function addTag(tag) {
     request.onerror = (event) => reject(event.target.error);
   });
 }
+async function __syncDiagnostics({ folderName, serverImageNames, storedFileNames, nameOrigins, storage, metadata }) {
+  try {
+    console.groupCollapsed("%c[Sync \u8BCA\u65AD] \u70B9\u5F00\u67E5\u770B\u8BE6\u60C5", "color:#4CAF50;font-weight:bold");
+    const imageSet = new Set(serverImageNames);
+    console.log("\u3010A. \u670D\u52A1\u5668\u5217\u8868\u3011");
+    console.log(`  \u6587\u4EF6\u5939 ${folderName} \u8FD4\u56DE\u6587\u4EF6\u6570: ${serverImageNames.length}\uFF08\u542B\u56FE\u7247/\u89C6\u9891/\u97F3\u9891\uFF09`);
+    console.log("  \u2139 list \u63A5\u53E3\u4E0D\u9012\u5F52\u5B50\u76EE\u5F55\uFF0C\u4E5F\u4E0D\u8FD4\u56DE mime \u65E0\u6CD5\u8BC6\u522B\u7684\u6587\u4EF6\uFF08\u5982\u65E0\u6269\u5C55\u540D\uFF09\u3002");
+    console.log("    \u82E5\u6587\u4EF6\u7BA1\u7406\u5668\u91CC\u6570\u5230\u7684\u6587\u4EF6\u6570 > \u4E0A\u9762\u7684\u6570\u5B57\uFF0C\u5DEE\u989D\u5C31\u662F\u5B50\u76EE\u5F55\u5185\u6216 mime \u65E0\u6CD5\u8BC6\u522B\u7684\u6587\u4EF6\u3002");
+    const extCount2 = {};
+    for (const n of serverImageNames) {
+      const ext = n.includes(".") ? n.split(".").pop().toLowerCase() : "(\u65E0\u6269\u5C55\u540D)";
+      extCount2[ext] = (extCount2[ext] || 0) + 1;
+    }
+    console.log("\u3010B. \u670D\u52A1\u5668\u6587\u4EF6\u6269\u5C55\u540D\u5206\u5E03\u3011", extCount2);
+    const originCount = { "storage.path": 0, "storage.thumb": 0, "metadata.path": 0, "metadata.thumb": 0 };
+    for (const origins of nameOrigins.values()) {
+      for (const o of origins) originCount[o] = (originCount[o] || 0) + 1;
+    }
+    console.log("\u3010C. \u672C\u5730\u767D\u540D\u5355\u6587\u4EF6\u540D\u6765\u6E90\u3011", originCount);
+    console.log(`  \u767D\u540D\u5355\u603B\u6570(\u53BB\u91CD\u540E): ${storedFileNames.size}`);
+    const thumbOnly = [];
+    for (const [name, origins] of nameOrigins.entries()) {
+      const hasPath = origins.has("storage.path") || origins.has("metadata.path");
+      if (!hasPath) thumbOnly.push(name);
+    }
+    const thumbOnlyOnServer = thumbOnly.filter((n) => imageSet.has(n));
+    console.log("\u3010D. \u4EC5\u56E0\u7F29\u7565\u56FE\u800C\u8FDB\u5165\u767D\u540D\u5355\u7684\u6587\u4EF6\u540D\u3011");
+    console.log(`  \u5171 ${thumbOnly.length} \u4E2A\uFF0C\u5176\u4E2D ${thumbOnlyOnServer.length} \u4E2A\u786E\u5B9E\u5B58\u5728\u4E8E\u670D\u52A1\u5668\u4E0A`);
+    if (thumbOnlyOnServer.length > 0) {
+      console.log("  \u8FD9\u4E9B\u6587\u4EF6\u56E0\u88AB\u67D0\u6761\u5B58\u6D3B\u8BB0\u5F55\u7684 thumbnail_path \u5F15\u7528\u800C\u4FDD\u7559\uFF08\u6B63\u5E38\u60C5\u51B5\u4E0B\u5C31\u8BE5\u4FDD\u7559\uFF09:");
+      console.log("   ", thumbOnlyOnServer.slice(0, 50));
+      if (thumbOnlyOnServer.length > 50) console.log(`    ...\u8FD8\u6709 ${thumbOnlyOnServer.length - 50} \u4E2A`);
+    }
+    const staleWhitelist = [...storedFileNames].filter((n) => !imageSet.has(n));
+    console.log("\u3010E. \u767D\u540D\u5355\u4E2D\u670D\u52A1\u5668\u5DF2\u4E0D\u5B58\u5728\u7684\u540D\u5B57\u3011");
+    console.log(`  \u5171 ${staleWhitelist.length} \u4E2A\uFF08\u5E7D\u7075\u5224\u5B9A\u53EA\u770B\u4E3B\u8DEF\u5F84 path/video_path\uFF0C\u4E0D\u770B thumbnail_path\uFF0C\u6545\u6B7B\u7F29\u7565\u56FE\u5F15\u7528\u53EF\u80FD\u6B8B\u7559\uFF09`);
+    if (staleWhitelist.length > 0) {
+      const staleThumbOnly = staleWhitelist.filter((n) => {
+        const o = nameOrigins.get(n);
+        return o && !o.has("storage.path") && !o.has("metadata.path");
+      });
+      console.log(`  \u5176\u4E2D\u4EC5\u6765\u81EA\u7F29\u7565\u56FE\u7684: ${staleThumbOnly.length} \u4E2A`);
+      console.log("   ", staleWhitelist.slice(0, 30));
+    }
+    const toDelete = serverImageNames.filter((n) => !storedFileNames.has(n));
+    console.log("\u3010F. \u672C\u6B21\u5224\u5B9A\u4E3A\u5B64\u513F\u3001\u5C06\u88AB\u5220\u9664\u3011");
+    console.log(`  \u5171 ${toDelete.length} \u4E2A`);
+    if (toDelete.length > 0) console.log("   ", toDelete.slice(0, 50));
+    const survivors = serverImageNames.filter((n) => storedFileNames.has(n));
+    console.log("\u3010G. \u672A\u88AB\u5220\u9664\u7684\u670D\u52A1\u5668\u6587\u4EF6\u53CA\u4FDD\u62A4\u539F\u56E0\u3011");
+    console.log(`  \u5171 ${survivors.length} \u4E2A`);
+    const reasonTable = survivors.slice(0, 80).map((n) => ({
+      \u6587\u4EF6\u540D: n,
+      \u4FDD\u62A4\u6765\u6E90: [...nameOrigins.get(n) || []].join(", ")
+    }));
+    if (reasonTable.length > 0) console.table(reasonTable);
+    if (survivors.length > 80) console.log(`  ...\u8FD8\u6709 ${survivors.length - 80} \u4E2A\u672A\u5217\u51FA`);
+    console.log("\u3010H. \u672C\u5730\u6570\u636E\u7ED3\u6784\u6982\u89C8\u3011");
+    console.log(`  jiuguanStorage \u6761\u76EE(md5)\u6570: ${Object.keys(storage).length}`);
+    console.log(`  IndexedDB metadata \u6761\u76EE(md5)\u6570: ${Object.keys(metadata).length}`);
+    console.groupEnd();
+  } catch (e) {
+    console.error("[Sync \u8BCA\u65AD] \u8BCA\u65AD\u8F93\u51FA\u81EA\u8EAB\u51FA\u9519\uFF08\u4E0D\u5F71\u54CD\u540C\u6B65\uFF09:", e);
+  }
+}
 async function syncServerImagesWithStorage(folderName = "chatu8", onProgress = null) {
   const result = {
     deletedCount: 0,
@@ -4148,11 +4644,11 @@ async function syncServerImagesWithStorage(folderName = "chatu8", onProgress = n
     errors: []
   };
   try {
-    if (onProgress) onProgress(0, 100, "\u6B63\u5728\u83B7\u53D6\u670D\u52A1\u5668\u56FE\u7247\u5217\u8868...");
+    if (onProgress) onProgress(0, 100, "\u6B63\u5728\u83B7\u53D6\u670D\u52A1\u5668\u5A92\u4F53\u5217\u8868...");
     const response = await fetch("/api/images/list", {
       method: "POST",
       headers: getRequestHeaders(window.token),
-      body: JSON.stringify({ folder: folderName })
+      body: JSON.stringify({ folder: folderName, type: 7 })
     });
     if (!response.ok) {
       throw new Error(`\u83B7\u53D6\u670D\u52A1\u5668\u56FE\u7247\u5217\u8868\u5931\u8D25: ${response.statusText}`);
@@ -4184,12 +4680,25 @@ async function syncServerImagesWithStorage(folderName = "chatu8", onProgress = n
       }
     }
     console.log(`[Sync] \u670D\u52A1\u5668\u5B9E\u9645\u6587\u4EF6\u6570: ${serverImageNames.length}, jiuguanStorage \u4E2D\u5E26path\u6761\u76EE: ${totalStoragePaths}, IndexedDB metadata \u4E2D\u5E26path\u6761\u76EE: ${totalMetadataPaths}`);
+    let storageThumbs = 0, metadataThumbs = 0;
+    for (const md5 in storage) {
+      storage[md5]?.images?.forEach((img) => {
+        if (img.thumbnail_path) storageThumbs++;
+      });
+    }
+    for (const md5 in metadata) {
+      metadata[md5]?.images?.forEach((img) => {
+        if (img.thumbnail_path) metadataThumbs++;
+      });
+    }
+    console.log(`[Sync] \u5E26 thumbnail_path \u6761\u76EE: jiuguanStorage ${storageThumbs} \u4E2A, metadata ${metadataThumbs} \u4E2A\uFF08\u5E7D\u7075\u5224\u5B9A\u4E0D\u68C0\u67E5 thumbnail_path\uFF09`);
     let storageChanged = false;
     let metadataChanged = false;
     const ghostUuidsToDelete = /* @__PURE__ */ new Set();
     const isGhost = (img) => {
-      if (!img || !img.path) return false;
-      const fileName = img.path.split("/").pop();
+      const primary = img && (img.path || img.video_path);
+      if (!primary) return false;
+      const fileName = String(primary).split("/").pop();
       return !!fileName && !serverFileSet.has(fileName);
     };
     for (const md5 of Object.keys(storage)) {
@@ -4279,41 +4788,46 @@ async function syncServerImagesWithStorage(folderName = "chatu8", onProgress = n
     }
     if (onProgress) onProgress(20, 100, "\u6B63\u5728\u5206\u6790\u63D2\u4EF6\u5B58\u50A8...");
     const storedFileNames = /* @__PURE__ */ new Set();
-    for (const md5 in storage) {
-      const entry = storage[md5];
-      if (entry && entry.images) {
+    const nameOrigins = /* @__PURE__ */ new Map();
+    const addName = (fileName, origin) => {
+      if (!fileName) return;
+      storedFileNames.add(fileName);
+      if (!nameOrigins.has(fileName)) nameOrigins.set(fileName, /* @__PURE__ */ new Set());
+      nameOrigins.get(fileName).add(origin);
+    };
+    const PATH_FIELDS = [
+      ["path", "path"],
+      ["thumbnail_path", "thumb"],
+      ["video_path", "video"]
+    ];
+    const collectFrom = (source, label) => {
+      for (const md5 in source) {
+        const entry = source[md5];
+        if (!entry || !Array.isArray(entry.images)) continue;
         entry.images.forEach((img) => {
-          if (img.path) {
-            const fileName = img.path.split("/").pop();
-            storedFileNames.add(fileName);
-          }
-          if (img.thumbnail_path) {
-            const fileName = img.thumbnail_path.split("/").pop();
-            storedFileNames.add(fileName);
+          if (!img) return;
+          for (const [field, tag] of PATH_FIELDS) {
+            if (img[field]) addName(String(img[field]).split("/").pop(), `${label}.${tag}`);
           }
         });
       }
-    }
-    for (const md5 in metadata) {
-      const entry = metadata[md5];
-      if (entry && entry.images) {
-        entry.images.forEach((img) => {
-          if (img.path) {
-            const fileName = img.path.split("/").pop();
-            storedFileNames.add(fileName);
-          }
-          if (img.thumbnail_path) {
-            const fileName = img.thumbnail_path.split("/").pop();
-            storedFileNames.add(fileName);
-          }
-        });
-      }
-    }
-    console.log(`[Sync] \u670D\u52A1\u5668\u56FE\u7247\u603B\u6570: ${serverImageNames.length}, \u63D2\u4EF6\u5B58\u50A8\u6587\u4EF6\u540D\u6570: ${storedFileNames.size}`);
+    };
+    collectFrom(storage, "storage");
+    collectFrom(metadata, "metadata");
+    console.log(`[Sync] \u670D\u52A1\u5668\u5A92\u4F53\u603B\u6570: ${serverImageNames.length}, \u63D2\u4EF6\u5B58\u50A8\u6587\u4EF6\u540D\u6570: ${storedFileNames.size}`);
+    await __syncDiagnostics({ folderName, serverImageNames, storedFileNames, nameOrigins, storage, metadata });
     const fileNamesToDelete = serverImageNames.filter((fileName) => !storedFileNames.has(fileName));
-    console.log(`[Sync] \u627E\u5230 ${fileNamesToDelete.length} \u4E2A\u9700\u8981\u5220\u9664\u7684\u56FE\u7247`);
+    const delExtCount = {};
+    for (const n of fileNamesToDelete) {
+      const ext = n.includes(".") ? n.split(".").pop().toLowerCase() : "(\u65E0\u6269\u5C55\u540D)";
+      delExtCount[ext] = (delExtCount[ext] || 0) + 1;
+    }
+    console.log(`[Sync] \u627E\u5230 ${fileNamesToDelete.length} \u4E2A\u9700\u8981\u5220\u9664\u7684\u5B64\u513F\u6587\u4EF6`, delExtCount);
+    if (fileNamesToDelete.length > 0) {
+      console.log("[Sync] \u5F85\u5220\u9664\u6E05\u5355:", fileNamesToDelete);
+    }
     if (fileNamesToDelete.length === 0) {
-      if (onProgress) onProgress(100, 100, "\u6240\u6709\u56FE\u7247\u5DF2\u540C\u6B65\uFF0C\u65E0\u9700\u5220\u9664");
+      if (onProgress) onProgress(100, 100, "\u6240\u6709\u5A92\u4F53\u5DF2\u540C\u6B65\uFF0C\u65E0\u9700\u5220\u9664");
       return result;
     }
     const totalToDelete = fileNamesToDelete.length;
@@ -4500,7 +5014,7 @@ async function deleteStegoImage() {
     console.warn("[Stego] \u5220\u9664\u65E7\u56FE\u7247\u5931\u8D25\uFF08\u53EF\u80FD\u4E0D\u5B58\u5728\uFF09:", error);
   }
 }
-var objectStoreName, metadataId, db, oldDbName, dbName, dbVersion, migrationFlag, STEGO_FOLDER, STEGO_FILENAME, dbs;
+var objectStoreName, metadataId, db, oldDbName, dbName, dbVersion, migrationFlag, sizeCalcTask, sizeCalcListeners, STEGO_FOLDER, STEGO_FILENAME, dbs;
 var init_database = __esm({
   "utils/database.js"() {
     init_config();
@@ -4512,6 +5026,8 @@ var init_database = __esm({
     dbName = "chatu8_gallery";
     dbVersion = 6;
     migrationFlag = "chatu8_gallery_migration_v1_done";
+    sizeCalcTask = null;
+    sizeCalcListeners = /* @__PURE__ */ new Set();
     STEGO_FOLDER = "chatu8List";
     STEGO_FILENAME = "\u56FE\u7247\u7F13\u5B58\u5217\u8868";
     dbs = {
@@ -4528,6 +5044,10 @@ var init_database = __esm({
       getImageBlobByUUID,
       getImageThumbnailBlobByUUID,
       getAllImageMetadata,
+      calculateAllImageSizes,
+      subscribeSizeCalcProgress,
+      getSizeCalcTask,
+      cancelSizeCalc,
       deleteMultipleImages,
       deleteImagesByUuids,
       getMergedAndSortedImages,
@@ -6312,8 +6832,51 @@ function getRandomYusheId(modeKey) {
   toastr.info(`\u968F\u673A\u9009\u4E2D\u9884\u8BBE: "${randomKey}"`, "\u968F\u673A\u63D0\u793A\u8BCD\u9884\u8BBE");
   return randomKey;
 }
+function getRandomVibeGroupId() {
+  const settings3 = extension_settings3[extensionName];
+  const currentId = settings3.vibeGroupId;
+  if (settings3.randomVibeGroup !== "true") {
+    return currentId;
+  }
+  const vibeGroups = settings3.vibeGroups;
+  if (!vibeGroups || typeof vibeGroups !== "object") {
+    return currentId;
+  }
+  const keys = Object.keys(vibeGroups).filter(
+    (key) => Array.isArray(vibeGroups[key]?.vibes) && vibeGroups[key].vibes.length > 0
+  );
+  if (keys.length === 0) {
+    addLog("[\u968F\u673AVibe\u7EC4] \u6CA1\u6709\u53EF\u7528\u7684\u975E\u7A7A Vibe \u7EC4\uFF0C\u56DE\u9000\u5230\u5F53\u524D\u9009\u4E2D\u7684\u7EC4");
+    return currentId;
+  }
+  const randomKey = keys[Math.floor(Math.random() * keys.length)];
+  addLog(`[\u968F\u673AVibe\u7EC4] \u4ECE ${keys.length} \u4E2A\u975E\u7A7A\u7EC4\u4E2D\u968F\u673A\u9009\u4E2D: "${randomKey}" (\u539F\u7EC4: "${currentId}")`);
+  toastr.info(`\u968F\u673A\u9009\u4E2D Vibe \u7EC4: "${randomKey}"`, "\u968F\u673A Vibe \u7EC4");
+  return randomKey;
+}
 function isMobileDevice() {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+function isMobileDeviceDialog() {
+  return window.top.innerWidth <= 768 || isMobileDevice();
+}
+function clampPopupToViewport(bubble, win = window) {
+  requestAnimationFrame(() => {
+    try {
+      const viewportHeight = win.visualViewport?.height || win.innerHeight;
+      const rect = bubble.getBoundingClientRect();
+      if (rect.top >= 8 && rect.bottom <= viewportHeight + 8) return;
+      bubble.style.position = "fixed";
+      bubble.style.top = "8px";
+      bubble.style.left = "50%";
+      bubble.style.transform = "translateX(-50%)";
+      bubble.style.margin = "0";
+      bubble.style.maxHeight = `${Math.max(200, viewportHeight - 24)}px`;
+      bubble.style.overflowY = "auto";
+    } catch (e) {
+      console.warn("[st-chatu8] \u5F39\u7A97\u89C6\u53E3\u94B3\u5236\u5931\u8D25:", e);
+    }
+  });
 }
 async function zhengmian(fixedPrompt, mainPrompt, fixedPrompt_end, aqt, insertions) {
   fixedPrompt = await stripChineseAnnotations(fixedPrompt);
@@ -6357,6 +6920,15 @@ async function fumian(text, UCP) {
     finalNegativePrompt = text;
   } else {
     finalNegativePrompt = UCP + ", " + text;
+  }
+  if (finalNegativePrompt) {
+    let tags = finalNegativePrompt.split(",").map((t) => t.trim()).filter(Boolean);
+    const nsfwIndex = tags.findIndex((t) => t.toLowerCase() === "nsfw");
+    if (nsfwIndex !== -1) {
+      tags = tags.filter((t) => t.toLowerCase() !== "nsfw");
+      tags.unshift("nsfw");
+      finalNegativePrompt = tags.join(", ");
+    }
   }
   addLog(`\u7EC4\u5408\u540E\u7684\u8D1F\u9762\u63D0\u793A\u8BCD: ${finalNegativePrompt}`);
   return finalNegativePrompt;
@@ -7009,6 +7581,195 @@ var init_utils = __esm({
     _pendingLogBuffer = [];
     _persistDebounceTimer = null;
     LOG_PERSIST_DEBOUNCE_MS = 5e3;
+  }
+});
+
+// utils/genParams.js
+function buildGenParams(backend, fields = {}) {
+  const result = {};
+  if (backend) {
+    result.backend = backend;
+  }
+  for (const [key, value] of Object.entries(fields)) {
+    if (value === null || value === void 0) continue;
+    if (typeof value === "string" && value.trim() === "") continue;
+    if (value === false) continue;
+    result[key] = value;
+  }
+  return Object.keys(result).length > 0 ? result : null;
+}
+function createParamsPanel(doc) {
+  const panel = doc.createElement("div");
+  panel.className = "st-chatu8-params-panel";
+  const header = doc.createElement("div");
+  header.className = "st-chatu8-params-header";
+  const title = doc.createElement("span");
+  title.className = "st-chatu8-params-title";
+  title.textContent = "\u751F\u6210\u53C2\u6570";
+  const copyBtn = doc.createElement("span");
+  copyBtn.className = "st-chatu8-params-copy";
+  copyBtn.innerHTML = '<i class="fa-solid fa-copy"></i>\u590D\u5236\u5168\u90E8 JSON';
+  const closeBtn = doc.createElement("span");
+  closeBtn.className = "st-chatu8-params-close";
+  closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+  closeBtn.title = "\u5173\u95ED\u53C2\u6570\u9762\u677F";
+  closeBtn.onclick = () => {
+    panel.classList.remove("visible");
+  };
+  const headerActions = doc.createElement("span");
+  headerActions.className = "st-chatu8-params-header-actions";
+  headerActions.appendChild(copyBtn);
+  headerActions.appendChild(closeBtn);
+  header.appendChild(title);
+  header.appendChild(headerActions);
+  panel.appendChild(header);
+  const body = doc.createElement("div");
+  body.className = "st-chatu8-params-body";
+  body.style.cssText = "display: flex; flex-direction: column; gap: 6px;";
+  panel.appendChild(body);
+  let currentParams = null;
+  copyBtn.onclick = async () => {
+    if (!currentParams) return;
+    const text = JSON.stringify(currentParams, null, 2);
+    const ok = await copyText(doc, text);
+    if (typeof toastr !== "undefined") {
+      ok ? toastr.success("\u53C2\u6570\u5DF2\u590D\u5236") : toastr.error("\u590D\u5236\u5931\u8D25\uFF0C\u8BF7\u624B\u52A8\u9009\u62E9\u6587\u672C");
+    }
+  };
+  function render2(genParams, fallbackPrompt, date) {
+    body.innerHTML = "";
+    currentParams = genParams || null;
+    copyBtn.style.display = genParams ? "" : "none";
+    const rows = formatGenParams(genParams, fallbackPrompt, date);
+    if (rows.length === 0) {
+      const empty = doc.createElement("div");
+      empty.className = "st-chatu8-params-empty";
+      empty.textContent = "\u8FD9\u5F20\u56FE\u751F\u6210\u65F6\u8FD8\u6CA1\u6709\u8BB0\u5F55\u53C2\u6570\u55B5\uFF5E\n\uFF08\u6B64\u529F\u80FD\u4E0A\u7EBF\u524D\u751F\u6210\u7684\u56FE\u7247\u6CA1\u6709\u53C2\u6570\u8BB0\u5F55\uFF09";
+      body.appendChild(empty);
+      return;
+    }
+    if (!genParams) {
+      const note = doc.createElement("div");
+      note.className = "st-chatu8-params-empty";
+      note.textContent = "\u8FD9\u5F20\u56FE\u6CA1\u6709\u8BB0\u5F55\u751F\u6210\u53C2\u6570\uFF0C\u4EE5\u4E0B\u4EC5\u4E3A\u5DF2\u77E5\u4FE1\u606F";
+      body.appendChild(note);
+    }
+    for (const row of rows) {
+      const rowEl = doc.createElement("div");
+      rowEl.className = "st-chatu8-params-row" + (row.isLong ? " long" : "");
+      const labelEl = doc.createElement("span");
+      labelEl.className = "st-chatu8-params-label";
+      labelEl.textContent = row.label;
+      const valueEl = doc.createElement("span");
+      valueEl.className = "st-chatu8-params-value";
+      valueEl.textContent = row.value;
+      if (row.isRandom) {
+        const tag = doc.createElement("span");
+        tag.className = "st-chatu8-params-random";
+        tag.textContent = "\u968F\u673A\u547D\u4E2D";
+        tag.title = "\u8FD9\u662F\u672C\u6B21\u751F\u6210\u5B9E\u9645\u547D\u4E2D\u7684\u9884\u8BBE\uFF0C\u53EF\u80FD\u4E0E\u8BBE\u7F6E\u4E2D\u5F53\u524D\u9009\u62E9\u7684\u4E0D\u540C";
+        valueEl.appendChild(tag);
+      }
+      rowEl.appendChild(labelEl);
+      rowEl.appendChild(valueEl);
+      body.appendChild(rowEl);
+    }
+  }
+  function toggle() {
+    panel.classList.toggle("visible");
+    return panel.classList.contains("visible");
+  }
+  function isVisible() {
+    return panel.classList.contains("visible");
+  }
+  return { panel, render: render2, toggle, isVisible };
+}
+async function copyText(doc, text) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (error) {
+    console.warn("[genParams] clipboard API \u5931\u8D25\uFF0C\u56DE\u9000\u5230 execCommand:", error);
+  }
+  try {
+    const textarea = doc.createElement("textarea");
+    textarea.value = text;
+    textarea.style.cssText = "position: fixed; left: -9999px; top: 0;";
+    doc.body.appendChild(textarea);
+    textarea.select();
+    const ok = doc.execCommand("copy");
+    doc.body.removeChild(textarea);
+    return ok;
+  } catch (error) {
+    console.error("[genParams] \u590D\u5236\u5931\u8D25:", error);
+    return false;
+  }
+}
+function formatGenParams(genParams, fallbackPrompt = void 0, date = void 0) {
+  const source = { ...genParams || {} };
+  if (source.resolvedPrompt === void 0 && fallbackPrompt) {
+    source.resolvedPrompt = fallbackPrompt;
+  }
+  if (source.date === void 0 && date) {
+    source.date = new Date(date).toLocaleString("zh-CN");
+  }
+  const rows = [];
+  for (const key of Object.keys(PARAM_LABELS)) {
+    if (source[key] === void 0 || source[key] === null) continue;
+    const value = String(source[key]);
+    if (value.trim() === "") continue;
+    rows.push({
+      key,
+      label: PARAM_LABELS[key],
+      value,
+      isRandom: RANDOM_FLAGS[key] ? source[RANDOM_FLAGS[key]] === true : false,
+      // 长文本（提示词）用多行样式展示
+      isLong: key === "resolvedPrompt" || key === "negativePrompt" || value.length > 60
+    });
+  }
+  const known = /* @__PURE__ */ new Set([...Object.keys(PARAM_LABELS), ...Object.values(RANDOM_FLAGS)]);
+  for (const [key, value] of Object.entries(source)) {
+    if (known.has(key)) continue;
+    if (value === void 0 || value === null || value === "") continue;
+    rows.push({
+      key,
+      label: key,
+      value: typeof value === "object" ? JSON.stringify(value) : String(value),
+      isRandom: false,
+      isLong: String(value).length > 60
+    });
+  }
+  return rows;
+}
+var PARAM_LABELS, RANDOM_FLAGS;
+var init_genParams = __esm({
+  "utils/genParams.js"() {
+    PARAM_LABELS = {
+      backend: "\u751F\u6210\u540E\u7AEF",
+      model: "\u6A21\u578B",
+      yushe: "\u63D0\u793A\u8BCD\u9884\u8BBE",
+      promptReplaceId: "\u63D0\u793A\u8BCD\u66FF\u6362\u89C4\u5219\u9884\u8BBE",
+      vibeGroup: "Vibe \u7EC4\uFF08\u6C1B\u56F4\u8F6C\u79FB\uFF09",
+      charRefGroup: "\u89D2\u8272\u53C2\u8003\u7EC4",
+      resolvedPrompt: "\u5B9E\u9645\u63D0\u793A\u8BCD",
+      negativePrompt: "\u8D1F\u9762\u63D0\u793A\u8BCD",
+      width: "\u5BBD\u5EA6",
+      height: "\u9AD8\u5EA6",
+      seed: "\u79CD\u5B50",
+      steps: "\u6B65\u6570",
+      sampler: "\u91C7\u6837\u5668",
+      scheduler: "\u8C03\u5EA6\u5668",
+      cfgScale: "CFG / \u5F15\u5BFC\u5F3A\u5EA6",
+      imageSize: "\u56FE\u7247\u5C3A\u5BF8",
+      aspectRatio: "\u5BBD\u9AD8\u6BD4",
+      date: "\u751F\u6210\u65F6\u95F4"
+    };
+    RANDOM_FLAGS = {
+      yushe: "yusheRandom",
+      vibeGroup: "vibeGroupRandom"
+    };
   }
 });
 
@@ -8529,7 +9290,8 @@ function showSettingsPanel() {
   logJSZipStatus();
   const lastTab = settings3.lastTab || "main";
   const lastTabLink = panel.find(`.st-chatu8-nav-link[data-tab="${lastTab}"]`);
-  if (lastTabLink.length) {
+  const lastTabHidden = lastTabLink.length && lastTabLink[0].style.display === "none";
+  if (lastTabLink.length && !lastTabHidden) {
     lastTabLink.click();
   } else {
     panel.find('.st-chatu8-nav-link[data-tab="main"]').click();
@@ -10165,6 +10927,7 @@ function applyImageFrameStyle(styleName, isDark = true) {
         ${containerSelector} video {
             display: inline-block !important;
             max-width: ${imageSizeScale}% !important;
+            max-height: none !important;
             height: auto !important;
             vertical-align: middle;
         }
@@ -14482,10 +15245,46 @@ async function getWorldEntries(world_name) {
     return;
   }
 }
-function getglobalvar(name) {
+function resolveNestedVariable(store, name) {
+  if (!store) return "";
+  const pathParts = name.split(".");
+  let value = store[pathParts[0]];
+  for (let i = 1; i < pathParts.length; i++) {
+    if (value == null || typeof value !== "object") {
+      value = void 0;
+      break;
+    }
+    value = value[pathParts[i]];
+  }
+  if (value === void 0 || value === null) {
+    return "";
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value, null, 2);
+  }
+  return String(value);
+}
+function setNestedVariable(store, name, value) {
+  if (!store) return;
+  const pathParts = name.split(".");
+  if (pathParts.length === 1) {
+    store[name] = value;
+    return;
+  }
+  let node = store;
+  for (let i = 0; i < pathParts.length - 1; i++) {
+    const key = pathParts[i];
+    if (node[key] == null || typeof node[key] !== "object") {
+      node[key] = {};
+    }
+    node = node[key];
+  }
+  node[pathParts[pathParts.length - 1]] = value;
+}
+function resolveGlobalVariable(name) {
   const context = getContext2();
   const variables = context.extensionSettings?.variables || {};
-  return variables[name];
+  return resolveNestedVariable(variables, name);
 }
 function setglobalvar(name, value) {
   const context = getContext2();
@@ -14495,7 +15294,7 @@ function setglobalvar(name, value) {
   if (!context.extensionSettings.variables) {
     context.extensionSettings.variables = {};
   }
-  context.extensionSettings.variables[name] = value;
+  setNestedVariable(context.extensionSettings.variables, name, value);
 }
 var init_chatDataUtils = __esm({
   "utils/chatDataUtils.js"() {
@@ -14518,10 +15317,10 @@ __export(worldbookProcessor_exports, {
 
 
 function getworldvar(name) {
-  return worldVars[name] || "";
+  return resolveNestedVariable(worldVars, name);
 }
 function setworldvar(name, value) {
-  worldVars[name] = value;
+  setNestedVariable(worldVars, name, value);
 }
 function clearWorldVars() {
   worldVars = {};
@@ -14594,12 +15393,12 @@ function processVariablePlaceholders(content) {
   let result = content;
   result = result.replace(/\{@setvar::([^:@]+)::([\s\S]*?)@\}/g, (match, name, value) => {
     const trimmedName = name.trim();
-    context.chatMetadata.variables[trimmedName] = value;
+    setNestedVariable(context.chatMetadata.variables, trimmedName, value);
     return "";
   });
   result = result.replace(/\{@getvar::([^@]+)@\}/g, (match, name) => {
     const trimmedName = name.trim();
-    const value = context.chatMetadata.variables[trimmedName] || "";
+    const value = resolveNestedVariable(context.chatMetadata.variables, trimmedName);
     return value;
   });
   result = result.replace(/\{@setglobalvar::([^:@]+)::([\s\S]*?)@\}/g, (match, name, value) => {
@@ -14609,7 +15408,7 @@ function processVariablePlaceholders(content) {
   });
   result = result.replace(/\{@getglobalvar::([^@]+)@\}/g, (match, name) => {
     const trimmedName = name.trim();
-    const value = getglobalvar(trimmedName) || "";
+    const value = resolveGlobalVariable(trimmedName);
     return value;
   });
   result = result.replace(/\{@setworldvar::([^:@]+)::([\s\S]*?)@\}/g, (match, name, value) => {
@@ -14954,7 +15753,7 @@ function processStringVariables(str, context, replacedVariables) {
   let result = str;
   result = result.replace(/\{@setvar::([^:@]+)::([\s\S]*?)@\}/g, (match, name, value) => {
     const trimmedName = name.trim();
-    context.chatMetadata.variables[trimmedName] = value;
+    setNestedVariable(context.chatMetadata.variables, trimmedName, value);
     if (replacedVariables) {
       replacedVariables.add(`{@setvar::${trimmedName}@}`);
     }
@@ -14962,7 +15761,7 @@ function processStringVariables(str, context, replacedVariables) {
   });
   result = result.replace(/\{@getvar::([^@]+)@\}/g, (match, name) => {
     const trimmedName = name.trim();
-    const value = context.chatMetadata.variables[trimmedName] || "";
+    const value = resolveNestedVariable(context.chatMetadata.variables, trimmedName);
     if (replacedVariables) {
       replacedVariables.add(`{@getvar::${trimmedName}@}`);
     }
@@ -14978,7 +15777,7 @@ function processStringVariables(str, context, replacedVariables) {
   });
   result = result.replace(/\{@getglobalvar::([^@]+)@\}/g, (match, name) => {
     const trimmedName = name.trim();
-    const value = getglobalvar(trimmedName) || "";
+    const value = resolveGlobalVariable(trimmedName);
     if (replacedVariables) {
       replacedVariables.add(`{@getglobalvar::${trimmedName}@}`);
     }
@@ -19619,6 +20418,912 @@ var init_outfitPromptModify = __esm({
   }
 });
 
+// utils/settings/bulkSelectControls.js
+function createBulkSelectControls(config) {
+  const {
+    container,
+    insertBefore = null,
+    selected,
+    getSelectable,
+    onChange,
+    style = "pill"
+  } = config;
+  const group = document.createElement("div");
+  group.className = "st-chatu8-bulk-select-controls";
+  group.style.display = "none";
+  group.style.gap = style === "pill" ? "10px" : "8px";
+  group.style.alignItems = "center";
+  const makeBtn = (cls, icon, label, title) => {
+    const btn = document.createElement(style === "pill" ? "div" : "button");
+    btn.className = style === "pill" ? `st-chatu8-bulk-select-btn ${cls}` : `st-chatu8-btn st-chatu8-btn-secondary ${cls}`;
+    btn.title = title;
+    if (style === "pill") {
+      btn.style.cssText = "cursor: pointer; padding: 6px 14px; background: rgba(255,255,255,0.1); border-radius: 20px; font-size: 0.9em; user-select: none; white-space: nowrap; display: flex; align-items: center; gap: 6px; transition: all 0.3s;";
+    }
+    btn.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${label}</span>`;
+    return btn;
+  };
+  const selectAllBtn = makeBtn("st-chatu8-bulk-select-all", "fa-check-double", "\u5168\u9009", "\u5168\u9009\u5F53\u524D\u7B5B\u9009\u7ED3\u679C\uFF08\u8DE8\u9875\u751F\u6548\uFF09");
+  const invertBtn = makeBtn("st-chatu8-bulk-select-invert", "fa-right-left", "\u53CD\u9009", "\u53CD\u9009\u5F53\u524D\u7B5B\u9009\u7ED3\u679C\uFF08\u8DE8\u9875\u751F\u6548\uFF09");
+  const clearBtn = makeBtn("st-chatu8-bulk-select-clear", "fa-eraser", "\u6E05\u7A7A", "\u6E05\u7A7A\u5DF2\u9009");
+  group.appendChild(selectAllBtn);
+  group.appendChild(invertBtn);
+  group.appendChild(clearBtn);
+  if (insertBefore && insertBefore.parentNode === container) {
+    container.insertBefore(group, insertBefore);
+  } else {
+    container.appendChild(group);
+  }
+  function isAllSelected() {
+    const selectable = getSelectable();
+    return selectable.length > 0 && selectable.every((name) => selected.has(name));
+  }
+  function refresh() {
+    const selectable = getSelectable();
+    const allSelected = isAllSelected();
+    selectAllBtn.querySelector("span").textContent = allSelected ? "\u53D6\u6D88\u5168\u9009" : "\u5168\u9009";
+    selectAllBtn.querySelector("i").className = allSelected ? "fa-solid fa-square-minus" : "fa-solid fa-check-double";
+    selectAllBtn.title = allSelected ? "\u53D6\u6D88\u5168\u9009\u5F53\u524D\u7B5B\u9009\u7ED3\u679C" : "\u5168\u9009\u5F53\u524D\u7B5B\u9009\u7ED3\u679C\uFF08\u8DE8\u9875\u751F\u6548\uFF09";
+    const noSelectable = selectable.length === 0;
+    [selectAllBtn, invertBtn].forEach((btn) => {
+      btn.style.opacity = noSelectable ? "0.5" : "1";
+      btn.style.cursor = noSelectable ? "not-allowed" : "pointer";
+    });
+    const noSelection = selected.size === 0;
+    clearBtn.style.opacity = noSelection ? "0.5" : "1";
+    clearBtn.style.cursor = noSelection ? "not-allowed" : "pointer";
+  }
+  selectAllBtn.onclick = () => {
+    const selectable = getSelectable();
+    if (selectable.length === 0) return;
+    if (isAllSelected()) {
+      selectable.forEach((name) => selected.delete(name));
+    } else {
+      selectable.forEach((name) => selected.add(name));
+    }
+    onChange();
+    refresh();
+  };
+  invertBtn.onclick = () => {
+    const selectable = getSelectable();
+    if (selectable.length === 0) return;
+    selectable.forEach((name) => {
+      if (selected.has(name)) {
+        selected.delete(name);
+      } else {
+        selected.add(name);
+      }
+    });
+    onChange();
+    refresh();
+  };
+  clearBtn.onclick = () => {
+    if (selected.size === 0) return;
+    selected.clear();
+    onChange();
+    refresh();
+  };
+  return {
+    show() {
+      group.style.display = "flex";
+      refresh();
+    },
+    hide() {
+      group.style.display = "none";
+    },
+    refresh
+  };
+}
+var init_bulkSelectControls = __esm({
+  "utils/settings/bulkSelectControls.js"() {
+  }
+});
+
+// utils/settings/presetGroupManager.js
+
+function ensureStore(settings3, scope) {
+  if (!settings3.presetGroups || typeof settings3.presetGroups !== "object") {
+    settings3.presetGroups = {};
+  }
+  if (!Array.isArray(settings3.presetGroups[scope])) {
+    settings3.presetGroups[scope] = [];
+  }
+  return settings3.presetGroups[scope];
+}
+function getGroups(settings3, scope) {
+  return ensureStore(settings3, scope);
+}
+function createGroup(settings3, scope, name) {
+  const groups = ensureStore(settings3, scope);
+  const trimmed = String(name || "").trim();
+  if (!trimmed) return null;
+  if (groups.some((g) => g.name === trimmed)) return null;
+  const group = {
+    id: `g_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    name: trimmed,
+    members: []
+  };
+  groups.push(group);
+  saveSettingsDebounced11();
+  return group;
+}
+function renameGroup(settings3, scope, groupId, newName) {
+  const groups = ensureStore(settings3, scope);
+  const trimmed = String(newName || "").trim();
+  if (!trimmed) return false;
+  const group = groups.find((g) => g.id === groupId);
+  if (!group) return false;
+  if (groups.some((g) => g.id !== groupId && g.name === trimmed)) return false;
+  group.name = trimmed;
+  saveSettingsDebounced11();
+  return true;
+}
+function deleteGroup(settings3, scope, groupId) {
+  const groups = ensureStore(settings3, scope);
+  const index = groups.findIndex((g) => g.id === groupId);
+  if (index === -1) return false;
+  groups.splice(index, 1);
+  saveSettingsDebounced11();
+  return true;
+}
+function moveGroup(settings3, scope, groupId, delta) {
+  const groups = ensureStore(settings3, scope);
+  const from = groups.findIndex((g) => g.id === groupId);
+  if (from === -1) return false;
+  const to = from + delta;
+  if (to < 0 || to >= groups.length) return false;
+  [groups[from], groups[to]] = [groups[to], groups[from]];
+  saveSettingsDebounced11();
+  return true;
+}
+function getGroupsOf(settings3, scope, itemName) {
+  return ensureStore(settings3, scope).filter((g) => g.members.includes(itemName)).map((g) => g.id);
+}
+function toggleMembership(settings3, scope, groupId, itemName, on) {
+  const group = ensureStore(settings3, scope).find((g) => g.id === groupId);
+  if (!group) return;
+  const index = group.members.indexOf(itemName);
+  if (on && index === -1) {
+    group.members.push(itemName);
+  } else if (!on && index !== -1) {
+    group.members.splice(index, 1);
+  } else {
+    return;
+  }
+  saveSettingsDebounced11();
+}
+function filterByGroup(names, settings3, scope, groupId) {
+  if (!groupId) return names;
+  const groups = ensureStore(settings3, scope);
+  if (groupId === UNGROUPED) {
+    const grouped = new Set(groups.flatMap((g) => g.members));
+    return names.filter((name) => !grouped.has(name));
+  }
+  const group = groups.find((g) => g.id === groupId);
+  if (!group) return names;
+  const members = new Set(group.members);
+  return names.filter((name) => members.has(name));
+}
+function renameMember(settings3, scope, oldName, newName) {
+  let changed = false;
+  for (const group of ensureStore(settings3, scope)) {
+    const index = group.members.indexOf(oldName);
+    if (index !== -1) {
+      if (group.members.includes(newName)) {
+        group.members.splice(index, 1);
+      } else {
+        group.members[index] = newName;
+      }
+      changed = true;
+    }
+  }
+  if (changed) saveSettingsDebounced11();
+}
+function removeMember(settings3, scope, itemName) {
+  let changed = false;
+  for (const group of ensureStore(settings3, scope)) {
+    const index = group.members.indexOf(itemName);
+    if (index !== -1) {
+      group.members.splice(index, 1);
+      changed = true;
+    }
+  }
+  if (changed) saveSettingsDebounced11();
+}
+function countMembers(group, allNames) {
+  const existing = new Set(allNames);
+  return group.members.reduce((sum, name) => sum + (existing.has(name) ? 1 : 0), 0);
+}
+function resolveHost(anchor) {
+  return anchor.closest(".st-chatu8-workflow-viz-backdrop") || document.getElementById("st-chatu8-settings") || document.body;
+}
+function positionPanel(panel, trigger) {
+  const rect = trigger.getBoundingClientRect();
+  const gap = 6;
+  panel.style.visibility = "hidden";
+  panel.style.top = "0px";
+  panel.style.left = "0px";
+  const panelRect = panel.getBoundingClientRect();
+  let top = rect.bottom + gap;
+  if (top + panelRect.height > window.innerHeight - 8) {
+    const flipped = rect.top - gap - panelRect.height;
+    top = flipped >= 8 ? flipped : Math.max(8, window.innerHeight - panelRect.height - 8);
+  }
+  let left = rect.left;
+  if (left + panelRect.width > window.innerWidth - 8) {
+    left = Math.max(8, window.innerWidth - panelRect.width - 8);
+  }
+  panel.style.top = `${top}px`;
+  panel.style.left = `${left}px`;
+  panel.style.visibility = "";
+}
+function createFloatingPanel({ trigger, className, onOpen }) {
+  const panel = document.createElement("div");
+  panel.className = className;
+  panel.style.display = "none";
+  panel.addEventListener("click", (e) => e.stopPropagation());
+  let open = false;
+  const reposition = () => {
+    if (open) positionPanel(panel, trigger);
+  };
+  const onDocClick = (e) => {
+    if (!open) return;
+    if (panel.contains(e.target) || trigger.contains(e.target)) return;
+    api.close();
+  };
+  const onKeyDown = (e) => {
+    if (open && e.key === "Escape") {
+      e.stopPropagation();
+      api.close();
+    }
+  };
+  const api = {
+    el: panel,
+    isOpen: () => open,
+    open() {
+      if (open) return;
+      if (!panel.parentNode) resolveHost(trigger).appendChild(panel);
+      if (onOpen) onOpen(panel);
+      panel.style.display = "";
+      open = true;
+      trigger.classList.add("open");
+      positionPanel(panel, trigger);
+      document.addEventListener("click", onDocClick, true);
+      window.addEventListener("resize", reposition);
+      window.addEventListener("scroll", reposition, true);
+      document.addEventListener("keydown", onKeyDown, true);
+    },
+    close() {
+      if (!open) return;
+      open = false;
+      panel.style.display = "none";
+      trigger.classList.remove("open");
+      document.removeEventListener("click", onDocClick, true);
+      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", reposition, true);
+      document.removeEventListener("keydown", onKeyDown, true);
+    },
+    toggle() {
+      open ? api.close() : api.open();
+    },
+    destroy() {
+      api.close();
+      panel.remove();
+    }
+  };
+  return api;
+}
+async function promptInput(message, defaultValue = "") {
+  const promise = stylInput(message, defaultValue);
+  const backdrops = document.querySelectorAll(".st-chatu8-confirm-backdrop");
+  const latest = backdrops[backdrops.length - 1];
+  if (latest) latest.style.zIndex = "100000";
+  return promise;
+}
+function createGroupDropdown(config) {
+  const { container, insertBefore, settings: settings3, scope, getAllNames, onFilterChange } = config;
+  let currentGroupId = null;
+  const trigger = document.createElement("div");
+  trigger.className = "st-chatu8-group-dropdown-trigger";
+  trigger.innerHTML = `
+        <i class="fa-solid fa-tags"></i>
+        <span class="st-chatu8-group-dropdown-label">\u5168\u90E8</span>
+        <span class="st-chatu8-group-dropdown-count">0</span>
+        <i class="fa-solid fa-chevron-down st-chatu8-group-dropdown-arrow"></i>
+    `;
+  if (insertBefore) {
+    container.insertBefore(trigger, insertBefore);
+  } else {
+    container.appendChild(trigger);
+  }
+  const labelEl = trigger.querySelector(".st-chatu8-group-dropdown-label");
+  const countEl = trigger.querySelector(".st-chatu8-group-dropdown-count");
+  const panel = createFloatingPanel({
+    trigger,
+    className: "st-chatu8-group-dropdown-panel",
+    onOpen: () => renderPanel2()
+  });
+  let panelQuery = "";
+  function currentLabel() {
+    if (!currentGroupId) return "\u5168\u90E8";
+    if (currentGroupId === UNGROUPED) return "\u672A\u5206\u7EC4";
+    const group = getGroups(settings3, scope).find((g) => g.id === currentGroupId);
+    return group ? group.name : "\u5168\u90E8";
+  }
+  function refreshTrigger() {
+    const allNames = getAllNames();
+    labelEl.textContent = currentLabel();
+    countEl.textContent = filterByGroup(allNames, settings3, scope, currentGroupId).length;
+    trigger.classList.toggle("active", !!currentGroupId);
+  }
+  function makeRow({ id, name, count, isActive }) {
+    const row = document.createElement("div");
+    row.className = "st-chatu8-group-dropdown-item" + (isActive ? " active" : "");
+    row.innerHTML = `
+            <span class="st-chatu8-group-dropdown-check">${isActive ? '<i class="fa-solid fa-check"></i>' : ""}</span>
+            <span class="st-chatu8-group-dropdown-name"></span>
+            <span class="st-chatu8-group-dropdown-count">${count}</span>
+        `;
+    row.querySelector(".st-chatu8-group-dropdown-name").textContent = name;
+    row.onclick = () => {
+      currentGroupId = id;
+      refreshTrigger();
+      panel.close();
+      if (onFilterChange) onFilterChange(id);
+    };
+    return row;
+  }
+  function renderPanel2() {
+    const allNames = getAllNames();
+    const groups = getGroups(settings3, scope);
+    panel.el.innerHTML = "";
+    if (groups.length > 6) {
+      const searchWrap = document.createElement("div");
+      searchWrap.className = "st-chatu8-group-dropdown-search";
+      const input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = "\u7B5B\u9009\u5206\u7EC4...";
+      input.value = panelQuery;
+      input.oninput = (e) => {
+        panelQuery = e.target.value.toLowerCase();
+        renderPanel2();
+        const next = panel.el.querySelector(".st-chatu8-group-dropdown-search input");
+        if (next) {
+          next.focus();
+          next.setSelectionRange(next.value.length, next.value.length);
+        }
+      };
+      searchWrap.appendChild(input);
+      panel.el.appendChild(searchWrap);
+    } else {
+      panelQuery = "";
+    }
+    const list = document.createElement("div");
+    list.className = "st-chatu8-group-dropdown-list";
+    list.appendChild(makeRow({
+      id: null,
+      name: "\u5168\u90E8",
+      count: allNames.length,
+      isActive: !currentGroupId
+    }));
+    list.appendChild(makeRow({
+      id: UNGROUPED,
+      name: "\u672A\u5206\u7EC4",
+      count: filterByGroup(allNames, settings3, scope, UNGROUPED).length,
+      isActive: currentGroupId === UNGROUPED
+    }));
+    const visible = panelQuery ? groups.filter((g) => g.name.toLowerCase().includes(panelQuery)) : groups;
+    if (visible.length > 0) {
+      const divider = document.createElement("div");
+      divider.className = "st-chatu8-group-dropdown-divider";
+      list.appendChild(divider);
+      for (const group of visible) {
+        list.appendChild(makeRow({
+          id: group.id,
+          name: group.name,
+          count: countMembers(group, allNames),
+          isActive: currentGroupId === group.id
+        }));
+      }
+    } else if (groups.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "st-chatu8-group-dropdown-empty";
+      empty.textContent = "\u8FD8\u6CA1\u6709\u5206\u7EC4";
+      list.appendChild(empty);
+    }
+    panel.el.appendChild(list);
+  }
+  trigger.onclick = (e) => {
+    e.stopPropagation();
+    panel.toggle();
+  };
+  refreshTrigger();
+  return {
+    refresh: refreshTrigger,
+    destroy: () => {
+      panel.destroy();
+      trigger.remove();
+    },
+    getCurrentGroupId: () => currentGroupId,
+    /**
+     * 分组在别处被改动后调用（典型场景：管理面板删掉了正在筛选的那个分组）。
+     *
+     * 刻意不在这里触发 onFilterChange：调用方通常紧接着就要重渲染，
+     * 由它自己读一次 getCurrentGroupId 再渲染，避免渲染两遍打架。
+     *
+     * @returns {boolean} 筛选是否被重置回「全部」
+     */
+    syncAfterGroupChange() {
+      let reset = false;
+      if (currentGroupId && currentGroupId !== UNGROUPED) {
+        const exists = getGroups(settings3, scope).some((g) => g.id === currentGroupId);
+        if (!exists) {
+          currentGroupId = null;
+          reset = true;
+        }
+      }
+      refreshTrigger();
+      return reset;
+    }
+  };
+}
+function createGroupTagButton(config) {
+  const { settings: settings3, scope, itemName, onChanged } = config;
+  const btn = document.createElement("button");
+  btn.className = "st-chatu8-preset-action-btn";
+  btn.title = "\u52A0\u5165 / \u9000\u51FA\u5206\u7EC4";
+  btn.innerHTML = '<i class="fa-solid fa-tag"></i>';
+  const panel = createFloatingPanel({
+    trigger: btn,
+    className: "st-chatu8-group-tag-panel",
+    onOpen: () => renderPanel2()
+  });
+  function renderPanel2() {
+    const groups = getGroups(settings3, scope);
+    panel.el.innerHTML = "";
+    const header = document.createElement("div");
+    header.className = "st-chatu8-group-tag-header";
+    header.textContent = itemName;
+    panel.el.appendChild(header);
+    const list = document.createElement("div");
+    list.className = "st-chatu8-group-tag-list";
+    if (groups.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "st-chatu8-group-dropdown-empty";
+      empty.textContent = "\u8FD8\u6CA1\u6709\u5206\u7EC4\uFF0C\u5148\u65B0\u5EFA\u4E00\u4E2A\u5427";
+      list.appendChild(empty);
+    } else {
+      const mine = new Set(getGroupsOf(settings3, scope, itemName));
+      for (const group of groups) {
+        const row = document.createElement("label");
+        row.className = "st-chatu8-group-tag-row";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = mine.has(group.id);
+        checkbox.onchange = () => {
+          toggleMembership(settings3, scope, group.id, itemName, checkbox.checked);
+          if (onChanged) onChanged();
+        };
+        const name = document.createElement("span");
+        name.className = "st-chatu8-group-tag-name";
+        name.textContent = group.name;
+        row.appendChild(checkbox);
+        row.appendChild(name);
+        list.appendChild(row);
+      }
+    }
+    panel.el.appendChild(list);
+    const create = document.createElement("div");
+    create.className = "st-chatu8-group-dropdown-item manage";
+    create.innerHTML = '<i class="fa-solid fa-plus"></i><span>\u65B0\u5EFA\u5206\u7EC4\u2026</span>';
+    create.onclick = async () => {
+      const name = await promptInput("\u8BF7\u8F93\u5165\u65B0\u5206\u7EC4\u540D\u79F0\uFF1A", "");
+      if (name === false) return;
+      const group = createGroup(settings3, scope, name);
+      if (!group) {
+        showToast("\u5206\u7EC4\u540D\u79F0\u4E3A\u7A7A\u6216\u5DF2\u5B58\u5728", "warning");
+        return;
+      }
+      toggleMembership(settings3, scope, group.id, itemName, true);
+      if (panel.isOpen()) {
+        renderPanel2();
+        positionPanel(panel.el, btn);
+      } else {
+        panel.open();
+      }
+      if (onChanged) onChanged();
+    };
+    panel.el.appendChild(create);
+  }
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    panel.toggle();
+  };
+  return btn;
+}
+function createGroupManageButton(config) {
+  const { container, insertBefore, settings: settings3, scope, getAllNames, onChanged } = config;
+  const btn = document.createElement("div");
+  btn.className = "st-chatu8-group-manage-trigger";
+  btn.title = "\u65B0\u5EFA / \u6539\u540D / \u6392\u5E8F\u5206\u7EC4\uFF0C\u6279\u91CF\u5B89\u6392\u6210\u5458";
+  btn.innerHTML = `
+        <i class="fa-solid fa-folder-tree"></i>
+        <span>\u5206\u7EC4</span>
+        <span class="st-chatu8-group-dropdown-count">0</span>
+    `;
+  if (insertBefore) {
+    container.insertBefore(btn, insertBefore);
+  } else {
+    container.appendChild(btn);
+  }
+  const countEl = btn.querySelector(".st-chatu8-group-dropdown-count");
+  function refresh() {
+    countEl.textContent = getGroups(settings3, scope).length;
+  }
+  btn.onclick = async () => {
+    await showGroupManagePanel({ settings: settings3, scope, getAllNames, onChanged });
+    refresh();
+  };
+  refresh();
+  return {
+    refresh,
+    destroy: () => btn.remove()
+  };
+}
+function showGroupManagePanel(config) {
+  const { settings: settings3, scope, getAllNames, onChanged } = config;
+  return new Promise((resolve) => {
+    const parent = document.getElementById("st-chatu8-settings") || document.body;
+    const backdrop = document.createElement("div");
+    backdrop.className = "st-chatu8-confirm-backdrop";
+    backdrop.style.zIndex = "99999";
+    const box = document.createElement("div");
+    box.className = "st-chatu8-confirm-box st-chatu8-group-manage-box";
+    const title = document.createElement("p");
+    title.className = "st-chatu8-confirm-message";
+    title.textContent = "\u5206\u7EC4\u7BA1\u7406";
+    box.appendChild(title);
+    const panes = document.createElement("div");
+    panes.className = "st-chatu8-group-panes";
+    const leftPane = document.createElement("div");
+    leftPane.className = "st-chatu8-group-pane-left";
+    const rightPane = document.createElement("div");
+    rightPane.className = "st-chatu8-group-pane-right";
+    panes.appendChild(leftPane);
+    panes.appendChild(rightPane);
+    box.appendChild(panes);
+    let dirty = false;
+    let selectedGroupId = null;
+    let memberQuery = "";
+    function renderLeft() {
+      const allNames = getAllNames();
+      const groups = getGroups(settings3, scope);
+      leftPane.innerHTML = "";
+      const head = document.createElement("div");
+      head.className = "st-chatu8-group-pane-title";
+      head.textContent = "\u5206\u7EC4";
+      leftPane.appendChild(head);
+      const list = document.createElement("div");
+      list.className = "st-chatu8-group-manage-list";
+      if (groups.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "st-chatu8-group-dropdown-empty";
+        empty.textContent = "\u8FD8\u6CA1\u6709\u5206\u7EC4\uFF0C\u70B9\u4E0B\u9762\u7684\u300C\u65B0\u5EFA\u5206\u7EC4\u300D\u5F00\u59CB";
+        list.appendChild(empty);
+      }
+      groups.forEach((group, index) => {
+        const row = document.createElement("div");
+        row.className = "st-chatu8-group-manage-row" + (group.id === selectedGroupId ? " active" : "");
+        const name = document.createElement("span");
+        name.className = "st-chatu8-group-manage-name";
+        name.textContent = group.name;
+        row.onclick = () => {
+          if (selectedGroupId === group.id) return;
+          selectedGroupId = group.id;
+          memberQuery = "";
+          renderLeft();
+          renderRight();
+        };
+        const count = document.createElement("span");
+        count.className = "st-chatu8-group-dropdown-count";
+        count.textContent = countMembers(group, allNames);
+        const upBtn = document.createElement("button");
+        upBtn.className = "st-chatu8-group-manage-btn";
+        upBtn.title = "\u4E0A\u79FB";
+        upBtn.disabled = index === 0;
+        upBtn.innerHTML = '<i class="fa-solid fa-chevron-up"></i>';
+        upBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (!moveGroup(settings3, scope, group.id, -1)) return;
+          dirty = true;
+          renderLeft();
+        };
+        const downBtn = document.createElement("button");
+        downBtn.className = "st-chatu8-group-manage-btn";
+        downBtn.title = "\u4E0B\u79FB";
+        downBtn.disabled = index === groups.length - 1;
+        downBtn.innerHTML = '<i class="fa-solid fa-chevron-down"></i>';
+        downBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (!moveGroup(settings3, scope, group.id, 1)) return;
+          dirty = true;
+          renderLeft();
+        };
+        const renameBtn = document.createElement("button");
+        renameBtn.className = "st-chatu8-group-manage-btn";
+        renameBtn.title = "\u91CD\u547D\u540D";
+        renameBtn.innerHTML = '<i class="fa-solid fa-pen-nib"></i>';
+        renameBtn.onclick = async (e) => {
+          e.stopPropagation();
+          const newName = await promptInput(`\u91CD\u547D\u540D\u5206\u7EC4\u300C${group.name}\u300D\uFF1A`, group.name);
+          if (newName === false || newName === group.name) return;
+          if (!renameGroup(settings3, scope, group.id, newName)) {
+            showToast("\u5206\u7EC4\u540D\u79F0\u4E3A\u7A7A\u6216\u5DF2\u5B58\u5728", "warning");
+            return;
+          }
+          dirty = true;
+          renderLeft();
+          if (selectedGroupId === group.id) renderRight();
+        };
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "st-chatu8-group-manage-btn danger";
+        deleteBtn.title = "\u5220\u9664\u5206\u7EC4";
+        deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+        deleteBtn.onclick = async (e) => {
+          e.stopPropagation();
+          const ok = await stylishConfirm(
+            `\u786E\u5B9A\u5220\u9664\u5206\u7EC4\u300C${group.name}\u300D\u5417\uFF1F
+\u53EA\u5220\u9664\u5206\u7EC4\uFF0C\u91CC\u9762\u7684\u6761\u76EE\u4E0D\u4F1A\u88AB\u5220\u9664\u3002`
+          );
+          if (!ok) return;
+          deleteGroup(settings3, scope, group.id);
+          dirty = true;
+          showToast(`\u5DF2\u5220\u9664\u5206\u7EC4\u300C${group.name}\u300D`, "success");
+          if (selectedGroupId === group.id) selectedGroupId = null;
+          renderLeft();
+          renderRight();
+        };
+        row.appendChild(name);
+        row.appendChild(count);
+        row.appendChild(upBtn);
+        row.appendChild(downBtn);
+        row.appendChild(renameBtn);
+        row.appendChild(deleteBtn);
+        list.appendChild(row);
+      });
+      leftPane.appendChild(list);
+      const createBtn = document.createElement("button");
+      createBtn.className = "st-chatu8-btn st-chatu8-group-create-btn";
+      createBtn.innerHTML = '<i class="fa-solid fa-plus"></i> \u65B0\u5EFA\u5206\u7EC4';
+      createBtn.onclick = async () => {
+        const name = await promptInput("\u8BF7\u8F93\u5165\u65B0\u5206\u7EC4\u540D\u79F0\uFF1A", "");
+        if (name === false) return;
+        const group = createGroup(settings3, scope, name);
+        if (!group) {
+          showToast("\u5206\u7EC4\u540D\u79F0\u4E3A\u7A7A\u6216\u5DF2\u5B58\u5728", "warning");
+          return;
+        }
+        dirty = true;
+        selectedGroupId = group.id;
+        memberQuery = "";
+        renderLeft();
+        renderRight();
+      };
+      leftPane.appendChild(createBtn);
+    }
+    function renderMemberList(listEl, footerEl, group) {
+      const allNames = getAllNames();
+      const mine = new Set(group.members);
+      const visible = memberQuery ? allNames.filter((name) => name.toLowerCase().includes(memberQuery)) : allNames;
+      listEl.innerHTML = "";
+      if (visible.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "st-chatu8-group-dropdown-empty";
+        empty.textContent = allNames.length === 0 ? "\u8FD8\u6CA1\u6709\u53EF\u7528\u7684\u6761\u76EE" : "\u6CA1\u6709\u5339\u914D\u7684\u6761\u76EE";
+        listEl.appendChild(empty);
+      }
+      for (const name of visible) {
+        const row = document.createElement("label");
+        row.className = "st-chatu8-group-tag-row";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = mine.has(name);
+        checkbox.onchange = () => {
+          toggleMembership(settings3, scope, group.id, name, checkbox.checked);
+          dirty = true;
+          refreshCounts(footerEl, group);
+        };
+        const label = document.createElement("span");
+        label.className = "st-chatu8-group-tag-name";
+        label.textContent = name;
+        row.appendChild(checkbox);
+        row.appendChild(label);
+        listEl.appendChild(row);
+      }
+      refreshCounts(footerEl, group);
+    }
+    function refreshCounts(footerEl, group) {
+      const allNames = getAllNames();
+      const stat = footerEl.querySelector(".st-chatu8-group-member-stat");
+      if (stat) {
+        stat.textContent = `\u5DF2\u9009 ${countMembers(group, allNames)} / ${allNames.length}`;
+      }
+      const activeCount = leftPane.querySelector(
+        ".st-chatu8-group-manage-row.active .st-chatu8-group-dropdown-count"
+      );
+      if (activeCount) {
+        activeCount.textContent = countMembers(group, allNames);
+      }
+    }
+    function renderRight() {
+      rightPane.innerHTML = "";
+      const groups = getGroups(settings3, scope);
+      const group = groups.find((g) => g.id === selectedGroupId);
+      if (!group) {
+        const empty = document.createElement("div");
+        empty.className = "st-chatu8-group-pane-hint";
+        empty.innerHTML = `
+                    <i class="fa-solid fa-hand-point-left"></i>
+                    <span>${groups.length === 0 ? "\u5148\u65B0\u5EFA\u4E00\u4E2A\u5206\u7EC4" : "\u9009\u62E9\u5DE6\u8FB9\u7684\u5206\u7EC4\u6765\u5B89\u6392\u6210\u5458"}</span>
+                `;
+        rightPane.appendChild(empty);
+        return;
+      }
+      const head = document.createElement("div");
+      head.className = "st-chatu8-group-pane-title";
+      head.textContent = `\u300C${group.name}\u300D\u7684\u6210\u5458`;
+      rightPane.appendChild(head);
+      const search = document.createElement("input");
+      search.type = "text";
+      search.className = "st-chatu8-group-dropdown-search";
+      search.placeholder = "\u641C\u7D22\u6761\u76EE...";
+      search.value = memberQuery;
+      rightPane.appendChild(search);
+      const list = document.createElement("div");
+      list.className = "st-chatu8-group-member-list";
+      rightPane.appendChild(list);
+      const footer = document.createElement("div");
+      footer.className = "st-chatu8-group-member-footer";
+      const stat = document.createElement("span");
+      stat.className = "st-chatu8-group-member-stat";
+      footer.appendChild(stat);
+      const selectAll = document.createElement("button");
+      selectAll.className = "st-chatu8-group-member-action";
+      selectAll.textContent = "\u5168\u9009\u53EF\u89C1";
+      selectAll.onclick = () => {
+        const names = visibleNames();
+        for (const name of names) {
+          toggleMembership(settings3, scope, group.id, name, true);
+        }
+        dirty = true;
+        renderMemberList(list, footer, group);
+      };
+      const clearAll2 = document.createElement("button");
+      clearAll2.className = "st-chatu8-group-member-action";
+      clearAll2.textContent = "\u6E05\u7A7A\u53EF\u89C1";
+      clearAll2.onclick = () => {
+        const names = visibleNames();
+        for (const name of names) {
+          toggleMembership(settings3, scope, group.id, name, false);
+        }
+        dirty = true;
+        renderMemberList(list, footer, group);
+      };
+      footer.appendChild(selectAll);
+      footer.appendChild(clearAll2);
+      rightPane.appendChild(footer);
+      function visibleNames() {
+        const allNames = getAllNames();
+        return memberQuery ? allNames.filter((name) => name.toLowerCase().includes(memberQuery)) : allNames;
+      }
+      search.oninput = (e) => {
+        memberQuery = e.target.value.toLowerCase();
+        renderMemberList(list, footer, group);
+      };
+      renderMemberList(list, footer, group);
+    }
+    const buttons = document.createElement("div");
+    buttons.className = "st-chatu8-confirm-buttons";
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "st-chatu8-btn";
+    closeBtn.textContent = "\u5173\u95ED";
+    closeBtn.onclick = () => {
+      parent.removeChild(backdrop);
+      if (dirty && onChanged) onChanged();
+      resolve();
+    };
+    buttons.appendChild(closeBtn);
+    box.appendChild(buttons);
+    backdrop.appendChild(box);
+    parent.appendChild(backdrop);
+    const initial = getGroups(settings3, scope);
+    if (initial.length > 0) selectedGroupId = initial[0].id;
+    renderLeft();
+    renderRight();
+    closeBtn.focus();
+  });
+}
+var UNGROUPED;
+var init_presetGroupManager = __esm({
+  "utils/settings/presetGroupManager.js"() {
+    init_ui_common();
+    UNGROUPED = "__ungrouped__";
+  }
+});
+
+// utils/settings/presetSearchMatcher.js
+function flattenFieldValue(value) {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) {
+    return value.filter((v) => typeof v === "string").join(" ");
+  }
+  return "";
+}
+function getPresetSearchableText(preset, scope) {
+  if (!preset || typeof preset !== "object") return "";
+  const fields = SEARCHABLE_FIELDS[scope];
+  if (!fields) return "";
+  const parts = [];
+  for (const field of fields) {
+    const text = flattenFieldValue(preset[field]);
+    if (text) parts.push(text);
+  }
+  return parts.join(" ").toLowerCase();
+}
+function matchesPresetSearch(name, preset, scope, query) {
+  if (!query) return true;
+  if (name && name.toLowerCase().includes(query)) return true;
+  return getPresetSearchableText(preset, scope).includes(query);
+}
+function filterPresetsBySearch(names, presets, scope, query) {
+  if (!query) return names;
+  return names.filter((name) => matchesPresetSearch(name, presets?.[name], scope, query));
+}
+var SEARCHABLE_FIELDS;
+var init_presetSearchMatcher = __esm({
+  "utils/settings/presetSearchMatcher.js"() {
+    SEARCHABLE_FIELDS = {
+      // 提示词预设 settings.yushe
+      yushe: [
+        "fixedPrompt",
+        "fixedPrompt_end",
+        "negativePrompt"
+      ],
+      // 角色预设 settings.characterPresets
+      characterPresets: [
+        "nameCN",
+        "nameEN",
+        "characterTraits",
+        "facialFeatures",
+        "facialFeaturesBack",
+        "upperBodySFW",
+        "upperBodySFWBack",
+        "fullBodySFW",
+        "fullBodySFWBack",
+        "upperBodyNSFW",
+        "upperBodyNSFWBack",
+        "fullBodyNSFW",
+        "fullBodyNSFWBack",
+        "negative",
+        "photoPrompt",
+        // 关联的服装预设名单，是字符串数组
+        "outfits"
+      ],
+      // 服装预设 settings.outfitPresets
+      outfitPresets: [
+        "nameCN",
+        "nameEN",
+        "owner",
+        "upperBody",
+        "upperBodyBack",
+        "fullBody",
+        "fullBodyBack",
+        "photoPrompt"
+      ]
+    };
+  }
+});
+
 // utils/settings/character/characterVisualSelector.js
 
 
@@ -19632,6 +21337,7 @@ async function showCharacterVisualSelector(onSelect) {
     defaultPresetName: "\u9ED8\u8BA4\u89D2\u8272",
     imageIdField: "photoImageIds",
     // 角色使用 photoImageIds 数组
+    groupScope: "characterPresets",
     settings: settings3,
     onSelect,
     onRefresh: () => {
@@ -19650,6 +21356,7 @@ async function showOutfitVisualSelector(onSelect) {
     defaultPresetName: "\u9ED8\u8BA4\u670D\u88C5",
     imageIdField: "photoImageIds",
     // 服装也使用 photoImageIds 数组
+    groupScope: "outfitPresets",
     settings: settings3,
     onSelect,
     onRefresh: () => {
@@ -19666,6 +21373,7 @@ async function showGenericVisualSelector(config) {
     currentPresetIdKey,
     defaultPresetName,
     imageIdField,
+    groupScope,
     settings: settings3,
     onSelect,
     onRefresh,
@@ -19680,6 +21388,9 @@ async function showGenericVisualSelector(config) {
   let pageSize = 12;
   let filteredPresetNames = [];
   let searchQuery = "";
+  let currentGroupId = null;
+  let groupDropdown = null;
+  let groupManageBtn = null;
   backdrop.innerHTML = `
         <div class="st-chatu8-workflow-viz-dialog st-chatu8-preset-viz-dialog-wrapper">
             <div class="st-chatu8-workflow-viz-header">
@@ -19689,7 +21400,7 @@ async function showGenericVisualSelector(config) {
             <div class="st-chatu8-workflow-viz-toolbar" style="justify-content: space-between; align-items: center; gap: 15px;">
                 <div class="st-chatu8-viz-search-container" style="position: relative; flex-grow: 1; max-width: 300px;">
                     <i class="fa-solid fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #aaa; pointer-events: none;"></i>
-                    <input type="text" class="st-chatu8-viz-search-input" placeholder="\u641C\u7D22\u9884\u8BBE..." style="width: 100%; padding: 8px 12px 8px 36px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; color: white; outline: none; transition: all 0.3s;">
+                    <input type="text" class="st-chatu8-viz-search-input" placeholder="\u641C\u7D22\u540D\u79F0\u6216\u63D0\u793A\u8BCD\u5185\u5BB9..." style="width: 100%; padding: 8px 12px 8px 36px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; color: white; outline: none; transition: all 0.3s;">
                 </div>
                 <div style="display: flex; gap: 10px;">
                     <div class="st-chatu8-viz-bulk-delete" style="cursor: pointer; padding: 6px 14px; background: rgba(255,255,255,0.1); border-radius: 20px; font-size: 0.9em; user-select: none; white-space: nowrap; display: flex; align-items: center; gap: 6px; transition: all 0.3s;">
@@ -19735,11 +21446,16 @@ async function showGenericVisualSelector(config) {
             </div>
         </div>
     `;
+  function closeDialog() {
+    if (groupDropdown) groupDropdown.destroy();
+    if (groupManageBtn) groupManageBtn.destroy();
+    if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+  }
   const closeBtn = backdrop.querySelector(".st-chatu8-workflow-viz-close");
-  closeBtn.onclick = () => parent.removeChild(backdrop);
+  closeBtn.onclick = () => closeDialog();
   backdrop.onclick = (e) => {
     if (e.target === backdrop) {
-      parent.removeChild(backdrop);
+      closeDialog();
     }
   };
   const searchInput = backdrop.querySelector(".st-chatu8-viz-search-input");
@@ -19753,6 +21469,16 @@ async function showGenericVisualSelector(config) {
   const bulkDeleteBtn = backdrop.querySelector(".st-chatu8-viz-bulk-delete");
   const confirmDeleteBtn = backdrop.querySelector(".st-chatu8-viz-confirm-delete");
   const toggleBtn = backdrop.querySelector(".st-chatu8-viz-mode-toggle");
+  const bulkControls = createBulkSelectControls({
+    container: toggleBtn.parentNode,
+    insertBefore: toggleBtn,
+    selected: selectedForDelete,
+    getSelectable: () => filteredPresetNames.filter((name) => name !== defaultPresetName),
+    onChange: () => {
+      syncCardSelection();
+      updateConfirmButton();
+    }
+  });
   toggleBtn.onclick = () => {
     if (isBulkDeleteMode) {
       exitBulkDeleteMode();
@@ -19770,8 +21496,17 @@ async function showGenericVisualSelector(config) {
     bulkDeleteBtn.style.color = "inherit";
     bulkDeleteBtn.querySelector("span").textContent = "\u6279\u91CF\u5220\u9664";
     confirmDeleteBtn.style.display = "none";
+    bulkControls.hide();
     const cards = backdrop.querySelectorAll(".st-chatu8-preset-card");
     cards.forEach((card) => card.classList.remove("selected-for-delete"));
+  }
+  function syncCardSelection() {
+    const cards = backdrop.querySelectorAll(".st-chatu8-preset-card");
+    cards.forEach((card) => {
+      const name = card.dataset.presetName;
+      const shouldSelect = isBulkDeleteMode && name && selectedForDelete.has(name);
+      card.classList.toggle("selected-for-delete", !!shouldSelect);
+    });
   }
   bulkDeleteBtn.onclick = () => {
     if (wrapper.classList.contains("st-chatu8-mode-manage")) {
@@ -19786,6 +21521,7 @@ async function showGenericVisualSelector(config) {
       bulkDeleteBtn.style.color = "white";
       bulkDeleteBtn.querySelector("span").textContent = "\u53D6\u6D88\u5220\u9664";
       confirmDeleteBtn.style.display = "flex";
+      bulkControls.show();
       updateConfirmButton();
     } else {
       exitBulkDeleteMode();
@@ -19824,11 +21560,12 @@ async function showGenericVisualSelector(config) {
           delete presets[presetName];
           deletedCount++;
         }
+        removeMember(settings3, groupScope, presetName);
         if (settings3[currentPresetIdKey] === presetName) {
           settings3[currentPresetIdKey] = defaultPresetName;
         }
       }
-      await saveSettingsDebounced11();
+      await saveSettingsDebounced12();
       alert(`\u6210\u529F\u5220\u9664 ${deletedCount} \u4E2A\u9884\u8BBE\u3002`);
       exitBulkDeleteMode();
       updateFilteredPresets();
@@ -19837,6 +21574,7 @@ async function showGenericVisualSelector(config) {
         currentPage = totalPages;
       }
       renderCurrentPage();
+      if (groupDropdown) groupDropdown.refresh();
       if (onRefresh) onRefresh();
     }
   };
@@ -19847,18 +21585,42 @@ async function showGenericVisualSelector(config) {
   const paginationTotal = backdrop.querySelector(".st-chatu8-pagination-total");
   const paginationCount = backdrop.querySelector(".st-chatu8-pagination-count");
   const paginationSizeSelect = backdrop.querySelector(".st-chatu8-pagination-size");
-  const allPresetNames = Object.keys(presets).sort(
+  const getAllPresetNames = () => Object.keys(presets).sort(
     (a, b) => a.localeCompare(b, "zh-CN", { sensitivity: "base" })
   );
   const currentPresetId = settings3[currentPresetIdKey];
-  function updateFilteredPresets() {
-    if (searchQuery) {
-      filteredPresetNames = allPresetNames.filter(
-        (name) => name.toLowerCase().includes(searchQuery)
-      );
-    } else {
-      filteredPresetNames = [...allPresetNames];
+  groupDropdown = createGroupDropdown({
+    container: toggleBtn.parentNode,
+    insertBefore: bulkDeleteBtn,
+    settings: settings3,
+    scope: groupScope,
+    getAllNames: getAllPresetNames,
+    onFilterChange: (groupId) => {
+      currentGroupId = groupId;
+      currentPage = 1;
+      updateFilteredPresets();
+      renderCurrentPage();
     }
+  });
+  groupManageBtn = createGroupManageButton({
+    container: toggleBtn.parentNode,
+    insertBefore: bulkDeleteBtn,
+    settings: settings3,
+    scope: groupScope,
+    getAllNames: getAllPresetNames,
+    onChanged: () => {
+      if (groupDropdown) {
+        groupDropdown.syncAfterGroupChange();
+        currentGroupId = groupDropdown.getCurrentGroupId();
+      }
+      currentPage = 1;
+      updateFilteredPresets();
+      renderCurrentPage();
+    }
+  });
+  function updateFilteredPresets() {
+    const names = filterByGroup(getAllPresetNames(), settings3, groupScope, currentGroupId);
+    filteredPresetNames = filterPresetsBySearch(names, presets, groupScope, searchQuery);
   }
   function updatePaginationUI() {
     const totalPages = Math.ceil(filteredPresetNames.length / pageSize) || 1;
@@ -19891,16 +21653,25 @@ async function showGenericVisualSelector(config) {
         presets,
         settings: settings3,
         currentPresetIdKey,
+        groupScope,
         onCardClick: handleCardClick,
         onRefreshGrid: () => {
           updateFilteredPresets();
           renderCurrentPage();
         },
+        onGroupChanged: () => {
+          if (groupDropdown) groupDropdown.refresh();
+          if (groupManageBtn) groupManageBtn.refresh();
+        },
+        onCloseDialog: closeDialog,
         onRefresh,
         loadPresetData
       });
+      card.dataset.presetName = presetName;
       grid.appendChild(card);
     }
+    syncCardSelection();
+    bulkControls.refresh();
     updatePaginationUI();
     grid.style.transition = "opacity 0.3s ease, transform 0.3s ease";
     grid.style.opacity = "1";
@@ -19924,13 +21695,14 @@ async function showGenericVisualSelector(config) {
         cardElement.classList.add("selected-for-delete");
       }
       updateConfirmButton();
+      bulkControls.refresh();
     } else {
       settings3[currentPresetIdKey] = name;
-      saveSettingsDebounced11();
+      saveSettingsDebounced12();
       if (loadPresetData) loadPresetData(name);
       if (onRefresh) onRefresh();
       if (onSelect) onSelect(name);
-      parent.removeChild(backdrop);
+      closeDialog();
     }
   };
   paginationPrev.onclick = () => {
@@ -19965,8 +21737,11 @@ async function createPresetCard(config) {
     presets,
     settings: settings3,
     currentPresetIdKey,
+    groupScope,
     onCardClick,
     onRefreshGrid,
+    onGroupChanged,
+    onCloseDialog,
     onRefresh,
     loadPresetData
   } = config;
@@ -20027,12 +21802,18 @@ async function createPresetCard(config) {
           delete preset.previewImageId;
         }
         preset[imageIdField] = [];
-        saveSettingsDebounced11();
+        saveSettingsDebounced12();
         refreshCardImage(imageContainer, null);
       }
     };
     actions.appendChild(deleteImgBtn);
   }
+  actions.appendChild(createGroupTagButton({
+    settings: settings3,
+    scope: groupScope,
+    itemName: presetName,
+    onChanged: onGroupChanged
+  }));
   const renameBtn = document.createElement("button");
   renameBtn.className = "st-chatu8-preset-action-btn";
   renameBtn.title = "\u91CD\u547D\u540D\u9884\u8BBE";
@@ -20102,8 +21883,10 @@ async function createPresetCard(config) {
           }
         }
       }
-      saveSettingsDebounced11();
+      renameMember(settings3, groupScope, presetName, newName);
+      saveSettingsDebounced12();
       if (onRefresh) onRefresh();
+      if (onGroupChanged) onGroupChanged();
       await onRefreshGrid();
     }
   };
@@ -20127,19 +21910,18 @@ async function createPresetCard(config) {
         await deleteConfigImage(preset.previewImageId);
       }
       delete presets[presetName];
+      removeMember(settings3, groupScope, presetName);
       const isDeletingCurrentPreset = settings3[currentPresetIdKey] === presetName;
       if (isDeletingCurrentPreset) {
         settings3[currentPresetIdKey] = defaultPresetName;
         if (loadPresetData) loadPresetData(defaultPresetName);
       }
-      saveSettingsDebounced11();
+      saveSettingsDebounced12();
       if (onRefresh) onRefresh();
       if (isDeletingCurrentPreset) {
-        const parentElement = card.closest(".st-chatu8-workflow-viz-backdrop");
-        if (parentElement && parentElement.parentNode) {
-          parentElement.parentNode.removeChild(parentElement);
-        }
+        if (onCloseDialog) onCloseDialog();
       } else {
+        if (onGroupChanged) onGroupChanged();
         await onRefreshGrid();
       }
     }
@@ -20196,7 +21978,7 @@ function handleImageUpload(presetName, presets, imageIdField, container) {
           presets[presetName][imageIdField] = [];
         }
         presets[presetName][imageIdField].push(newImageId);
-        saveSettingsDebounced11();
+        saveSettingsDebounced12();
         refreshCardImage(container, base64);
       };
       reader.readAsDataURL(file);
@@ -20213,6 +21995,9 @@ var init_characterVisualSelector = __esm({
     init_configDatabase();
     init_characterPreset();
     init_outfitPreset();
+    init_bulkSelectControls();
+    init_presetGroupManager();
+    init_presetSearchMatcher();
   }
 });
 
@@ -20284,6 +22069,10 @@ function getNovelAIQualityPresetsText(settings3) {
     aqt = "very aesthetic, masterpiece, no text";
   } else if (settings3.AQT_novelai != "" && settings3.novelaimode == "nai-diffusion-4-5-curated") {
     aqt = "very aesthetic, masterpiece, no text, -0.8::feet::, rating:general";
+  } else if (settings3.AQT_novelai != "" && settings3.novelaimode == "nai-diffusion-5-full") {
+    aqt = "very aesthetic, amazing quality, no text";
+  } else if (settings3.AQT_novelai != "" && settings3.novelaimode == "nai-diffusion-5-curated") {
+    aqt = "very aesthetic, masterpiece, no text";
   } else if (settings3.AQT_novelai != "" && settings3.novelaimode == "nai-diffusion-3") {
     aqt = "best quality, amazing quality, very aesthetic, absurdres";
   }
@@ -20315,6 +22104,14 @@ function getNovelAIQualityPresetsText(settings3) {
   } else if (settings3.novelaimode == "nai-diffusion-4-5-full" && settings3.UCP_novelai == "Light") {
     ucp = "lowres, artistic error, scan artifacts, worst quality, bad quality, jpeg artifacts, multiple views, very displeasing, too many watermarks, negative space, blank page";
   } else if (settings3.novelaimode == "nai-diffusion-4-5-full" && settings3.UCP_novelai == "Furry Focus") {
+    ucp = "{worst quality}, distracting watermark, unfinished, bad quality, {widescreen}, upscale, {sequence}, {{grandfathered content}}, blurred foreground, chromatic aberration, sketch, everyone, [sketch background], simple, [flat colors], ych (character), outline, multiple scenes, [[horror (theme)]], comic";
+  } else if (settings3.novelaimode.includes("nai-diffusion-5") && settings3.UCP_novelai == "heavy") {
+    ucp = "lowres, artistic error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, dithering, halftone, screentone, multiple views, logo, too many watermarks, negative space, blank page";
+  } else if (settings3.novelaimode.includes("nai-diffusion-5") && settings3.UCP_novelai == "light") {
+    ucp = "lowres, bad hands, bad anatomy, artistic error, sepia, white haze, worst quality, very displeasing, jpeg artifacts, 0::ai-generated::";
+  } else if (settings3.novelaimode.includes("nai-diffusion-5") && settings3.UCP_novelai == "humanFocus") {
+    ucp = "lowres, artistic error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, dithering, halftone, screentone, multiple views, logo, too many watermarks, negative space, blank page, @_@, mismatched pupils, glowing eyes, bad anatomy";
+  } else if (settings3.novelaimode.includes("nai-diffusion-5") && settings3.UCP_novelai == "furryFocus") {
     ucp = "{worst quality}, distracting watermark, unfinished, bad quality, {widescreen}, upscale, {sequence}, {{grandfathered content}}, blurred foreground, chromatic aberration, sketch, everyone, [sketch background], simple, [flat colors], ych (character), outline, multiple scenes, [[horror (theme)]], comic";
   }
   return { aqt, ucp };
@@ -20360,7 +22157,7 @@ function setupOutfitControls(container) {
     const presetId = settings4.outfitPresetId;
     if (presetId && settings4.outfitPresets[presetId]) {
       settings4.outfitPresets[presetId].sendPhoto = this.checked;
-      saveSettingsDebounced12();
+      saveSettingsDebounced13();
       console.log("[outfitPreset] \u5DF2\u4FDD\u5B58\u670D\u88C5\u53D1\u9001\u56FE\u7247\u8BBE\u7F6E:", this.checked);
     }
   });
@@ -20402,7 +22199,7 @@ function loadOutfitPreset() {
         if (confirmed) {
           settings3.outfitPresetId = newPresetId;
           loadOutfitPresetData(newPresetId);
-          saveSettingsDebounced12();
+          saveSettingsDebounced13();
         } else {
           select.value = currentPresetId;
         }
@@ -20412,7 +22209,7 @@ function loadOutfitPreset() {
   }
   settings3.outfitPresetId = newPresetId;
   loadOutfitPresetData(newPresetId);
-  saveSettingsDebounced12();
+  saveSettingsDebounced13();
 }
 function loadOutfitPresetData(presetId) {
   const settings3 = extension_settings19[extensionName];
@@ -20483,7 +22280,7 @@ function createNewOutfitPreset() {
       };
       settings3.outfitPresets[result] = emptyPreset;
       settings3.outfitPresetId = result;
-      saveSettingsDebounced12();
+      saveSettingsDebounced13();
       loadOutfitPresetList();
       loadOutfitPresetData(result);
       toastr.success(`\u7A7A\u767D\u670D\u88C5\u9884\u8BBE "${result}" \u5DF2\u521B\u5EFA\u3002`);
@@ -20510,7 +22307,7 @@ function renameOutfitPreset() {
       settings3.outfitPresets[newName] = settings3.outfitPresets[currentName];
       delete settings3.outfitPresets[currentName];
       settings3.outfitPresetId = newName;
-      saveSettingsDebounced12();
+      saveSettingsDebounced13();
       loadOutfitPresetList();
       try {
         if (typeof window.loadSilterTavernChatu8Settings === "function") {
@@ -20544,7 +22341,7 @@ function saveCurrentOutfitData(presetId) {
   const existingPreset = settings3.outfitPresets[presetId] || {};
   preset.photoImageIds = existingPreset.photoImageIds || [];
   settings3.outfitPresets[presetId] = preset;
-  saveSettingsDebounced12();
+  saveSettingsDebounced13();
 }
 function deleteOutfitPreset() {
   const settings3 = extension_settings19[extensionName];
@@ -20559,7 +22356,7 @@ function deleteOutfitPreset() {
       settings3.outfitPresetId = "\u9ED8\u8BA4\u670D\u88C5";
       loadOutfitPresetList();
       loadOutfitPreset();
-      saveSettingsDebounced12();
+      saveSettingsDebounced13();
     }
   });
 }
@@ -20727,7 +22524,7 @@ function importOutfitPreset() {
             settings3.outfitPresets[key] = outfitsToImport[key];
           }
         }
-        saveSettingsDebounced12();
+        saveSettingsDebounced13();
         loadOutfitPresetList();
         const firstImportedKey = Object.keys(outfitsToImport)[0];
         if (firstImportedKey) {
@@ -20902,7 +22699,7 @@ async function loadOutfitPhoto(preset) {
   if (preset.photoImageId && (!preset.photoImageIds || preset.photoImageIds.length === 0)) {
     preset.photoImageIds = [preset.photoImageId];
     delete preset.photoImageId;
-    saveSettingsDebounced12();
+    saveSettingsDebounced13();
   }
   const imageIds = preset.photoImageIds || [];
   let selectedIndex = preset.selectedPhotoIndex || 0;
@@ -20967,7 +22764,7 @@ async function handleOutfitPhotoGenerate() {
         }
         preset.photoImageIds.push(imageId);
         preset.selectedPhotoIndex = preset.photoImageIds.length - 1;
-        saveSettingsDebounced12();
+        saveSettingsDebounced13();
         const photoPreview = document.getElementById("outfit_photo_preview");
         const photoPlaceholder = document.getElementById("outfit_photo_placeholder");
         if (photoPreview && photoPlaceholder) {
@@ -21026,7 +22823,7 @@ async function handleOutfitPhotoUpload(event) {
       }
       preset.photoImageIds.push(imageId);
       preset.selectedPhotoIndex = preset.photoImageIds.length - 1;
-      saveSettingsDebounced12();
+      saveSettingsDebounced13();
       const photoPreview = document.getElementById("outfit_photo_preview");
       const photoPlaceholder = document.getElementById("outfit_photo_placeholder");
       if (photoPreview && photoPlaceholder) {
@@ -21408,7 +23205,7 @@ async function showOutfitImageViewer(imageIds, initialIndex) {
     document.removeEventListener("keydown", handleKeyDown);
     if (preset) {
       preset.selectedPhotoIndex = currentIndex;
-      saveSettingsDebounced12();
+      saveSettingsDebounced13();
       const photoPreview = document.getElementById("outfit_photo_preview");
       const photoPlaceholder = document.getElementById("outfit_photo_placeholder");
       if (imageIds.length > 0 && currentIndex >= 0 && currentIndex < imageIds.length) {
@@ -21479,7 +23276,7 @@ async function showOutfitImageViewer(imageIds, initialIndex) {
           const deleteIndex = preset.photoImageIds.indexOf(imageIdToDelete);
           if (deleteIndex > -1) {
             preset.photoImageIds.splice(deleteIndex, 1);
-            saveSettingsDebounced12();
+            saveSettingsDebounced13();
           }
         }
         imageIds.splice(currentIndex, 1);
@@ -21527,7 +23324,7 @@ async function showOutfitImageViewer(imageIds, initialIndex) {
         }
         if (preset && preset.photoImageIds) {
           preset.photoImageIds = [currentImageId];
-          saveSettingsDebounced12();
+          saveSettingsDebounced13();
         }
         imageIds.length = 0;
         imageIds.push(currentImageId);
@@ -21555,6 +23352,462 @@ var init_outfitPreset = __esm({
     init_characterVisualSelector();
     init_novelaiTokenCalculator();
     activeOutfitPhotoRequests = /* @__PURE__ */ new Map();
+  }
+});
+
+// utils/settings/character/injectionTemplates.js
+
+
+function getCharacterPromptData(character, outfitsText = "") {
+  if (!character) return {};
+  return {
+    nameCN: character.nameCN || "",
+    nameEN: character.nameEN ? character.nameEN.split("|")[0].trim() : "",
+    traits: character.characterTraits || "",
+    facial: character.facialFeatures || "",
+    facialBack: character.facialFeaturesBack || "",
+    upperSFW: character.upperBodySFW || "",
+    upperSFWBack: character.upperBodySFWBack || "",
+    // 字段名是 fullBody*，但 UI 文案是「下半身」，两套名字都提供
+    fullSFW: character.fullBodySFW || "",
+    fullSFWBack: character.fullBodySFWBack || "",
+    lowerSFW: character.fullBodySFW || "",
+    lowerSFWBack: character.fullBodySFWBack || "",
+    upperNSFW: character.upperBodyNSFW || "",
+    upperNSFWBack: character.upperBodyNSFWBack || "",
+    fullNSFW: character.fullBodyNSFW || "",
+    fullNSFWBack: character.fullBodyNSFWBack || "",
+    lowerNSFW: character.fullBodyNSFW || "",
+    lowerNSFWBack: character.fullBodyNSFWBack || "",
+    negative: character.negative || "",
+    outfits: outfitsText || ""
+  };
+}
+function getOutfitPromptData(outfit) {
+  if (!outfit) return {};
+  return {
+    nameCN: outfit.nameCN || "",
+    nameEN: outfit.nameEN ? outfit.nameEN.split("|")[0].trim() : "",
+    upperBody: outfit.upperBody || "",
+    upperBodyBack: outfit.upperBodyBack || "",
+    // 字段名是 fullBody*，但 UI 文案是「下半身」，两套名字都提供
+    fullBody: outfit.fullBody || "",
+    fullBodyBack: outfit.fullBodyBack || "",
+    lowerBody: outfit.fullBody || "",
+    lowerBodyBack: outfit.fullBodyBack || ""
+  };
+}
+function getSystemDefaultInjectionTemplates() {
+  return { ...SYSTEM_INJECTION_TEMPLATES["\u9ED8\u8BA4\u65B9\u6848"] };
+}
+function applyInjectionTemplate(templateStr, dataMap) {
+  if (!templateStr || typeof templateStr !== "string") return "";
+  const data = dataMap || {};
+  const resultLines = [];
+  let placeholderLineCount = 0;
+  let keptPlaceholderLineCount = 0;
+  for (const rawLine of templateStr.split(/\r?\n/)) {
+    const matches = [...rawLine.matchAll(PLACEHOLDER_RE)];
+    if (matches.length === 0) {
+      resultLines.push(rawLine);
+      continue;
+    }
+    placeholderLineCount++;
+    const hasValue = matches.some((m) => {
+      const v = data[m[1]];
+      return v !== void 0 && v !== null && String(v).trim() !== "";
+    });
+    if (!hasValue) continue;
+    const replaced = rawLine.replace(PLACEHOLDER_RE, (_, key) => {
+      const v = data[key];
+      return v !== void 0 && v !== null ? String(v) : "";
+    });
+    resultLines.push(replaced);
+    keptPlaceholderLineCount++;
+  }
+  if (placeholderLineCount > 0 && keptPlaceholderLineCount === 0) {
+    return "";
+  }
+  return resultLines.join("\n");
+}
+function ensureInjectionTemplatesInit() {
+  const settings3 = extension_settings20[extensionName];
+  if (!settings3) return;
+  if (!settings3.injectionTemplates || typeof settings3.injectionTemplates !== "object") {
+    settings3.injectionTemplates = { presets: {}, currentPresetId: "\u9ED8\u8BA4\u65B9\u6848" };
+  }
+  if (!settings3.injectionTemplates.presets || typeof settings3.injectionTemplates.presets !== "object") {
+    settings3.injectionTemplates.presets = {};
+  }
+  for (const [id, tpl] of Object.entries(SYSTEM_INJECTION_TEMPLATES)) {
+    if (!settings3.injectionTemplates.presets[id]) {
+      settings3.injectionTemplates.presets[id] = { ...tpl };
+    }
+  }
+  const currentId = settings3.injectionTemplates.currentPresetId;
+  if (!currentId || !settings3.injectionTemplates.presets[currentId]) {
+    settings3.injectionTemplates.currentPresetId = "\u9ED8\u8BA4\u65B9\u6848";
+  }
+}
+function getActiveInjectionTemplates() {
+  ensureInjectionTemplatesInit();
+  const settings3 = extension_settings20[extensionName];
+  const defaults = SYSTEM_INJECTION_TEMPLATES["\u9ED8\u8BA4\u65B9\u6848"];
+  const currentId = settings3?.injectionTemplates?.currentPresetId || "\u9ED8\u8BA4\u65B9\u6848";
+  const preset = settings3?.injectionTemplates?.presets?.[currentId] || {};
+  return {
+    characterListTemplate: preset.characterListTemplate ?? defaults.characterListTemplate,
+    innerOutfitTemplate: preset.innerOutfitTemplate ?? defaults.innerOutfitTemplate,
+    commonCharacterListTemplate: preset.commonCharacterListTemplate ?? defaults.commonCharacterListTemplate,
+    enableOutfitListTemplate: preset.enableOutfitListTemplate ?? defaults.enableOutfitListTemplate
+  };
+}
+function renderCharacterOutfitsText(character, outfitPresets, innerOutfitTemplate) {
+  if (!Array.isArray(character?.outfits) || character.outfits.length === 0) return "";
+  const blocks = [];
+  for (const outfitId of character.outfits) {
+    const outfit = outfitPresets?.[outfitId];
+    if (!outfit) continue;
+    const rendered = applyInjectionTemplate(innerOutfitTemplate, getOutfitPromptData(outfit));
+    if (rendered.trim()) blocks.push(rendered);
+  }
+  return blocks.length > 0 ? "\n\n" + blocks.join("\n\n") : "";
+}
+function readTemplatesFromUI(container) {
+  const result = {};
+  for (const [domId, field] of TEMPLATE_FIELDS) {
+    result[field] = container.find("#" + domId).val() || "";
+  }
+  return result;
+}
+function updateInjectionTemplateUI(container) {
+  ensureInjectionTemplatesInit();
+  const settings3 = extension_settings20[extensionName];
+  if (!settings3?.injectionTemplates) return;
+  const presets = settings3.injectionTemplates.presets;
+  const currentId = settings3.injectionTemplates.currentPresetId || "\u9ED8\u8BA4\u65B9\u6848";
+  const $select = container.find("#injection_template_preset_id");
+  $select.empty();
+  for (const id of Object.keys(presets)) {
+    $select.append($("<option></option>").attr("value", id).text(id));
+  }
+  $select.val(currentId);
+  const active = presets[currentId] || getSystemDefaultInjectionTemplates();
+  for (const [domId, field] of TEMPLATE_FIELDS) {
+    container.find("#" + domId).val(active[field] || "");
+  }
+  renderInjectionTemplateLivePreview(container);
+}
+function renderInjectionTemplateLivePreview(container) {
+  const tpls = readTemplatesFromUI(container);
+  const sections = [];
+  const charTexts = [];
+  for (const sample of [PREVIEW_SAMPLE_CHARACTER, PREVIEW_SAMPLE_CHARACTER_PARTIAL]) {
+    const outfitsText = renderCharacterOutfitsText(sample, PREVIEW_SAMPLE_OUTFITS, tpls.innerOutfitTemplate);
+    const text = applyInjectionTemplate(tpls.characterListTemplate, getCharacterPromptData(sample, outfitsText));
+    if (text.trim()) charTexts.push(text);
+  }
+  sections.push("=== \u3010\u89D2\u8272\u542F\u7528\u5217\u8868\u3011 ===\n" + (charTexts.join("\n\n") || "\uFF08\u65E0\u8F93\u51FA\uFF09"));
+  const commonCharTexts = [];
+  for (const sample of [PREVIEW_SAMPLE_CHARACTER, PREVIEW_SAMPLE_CHARACTER_PARTIAL]) {
+    const text = applyInjectionTemplate(tpls.commonCharacterListTemplate, getCharacterPromptData(sample)).trim();
+    if (text) commonCharTexts.push(text);
+  }
+  sections.push("=== \u3010\u901A\u7528\u89D2\u8272\u542F\u7528\u5217\u8868\u3011 ===\n" + (commonCharTexts.join("\n") || "\uFF08\u65E0\u8F93\u51FA\uFF09"));
+  const outfitText = applyInjectionTemplate(
+    tpls.enableOutfitListTemplate,
+    getOutfitPromptData(PREVIEW_SAMPLE_OUTFITS.__preview_common_outfit__)
+  );
+  sections.push("=== \u3010\u901A\u7528\u670D\u88C5\u542F\u7528\u5217\u8868\u3011 ===\n" + (outfitText.trim() || "\uFF08\u65E0\u8F93\u51FA\uFF09"));
+  container.find("#tpl_live_preview").val(sections.join("\n\n"));
+}
+function setupInjectionTemplateControls(container) {
+  updateInjectionTemplateUI(container);
+  let $lastActive = container.find("#tpl_characterListTemplate");
+  container.find(TEMPLATE_TEXTAREA_SELECTOR).off("focus.injTpl click.injTpl").on("focus.injTpl click.injTpl", function() {
+    $lastActive = $(this);
+  });
+  container.find(TEMPLATE_TEXTAREA_SELECTOR).off("input.injTpl").on("input.injTpl", function() {
+    renderInjectionTemplateLivePreview(container);
+  });
+  container.find(".var-tab-btn").off("click.injTpl").on("click.injTpl", function(e) {
+    e.preventDefault();
+    container.find(".var-tab-btn").removeClass("primary active");
+    $(this).addClass("primary active");
+    const tab = $(this).data("tab");
+    container.find(".var-panel").hide();
+    container.find(`#var-panel-${tab}`).css("display", "flex");
+  });
+  container.find(".st-chatu8-var-btn").off("click.injTpl").on("click.injTpl", function(e) {
+    e.preventDefault();
+    const varTag = $(this).data("var");
+    if (!varTag) return;
+    if (!$lastActive || $lastActive.length === 0) {
+      $lastActive = container.find("#tpl_characterListTemplate");
+    }
+    const el = $lastActive[0];
+    if (!el) return;
+    const start = el.selectionStart ?? 0;
+    const end = el.selectionEnd ?? 0;
+    const val = $lastActive.val() || "";
+    $lastActive.val(val.substring(0, start) + varTag + val.substring(end));
+    el.focus();
+    el.selectionStart = el.selectionEnd = start + varTag.length;
+    renderInjectionTemplateLivePreview(container);
+  });
+  container.find("#injection_template_refresh_preview").off("click.injTpl").on("click.injTpl", function() {
+    renderInjectionTemplateLivePreview(container);
+  });
+  container.find("#injection_template_preset_id").off("change.injTpl").on("change.injTpl", function() {
+    ensureInjectionTemplatesInit();
+    extension_settings20[extensionName].injectionTemplates.currentPresetId = $(this).val();
+    saveSettingsDebounced14();
+    updateInjectionTemplateUI(container);
+  });
+  container.find("#injection_template_update").off("click.injTpl").on("click.injTpl", function() {
+    ensureInjectionTemplatesInit();
+    const injTpl = extension_settings20[extensionName].injectionTemplates;
+    const currentId = injTpl.currentPresetId || "\u9ED8\u8BA4\u65B9\u6848";
+    injTpl.presets[currentId] = readTemplatesFromUI(container);
+    saveSettingsDebounced14();
+    toastr.success(`\u65B9\u6848\u300C${currentId}\u300D\u5DF2\u4FDD\u5B58`);
+  });
+  container.find("#injection_template_new").off("click.injTpl").on("click.injTpl", function() {
+    stylInput("\u8BF7\u8F93\u5165\u65B0\u7684\u63D0\u793A\u8BCD\u6CE8\u5165\u6A21\u677F\u65B9\u6848\u540D\u79F0").then((newName) => {
+      if (!newName || !newName.trim()) return;
+      ensureInjectionTemplatesInit();
+      const injTpl = extension_settings20[extensionName].injectionTemplates;
+      const id = newName.trim();
+      if (injTpl.presets[id]) {
+        toastr.error(`\u65B9\u6848\u300C${id}\u300D\u5DF2\u5B58\u5728`);
+        return;
+      }
+      injTpl.presets[id] = getSystemDefaultInjectionTemplates();
+      injTpl.currentPresetId = id;
+      saveSettingsDebounced14();
+      updateInjectionTemplateUI(container);
+      toastr.success(`\u5DF2\u65B0\u5EFA\u65B9\u6848\u300C${id}\u300D`);
+    });
+  });
+  container.find("#injection_template_save_as").off("click.injTpl").on("click.injTpl", function() {
+    stylInput("\u8BF7\u8F93\u5165\u53E6\u5B58\u4E3A\u7684\u65B0\u65B9\u6848\u540D\u79F0").then((newName) => {
+      if (!newName || !newName.trim()) return;
+      ensureInjectionTemplatesInit();
+      const injTpl = extension_settings20[extensionName].injectionTemplates;
+      const id = newName.trim();
+      if (injTpl.presets[id]) {
+        toastr.error(`\u65B9\u6848\u300C${id}\u300D\u5DF2\u5B58\u5728`);
+        return;
+      }
+      injTpl.presets[id] = readTemplatesFromUI(container);
+      injTpl.currentPresetId = id;
+      saveSettingsDebounced14();
+      updateInjectionTemplateUI(container);
+      toastr.success(`\u5DF2\u53E6\u5B58\u4E3A\u65B9\u6848\u300C${id}\u300D`);
+    });
+  });
+  container.find("#injection_template_rename").off("click.injTpl").on("click.injTpl", function() {
+    ensureInjectionTemplatesInit();
+    const injTpl = extension_settings20[extensionName].injectionTemplates;
+    const oldId = injTpl.currentPresetId || "\u9ED8\u8BA4\u65B9\u6848";
+    if (SYSTEM_PRESET_IDS.includes(oldId)) {
+      toastr.warning(`\u7CFB\u7EDF\u9884\u7F6E\u65B9\u6848\u300C${oldId}\u300D\u4E0D\u53EF\u91CD\u547D\u540D`);
+      return;
+    }
+    stylInput("\u8BF7\u8F93\u5165\u65B0\u7684\u65B9\u6848\u540D\u79F0", oldId).then((newName) => {
+      if (!newName || !newName.trim()) return;
+      const newId = newName.trim();
+      if (newId === oldId) return;
+      if (injTpl.presets[newId]) {
+        toastr.error(`\u65B9\u6848\u300C${newId}\u300D\u5DF2\u5B58\u5728`);
+        return;
+      }
+      injTpl.presets[newId] = injTpl.presets[oldId];
+      delete injTpl.presets[oldId];
+      injTpl.currentPresetId = newId;
+      saveSettingsDebounced14();
+      updateInjectionTemplateUI(container);
+      toastr.success("\u65B9\u6848\u5DF2\u91CD\u547D\u540D");
+    });
+  });
+  container.find("#injection_template_reset").off("click.injTpl").on("click.injTpl", function() {
+    ensureInjectionTemplatesInit();
+    const injTpl = extension_settings20[extensionName].injectionTemplates;
+    const currentId = injTpl.currentPresetId || "\u9ED8\u8BA4\u65B9\u6848";
+    stylishConfirm(`\u662F\u5426\u786E\u5B9A\u628A\u65B9\u6848\u300C${currentId}\u300D\u6062\u590D\u4E3A\u9ED8\u8BA4\u5185\u5BB9`).then((confirmed) => {
+      if (!confirmed) return;
+      const source = SYSTEM_INJECTION_TEMPLATES[currentId] || SYSTEM_INJECTION_TEMPLATES["\u9ED8\u8BA4\u65B9\u6848"];
+      injTpl.presets[currentId] = { ...source };
+      saveSettingsDebounced14();
+      updateInjectionTemplateUI(container);
+      toastr.success(`\u65B9\u6848\u300C${currentId}\u300D\u5DF2\u6062\u590D\u9ED8\u8BA4\u5185\u5BB9`);
+    });
+  });
+  container.find("#injection_template_delete").off("click.injTpl").on("click.injTpl", function() {
+    ensureInjectionTemplatesInit();
+    const injTpl = extension_settings20[extensionName].injectionTemplates;
+    const currentId = injTpl.currentPresetId || "\u9ED8\u8BA4\u65B9\u6848";
+    if (SYSTEM_PRESET_IDS.includes(currentId)) {
+      toastr.warning(`\u7CFB\u7EDF\u9884\u7F6E\u65B9\u6848\u300C${currentId}\u300D\u4E0D\u53EF\u5220\u9664`);
+      return;
+    }
+    stylishConfirm(`\u662F\u5426\u786E\u5B9A\u5220\u9664\u65B9\u6848\u300C${currentId}\u300D`).then((confirmed) => {
+      if (!confirmed) return;
+      delete injTpl.presets[currentId];
+      injTpl.currentPresetId = "\u9ED8\u8BA4\u65B9\u6848";
+      saveSettingsDebounced14();
+      updateInjectionTemplateUI(container);
+      toastr.success(`\u65B9\u6848\u300C${currentId}\u300D\u5DF2\u5220\u9664`);
+    });
+  });
+}
+var SYSTEM_PRESET_IDS, SYSTEM_INJECTION_TEMPLATES, PLACEHOLDER_RE, TEMPLATE_FIELDS, TEMPLATE_TEXTAREA_SELECTOR, PREVIEW_SAMPLE_CHARACTER, PREVIEW_SAMPLE_CHARACTER_PARTIAL, PREVIEW_SAMPLE_OUTFITS;
+var init_injectionTemplates = __esm({
+  "utils/settings/character/injectionTemplates.js"() {
+    init_config();
+    init_ui_common();
+    SYSTEM_PRESET_IDS = ["\u9ED8\u8BA4\u65B9\u6848", "Tavern XML \u683C\u5F0F", "Markdown \u6781\u7B80\u5361\u7247"];
+    SYSTEM_INJECTION_TEMPLATES = {
+      "\u9ED8\u8BA4\u65B9\u6848": {
+        characterListTemplate: [
+          "\u4E2D\u6587\u540D\u79F0\uFF1A{nameCN}",
+          "\u82F1\u6587\u540D\u79F0\uFF1A{nameEN}",
+          "\u89D2\u8272\u7279\u5F81\uFF1A{traits}",
+          "\u4E94\u5B98\u5916\u8C8C\uFF08\u6B63\u9762\uFF09\uFF1A{facial}",
+          "\u4E94\u5B98\u5916\u8C8C\uFF08\u80CC\u9762\uFF09\uFF1A{facialBack}",
+          "\u4E0A\u534A\u8EABSFW\uFF08\u6B63\u9762\uFF09\uFF1A{upperSFW}",
+          "\u4E0A\u534A\u8EABSFW\uFF08\u80CC\u9762\uFF09\uFF1A{upperSFWBack}",
+          "\u4E0B\u534A\u8EABSFW\uFF08\u6B63\u9762\uFF09\uFF1A{lowerSFW}",
+          "\u4E0B\u534A\u8EABSFW\uFF08\u80CC\u9762\uFF09\uFF1A{lowerSFWBack}",
+          "\u4E0A\u534A\u8EABNSFW\uFF08\u6B63\u9762\uFF09\uFF1A{upperNSFW}",
+          "\u4E0A\u534A\u8EABNSFW\uFF08\u80CC\u9762\uFF09\uFF1A{upperNSFWBack}",
+          "\u4E0B\u534A\u8EABNSFW\uFF08\u6B63\u9762\uFF09\uFF1A{lowerNSFW}",
+          "\u4E0B\u534A\u8EABNSFW\uFF08\u80CC\u9762\uFF09\uFF1A{lowerNSFWBack}",
+          "\u670D\u88C5\u5217\u8868\uFF1A{outfits}"
+        ].join("\n"),
+        innerOutfitTemplate: [
+          "  \u4E2D\u6587\u540D\u79F0\uFF1A{nameCN}",
+          "  \u82F1\u6587\u540D\u79F0\uFF1A{nameEN}",
+          "  \u4E0A\u534A\u8EAB\uFF08\u6B63\u9762\uFF09\uFF1A{upperBody}",
+          "  \u4E0A\u534A\u8EAB\uFF08\u80CC\u9762\uFF09\uFF1A{upperBodyBack}",
+          "  \u4E0B\u534A\u8EAB\uFF08\u6B63\u9762\uFF09\uFF1A{lowerBody}",
+          "  \u4E0B\u534A\u8EAB\uFF08\u80CC\u9762\uFF09\uFF1A{lowerBodyBack}"
+        ].join("\n"),
+        commonCharacterListTemplate: "{nameCN} {nameEN}",
+        enableOutfitListTemplate: [
+          "\u4E2D\u6587\u540D\u79F0\uFF1A{nameCN}",
+          "\u82F1\u6587\u540D\u79F0\uFF1A{nameEN}",
+          "\u4E0A\u534A\u8EAB\uFF08\u6B63\u9762\uFF09\uFF1A{upperBody}",
+          "\u4E0A\u534A\u8EAB\uFF08\u80CC\u9762\uFF09\uFF1A{upperBodyBack}",
+          "\u4E0B\u534A\u8EAB\uFF08\u6B63\u9762\uFF09\uFF1A{lowerBody}",
+          "\u4E0B\u534A\u8EAB\uFF08\u80CC\u9762\uFF09\uFF1A{lowerBodyBack}"
+        ].join("\n")
+      },
+      "Tavern XML \u683C\u5F0F": {
+        characterListTemplate: [
+          '<character id="{nameEN}" cn="{nameCN}">',
+          "  [Traits] {traits}",
+          "  [Face] Front: {facial}",
+          "  [Face] Back: {facialBack}",
+          "  [SFW] Upper: {upperSFW}",
+          "  [SFW] Lower: {lowerSFW}",
+          "  [NSFW] Upper: {upperNSFW}",
+          "  [NSFW] Lower: {lowerNSFW}",
+          "  [Outfits]{outfits}",
+          "</character>"
+        ].join("\n"),
+        innerOutfitTemplate: [
+          '  <outfit id="{nameEN}" cn="{nameCN}">',
+          "    [Upper] {upperBody}",
+          "    [Lower] {lowerBody}",
+          "  </outfit>"
+        ].join("\n"),
+        commonCharacterListTemplate: '<common_character id="{nameEN}" cn="{nameCN}" />',
+        enableOutfitListTemplate: [
+          '<common_outfit id="{nameEN}" cn="{nameCN}">',
+          "  [Upper] {upperBody}",
+          "  [Lower] {lowerBody}",
+          "</common_outfit>"
+        ].join("\n")
+      },
+      "Markdown \u6781\u7B80\u5361\u7247": {
+        characterListTemplate: [
+          "### {nameCN}\uFF08{nameEN}\uFF09",
+          "- \u7279\u5F81\uFF1A{traits}",
+          "- \u4E94\u5B98\uFF1A{facial}",
+          "- \u4E0A\u534A\u8EAB\uFF1A{upperSFW}",
+          "- \u4E0B\u534A\u8EAB\uFF1A{lowerSFW}",
+          "- \u4E0A\u534A\u8EABNSFW\uFF1A{upperNSFW}",
+          "- \u4E0B\u534A\u8EABNSFW\uFF1A{lowerNSFW}",
+          "- \u670D\u88C5\uFF1A{outfits}"
+        ].join("\n"),
+        innerOutfitTemplate: [
+          "  - **{nameCN}**\uFF08{nameEN}\uFF09",
+          "    - \u4E0A\u534A\u8EAB\uFF1A{upperBody}",
+          "    - \u4E0B\u534A\u8EAB\uFF1A{lowerBody}"
+        ].join("\n"),
+        commonCharacterListTemplate: "- {nameCN}\uFF08{nameEN}\uFF09",
+        enableOutfitListTemplate: [
+          "### {nameCN}\uFF08{nameEN}\uFF09",
+          "- \u4E0A\u534A\u8EAB\uFF1A{upperBody}",
+          "- \u4E0B\u534A\u8EAB\uFF1A{lowerBody}"
+        ].join("\n")
+      }
+    };
+    PLACEHOLDER_RE = /\{([a-zA-Z0-9_]+)\}/g;
+    TEMPLATE_FIELDS = [
+      ["tpl_characterListTemplate", "characterListTemplate"],
+      ["tpl_innerOutfitTemplate", "innerOutfitTemplate"],
+      ["tpl_commonCharacterListTemplate", "commonCharacterListTemplate"],
+      ["tpl_enableOutfitListTemplate", "enableOutfitListTemplate"]
+    ];
+    TEMPLATE_TEXTAREA_SELECTOR = TEMPLATE_FIELDS.map(([id]) => "#" + id).join(", ");
+    PREVIEW_SAMPLE_CHARACTER = {
+      nameCN: "\u7231\u4E3D\u4E1D",
+      nameEN: "Alice",
+      characterTraits: "1girl, solo, masterpiece, blonde hair, blue eyes",
+      facialFeatures: "cute smile, delicate face",
+      facialFeaturesBack: "long flowing blonde hair",
+      upperBodySFW: "pale skin, slender arms, collarbone",
+      upperBodySFWBack: "slender spine, shoulder blades",
+      fullBodySFW: "long legs, thigh gap",
+      fullBodySFWBack: "gluteal fold",
+      upperBodyNSFW: "small breasts, pink nipples",
+      upperBodyNSFWBack: "waist dimples, smooth back",
+      fullBodyNSFW: "shaved pussy",
+      fullBodyNSFWBack: "plump butt",
+      negative: "lowres, bad anatomy",
+      outfits: ["__preview_outfit__"]
+    };
+    PREVIEW_SAMPLE_CHARACTER_PARTIAL = {
+      nameCN: "\u8D1D\u8482",
+      nameEN: "Betty",
+      characterTraits: "1girl, solo, silver hair, red eyes",
+      facialFeatures: "cool expression, twin braids",
+      facialFeaturesBack: "twin braids back",
+      upperBodySFW: "fair skin, toned waist",
+      upperBodySFWBack: "back curvature",
+      fullBodySFW: "thick thighs",
+      fullBodySFWBack: "plump glutes"
+    };
+    PREVIEW_SAMPLE_OUTFITS = {
+      __preview_outfit__: {
+        nameCN: "JK\u5236\u670D",
+        nameEN: "JK Uniform",
+        upperBody: "white collared shirt, red ribbon",
+        upperBodyBack: "sailor collar back",
+        fullBody: "pleated navy skirt",
+        fullBodyBack: "pleated skirt back"
+      },
+      __preview_common_outfit__: {
+        nameCN: "\u8FD0\u52A8\u670D",
+        nameEN: "Tracksuit",
+        upperBody: "zipper jacket, athletic wear",
+        upperBodyBack: "sports logo on back",
+        fullBody: "track pants, sneakers",
+        fullBodyBack: "pants back seam"
+      }
+    };
   }
 });
 
@@ -21610,7 +23863,7 @@ function getTriggeredCharacterName(character, triggerText) {
   return null;
 }
 function inspectCharacterListTrigger(triggerText) {
-  const settings3 = extension_settings20[extensionName] || {};
+  const settings3 = extension_settings21[extensionName] || {};
   const enablePresetId = settings3.characterEnablePresetId || "";
   const enablePreset = settings3.characterEnablePresets?.[enablePresetId];
   if (!enablePreset || !Array.isArray(enablePreset.characters)) {
@@ -21647,12 +23900,13 @@ function inspectCharacterListTrigger(triggerText) {
   };
 }
 function generateCharacterListText(triggerText = null) {
-  const settings3 = extension_settings20[extensionName];
+  const settings3 = extension_settings21[extensionName];
   const enablePresetId = settings3.characterEnablePresetId;
   const enablePreset = settings3.characterEnablePresets?.[enablePresetId];
   if (!enablePreset || !Array.isArray(enablePreset.characters) || enablePreset.characters.length === 0) {
     return "\uFF08\u6682\u65E0\u542F\u7528\u7684\u89D2\u8272\uFF09";
   }
+  const templates = getActiveInjectionTemplates();
   const characterList = [];
   for (const charId of enablePreset.characters) {
     const character = settings3.characterPresets?.[charId];
@@ -21662,149 +23916,68 @@ function generateCharacterListText(triggerText = null) {
         continue;
       }
     }
-    const charInfo = [];
-    if (character.nameCN) {
-      charInfo.push(`\u4E2D\u6587\u540D\u79F0\uFF1A${character.nameCN}`);
-    }
-    if (character.nameEN) {
-      const displayName = character.nameEN.split("|")[0].trim();
-      charInfo.push(`\u82F1\u6587\u540D\u79F0\uFF1A${displayName}`);
-    }
-    if (character.characterTraits) {
-      charInfo.push(`\u89D2\u8272\u7279\u5F81\uFF1A${character.characterTraits}`);
-    }
-    if (character.facialFeatures) {
-      charInfo.push(`\u4E94\u5B98\u5916\u8C8C\uFF08\u6B63\u9762\uFF09\uFF1A${character.facialFeatures}`);
-    }
-    if (character.facialFeaturesBack) {
-      charInfo.push(`\u4E94\u5B98\u5916\u8C8C\uFF08\u80CC\u9762\uFF09\uFF1A${character.facialFeaturesBack}`);
-    }
-    if (character.upperBodySFW) {
-      charInfo.push(`\u4E0A\u534A\u8EABSFW\uFF08\u6B63\u9762\uFF09\uFF1A${character.upperBodySFW}`);
-    }
-    if (character.upperBodySFWBack) {
-      charInfo.push(`\u4E0A\u534A\u8EABSFW\uFF08\u80CC\u9762\uFF09\uFF1A${character.upperBodySFWBack}`);
-    }
-    if (character.fullBodySFW) {
-      charInfo.push(`\u4E0B\u534A\u8EABSFW\uFF08\u6B63\u9762\uFF09\uFF1A${character.fullBodySFW}`);
-    }
-    if (character.fullBodySFWBack) {
-      charInfo.push(`\u4E0B\u534A\u8EABSFW\uFF08\u80CC\u9762\uFF09\uFF1A${character.fullBodySFWBack}`);
-    }
-    if (character.upperBodyNSFW) {
-      charInfo.push(`\u4E0A\u534A\u8EABNSFW\uFF08\u6B63\u9762\uFF09\uFF1A${character.upperBodyNSFW}`);
-    }
-    if (character.upperBodyNSFWBack) {
-      charInfo.push(`\u4E0A\u534A\u8EABNSFW\uFF08\u80CC\u9762\uFF09\uFF1A${character.upperBodyNSFWBack}`);
-    }
-    if (character.fullBodyNSFW) {
-      charInfo.push(`\u4E0B\u534A\u8EABNSFW\uFF08\u6B63\u9762\uFF09\uFF1A${character.fullBodyNSFW}`);
-    }
-    if (character.fullBodyNSFWBack) {
-      charInfo.push(`\u4E0B\u534A\u8EABNSFW\uFF08\u80CC\u9762\uFF09\uFF1A${character.fullBodyNSFWBack}`);
-    }
-    if (Array.isArray(character.outfits) && character.outfits.length > 0) {
-      charInfo.push(`\u670D\u88C5\u5217\u8868\uFF1A`);
-      for (const outfitId of character.outfits) {
-        const outfit = settings3.outfitPresets?.[outfitId];
-        if (!outfit) continue;
-        const outfitDetails = [];
-        if (outfit.nameCN) {
-          outfitDetails.push(`
-  \u4E2D\u6587\u540D\u79F0\uFF1A${outfit.nameCN}`);
-        }
-        if (outfit.nameEN) {
-          const displayName = outfit.nameEN.split("|")[0].trim();
-          outfitDetails.push(`  \u82F1\u6587\u540D\u79F0\uFF1A${displayName}`);
-        }
-        if (outfit.upperBody) {
-          outfitDetails.push(`  \u4E0A\u534A\u8EAB\uFF08\u6B63\u9762\uFF09\uFF1A${outfit.upperBody}`);
-        }
-        if (outfit.upperBodyBack) {
-          outfitDetails.push(`  \u4E0A\u534A\u8EAB\uFF08\u80CC\u9762\uFF09\uFF1A${outfit.upperBodyBack}`);
-        }
-        if (outfit.fullBody) {
-          outfitDetails.push(`  \u4E0B\u534A\u8EAB\uFF08\u6B63\u9762\uFF09\uFF1A${outfit.fullBody}`);
-        }
-        if (outfit.fullBodyBack) {
-          outfitDetails.push(`  \u4E0B\u534A\u8EAB\uFF08\u80CC\u9762\uFF09\uFF1A${outfit.fullBodyBack}`);
-        }
-        if (outfitDetails.length > 0) {
-          charInfo.push(outfitDetails.join("\n"));
-        }
-      }
-    }
-    if (charInfo.length > 0) {
-      characterList.push(charInfo.join("\n"));
+    const outfitsText = renderCharacterOutfitsText(
+      character,
+      settings3.outfitPresets,
+      templates.innerOutfitTemplate
+    );
+    const rendered = applyInjectionTemplate(
+      templates.characterListTemplate,
+      getCharacterPromptData(character, outfitsText)
+    );
+    if (rendered.trim()) {
+      characterList.push(rendered);
     }
   }
   return characterList.length > 0 ? characterList.join("\n\n") : "\uFF08\u6682\u65E0\u88AB\u89E6\u53D1\u7684\u89D2\u8272\uFF09";
 }
 function generateOutfitEnableListText() {
-  const settings3 = extension_settings20[extensionName];
+  const settings3 = extension_settings21[extensionName];
   const enablePresetId = settings3.outfitEnablePresetId;
   const enablePreset = settings3.outfitEnablePresets?.[enablePresetId];
   if (!enablePreset || !Array.isArray(enablePreset.outfits) || enablePreset.outfits.length === 0) {
     return "\u6682\u672A\u914D\u7F6E\u901A\u7528\u670D\u88C5";
   }
+  const templates = getActiveInjectionTemplates();
   const outfitList = [];
   for (const outfitId of enablePreset.outfits) {
     const outfit = settings3.outfitPresets?.[outfitId];
     if (!outfit) continue;
-    const outfitInfo = [];
-    if (outfit.nameCN) {
-      outfitInfo.push(`\u4E2D\u6587\u540D\u79F0\uFF1A${outfit.nameCN}`);
-    }
-    if (outfit.nameEN) {
-      const displayName = outfit.nameEN.split("|")[0].trim();
-      outfitInfo.push(`\u82F1\u6587\u540D\u79F0\uFF1A${displayName}`);
-    }
-    if (outfit.upperBody) {
-      outfitInfo.push(`\u4E0A\u534A\u8EAB\uFF08\u6B63\u9762\uFF09\uFF1A${outfit.upperBody}`);
-    }
-    if (outfit.upperBodyBack) {
-      outfitInfo.push(`\u4E0A\u534A\u8EAB\uFF08\u80CC\u9762\uFF09\uFF1A${outfit.upperBodyBack}`);
-    }
-    if (outfit.fullBody) {
-      outfitInfo.push(`\u4E0B\u534A\u8EAB\uFF08\u6B63\u9762\uFF09\uFF1A${outfit.fullBody}`);
-    }
-    if (outfit.fullBodyBack) {
-      outfitInfo.push(`\u4E0B\u534A\u8EAB\uFF08\u80CC\u9762\uFF09\uFF1A${outfit.fullBodyBack}`);
-    }
-    if (outfitInfo.length > 0) {
-      outfitList.push(outfitInfo.join("\n"));
+    const rendered = applyInjectionTemplate(
+      templates.enableOutfitListTemplate,
+      getOutfitPromptData(outfit)
+    );
+    if (rendered.trim()) {
+      outfitList.push(rendered);
     }
   }
   return outfitList.join("\n\n");
 }
 function generateCommonCharacterListText() {
-  const settings3 = extension_settings20[extensionName];
+  const settings3 = extension_settings21[extensionName];
   const enablePresetId = settings3.characterCommonPresetId;
   const enablePreset = settings3.characterCommonPresets?.[enablePresetId];
   if (!enablePreset || !Array.isArray(enablePreset.characters) || enablePreset.characters.length === 0) {
     return "\u6682\u672A\u914D\u7F6E\u901A\u7528\u89D2\u8272";
   }
+  const templates = getActiveInjectionTemplates();
   const characterList = [];
   for (const charId of enablePreset.characters) {
     const character = settings3.characterPresets?.[charId];
     if (!character) continue;
-    const charInfo = [];
-    if (character.nameCN) {
-      charInfo.push(character.nameCN);
-    }
-    if (character.nameEN) {
-      const displayName = character.nameEN.split("|")[0].trim();
-      charInfo.push(displayName);
-    }
-    if (charInfo.length > 0) {
-      characterList.push(charInfo.join(" "));
+    const rendered = applyInjectionTemplate(
+      templates.commonCharacterListTemplate,
+      getCharacterPromptData(character)
+    ).trim();
+    if (rendered) {
+      characterList.push(rendered);
     }
   }
   return characterList.join("\n");
 }
 async function getEnabledCharacterImages(triggerText = null) {
   const { getConfigImage: getConfigImage2 } = await Promise.resolve().then(() => (init_configDatabase(), configDatabase_exports));
-  const settings3 = extension_settings20[extensionName];
+  const settings3 = extension_settings21[extensionName];
   const enablePresetId = settings3.characterEnablePresetId;
   const enablePreset = settings3.characterEnablePresets?.[enablePresetId];
   if (!enablePreset || !Array.isArray(enablePreset.characters) || enablePreset.characters.length === 0) {
@@ -21874,7 +24047,7 @@ async function getEnabledCharacterImages(triggerText = null) {
 }
 async function getEnabledOutfitImages() {
   const { getConfigImage: getConfigImage2 } = await Promise.resolve().then(() => (init_configDatabase(), configDatabase_exports));
-  const settings3 = extension_settings20[extensionName];
+  const settings3 = extension_settings21[extensionName];
   const enablePresetId = settings3.outfitEnablePresetId;
   const enablePreset = settings3.outfitEnablePresets?.[enablePresetId];
   if (!enablePreset || !Array.isArray(enablePreset.outfits) || enablePreset.outfits.length === 0) {
@@ -21910,7 +24083,7 @@ async function getEnabledOutfitImages() {
 }
 async function getCommonCharacterImages() {
   const { getConfigImage: getConfigImage2 } = await Promise.resolve().then(() => (init_configDatabase(), configDatabase_exports));
-  const settings3 = extension_settings20[extensionName];
+  const settings3 = extension_settings21[extensionName];
   const enablePresetId = settings3.characterCommonPresetId;
   const enablePreset = settings3.characterCommonPresets?.[enablePresetId];
   if (!enablePreset || !Array.isArray(enablePreset.characters) || enablePreset.characters.length === 0) {
@@ -21946,7 +24119,7 @@ async function getCommonCharacterImages() {
 }
 function setupWorldBookEventListener() {
   eventSource11.on(event_types2.WORLDINFO_ENTRIES_LOADED, (data) => {
-    const settings3 = extension_settings20[extensionName];
+    const settings3 = extension_settings21[extensionName];
     const characterListText = generateCharacterListText();
     const outfitEnableListText = generateOutfitEnableListText();
     const commonCharacterListText = generateCommonCharacterListText();
@@ -21990,6 +24163,7 @@ var init_worldbook = __esm({
   "utils/settings/worldbook.js"() {
     init_config();
     init_ui_common();
+    init_injectionTemplates();
   }
 });
 
@@ -22233,7 +24407,7 @@ function extractCharacterAndOutfitTags(message) {
   };
 }
 function getCurrentCharacterPreset() {
-  const settings3 = extension_settings21[extensionName];
+  const settings3 = extension_settings22[extensionName];
   const presetId = settings3.characterPresetId;
   if (!presetId || !settings3.characterPresets[presetId]) {
     return null;
@@ -22280,7 +24454,7 @@ async function handleCharacterPromptModify(userRequirement, userImages = []) {
   toastr.info("[characterPromptModify] \u6B63\u5728\u5904\u7406\u89D2\u8272\u63D0\u793A\u8BCD\u4FEE\u6539\u8BF7\u6C42...");
   try {
     const context = getContext7();
-    const settings3 = extension_settings21[extensionName];
+    const settings3 = extension_settings22[extensionName];
     const currentPreset = getCurrentCharacterPreset();
     if (!currentPreset) {
       toastr.error("\u8BF7\u5148\u9009\u62E9\u4E00\u4E2A\u89D2\u8272\u9884\u8BBE");
@@ -22377,7 +24551,7 @@ async function handleCharacterPromptModify(userRequirement, userImages = []) {
   }
 }
 async function updateCharacterPresetFromLLM(presetId, newData) {
-  const settings3 = extension_settings21[extensionName];
+  const settings3 = extension_settings22[extensionName];
   const preset = settings3.characterPresets[presetId];
   if (!preset) {
     toastr.error("\u627E\u4E0D\u5230\u6307\u5B9A\u7684\u89D2\u8272\u9884\u8BBE");
@@ -22419,7 +24593,7 @@ async function updateCharacterPresetFromLLM(presetId, newData) {
       preset[field] = newData[field];
     }
   }
-  saveSettingsDebounced14();
+  saveSettingsDebounced16();
   const characterTab = $("#st-chatu8-tab-character");
   if (characterTab.length) {
     refreshCharacterSettings(characterTab);
@@ -22428,7 +24602,7 @@ async function updateCharacterPresetFromLLM(presetId, newData) {
   console.log(`[characterPromptModify] \u5DF2\u66F4\u65B0\u89D2\u8272\u9884\u8BBE "${presetId}"`);
 }
 async function updateOutfitPresetsFromLLM(outfitsData) {
-  const settings3 = extension_settings21[extensionName];
+  const settings3 = extension_settings22[extensionName];
   const stContext = getContext7();
   const cardPrefix = stContext?.name2 ? `[${stContext.name2}]` : "";
   const outfitFieldLabels = {
@@ -22509,7 +24683,7 @@ async function updateOutfitPresetsFromLLM(outfitsData) {
       }
     }
   }
-  saveSettingsDebounced14();
+  saveSettingsDebounced16();
   const characterTab = $("#st-chatu8-tab-character");
   if (characterTab.length) {
     refreshCharacterSettings(characterTab);
@@ -22544,7 +24718,7 @@ var init_characterPromptModify = __esm({
 
 
 function getImageTags3() {
-  const settings3 = extension_settings22[extensionName];
+  const settings3 = extension_settings23[extensionName];
   const startTag = settings3?.startTag || "image###";
   const endTag = settings3?.endTag || "###";
   return { startTag, endTag };
@@ -22586,7 +24760,7 @@ function LLM_CHAR_DISPLAY(prompt2, options = {}) {
   });
 }
 function getCurrentCharacterPreset2() {
-  const settings3 = extension_settings22[extensionName];
+  const settings3 = extension_settings23[extensionName];
   const presetId = settings3.characterPresetId;
   if (!presetId || !settings3.characterPresets[presetId]) {
     return null;
@@ -22629,7 +24803,7 @@ function buildCharacterText2(preset) {
   return text;
 }
 function buildOutfitsText(preset) {
-  const settings3 = extension_settings22[extensionName];
+  const settings3 = extension_settings23[extensionName];
   const outfitNames = preset.data.outfits || [];
   if (outfitNames.length === 0) {
     return "<\u670D\u88C5\u5217\u8868>\n(\u65E0\u670D\u88C5)\n</\u670D\u88C5\u5217\u8868>";
@@ -22997,7 +25171,7 @@ async function handleImagePromptGenerate(userRequirement, userImages = []) {
   console.log("[imagePromptGen] Starting image prompt generation...");
   toastr.info("\u6B63\u5728\u751F\u6210\u56FE\u7247\u63D0\u793A\u8BCD...");
   try {
-    const settings3 = extension_settings22[extensionName];
+    const settings3 = extension_settings23[extensionName];
     const currentPreset = getCurrentCharacterPreset2();
     if (!currentPreset) {
       toastr.error("\u8BF7\u5148\u9009\u62E9\u4E00\u4E2A\u89D2\u8272\u9884\u8BBE");
@@ -23058,7 +25232,7 @@ async function handleImagePromptGenerate(userRequirement, userImages = []) {
     const preset = settings3.characterPresets[currentPreset.id];
     if (preset) {
       preset.photoPrompt = result.prompt;
-      saveSettingsDebounced15();
+      saveSettingsDebounced17();
       const photoPromptElement = document.getElementById("char_photo_prompt");
       if (photoPromptElement) {
         photoPromptElement.value = result.prompt;
@@ -23092,7 +25266,7 @@ var init_imagePromptGen = __esm({
 
 
 function setupCharacterControls(container) {
-  const settings3 = extension_settings23[extensionName];
+  const settings3 = extension_settings24[extensionName];
   loadCharacterPresetList();
   container.find("#character_preset_id").on("change", loadCharacterPreset);
   container.find("#character_new").on("click", createNewCharacterPreset);
@@ -23119,11 +25293,11 @@ function setupCharacterControls(container) {
   });
   container.find("#char_photo_upload_input").on("change", handleCharacterPhotoUpload);
   container.find("#char_send_photo").on("change", function() {
-    const settings4 = extension_settings23[extensionName];
+    const settings4 = extension_settings24[extensionName];
     const presetId = settings4.characterPresetId;
     if (presetId && settings4.characterPresets[presetId]) {
       settings4.characterPresets[presetId].sendPhoto = this.checked;
-      saveSettingsDebounced16();
+      saveSettingsDebounced18();
       console.log("[characterPreset] \u5DF2\u4FDD\u5B58\u89D2\u8272\u53D1\u9001\u56FE\u7247\u8BBE\u7F6E:", this.checked);
     }
   });
@@ -23131,7 +25305,7 @@ function setupCharacterControls(container) {
   loadCharacterPreset();
 }
 function loadCharacterPresetList() {
-  const settings3 = extension_settings23[extensionName];
+  const settings3 = extension_settings24[extensionName];
   const select = document.getElementById("character_preset_id");
   if (!select) return;
   select.innerHTML = "";
@@ -23147,7 +25321,7 @@ function loadCharacterPresetList() {
   select.value = settings3.characterPresetId;
 }
 function loadCharacterPreset() {
-  const settings3 = extension_settings23[extensionName];
+  const settings3 = extension_settings24[extensionName];
   const select = document.getElementById("character_preset_id");
   if (!select) return;
   const newPresetId = select.value;
@@ -23167,7 +25341,7 @@ function loadCharacterPreset() {
         if (confirmed) {
           settings3.characterPresetId = newPresetId;
           loadCharacterPresetData(newPresetId);
-          saveSettingsDebounced16();
+          saveSettingsDebounced18();
         } else {
           select.value = currentPresetId;
         }
@@ -23177,10 +25351,10 @@ function loadCharacterPreset() {
   }
   settings3.characterPresetId = newPresetId;
   loadCharacterPresetData(newPresetId);
-  saveSettingsDebounced16();
+  saveSettingsDebounced18();
 }
 function loadCharacterPresetData(presetId) {
-  const settings3 = extension_settings23[extensionName];
+  const settings3 = extension_settings24[extensionName];
   const preset = settings3.characterPresets[presetId];
   if (!preset) return;
   CHARACTER_FIELDS.forEach((field) => {
@@ -23204,7 +25378,7 @@ function loadCharacterPresetData(presetId) {
   debouncedUpdateTokenCounts();
 }
 function updateCharacterPreset() {
-  const settings3 = extension_settings23[extensionName];
+  const settings3 = extension_settings24[extensionName];
   const presetId = settings3.characterPresetId;
   if (!presetId || !settings3.characterPresets[presetId]) {
     toastr.warning('\u6CA1\u6709\u6D3B\u52A8\u7684\u89D2\u8272\u9884\u8BBE\u53EF\u4FDD\u5B58\u3002\u8BF7\u5148"\u53E6\u5B58\u4E3A"\u4E00\u4E2A\u65B0\u9884\u8BBE\u3002');
@@ -23226,7 +25400,7 @@ function saveCharacterPresetAs() {
   const defaultName = cardPrefix || "";
   stylInput("\u8BF7\u8F93\u5165\u65B0\u89D2\u8272\u9884\u8BBE\u7684\u540D\u79F0", defaultName).then((result) => {
     if (result && result.trim() !== "") {
-      const settings3 = extension_settings23[extensionName];
+      const settings3 = extension_settings24[extensionName];
       saveCurrentCharacterData(result);
       settings3.characterPresetId = result;
       loadCharacterPresetList();
@@ -23240,7 +25414,7 @@ function createNewCharacterPreset() {
   const defaultName = cardPrefix || "";
   stylInput("\u8BF7\u8F93\u5165\u65B0\u89D2\u8272\u9884\u8BBE\u7684\u540D\u79F0", defaultName).then((result) => {
     if (result && result.trim() !== "") {
-      const settings3 = extension_settings23[extensionName];
+      const settings3 = extension_settings24[extensionName];
       if (settings3.characterPresets[result]) {
         alert(`\u89D2\u8272\u9884\u8BBE "${result}" \u5DF2\u5B58\u5728\uFF0C\u8BF7\u4F7F\u7528\u5176\u4ED6\u540D\u79F0\u3002`);
         return;
@@ -23258,7 +25432,7 @@ function createNewCharacterPreset() {
       emptyPreset.generationVariables = {};
       settings3.characterPresets[result] = emptyPreset;
       settings3.characterPresetId = result;
-      saveSettingsDebounced16();
+      saveSettingsDebounced18();
       loadCharacterPresetList();
       loadCharacterPresetData(result);
       toastr.success(`\u7A7A\u767D\u89D2\u8272\u9884\u8BBE "${result}" \u5DF2\u521B\u5EFA\u3002`);
@@ -23266,7 +25440,7 @@ function createNewCharacterPreset() {
   });
 }
 function renameCharacterPreset() {
-  const settings3 = extension_settings23[extensionName];
+  const settings3 = extension_settings24[extensionName];
   const currentName = settings3.characterPresetId;
   if (!currentName || !settings3.characterPresets[currentName]) {
     alert("\u6CA1\u6709\u6D3B\u52A8\u7684\u89D2\u8272\u9884\u8BBE\u53EF\u91CD\u547D\u540D\u3002");
@@ -23285,7 +25459,7 @@ function renameCharacterPreset() {
       settings3.characterPresets[newName] = settings3.characterPresets[currentName];
       delete settings3.characterPresets[currentName];
       settings3.characterPresetId = newName;
-      saveSettingsDebounced16();
+      saveSettingsDebounced18();
       loadCharacterPresetList();
       try {
         if (typeof window.loadSilterTavernChatu8Settings === "function") {
@@ -23299,7 +25473,7 @@ function renameCharacterPreset() {
   });
 }
 function saveCurrentCharacterData(presetId) {
-  const settings3 = extension_settings23[extensionName];
+  const settings3 = extension_settings24[extensionName];
   const preset = {};
   CHARACTER_FIELDS.forEach((field) => {
     const element = document.getElementById(`char_${field}`);
@@ -23327,10 +25501,10 @@ function saveCurrentCharacterData(presetId) {
   preset.generationWorldBook = existingPreset.generationWorldBook || "";
   preset.generationVariables = existingPreset.generationVariables || {};
   settings3.characterPresets[presetId] = preset;
-  saveSettingsDebounced16();
+  saveSettingsDebounced18();
 }
 function deleteCharacterPreset() {
-  const settings3 = extension_settings23[extensionName];
+  const settings3 = extension_settings24[extensionName];
   const presetId = document.getElementById("character_preset_id")?.value;
   if (presetId === "\u9ED8\u8BA4\u89D2\u8272") {
     alert("\u9ED8\u8BA4\u9884\u8BBE\u4E0D\u80FD\u5220\u9664");
@@ -23342,7 +25516,7 @@ function deleteCharacterPreset() {
       settings3.characterPresetId = "\u9ED8\u8BA4\u89D2\u8272";
       loadCharacterPresetList();
       loadCharacterPreset();
-      saveSettingsDebounced16();
+      saveSettingsDebounced18();
     }
   });
 }
@@ -23360,7 +25534,7 @@ function formatOutfitListForDialog(outfits, threshold = 10) {
   }
 }
 async function exportCharacterPreset() {
-  const settings3 = extension_settings23[extensionName];
+  const settings3 = extension_settings24[extensionName];
   const presetId = settings3.characterPresetId;
   const preset = settings3.characterPresets[presetId];
   if (!preset) {
@@ -23425,7 +25599,7 @@ async function exportCharacterPreset() {
   URL.revokeObjectURL(url);
 }
 async function exportAllCharacterPresets() {
-  const settings3 = extension_settings23[extensionName];
+  const settings3 = extension_settings24[extensionName];
   if (!settings3.characterPresets || Object.keys(settings3.characterPresets).length === 0) {
     alert("\u6CA1\u6709\u89D2\u8272\u9884\u8BBE\u53EF\u5BFC\u51FA\u3002");
     return;
@@ -23497,7 +25671,7 @@ async function exportAllCharacterPresets() {
   URL.revokeObjectURL(url);
 }
 function importCharacterPreset() {
-  const settings3 = extension_settings23[extensionName];
+  const settings3 = extension_settings24[extensionName];
   const input = document.createElement("input");
   input.type = "file";
   input.accept = ".json";
@@ -23579,7 +25753,7 @@ ${outfitNames.join("\n")}
             }
           }
         }
-        saveSettingsDebounced16();
+        saveSettingsDebounced18();
         loadCharacterPresetList();
         if (importOutfits) {
           loadOutfitPresetList();
@@ -23661,7 +25835,7 @@ function bindCharacterFieldListeners() {
     const element = document.getElementById(`char_${field}`);
     if (element) {
       $(element).on("input", function() {
-        const settings3 = extension_settings23[extensionName];
+        const settings3 = extension_settings24[extensionName];
         const presetName = settings3.characterPresetId;
         const warning = $(this).closest(".st-chatu8-field-col").find(".st-chatu8-unsaved-warning");
         $(warning).hide();
@@ -23676,7 +25850,7 @@ function bindCharacterFieldListeners() {
   });
 }
 function loadCharacterOutfitSelector() {
-  const settings3 = extension_settings23[extensionName];
+  const settings3 = extension_settings24[extensionName];
   const select = document.getElementById("char_outfit_selector");
   if (!select) return;
   select.innerHTML = '<option value="">-- \u9009\u62E9\u670D\u88C5 --</option>';
@@ -23706,7 +25880,7 @@ function addOutfitFromSelector() {
   textarea.value = lines.join("\n");
 }
 function checkCharacterOutfitList() {
-  const settings3 = extension_settings23[extensionName];
+  const settings3 = extension_settings24[extensionName];
   const textarea = document.getElementById("char_outfit_list");
   const resultDiv = document.getElementById("char_outfit_check_result");
   const contentDiv = document.getElementById("char_outfit_check_content");
@@ -23906,7 +26080,7 @@ async function loadCharacterPhoto(preset) {
   if (preset.photoImageId && (!preset.photoImageIds || preset.photoImageIds.length === 0)) {
     preset.photoImageIds = [preset.photoImageId];
     delete preset.photoImageId;
-    saveSettingsDebounced16();
+    saveSettingsDebounced18();
   }
   const imageIds = preset.photoImageIds || [];
   let selectedIndex = preset.selectedPhotoIndex || 0;
@@ -23938,7 +26112,7 @@ async function loadCharacterPhoto(preset) {
   }
 }
 async function handlePhotoGenerate() {
-  const settings3 = extension_settings23[extensionName];
+  const settings3 = extension_settings24[extensionName];
   const presetId = settings3.characterPresetId;
   const preset = settings3.characterPresets[presetId];
   if (!preset) {
@@ -23971,7 +26145,7 @@ async function handlePhotoGenerate() {
         }
         preset.photoImageIds.push(imageId);
         preset.selectedPhotoIndex = preset.photoImageIds.length - 1;
-        saveSettingsDebounced16();
+        saveSettingsDebounced18();
         const photoPreview = document.getElementById("char_photo_preview");
         const photoPlaceholder = document.getElementById("char_photo_placeholder");
         if (photoPreview && photoPlaceholder) {
@@ -24009,7 +26183,7 @@ function handlePhotoGeneratePrompt() {
 async function handleCharacterPhotoUpload(event) {
   const input = event.target;
   if (!input.files || !input.files[0]) return;
-  const settings3 = extension_settings23[extensionName];
+  const settings3 = extension_settings24[extensionName];
   const presetId = settings3.characterPresetId;
   const preset = settings3.characterPresets[presetId];
   if (!preset) {
@@ -24033,7 +26207,7 @@ async function handleCharacterPhotoUpload(event) {
       }
       preset.photoImageIds.push(imageId);
       preset.selectedPhotoIndex = preset.photoImageIds.length - 1;
-      saveSettingsDebounced16();
+      saveSettingsDebounced18();
       const photoPreview = document.getElementById("char_photo_preview");
       const photoPlaceholder = document.getElementById("char_photo_placeholder");
       if (photoPreview && photoPlaceholder) {
@@ -24205,7 +26379,7 @@ function handlePhotoModifyCharacterPrompt() {
   });
 }
 function handleCharacterData() {
-  const settings3 = extension_settings23[extensionName];
+  const settings3 = extension_settings24[extensionName];
   const presetId = settings3.characterPresetId;
   const preset = settings3.characterPresets[presetId];
   if (!preset) {
@@ -24291,7 +26465,7 @@ function handleCharacterData() {
     preset.generationContext = newContext;
     preset.generationWorldBook = newWorldBook;
     preset.generationVariables = newVariables;
-    saveSettingsDebounced16();
+    saveSettingsDebounced18();
     closeModal();
     toastr.success("\u89D2\u8272\u6570\u636E\u5DF2\u4FDD\u5B58");
   });
@@ -24312,7 +26486,7 @@ function createDataSection(labelText, textareaId, value, placeholder, rows) {
   return section;
 }
 async function showImageViewer(imageIds, initialIndex) {
-  const settings3 = extension_settings23[extensionName];
+  const settings3 = extension_settings24[extensionName];
   const presetId = settings3.characterPresetId;
   const preset = settings3.characterPresets[presetId];
   if (!imageIds || imageIds.length === 0) {
@@ -24477,7 +26651,7 @@ async function showImageViewer(imageIds, initialIndex) {
     document.removeEventListener("keydown", handleKeyDown);
     if (preset) {
       preset.selectedPhotoIndex = currentIndex;
-      saveSettingsDebounced16();
+      saveSettingsDebounced18();
       const photoPreview = document.getElementById("char_photo_preview");
       const photoPlaceholder = document.getElementById("char_photo_placeholder");
       if (imageIds.length > 0 && currentIndex >= 0 && currentIndex < imageIds.length) {
@@ -24548,7 +26722,7 @@ async function showImageViewer(imageIds, initialIndex) {
           const deleteIndex = preset.photoImageIds.indexOf(imageIdToDelete);
           if (deleteIndex > -1) {
             preset.photoImageIds.splice(deleteIndex, 1);
-            saveSettingsDebounced16();
+            saveSettingsDebounced18();
           }
         }
         imageIds.splice(currentIndex, 1);
@@ -24596,7 +26770,7 @@ async function showImageViewer(imageIds, initialIndex) {
         }
         if (preset && preset.photoImageIds) {
           preset.photoImageIds = [currentImageId];
-          saveSettingsDebounced16();
+          saveSettingsDebounced18();
         }
         imageIds.length = 0;
         imageIds.push(currentImageId);
@@ -24838,7 +27012,7 @@ function inspectCharacterPromptTrigger(input) {
     }
   }
   const normalizedName = normalizeName(extractedName);
-  const defaultCharacterSettings2 = extension_settings24[extensionName] || {};
+  const defaultCharacterSettings2 = extension_settings25[extensionName] || {};
   const characterPresets = defaultCharacterSettings2.characterPresets || {};
   const characterEnablePresetId = defaultCharacterSettings2.characterEnablePresetId;
   const characterCommonPresetId = defaultCharacterSettings2.characterCommonPresetId;
@@ -24936,7 +27110,7 @@ function processCharacterPrompt(prompt2) {
     return processMultiCharacterPrompt(prompt2);
   }
   console.log("[CharacterPrompt] \u4F7F\u7528\u975E\u5206\u89D2\u8272\u6A21\u5F0F");
-  const defaultCharacterSettings2 = extension_settings24[extensionName];
+  const defaultCharacterSettings2 = extension_settings25[extensionName];
   console.log("[CharacterPrompt] Processing prompt:", prompt2);
   const characterPresets = defaultCharacterSettings2.characterPresets || {};
   const outfitPresets = defaultCharacterSettings2.outfitPresets || {};
@@ -25187,7 +27361,7 @@ function processMultiCharacterPrompt(prompt2) {
   try {
     const prompt_data = parsePromptStringWithCoordinates(prompt2);
     console.log("[CharacterPrompt] \u89E3\u6790\u540E\u7684 prompt_data:", prompt_data);
-    const defaultCharacterSettings2 = extension_settings24[extensionName];
+    const defaultCharacterSettings2 = extension_settings25[extensionName];
     const characterPresets = defaultCharacterSettings2.characterPresets || {};
     const outfitPresets = defaultCharacterSettings2.outfitPresets || {};
     const characterEnablePresetId = defaultCharacterSettings2.characterEnablePresetId;
@@ -25485,7 +27659,7 @@ function setupCharacterEnableControls(container) {
   loadCharacterSelector();
 }
 function loadCharacterEnablePresetList() {
-  const settings3 = extension_settings25[extensionName];
+  const settings3 = extension_settings26[extensionName];
   const select = document.getElementById("character_enable_preset_id");
   if (!select) return;
   select.innerHTML = "";
@@ -25498,7 +27672,7 @@ function loadCharacterEnablePresetList() {
   select.value = settings3.characterEnablePresetId;
 }
 function loadCharacterEnablePreset() {
-  const settings3 = extension_settings25[extensionName];
+  const settings3 = extension_settings26[extensionName];
   const select = document.getElementById("character_enable_preset_id");
   if (!select) return;
   const presetId = select.value;
@@ -25516,10 +27690,10 @@ function loadCharacterEnablePreset() {
   if (bindChatInput && preset) {
     bindChatInput.value = preset.bindChatId || "";
   }
-  saveSettingsDebounced17();
+  saveSettingsDebounced19();
 }
 function updateCharacterEnablePreset() {
-  const settings3 = extension_settings25[extensionName];
+  const settings3 = extension_settings26[extensionName];
   const presetId = settings3.characterEnablePresetId;
   if (!presetId || !settings3.characterEnablePresets[presetId]) {
     toastr.warning('\u6CA1\u6709\u6D3B\u52A8\u7684\u89D2\u8272\u542F\u7528\u9884\u8BBE\u53EF\u4FDD\u5B58\u3002\u8BF7\u5148"\u53E6\u5B58\u4E3A"\u4E00\u4E2A\u65B0\u9884\u8BBE\u3002');
@@ -25531,7 +27705,7 @@ function updateCharacterEnablePreset() {
 function saveCharacterEnablePresetAs() {
   stylInput("\u8BF7\u8F93\u5165\u65B0\u89D2\u8272\u542F\u7528\u9884\u8BBE\u7684\u540D\u79F0").then((result) => {
     if (result && result.trim() !== "") {
-      const settings3 = extension_settings25[extensionName];
+      const settings3 = extension_settings26[extensionName];
       saveCurrentCharacterEnableData(result);
       settings3.characterEnablePresetId = result;
       loadCharacterEnablePresetList();
@@ -25542,7 +27716,7 @@ function saveCharacterEnablePresetAs() {
 function createNewCharacterEnablePreset() {
   stylInput("\u8BF7\u8F93\u5165\u65B0\u89D2\u8272\u542F\u7528\u9884\u8BBE\u7684\u540D\u79F0").then((result) => {
     if (result && result.trim() !== "") {
-      const settings3 = extension_settings25[extensionName];
+      const settings3 = extension_settings26[extensionName];
       if (settings3.characterEnablePresets[result]) {
         alert(`\u89D2\u8272\u542F\u7528\u9884\u8BBE "${result}" \u5DF2\u5B58\u5728\uFF0C\u8BF7\u4F7F\u7528\u5176\u4ED6\u540D\u79F0\u3002`);
         return;
@@ -25553,7 +27727,7 @@ function createNewCharacterEnablePreset() {
         bindChatId: ""
       };
       settings3.characterEnablePresetId = result;
-      saveSettingsDebounced17();
+      saveSettingsDebounced19();
       loadCharacterEnablePresetList();
       loadCharacterEnablePreset();
       toastr.success(`\u7A7A\u767D\u89D2\u8272\u542F\u7528\u9884\u8BBE "${result}" \u5DF2\u521B\u5EFA\u3002`);
@@ -25561,7 +27735,7 @@ function createNewCharacterEnablePreset() {
   });
 }
 function renameCharacterEnablePreset() {
-  const settings3 = extension_settings25[extensionName];
+  const settings3 = extension_settings26[extensionName];
   const currentName = settings3.characterEnablePresetId;
   if (!currentName || !settings3.characterEnablePresets[currentName]) {
     alert("\u6CA1\u6709\u6D3B\u52A8\u7684\u89D2\u8272\u542F\u7528\u9884\u8BBE\u53EF\u91CD\u547D\u540D\u3002");
@@ -25580,7 +27754,7 @@ function renameCharacterEnablePreset() {
       settings3.characterEnablePresets[newName] = settings3.characterEnablePresets[currentName];
       delete settings3.characterEnablePresets[currentName];
       settings3.characterEnablePresetId = newName;
-      saveSettingsDebounced17();
+      saveSettingsDebounced19();
       loadCharacterEnablePresetList();
       try {
         if (typeof window.loadSilterTavernChatu8Settings === "function") {
@@ -25594,7 +27768,7 @@ function renameCharacterEnablePreset() {
   });
 }
 function saveCurrentCharacterEnableData(presetId) {
-  const settings3 = extension_settings25[extensionName];
+  const settings3 = extension_settings26[extensionName];
   const textarea = document.getElementById("character_enable_list");
   if (!textarea) return;
   const characters = textarea.value.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
@@ -25607,7 +27781,7 @@ function saveCurrentCharacterEnableData(presetId) {
     bindCharacterCard,
     bindChatId
   };
-  saveSettingsDebounced17();
+  saveSettingsDebounced19();
 }
 function getCharacterEnableInputCharacters() {
   const textarea = document.getElementById("character_enable_list");
@@ -25618,7 +27792,7 @@ function escapeTestHtml(value) {
   return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 function testCharacterTrigger() {
-  const settings3 = extension_settings25[extensionName];
+  const settings3 = extension_settings26[extensionName];
   const input = document.getElementById("character_enable_test_input");
   const resultDiv = document.getElementById("character_enable_test_result");
   const contentDiv = document.getElementById("character_enable_test_content");
@@ -25726,7 +27900,7 @@ function testCharacterTrigger() {
   $(resultDiv).show();
 }
 function testCharacterListTrigger() {
-  const settings3 = extension_settings25[extensionName];
+  const settings3 = extension_settings26[extensionName];
   const input = document.getElementById("character_list_test_input");
   const resultDiv = document.getElementById("character_list_test_result");
   const contentDiv = document.getElementById("character_list_test_content");
@@ -25807,7 +27981,7 @@ function testCharacterListTrigger() {
   $(resultDiv).show();
 }
 function deleteCharacterEnablePreset() {
-  const settings3 = extension_settings25[extensionName];
+  const settings3 = extension_settings26[extensionName];
   const presetId = document.getElementById("character_enable_preset_id")?.value;
   if (presetId === "\u9ED8\u8BA4\u542F\u7528\u5217\u8868") {
     alert("\u9ED8\u8BA4\u9884\u8BBE\u4E0D\u80FD\u5220\u9664");
@@ -25819,12 +27993,12 @@ function deleteCharacterEnablePreset() {
       settings3.characterEnablePresetId = "\u9ED8\u8BA4\u542F\u7528\u5217\u8868";
       loadCharacterEnablePresetList();
       loadCharacterEnablePreset();
-      saveSettingsDebounced17();
+      saveSettingsDebounced19();
     }
   });
 }
 async function exportCharacterEnablePreset() {
-  const settings3 = extension_settings25[extensionName];
+  const settings3 = extension_settings26[extensionName];
   const presetId = settings3.characterEnablePresetId;
   const preset = settings3.characterEnablePresets[presetId];
   if (!preset) {
@@ -25875,7 +28049,7 @@ ${relatedCharacters.join("\n")}
   URL.revokeObjectURL(url);
 }
 async function exportAllCharacterEnablePresets() {
-  const settings3 = extension_settings25[extensionName];
+  const settings3 = extension_settings26[extensionName];
   if (!settings3.characterEnablePresets || Object.keys(settings3.characterEnablePresets).length === 0) {
     alert("\u6CA1\u6709\u89D2\u8272\u542F\u7528\u9884\u8BBE\u53EF\u5BFC\u51FA\u3002");
     return;
@@ -25939,7 +28113,7 @@ ${Array.from(allOutfits).join("\n")}
   URL.revokeObjectURL(url);
 }
 function importCharacterEnablePreset() {
-  const settings3 = extension_settings25[extensionName];
+  const settings3 = extension_settings26[extensionName];
   const input = document.createElement("input");
   input.type = "file";
   input.accept = ".json";
@@ -25999,7 +28173,7 @@ ${characterNames.join("\n")}
             }
           }
         }
-        saveSettingsDebounced17();
+        saveSettingsDebounced19();
         loadCharacterEnablePresetList();
         if (importCharacters) {
           loadCharacterPresetList();
@@ -26029,7 +28203,7 @@ ${characterNames.join("\n")}
   input.click();
 }
 function loadCharacterSelector() {
-  const settings3 = extension_settings25[extensionName];
+  const settings3 = extension_settings26[extensionName];
   const select = document.getElementById("character_enable_selector");
   if (!select) return;
   select.innerHTML = '<option value="">-- \u9009\u62E9\u89D2\u8272 --</option>';
@@ -26059,7 +28233,7 @@ function addCharacterFromSelector() {
   textarea.value = lines.join("\n");
 }
 function checkCharacterList() {
-  const settings3 = extension_settings25[extensionName];
+  const settings3 = extension_settings26[extensionName];
   const textarea = document.getElementById("character_enable_list");
   const resultDiv = document.getElementById("character_enable_check_result");
   const contentDiv = document.getElementById("character_enable_check_content");
@@ -26143,7 +28317,7 @@ function setupOutfitEnableControls(container) {
   loadOutfitEnableSelector();
 }
 function loadOutfitEnablePresetList() {
-  const settings3 = extension_settings26[extensionName];
+  const settings3 = extension_settings27[extensionName];
   const select = document.getElementById("outfit_enable_preset_id");
   if (!select) return;
   select.innerHTML = "";
@@ -26156,7 +28330,7 @@ function loadOutfitEnablePresetList() {
   select.value = settings3.outfitEnablePresetId;
 }
 function loadOutfitEnablePreset() {
-  const settings3 = extension_settings26[extensionName];
+  const settings3 = extension_settings27[extensionName];
   const select = document.getElementById("outfit_enable_preset_id");
   if (!select) return;
   const presetId = select.value;
@@ -26166,10 +28340,10 @@ function loadOutfitEnablePreset() {
   if (textarea && preset) {
     textarea.value = (preset.outfits || []).join("\n");
   }
-  saveSettingsDebounced18();
+  saveSettingsDebounced20();
 }
 function updateOutfitEnablePreset() {
-  const settings3 = extension_settings26[extensionName];
+  const settings3 = extension_settings27[extensionName];
   const presetId = settings3.outfitEnablePresetId;
   if (!presetId || !settings3.outfitEnablePresets[presetId]) {
     toastr.warning('\u6CA1\u6709\u6D3B\u52A8\u7684\u901A\u7528\u670D\u88C5\u5217\u8868\u9884\u8BBE\u53EF\u4FDD\u5B58\u3002\u8BF7\u5148"\u53E6\u5B58\u4E3A"\u4E00\u4E2A\u65B0\u9884\u8BBE\u3002');
@@ -26181,7 +28355,7 @@ function updateOutfitEnablePreset() {
 function saveOutfitEnablePresetAs() {
   stylInput("\u8BF7\u8F93\u5165\u65B0\u901A\u7528\u670D\u88C5\u5217\u8868\u9884\u8BBE\u7684\u540D\u79F0").then((result) => {
     if (result && result.trim() !== "") {
-      const settings3 = extension_settings26[extensionName];
+      const settings3 = extension_settings27[extensionName];
       saveCurrentOutfitEnableData(result);
       settings3.outfitEnablePresetId = result;
       loadOutfitEnablePresetList();
@@ -26192,7 +28366,7 @@ function saveOutfitEnablePresetAs() {
 function createNewOutfitEnablePreset() {
   stylInput("\u8BF7\u8F93\u5165\u65B0\u901A\u7528\u670D\u88C5\u5217\u8868\u9884\u8BBE\u7684\u540D\u79F0").then((result) => {
     if (result && result.trim() !== "") {
-      const settings3 = extension_settings26[extensionName];
+      const settings3 = extension_settings27[extensionName];
       if (settings3.outfitEnablePresets[result]) {
         alert(`\u901A\u7528\u670D\u88C5\u5217\u8868\u9884\u8BBE "${result}" \u5DF2\u5B58\u5728\uFF0C\u8BF7\u4F7F\u7528\u5176\u4ED6\u540D\u79F0\u3002`);
         return;
@@ -26201,7 +28375,7 @@ function createNewOutfitEnablePreset() {
         outfits: []
       };
       settings3.outfitEnablePresetId = result;
-      saveSettingsDebounced18();
+      saveSettingsDebounced20();
       loadOutfitEnablePresetList();
       loadOutfitEnablePreset();
       toastr.success(`\u7A7A\u767D\u901A\u7528\u670D\u88C5\u5217\u8868\u9884\u8BBE "${result}" \u5DF2\u521B\u5EFA\u3002`);
@@ -26209,7 +28383,7 @@ function createNewOutfitEnablePreset() {
   });
 }
 function renameOutfitEnablePreset() {
-  const settings3 = extension_settings26[extensionName];
+  const settings3 = extension_settings27[extensionName];
   const currentName = settings3.outfitEnablePresetId;
   if (!currentName || !settings3.outfitEnablePresets[currentName]) {
     alert("\u6CA1\u6709\u6D3B\u52A8\u7684\u901A\u7528\u670D\u88C5\u5217\u8868\u9884\u8BBE\u53EF\u91CD\u547D\u540D\u3002");
@@ -26228,7 +28402,7 @@ function renameOutfitEnablePreset() {
       settings3.outfitEnablePresets[newName] = settings3.outfitEnablePresets[currentName];
       delete settings3.outfitEnablePresets[currentName];
       settings3.outfitEnablePresetId = newName;
-      saveSettingsDebounced18();
+      saveSettingsDebounced20();
       loadOutfitEnablePresetList();
       try {
         if (typeof window.loadSilterTavernChatu8Settings === "function") {
@@ -26242,17 +28416,17 @@ function renameOutfitEnablePreset() {
   });
 }
 function saveCurrentOutfitEnableData(presetId) {
-  const settings3 = extension_settings26[extensionName];
+  const settings3 = extension_settings27[extensionName];
   const textarea = document.getElementById("outfit_enable_list");
   if (!textarea) return;
   const outfits = textarea.value.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
   settings3.outfitEnablePresets[presetId] = {
     outfits
   };
-  saveSettingsDebounced18();
+  saveSettingsDebounced20();
 }
 function deleteOutfitEnablePreset() {
-  const settings3 = extension_settings26[extensionName];
+  const settings3 = extension_settings27[extensionName];
   const presetId = document.getElementById("outfit_enable_preset_id")?.value;
   if (presetId === "\u9ED8\u8BA4\u670D\u88C5\u5217\u8868") {
     alert("\u9ED8\u8BA4\u9884\u8BBE\u4E0D\u80FD\u5220\u9664");
@@ -26264,12 +28438,12 @@ function deleteOutfitEnablePreset() {
       settings3.outfitEnablePresetId = "\u9ED8\u8BA4\u670D\u88C5\u5217\u8868";
       loadOutfitEnablePresetList();
       loadOutfitEnablePreset();
-      saveSettingsDebounced18();
+      saveSettingsDebounced20();
     }
   });
 }
 async function exportOutfitEnablePreset() {
-  const settings3 = extension_settings26[extensionName];
+  const settings3 = extension_settings27[extensionName];
   const presetId = settings3.outfitEnablePresetId;
   const preset = settings3.outfitEnablePresets[presetId];
   if (!preset) {
@@ -26308,7 +28482,7 @@ ${relatedOutfits.join("\n")}
   URL.revokeObjectURL(url);
 }
 async function exportAllOutfitEnablePresets() {
-  const settings3 = extension_settings26[extensionName];
+  const settings3 = extension_settings27[extensionName];
   if (!settings3.outfitEnablePresets || Object.keys(settings3.outfitEnablePresets).length === 0) {
     alert("\u6CA1\u6709\u901A\u7528\u670D\u88C5\u5217\u8868\u9884\u8BBE\u53EF\u5BFC\u51FA\u3002");
     return;
@@ -26350,7 +28524,7 @@ ${Array.from(allOutfits).join("\n")}
   URL.revokeObjectURL(url);
 }
 function importOutfitEnablePreset() {
-  const settings3 = extension_settings26[extensionName];
+  const settings3 = extension_settings27[extensionName];
   const input = document.createElement("input");
   input.type = "file";
   input.accept = ".json";
@@ -26399,7 +28573,7 @@ ${outfitNames.join("\n")}
             }
           }
         }
-        saveSettingsDebounced18();
+        saveSettingsDebounced20();
         loadOutfitEnablePresetList();
         if (importOutfits) {
           loadOutfitPresetList();
@@ -26427,7 +28601,7 @@ ${outfitNames.join("\n")}
   input.click();
 }
 function loadOutfitEnableSelector() {
-  const settings3 = extension_settings26[extensionName];
+  const settings3 = extension_settings27[extensionName];
   const select = document.getElementById("outfit_enable_selector");
   if (!select) return;
   select.innerHTML = '<option value="">-- \u9009\u62E9\u670D\u88C5 --</option>';
@@ -26457,7 +28631,7 @@ function addOutfitFromEnableSelector() {
   textarea.value = lines.join("\n");
 }
 function checkOutfitEnableList() {
-  const settings3 = extension_settings26[extensionName];
+  const settings3 = extension_settings27[extensionName];
   const textarea = document.getElementById("outfit_enable_list");
   const resultDiv = document.getElementById("outfit_enable_check_result");
   const contentDiv = document.getElementById("outfit_enable_check_content");
@@ -26535,7 +28709,7 @@ function setupCharacterCommonControls(container) {
   loadCharacterCommonSelector();
 }
 function loadCharacterCommonPresetList() {
-  const settings3 = extension_settings27[extensionName];
+  const settings3 = extension_settings28[extensionName];
   const select = document.getElementById("character_common_preset_id");
   if (!select) return;
   select.innerHTML = "";
@@ -26548,7 +28722,7 @@ function loadCharacterCommonPresetList() {
   select.value = settings3.characterCommonPresetId;
 }
 function loadCharacterCommonPreset() {
-  const settings3 = extension_settings27[extensionName];
+  const settings3 = extension_settings28[extensionName];
   const select = document.getElementById("character_common_preset_id");
   if (!select) return;
   const presetId = select.value;
@@ -26558,10 +28732,10 @@ function loadCharacterCommonPreset() {
   if (textarea && preset) {
     textarea.value = (preset.characters || []).join("\n");
   }
-  saveSettingsDebounced19();
+  saveSettingsDebounced21();
 }
 function updateCharacterCommonPreset() {
-  const settings3 = extension_settings27[extensionName];
+  const settings3 = extension_settings28[extensionName];
   const presetId = settings3.characterCommonPresetId;
   if (!presetId || !settings3.characterCommonPresets[presetId]) {
     toastr.warning('\u6CA1\u6709\u6D3B\u52A8\u7684\u901A\u7528\u89D2\u8272\u5217\u8868\u9884\u8BBE\u53EF\u4FDD\u5B58\u3002\u8BF7\u5148"\u53E6\u5B58\u4E3A"\u4E00\u4E2A\u65B0\u9884\u8BBE\u3002');
@@ -26573,7 +28747,7 @@ function updateCharacterCommonPreset() {
 function saveCharacterCommonPresetAs() {
   stylInput("\u8BF7\u8F93\u5165\u65B0\u901A\u7528\u89D2\u8272\u5217\u8868\u9884\u8BBE\u7684\u540D\u79F0").then((result) => {
     if (result && result.trim() !== "") {
-      const settings3 = extension_settings27[extensionName];
+      const settings3 = extension_settings28[extensionName];
       saveCurrentCharacterCommonData(result);
       settings3.characterCommonPresetId = result;
       loadCharacterCommonPresetList();
@@ -26584,7 +28758,7 @@ function saveCharacterCommonPresetAs() {
 function createNewCharacterCommonPreset() {
   stylInput("\u8BF7\u8F93\u5165\u65B0\u901A\u7528\u89D2\u8272\u5217\u8868\u9884\u8BBE\u7684\u540D\u79F0").then((result) => {
     if (result && result.trim() !== "") {
-      const settings3 = extension_settings27[extensionName];
+      const settings3 = extension_settings28[extensionName];
       if (settings3.characterCommonPresets[result]) {
         alert(`\u901A\u7528\u89D2\u8272\u5217\u8868\u9884\u8BBE "${result}" \u5DF2\u5B58\u5728\uFF0C\u8BF7\u4F7F\u7528\u5176\u4ED6\u540D\u79F0\u3002`);
         return;
@@ -26593,7 +28767,7 @@ function createNewCharacterCommonPreset() {
         characters: []
       };
       settings3.characterCommonPresetId = result;
-      saveSettingsDebounced19();
+      saveSettingsDebounced21();
       loadCharacterCommonPresetList();
       loadCharacterCommonPreset();
       toastr.success(`\u7A7A\u767D\u901A\u7528\u89D2\u8272\u5217\u8868\u9884\u8BBE "${result}" \u5DF2\u521B\u5EFA\u3002`);
@@ -26601,7 +28775,7 @@ function createNewCharacterCommonPreset() {
   });
 }
 function renameCharacterCommonPreset() {
-  const settings3 = extension_settings27[extensionName];
+  const settings3 = extension_settings28[extensionName];
   const currentName = settings3.characterCommonPresetId;
   if (!currentName || !settings3.characterCommonPresets[currentName]) {
     alert("\u6CA1\u6709\u6D3B\u52A8\u7684\u901A\u7528\u89D2\u8272\u5217\u8868\u9884\u8BBE\u53EF\u91CD\u547D\u540D\u3002");
@@ -26620,7 +28794,7 @@ function renameCharacterCommonPreset() {
       settings3.characterCommonPresets[newName] = settings3.characterCommonPresets[currentName];
       delete settings3.characterCommonPresets[currentName];
       settings3.characterCommonPresetId = newName;
-      saveSettingsDebounced19();
+      saveSettingsDebounced21();
       loadCharacterCommonPresetList();
       try {
         if (typeof window.loadSilterTavernChatu8Settings === "function") {
@@ -26634,17 +28808,17 @@ function renameCharacterCommonPreset() {
   });
 }
 function saveCurrentCharacterCommonData(presetId) {
-  const settings3 = extension_settings27[extensionName];
+  const settings3 = extension_settings28[extensionName];
   const textarea = document.getElementById("character_common_list");
   if (!textarea) return;
   const characters = textarea.value.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
   settings3.characterCommonPresets[presetId] = {
     characters
   };
-  saveSettingsDebounced19();
+  saveSettingsDebounced21();
 }
 function deleteCharacterCommonPreset() {
-  const settings3 = extension_settings27[extensionName];
+  const settings3 = extension_settings28[extensionName];
   const presetId = document.getElementById("character_common_preset_id")?.value;
   if (presetId === "\u9ED8\u8BA4\u901A\u7528\u89D2\u8272\u5217\u8868") {
     alert("\u9ED8\u8BA4\u9884\u8BBE\u4E0D\u80FD\u5220\u9664");
@@ -26656,12 +28830,12 @@ function deleteCharacterCommonPreset() {
       settings3.characterCommonPresetId = "\u9ED8\u8BA4\u901A\u7528\u89D2\u8272\u5217\u8868";
       loadCharacterCommonPresetList();
       loadCharacterCommonPreset();
-      saveSettingsDebounced19();
+      saveSettingsDebounced21();
     }
   });
 }
 async function exportCharacterCommonPreset() {
-  const settings3 = extension_settings27[extensionName];
+  const settings3 = extension_settings28[extensionName];
   const presetId = settings3.characterCommonPresetId;
   const preset = settings3.characterCommonPresets[presetId];
   if (!preset) {
@@ -26712,7 +28886,7 @@ ${relatedCharacters.join("\n")}
   URL.revokeObjectURL(url);
 }
 async function exportAllCharacterCommonPresets() {
-  const settings3 = extension_settings27[extensionName];
+  const settings3 = extension_settings28[extensionName];
   if (!settings3.characterCommonPresets || Object.keys(settings3.characterCommonPresets).length === 0) {
     alert("\u6CA1\u6709\u901A\u7528\u89D2\u8272\u5217\u8868\u9884\u8BBE\u53EF\u5BFC\u51FA\u3002");
     return;
@@ -26776,7 +28950,7 @@ ${Array.from(allOutfits).join("\n")}
   URL.revokeObjectURL(url);
 }
 function importCharacterCommonPreset() {
-  const settings3 = extension_settings27[extensionName];
+  const settings3 = extension_settings28[extensionName];
   const input = document.createElement("input");
   input.type = "file";
   input.accept = ".json";
@@ -26836,7 +29010,7 @@ ${characterNames.join("\n")}
             }
           }
         }
-        saveSettingsDebounced19();
+        saveSettingsDebounced21();
         loadCharacterCommonPresetList();
         if (importCharacters) {
           loadCharacterPresetList();
@@ -26866,7 +29040,7 @@ ${characterNames.join("\n")}
   input.click();
 }
 function loadCharacterCommonSelector() {
-  const settings3 = extension_settings27[extensionName];
+  const settings3 = extension_settings28[extensionName];
   const select = document.getElementById("character_common_selector");
   if (!select) return;
   select.innerHTML = '<option value="">-- \u9009\u62E9\u89D2\u8272 --</option>';
@@ -26896,7 +29070,7 @@ function addCharacterFromCommonSelector() {
   textarea.value = lines.join("\n");
 }
 function checkCharacterCommonList() {
-  const settings3 = extension_settings27[extensionName];
+  const settings3 = extension_settings28[extensionName];
   const textarea = document.getElementById("character_common_list");
   const resultDiv = document.getElementById("character_common_check_result");
   const contentDiv = document.getElementById("character_common_check_content");
@@ -26970,7 +29144,7 @@ function setupBananaCharacterControls(container) {
   loadBananaCharacterPreset();
 }
 function loadBananaCharacterPresetList() {
-  const settings3 = extension_settings28[extensionName];
+  const settings3 = extension_settings29[extensionName];
   const select = document.getElementById("banana_char_preset_id");
   if (!select) return;
   select.innerHTML = "";
@@ -26983,7 +29157,7 @@ function loadBananaCharacterPresetList() {
   select.value = settings3.bananaCharacterPresetId;
 }
 async function loadBananaCharacterPreset() {
-  const settings3 = extension_settings28[extensionName];
+  const settings3 = extension_settings29[extensionName];
   const select = document.getElementById("banana_char_preset_id");
   if (!select) return;
   const presetId = select.value;
@@ -27007,7 +29181,7 @@ async function loadBananaCharacterPreset() {
     console.log("[Character] \u8FC1\u79FB Banana \u6A21\u578B\u56FE\u7247:", imageId);
   }
   if (migrated) {
-    saveSettingsDebounced20();
+    saveSettingsDebounced22();
   }
   document.getElementById("banana_char_triggers").value = preset.triggers || "";
   document.getElementById("banana_char_user_text").value = conversation.user?.text || "";
@@ -27022,10 +29196,10 @@ async function loadBananaCharacterPreset() {
   }
   updateBananaImageUI("user", userImage);
   updateBananaImageUI("model", modelImage);
-  saveSettingsDebounced20();
+  saveSettingsDebounced22();
 }
 function updateBananaCharacterPreset() {
-  const settings3 = extension_settings28[extensionName];
+  const settings3 = extension_settings29[extensionName];
   const presetId = settings3.bananaCharacterPresetId;
   if (!presetId || !settings3.bananaCharacterPresets[presetId]) {
     alert('\u6CA1\u6709\u6D3B\u52A8\u7684 Banana \u89D2\u8272\u9884\u8BBE\u53EF\u4FDD\u5B58\u3002\u8BF7\u5148"\u53E6\u5B58\u4E3A"\u4E00\u4E2A\u65B0\u9884\u8BBE\u3002');
@@ -27041,7 +29215,7 @@ function updateBananaCharacterPreset() {
 function saveBananaCharacterPresetAs() {
   stylInput("\u8BF7\u8F93\u5165\u65B0 Banana \u89D2\u8272\u9884\u8BBE\u7684\u540D\u79F0").then((result) => {
     if (result && result.trim() !== "") {
-      const settings3 = extension_settings28[extensionName];
+      const settings3 = extension_settings29[extensionName];
       saveCurrentBananaCharacterData(result);
       settings3.bananaCharacterPresetId = result;
       loadBananaCharacterPresetList();
@@ -27052,7 +29226,7 @@ function saveBananaCharacterPresetAs() {
 function createNewBananaCharacterPreset() {
   stylInput("\u8BF7\u8F93\u5165\u65B0 Banana \u89D2\u8272\u9884\u8BBE\u7684\u540D\u79F0").then((result) => {
     if (result && result.trim() !== "") {
-      const settings3 = extension_settings28[extensionName];
+      const settings3 = extension_settings29[extensionName];
       if (settings3.bananaCharacterPresets[result]) {
         alert(`Banana \u89D2\u8272\u9884\u8BBE "${result}" \u5DF2\u5B58\u5728\uFF0C\u8BF7\u4F7F\u7528\u5176\u4ED6\u540D\u79F0\u3002`);
         return;
@@ -27065,7 +29239,7 @@ function createNewBananaCharacterPreset() {
         }
       };
       settings3.bananaCharacterPresetId = result;
-      saveSettingsDebounced20();
+      saveSettingsDebounced22();
       loadBananaCharacterPresetList();
       loadBananaCharacterPreset();
       toastr.success(`\u7A7A\u767D Banana \u89D2\u8272\u9884\u8BBE "${result}" \u5DF2\u521B\u5EFA\u3002`);
@@ -27073,7 +29247,7 @@ function createNewBananaCharacterPreset() {
   });
 }
 function renameBananaCharacterPreset() {
-  const settings3 = extension_settings28[extensionName];
+  const settings3 = extension_settings29[extensionName];
   const currentName = settings3.bananaCharacterPresetId;
   if (!currentName || !settings3.bananaCharacterPresets[currentName]) {
     alert("\u6CA1\u6709\u6D3B\u52A8\u7684 Banana \u89D2\u8272\u9884\u8BBE\u53EF\u91CD\u547D\u540D\u3002");
@@ -27092,7 +29266,7 @@ function renameBananaCharacterPreset() {
       settings3.bananaCharacterPresets[newName] = settings3.bananaCharacterPresets[currentName];
       delete settings3.bananaCharacterPresets[currentName];
       settings3.bananaCharacterPresetId = newName;
-      saveSettingsDebounced20();
+      saveSettingsDebounced22();
       loadBananaCharacterPresetList();
       try {
         if (typeof window.loadSilterTavernChatu8Settings === "function") {
@@ -27106,7 +29280,7 @@ function renameBananaCharacterPreset() {
   });
 }
 async function saveCurrentBananaCharacterData(presetId) {
-  const settings3 = extension_settings28[extensionName];
+  const settings3 = extension_settings29[extensionName];
   const existingPreset = settings3.bananaCharacterPresets[presetId];
   const userImgSrc = document.getElementById("banana_char_user_image").src;
   const modelImgSrc = document.getElementById("banana_char_model_image").src;
@@ -27142,10 +29316,10 @@ async function saveCurrentBananaCharacterData(presetId) {
     }
   };
   settings3.bananaCharacterPresets[presetId] = preset;
-  saveSettingsDebounced20();
+  saveSettingsDebounced22();
 }
 async function deleteBananaCharacterPreset() {
-  const settings3 = extension_settings28[extensionName];
+  const settings3 = extension_settings29[extensionName];
   const presetId = document.getElementById("banana_char_preset_id")?.value;
   if (Object.keys(settings3.bananaCharacterPresets).length <= 1) {
     alert("\u4E0D\u80FD\u5220\u9664\u6700\u540E\u4E00\u4E2A\u9884\u8BBE\u3002");
@@ -27164,7 +29338,7 @@ async function deleteBananaCharacterPreset() {
     settings3.bananaCharacterPresetId = Object.keys(settings3.bananaCharacterPresets)[0];
     loadBananaCharacterPresetList();
     await loadBananaCharacterPreset();
-    saveSettingsDebounced20();
+    saveSettingsDebounced22();
   }
 }
 var setupBananaImageUpload, updateBananaImageUI;
@@ -27243,7 +29417,7 @@ async function handleAutocomplete(inputEl, resultsEl) {
     return;
   }
   try {
-    const settings3 = extension_settings29[extensionName];
+    const settings3 = extension_settings30[extensionName];
     const startsWith = String(settings3.vocabulary_search_startswith) === "true";
     const limit = parseInt(settings3.vocabulary_search_limit, 10);
     const sortBy = settings3.vocabulary_search_sort;
@@ -27409,7 +29583,7 @@ function matchesSearch(presetName, presetData, keyword, hasNames) {
   return false;
 }
 function filterSelectOptions(select, config, keyword) {
-  const settings3 = extension_settings30[extensionName];
+  const settings3 = extension_settings31[extensionName];
   const presets = settings3[config.dataSource] || {};
   const currentValue = select.value;
   select.innerHTML = "";
@@ -27587,6 +29761,7 @@ function initCharacterSettings(container) {
     setupOutfitEnableControls(container);
     setupCharacterCommonControls(container);
     setupBananaCharacterControls(container);
+    setupInjectionTemplateControls(container);
     initTagAutocomplete();
     initAllSelectSearch(container);
     isCharacterInitialized = true;
@@ -27611,12 +29786,13 @@ function refreshCharacterSettings(container) {
   loadCharacterCommonSelector();
   loadBananaCharacterPresetList();
   loadBananaCharacterPreset();
+  updateInjectionTemplateUI(container);
   refreshAllSelectSearch();
   resetSubNavigation(container);
   console.log("[Character] Character settings refreshed");
 }
 function ensureCharacterSettings() {
-  const settings3 = extension_settings31[extensionName];
+  const settings3 = extension_settings32[extensionName];
   if (!settings3.characterPresets) {
     settings3.characterPresets = JSON.parse(JSON.stringify(defaultCharacterSettings.characterPresets));
   }
@@ -27667,6 +29843,7 @@ function ensureCharacterSettings() {
   if (!settings3.bananaCharacterPresetId) {
     settings3.bananaCharacterPresetId = "\u9ED8\u8BA4";
   }
+  ensureInjectionTemplatesInit();
 }
 function setupSubNavigation(container) {
   container.find(".st-chatu8-sub-nav-link").off("click").on("click", function(e) {
@@ -27711,6 +29888,7 @@ var init_character = __esm({
     init_bananaCharacter();
     init_tagAutocomplete();
     init_selectSearch();
+    init_injectionTemplates();
     init_crypto();
     isCharacterInitialized = false;
   }
@@ -27722,7 +29900,7 @@ var init_character = __esm({
 
 function initializeNewlineFixer() {
   eventSource15.on(event_types3.MESSAGE_RECEIVED, async function(id) {
-    if (String(extension_settings32[extensionName].newlineFixEnabled) !== "true") {
+    if (String(extension_settings33[extensionName].newlineFixEnabled) !== "true") {
       return;
     }
     if (!chat2[id] || typeof chat2[id].mes !== "string") {
@@ -27731,7 +29909,7 @@ function initializeNewlineFixer() {
     const originalMessage = chat2[id].mes;
     let newMessage = originalMessage.replaceAll("\n###", "###");
     newMessage = newMessage.replace(/<image>\n*###\n*/g, "<image>image###");
-    const settings3 = extension_settings32[extensionName];
+    const settings3 = extension_settings33[extensionName];
     const startTag = settings3?.startTag || "image###";
     const endTag = settings3?.endTag || "###";
     const escapeRegExp2 = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -27950,7 +30128,7 @@ async function handleExtractedData(extracted, metadata = {}) {
   if (!confirmed) {
     return;
   }
-  const settings3 = extension_settings32[extensionName];
+  const settings3 = extension_settings33[extensionName];
   const createdCharacters = [];
   const createdOutfits = [];
   const stContext = getContext10();
@@ -28079,7 +30257,7 @@ async function handleExtractedData(extracted, metadata = {}) {
     refreshCharacterSettings(characterTab);
   }
   if (createdOutfits.length > 0) {
-    saveSettingsDebounced21();
+    saveSettingsDebounced23();
   }
   if (createdCharacters.length > 0) {
     const enable = await stylishConfirm(
@@ -28090,7 +30268,7 @@ async function handleExtractedData(extracted, metadata = {}) {
       if (currentPresetId && settings3.characterEnablePresets[currentPresetId]) {
         const enablePreset = settings3.characterEnablePresets[currentPresetId];
         enablePreset.characters = [.../* @__PURE__ */ new Set([...enablePreset.characters, ...createdCharacters])];
-        saveSettingsDebounced21();
+        saveSettingsDebounced23();
       }
     }
   }
@@ -28153,7 +30331,7 @@ var init_newline_fix = __esm({
 
 function showUserDemandPopup() {
   return new Promise((resolve) => {
-    const isMobile3 = isMobileDevice();
+    const isMobile3 = isMobileDeviceDialog();
     const uploadedImages = [];
     let topBound = 10;
     let bottomBound = window.innerHeight - 10;
@@ -28179,6 +30357,8 @@ function showUserDemandPopup() {
       bubble.classList.add("mobile");
       bubble.style.top = `${topBound}px`;
       bubble.style.maxHeight = `${availableHeight}px`;
+    } else {
+      clampPopupToViewport(bubble);
     }
     const title = document.createElement("div");
     title.textContent = "\u{1F3A8} \u8F93\u5165\u751F\u6210\u9700\u6C42";
@@ -28440,13 +30620,13 @@ async function handleCharacterDesignRequest(el) {
       toastr.info("\u5DF2\u53D6\u6D88\u89D2\u8272\u751F\u6210");
       return;
     }
-    let userDemand = popupResult.text || extension_settings33[extensionName]?.defaultCharDemand || "";
+    let userDemand = popupResult.text || extension_settings34[extensionName]?.defaultCharDemand || "";
     const userUploadedImages = popupResult.images || [];
     console.log("[characterGen] User demand:", userDemand);
     console.log("[characterGen] User uploaded images count:", userUploadedImages.length);
     toastr.info("[characterGen] \u6B63\u5728\u5904\u7406\u89D2\u8272/\u670D\u88C5\u8BBE\u8BA1\u8BF7\u6C42...");
     const context = getContext11();
-    const historyDepth = (extension_settings33[extensionName]?.llm_history_depth ?? 2) + 1;
+    const historyDepth = (extension_settings34[extensionName]?.llm_history_depth ?? 2) + 1;
     const contextElements = await getElContext(el, historyDepth);
     if (!contextElements || contextElements.length === 0) {
       toastr.warning("\u672A\u80FD\u83B7\u53D6\u4E0A\u4E0B\u6587\u5185\u5BB9");
@@ -28529,11 +30709,11 @@ async function handleCharacterDesignRequest(el) {
 `;
     }
     updateCombinedPrompt(prompt2, diagnosticText);
-    const isRegexTestMode = extension_settings33[extensionName]?.regexTestMode ?? false;
+    const isRegexTestMode = extension_settings34[extensionName]?.regexTestMode ?? false;
     if (isRegexTestMode) {
       toastr.info("\u{1F9EA} \u6B63\u5219\u6D4B\u8BD5\u6A21\u5F0F\u5DF2\u542F\u7528\uFF1A\u5DF2\u505C\u6B62\u89D2\u8272\u8BBE\u8BA1 LLM \u8BF7\u6C42\uFF0C\u4EC5\u5C55\u793A\u6700\u7EC8 Prompt");
       console.log("[characterGen] \u6B63\u5219\u6D4B\u8BD5\u6A21\u5F0F - LLM \u8BF7\u6C42\u5DF2\u8DF3\u8FC7");
-      extension_settings33[extensionName].regexTestMode = false;
+      extension_settings34[extensionName].regexTestMode = false;
       $("#ch-regex-test-mode").prop("checked", false);
       console.log("[characterGen] \u6B63\u5219\u6D4B\u8BD5\u6A21\u5F0F\u5DF2\u81EA\u52A8\u5173\u95ED\uFF08\u4E00\u6B21\u6027\u89E6\u53D1\uFF09");
       return;
@@ -29183,7 +31363,7 @@ function buildImageParseFailureToastInfo(text) {
 }
 function showUserDemandPopup2() {
   return new Promise((resolve) => {
-    const isMobile3 = isMobileDevice();
+    const isMobile3 = isMobileDeviceDialog();
     const uploadedImages = [];
     let topOffset = 10;
     let maxHeight = "none";
@@ -29205,6 +31385,8 @@ function showUserDemandPopup2() {
       bubble.classList.add("mobile");
       bubble.style.top = `${topOffset}px`;
       bubble.style.maxHeight = maxHeight;
+    } else {
+      clampPopupToViewport(bubble);
     }
     const title = document.createElement("div");
     title.textContent = "\u{1F5BC}\uFE0F \u8F93\u5165\u751F\u56FE\u9700\u6C42";
@@ -29369,7 +31551,7 @@ async function handlePromptRequest(el, gestureId) {
     \u76EE\u6807\u5143\u7D20: el?.className || el?.tagName,
     \u529F\u80FD\u8BF4\u660E: "\u5904\u7406\u624B\u52BF\u8BC6\u522B\u540E\u7684\u56FE\u7247\u751F\u6210\u8BF7\u6C42"
   });
-  const imageGenDemandEnabled = extension_settings34[extensionName]?.imageGenDemandEnabled ?? false;
+  const imageGenDemandEnabled = extension_settings35[extensionName]?.imageGenDemandEnabled ?? false;
   let userDemand = "";
   let userUploadedImages = [];
   if (imageGenDemandEnabled) {
@@ -29385,19 +31567,19 @@ async function handlePromptRequest(el, gestureId) {
       mainTimer.end("\u7528\u6237\u53D6\u6D88");
       return;
     }
-    userDemand = result.text || extension_settings34[extensionName]?.defaultImageDemand || "";
+    userDemand = result.text || extension_settings35[extensionName]?.defaultImageDemand || "";
     userUploadedImages = result.images || [];
     debugLog("handlePromptRequest", "\u7528\u6237\u9700\u6C42\u5DF2\u83B7\u53D6", {
       \u9700\u6C42\u6587\u672C\u957F\u5EA6: userDemand.length
     });
   } else {
     debugBranch("handlePromptRequest", "\u8DF3\u8FC7\u7528\u6237\u9700\u6C42\u5F39\u7A97", true);
-    userDemand = extension_settings34[extensionName]?.defaultImageDemand || "";
+    userDemand = extension_settings35[extensionName]?.defaultImageDemand || "";
   }
   toastr.info("\u6B63\u5728\u5904\u7406\u6B63\u6587\u751F\u56FE\u8BF7\u6C42...");
   let context = getContext12();
-  const historyDepth = (extension_settings34[extensionName]?.llm_history_depth ?? 2) + 1;
-  const keepImageTagInHistory = extension_settings34[extensionName]?.historyKeepImageTag === true;
+  const historyDepth = (extension_settings35[extensionName]?.llm_history_depth ?? 2) + 1;
+  const keepImageTagInHistory = extension_settings35[extensionName]?.historyKeepImageTag === true;
   debugLog("handlePromptRequest", "\u83B7\u53D6\u4E0A\u4E0B\u6587", {
     \u5386\u53F2\u5C42\u6570: historyDepth,
     \u5386\u53F2\u4FDD\u7559image\u6807\u7B7E: keepImageTagInHistory
@@ -29588,11 +31770,11 @@ async function handlePromptRequest(el, gestureId) {
 `;
   }
   updateCombinedPrompt(promt, diagnosticText);
-  const isRegexTestMode = extension_settings34[extensionName]?.regexTestMode ?? false;
+  const isRegexTestMode = extension_settings35[extensionName]?.regexTestMode ?? false;
   if (isRegexTestMode) {
     debugBranch("handlePromptRequest", "\u6B63\u5219\u6D4B\u8BD5\u6A21\u5F0F - \u505C\u6B62LLM\u8BF7\u6C42", true);
     toastr.info("\u{1F9EA} \u6B63\u5219\u6D4B\u8BD5\u6A21\u5F0F\u5DF2\u542F\u7528\uFF1A\u5DF2\u505C\u6B62 LLM \u8BF7\u6C42\uFF0C\u4EC5\u5C55\u793A\u6700\u7EC8 Prompt");
-    extension_settings34[extensionName].regexTestMode = false;
+    extension_settings35[extensionName].regexTestMode = false;
     $("#ch-regex-test-mode").prop("checked", false);
     console.log("[promptReq] \u6B63\u5219\u6D4B\u8BD5\u6A21\u5F0F\u5DF2\u81EA\u52A8\u5173\u95ED\uFF08\u4E00\u6B21\u6027\u89E6\u53D1\uFF09");
     mainTimer.end("\u6B63\u5219\u6D4B\u8BD5\u6A21\u5F0F - \u672A\u53D1\u8D77LLM\u8BF7\u6C42");
@@ -29635,7 +31817,7 @@ async function handlePromptRequest(el, gestureId) {
     const insertTimer = debugTimer("insertImagesIntoElement", "\u63D2\u5165\u56FE\u7247\u6807\u7B7E");
     await insertImagesIntoElement(el, images);
     insertTimer.end("\u63D2\u5165\u5B8C\u6210");
-    const autoClickEnabled = extension_settings34[extensionName]?.zidongdianji === "true";
+    const autoClickEnabled = extension_settings35[extensionName]?.zidongdianji === "true";
     if (autoClickEnabled) {
       const { taskQueue: taskQueue2, TaskType: TaskType2, TaskStatus: TaskStatus3 } = await Promise.resolve().then(() => (init_taskQueue(), taskQueue_exports));
       const { eventSource: eventSource41 } = await import("../../../../script.js");
@@ -29652,7 +31834,7 @@ async function handlePromptRequest(el, gestureId) {
           taskQueue2.completeTask(autoClickTaskId, data.success !== false);
           eventSource41.removeListener("st_chatu8_auto_click_complete", completeHandler);
           window.autoClickTaskId = null;
-          if (extension_settings34[extensionName]?.zidongdianji2 !== "true") {
+          if (extension_settings35[extensionName]?.zidongdianji2 !== "true") {
             setTimeout(() => {
               window.zidongdianji = false;
             }, 5e3);
@@ -29726,7 +31908,7 @@ function readFileAsBase643(file) {
 }
 function showTagModifyDemandPopup() {
   return new Promise((resolve) => {
-    const isMobile3 = isMobileDevice();
+    const isMobile3 = isMobileDeviceDialog();
     const uploadedImages = [];
     let topBound = 10;
     let bottomBound = window.innerHeight - 10;
@@ -29734,15 +31916,15 @@ function showTagModifyDemandPopup() {
       const topSettingsHolder = document.querySelector("#top-settings-holder");
       if (topSettingsHolder) {
         const rect = topSettingsHolder.getBoundingClientRect();
-        topBound = rect.bottom + 10;
+        topBound = Math.max(10, Math.min(rect.bottom + 10, window.innerHeight * 0.5));
       }
       const sendForm = document.querySelector("#send_form");
       if (sendForm) {
         const rect = sendForm.getBoundingClientRect();
-        bottomBound = rect.top - 10;
+        bottomBound = Math.max(topBound + 200, Math.min(rect.top - 10, window.innerHeight - 10));
       }
     }
-    const availableHeight = bottomBound - topBound;
+    const availableHeight = Math.max(200, bottomBound - topBound);
     const overlay2 = document.createElement("div");
     overlay2.id = "tag-modify-overlay";
     overlay2.className = "st-chatu8-popup-overlay";
@@ -29752,6 +31934,8 @@ function showTagModifyDemandPopup() {
       bubble.classList.add("mobile");
       bubble.style.top = `${topBound}px`;
       bubble.style.maxHeight = `${availableHeight}px`;
+    } else {
+      clampPopupToViewport(bubble);
     }
     const title = document.createElement("div");
     title.textContent = "\u{1F3F7}\uFE0F \u4FEE\u6539 Tag";
@@ -29903,7 +32087,7 @@ function showTagModifyDemandPopup() {
 function parseImageTagFromResponse(text) {
   if (!text || typeof text !== "string") return null;
   let normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  const settings3 = extension_settings35[extensionName];
+  const settings3 = extension_settings36[extensionName];
   const startTag = settings3?.startTag || "image###";
   const endTag = settings3?.endTag || "###";
   const escapedStart = startTag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -30138,11 +32322,11 @@ async function handleAutocomplete2(inputEl, resultsEl) {
     return;
   }
   try {
-    if (!extension_settings36 || !extension_settings36[extensionName]) {
+    if (!extension_settings37 || !extension_settings37[extensionName]) {
       console.warn("extension_settings not available.");
       return;
     }
-    const settings3 = extension_settings36[extensionName];
+    const settings3 = extension_settings37[extensionName];
     const startsWith = String(settings3.vocabulary_search_startswith) === "true";
     const limit = parseInt(settings3.vocabulary_search_limit, 10);
     const sortBy = settings3.vocabulary_search_sort;
@@ -30222,10 +32406,10 @@ async function showComfyUIInpaintDialog(img, button) {
   editorContainer.id = "inpaint-editor-container";
   editorContainer.className = "st-chatu8-inpaint-editor-container";
   dialog.appendChild(editorContainer);
-  const savedPositive = extension_settings37[extensionName]?.inpaint_positive_prompt || "";
-  const savedNegative = extension_settings37[extensionName]?.inpaint_negative_prompt || "";
-  const savedDenoise = extension_settings37[extensionName]?.inpaint_denoise || "0.75";
-  const savedFeatherRadius = extension_settings37[extensionName]?.inpaint_feather_radius || 0;
+  const savedPositive = extension_settings38[extensionName]?.inpaint_positive_prompt || "";
+  const savedNegative = extension_settings38[extensionName]?.inpaint_negative_prompt || "";
+  const savedDenoise = extension_settings38[extensionName]?.inpaint_denoise || "0.75";
+  const savedFeatherRadius = extension_settings38[extensionName]?.inpaint_feather_radius || 0;
   const toolbar = doc.createElement("div");
   toolbar.className = "st-chatu8-inpaint-toolbar";
   toolbar.innerHTML = `
@@ -30408,7 +32592,7 @@ async function showComfyUIInpaintDialog(img, button) {
       const originalBlob = await editor.getOriginalBlob();
       const maskBlob = await editor.getMaskBlob();
       addLog("[Inpaint] \u51C6\u5907\u4E0A\u4F20\u56FE\u7247\u548C\u906E\u7F69\u5230ComfyUI...");
-      const comfyuiUrl = extension_settings37[extensionName]?.comfyuiUrl?.trim();
+      const comfyuiUrl = extension_settings38[extensionName]?.comfyuiUrl?.trim();
       if (!comfyuiUrl) {
         throw new Error("\u8BF7\u5148\u5728\u8BBE\u7F6E\u4E2D\u914D\u7F6EComfyUI\u5730\u5740");
       }
@@ -30420,10 +32604,10 @@ async function showComfyUIInpaintDialog(img, button) {
       window.comfyuiInpaintPositivePrompt = positivePrompt;
       window.comfyuiInpaintNegativePrompt = negativePrompt;
       window.comfyuiInpaintDenoise = denoise;
-      if (extension_settings37[extensionName]) {
-        extension_settings37[extensionName].inpaint_positive_prompt = positivePrompt;
-        extension_settings37[extensionName].inpaint_negative_prompt = negativePrompt;
-        extension_settings37[extensionName].inpaint_denoise = denoise.toString();
+      if (extension_settings38[extensionName]) {
+        extension_settings38[extensionName].inpaint_positive_prompt = positivePrompt;
+        extension_settings38[extensionName].inpaint_negative_prompt = negativePrompt;
+        extension_settings38[extensionName].inpaint_denoise = denoise.toString();
       }
       const currentChange = button.dataset.change || "";
       if (!currentChange.includes("{ComfyUI\u5C40\u90E8\u91CD\u7ED8}")) {
@@ -30506,8 +32690,8 @@ async function showComfyUIInpaintDialog(img, button) {
     const radius = parseInt(e.target.value);
     editor.setFeatherRadius(radius);
     featherValue.textContent = radius;
-    if (extension_settings37[extensionName]) {
-      extension_settings37[extensionName].inpaint_feather_radius = radius;
+    if (extension_settings38[extensionName]) {
+      extension_settings38[extensionName].inpaint_feather_radius = radius;
     }
   };
   const denoiseInput = dialog.querySelector("#inpaint-denoise");
@@ -30580,7 +32764,7 @@ async function showComfyUIInpaintDialog(img, button) {
       const originalBlob = await editor.getOriginalBlob();
       const maskBlob = await editor.getMaskBlob();
       addLog("[Inpaint] \u51C6\u5907\u4E0A\u4F20\u56FE\u7247\u548C\u906E\u7F69\u5230ComfyUI...");
-      const comfyuiUrl = extension_settings37[extensionName]?.comfyuiUrl?.trim();
+      const comfyuiUrl = extension_settings38[extensionName]?.comfyuiUrl?.trim();
       if (!comfyuiUrl) {
         throw new Error("\u8BF7\u5148\u5728\u8BBE\u7F6E\u4E2D\u914D\u7F6EComfyUI\u5730\u5740");
       }
@@ -30592,10 +32776,10 @@ async function showComfyUIInpaintDialog(img, button) {
       window.comfyuiInpaintPositivePrompt = positivePrompt;
       window.comfyuiInpaintNegativePrompt = negativePrompt;
       window.comfyuiInpaintDenoise = denoise;
-      if (extension_settings37[extensionName]) {
-        extension_settings37[extensionName].inpaint_positive_prompt = positivePrompt;
-        extension_settings37[extensionName].inpaint_negative_prompt = negativePrompt;
-        extension_settings37[extensionName].inpaint_denoise = denoise.toString();
+      if (extension_settings38[extensionName]) {
+        extension_settings38[extensionName].inpaint_positive_prompt = positivePrompt;
+        extension_settings38[extensionName].inpaint_negative_prompt = negativePrompt;
+        extension_settings38[extensionName].inpaint_denoise = denoise.toString();
       }
       const currentChange = button.dataset.change || "";
       if (!currentChange.includes("{ComfyUI\u5C40\u90E8\u91CD\u7ED8}")) {
@@ -30641,7 +32825,7 @@ var init_comfyuiInpaint = __esm({
       constructor(containerEl, imageUrl) {
         this.container = containerEl;
         this.imageUrl = imageUrl;
-        this.brushSize = extension_settings37[extensionName]?.inpaint_brush_size || 30;
+        this.brushSize = extension_settings38[extensionName]?.inpaint_brush_size || 30;
         this.featherRadius = 10;
         this.mode = "draw";
         this.isDrawing = false;
@@ -31682,9 +33866,6 @@ var init_novelaiInpaint = __esm({
 function setGorkTriggerGeneration(fn) {
   _triggerGeneration = fn;
 }
-function isMobileDeviceDialog() {
-  return window.top.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-}
 function showGorkVideoDialog(originalImgElement, originalButton) {
   const imageUrl = originalImgElement.src;
   const isMobile3 = isMobileDeviceDialog();
@@ -31744,6 +33925,7 @@ var _triggerGeneration;
 var init_gorkVideo = __esm({
   "utils/iframe/gorkVideo.js"() {
     init_dialogs();
+    init_utils();
     _triggerGeneration = null;
   }
 });
@@ -31766,8 +33948,8 @@ function getImageSizeConfigKeys(mode) {
 function showImageSizePopup(button, inputEl, onConfirm) {
   return new Promise((resolve) => {
     const doc = window.top.document;
-    const isMobile3 = isMobileDevice();
-    const settings3 = extension_settings38[extensionName];
+    const isMobile3 = isMobileDeviceDialog();
+    const settings3 = extension_settings39[extensionName];
     const mode = settings3.mode || "comfyui";
     const { widthKey, heightKey, modeName } = getImageSizeConfigKeys(mode);
     let currentWidth, currentHeight;
@@ -31803,21 +33985,22 @@ function showImageSizePopup(button, inputEl, onConfirm) {
         currentHeight
       });
     }
+    const viewportHeight = window.top.innerHeight;
     let topBound = 10;
-    let bottomBound = window.innerHeight - 10;
+    let bottomBound = viewportHeight - 10;
     if (isMobile3) {
       const topSettingsHolder = doc.querySelector("#top-settings-holder");
       if (topSettingsHolder) {
         const rect = topSettingsHolder.getBoundingClientRect();
-        topBound = rect.bottom + 10;
+        topBound = Math.max(10, Math.min(rect.bottom + 10, viewportHeight * 0.5));
       }
       const sendForm = doc.querySelector("#send_form");
       if (sendForm) {
         const rect = sendForm.getBoundingClientRect();
-        bottomBound = rect.top - 10;
+        bottomBound = Math.max(topBound + 200, Math.min(rect.top - 10, viewportHeight - 10));
       }
     }
-    const availableHeight = bottomBound - topBound;
+    const availableHeight = Math.max(200, bottomBound - topBound);
     const overlay2 = doc.createElement("div");
     overlay2.id = "image-size-overlay";
     overlay2.className = "st-chatu8-popup-overlay";
@@ -31827,6 +34010,8 @@ function showImageSizePopup(button, inputEl, onConfirm) {
       bubble.classList.add("mobile");
       bubble.style.top = `${topBound}px`;
       bubble.style.maxHeight = `${availableHeight}px`;
+    } else {
+      clampPopupToViewport(bubble, window.top);
     }
     const title = doc.createElement("div");
     title.textContent = `\u{1F4D0} \u56FE\u7247\u5927\u5C0F\u8BBE\u7F6E (${modeName})`;
@@ -31952,7 +34137,7 @@ function showImageSizePopup(button, inputEl, onConfirm) {
 }
 function showBananaRetouchDialog(originalImgElement, originalButton) {
   const imageUrl = originalImgElement.src;
-  const isMobile3 = isMobileDeviceDialog2();
+  const isMobile3 = isMobileDeviceDialog();
   const { backdrop, dialog, closeDialog } = createUnifiedDialog({
     title: "Banana \u4FEE\u56FE",
     isMobile: isMobile3
@@ -32917,7 +35102,7 @@ ${keyword}`);
     debouncedUpdateDialogTokens();
   });
   async function updateDialogTokens() {
-    if (extension_settings38[extensionName].mode !== "novelai") {
+    if (extension_settings39[extensionName].mode !== "novelai") {
       tokenDisplayContainer.style.display = "none";
       return;
     }
@@ -32950,12 +35135,12 @@ ${keyword}`);
     } else {
       positiveText = processedValue;
     }
-    const presetId = extension_settings38[extensionName].yusheid_novelai || "\u9ED8\u8BA4";
-    const preset = extension_settings38[extensionName].yushe && extension_settings38[extensionName].yushe[presetId] || {};
+    const presetId = extension_settings39[extensionName].yusheid_novelai || "\u9ED8\u8BA4";
+    const preset = extension_settings39[extensionName].yushe && extension_settings39[extensionName].yushe[presetId] || {};
     const fixedPositive = preset.fixedPrompt || "";
     const fixedPositiveEnd = preset.fixedPrompt_end || "";
     const fixedNegative = preset.negativePrompt || "";
-    const presetsText = getNovelAIQualityPresetsText(extension_settings38[extensionName]);
+    const presetsText = getNovelAIQualityPresetsText(extension_settings39[extensionName]);
     const pos2 = await calculateNovelAITokens(positiveText) + charTokens;
     const combinedPositive = [fixedPositive, positiveText, fixedPositiveEnd, presetsText.aqt].filter((p) => p && p.trim()).join(", ");
     const deduplicatedPositive = deduplicateTags(combinedPositive);
@@ -32987,9 +35172,6 @@ ${keyword}`);
       }
     }, 150);
   });
-}
-function isMobileDeviceDialog2() {
-  return window.top.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 function calculateDialogDimensions(isMobile3) {
   if (!isMobile3) {
@@ -33259,7 +35441,7 @@ function createAndShowImage(container, imageUrl, alt, button, change, isVideo = 
         clearTimeout(clickTimer);
         clickTimer = null;
       }
-      if (button && extension_settings39[extensionName].longPressToEdit == "true") {
+      if (button && extension_settings40[extensionName].longPressToEdit == "true") {
         showEditDialog(media, button);
       }
     }, longPressThreshold);
@@ -33275,14 +35457,14 @@ function createAndShowImage(container, imageUrl, alt, button, change, isVideo = 
     if (clickTimer) {
       clearTimeout(clickTimer);
       clickTimer = null;
-      if (extension_settings39[extensionName].dbclike === "true" && button) {
+      if (extension_settings40[extensionName].dbclike === "true" && button) {
         addSmoothShakeEffect(media);
         triggerGeneration(button);
       }
     } else {
       clickTimer = setTimeout(() => {
         clickTimer = null;
-        if (button && extension_settings39[extensionName].clickToPreview === "true") {
+        if (button && extension_settings40[extensionName].clickToPreview === "true") {
           if (_showImagePreview) {
             _showImagePreview(media, button);
           }
@@ -33298,7 +35480,7 @@ function createAndShowImage(container, imageUrl, alt, button, change, isVideo = 
   eventTarget.addEventListener("touchend", handlePressEnd);
   eventTarget.addEventListener("touchcancel", handlePressEnd);
   eventTarget.addEventListener("contextmenu", (e) => {
-    if (extension_settings39[extensionName].longPressToEdit == "true") {
+    if (extension_settings40[extensionName].longPressToEdit == "true") {
       e.preventDefault();
       e.stopPropagation();
     }
@@ -33308,7 +35490,7 @@ function createAndShowImage(container, imageUrl, alt, button, change, isVideo = 
     div.appendChild(div._pendingOverlay);
     delete div._pendingOverlay;
   }
-  if (String(extension_settings39[extensionName]?.collapseImage) === "true") {
+  if (String(extension_settings40[extensionName]?.collapseImage) === "true") {
     const wrapper = doc.createElement("div");
     wrapper.className = "st-chatu8-collapse-wrapper";
     wrapper.dataset.mediaType = isVideo ? "video" : "image";
@@ -33402,7 +35584,7 @@ var init_generation = __esm({
             }
             buttons.forEach((b) => {
               b.removeAttribute("data-loading");
-              if (success && extension_settings39[extensionName].dbclike == "true") {
+              if (success && extension_settings40[extensionName].dbclike == "true") {
                 b.style.setProperty("display", "none", "important");
               } else {
                 b.disabled = false;
@@ -33427,7 +35609,7 @@ var init_generation = __esm({
           if (requestChange) {
             const changeMatch = requestChange.match(sizeRegex);
             if (changeMatch) {
-              if (String(extension_settings39[extensionName].aiAutonomousResolution) !== "false") {
+              if (String(extension_settings40[extensionName].aiAutonomousResolution) !== "false") {
                 finalWidth = changeMatch[1];
                 finalHeight = changeMatch[2];
               }
@@ -33437,7 +35619,7 @@ var init_generation = __esm({
           const linkMatch = requestPrompt.match(sizeRegex);
           if (linkMatch) {
             if (!isSizeExplicitlySet) {
-              if (String(extension_settings39[extensionName].aiAutonomousResolution) !== "false") {
+              if (String(extension_settings40[extensionName].aiAutonomousResolution) !== "false") {
                 finalWidth = linkMatch[1];
                 finalHeight = linkMatch[2];
               }
@@ -33484,7 +35666,7 @@ var init_generation = __esm({
                 if (associatedButton && associatedButton.matches(`button[data-request-id="${requestId}"]`)) {
                   createAndShowImage(span, imageUrl, "Generated Image", associatedButton, dbChange, isVideo, dbOriginalUrl || "");
                   associatedButton.removeAttribute("data-loading");
-                  if (extension_settings39[extensionName].dbclike === "true") {
+                  if (extension_settings40[extensionName].dbclike === "true") {
                     associatedButton.style.setProperty("display", "none", "important");
                   } else {
                     associatedButton.disabled = false;
@@ -33517,7 +35699,7 @@ var init_generation = __esm({
 
 
 function getImageTags4() {
-  const settings3 = extension_settings40[extensionName];
+  const settings3 = extension_settings41[extensionName];
   const startTag = settings3?.startTag || "image###";
   const endTag = settings3?.endTag || "###";
   return { startTag, endTag };
@@ -33858,7 +36040,7 @@ async function findAndReplaceInElement(rootElement, imageAlt = "Generated Image"
     console.log("[iframe] Element has loading button, skipping processing");
     return;
   }
-  const settings3 = extension_settings40[extensionName];
+  const settings3 = extension_settings41[extensionName];
   if (!settings3.startTag || !settings3.endTag) {
     console.warn("[iframe] startTag or endTag is empty, skipping placeholder processing");
     return;
@@ -34052,7 +36234,7 @@ async function findAndReplaceInElement(rootElement, imageAlt = "Generated Image"
         isLongPress2 = true;
         pressTimer = null;
         e.preventDefault();
-        if (extension_settings40[extensionName].longPressToEdit == "true") {
+        if (extension_settings41[extensionName].longPressToEdit == "true") {
           showEditDialog(null, button);
         }
       }, longPressThreshold);
@@ -34087,7 +36269,7 @@ async function findAndReplaceInElement(rootElement, imageAlt = "Generated Image"
       const [imageUrl, change, , isVideo, originalUrl] = await getItemImg(link);
       if (imageUrl) {
         createAndShowImage(imgSpan, imageUrl, imageAlt, button, change, isVideo, originalUrl);
-        if (extension_settings40[extensionName].dbclike === "true") {
+        if (extension_settings41[extensionName].dbclike === "true") {
           button.style.setProperty("display", "none", "important");
         }
       } else if (shouldAutoClickBatch) {
@@ -34137,7 +36319,7 @@ var init_placeholder = __esm({
 
 
 function processMesTextElements() {
-  if (!extension_settings41[extensionName].scriptEnabled || checkSendBuClass()) {
+  if (!extension_settings42[extensionName].scriptEnabled || checkSendBuClass()) {
     return;
   }
   const elements = document.getElementsByClassName("mes_text");
@@ -34149,7 +36331,7 @@ function processMesTextElements() {
   }
 }
 function processIframes() {
-  if (!extension_settings41[extensionName].scriptEnabled || checkSendBuClass()) {
+  if (!extension_settings42[extensionName].scriptEnabled || checkSendBuClass()) {
     return;
   }
   const iframes = document.querySelectorAll("iframe");
@@ -34567,6 +36749,7 @@ function showImagePreview(img, button) {
       }
       currentIndex = newIndex;
       imageCounter.textContent = `${currentIndex + 1} / ${images.length}`;
+      renderCurrentParams();
       const currentSlot = track.children[1];
       largeMedia = currentSlot.querySelector("img, video");
       if (typeof imageContainer.__resetZoom === "function") {
@@ -34884,20 +37067,38 @@ function showImagePreview(img, button) {
       console.error("Error during download:", error);
     }
   };
+  const paramsPanel = createParamsPanel(doc);
+  const paramsButton = doc.createElement("button");
+  paramsButton.innerHTML = '<i class="fa-solid fa-circle-info"></i><span>\u67E5\u770B\u751F\u6210\u53C2\u6570</span>';
+  paramsButton.className = "st-chatu8-preview-action-button";
+  paramsButton.title = "\u67E5\u770B\u8FD9\u5F20\u56FE\u7684\u751F\u6210\u53C2\u6570";
+  paramsButton.onclick = () => {
+    const shown = paramsPanel.toggle();
+    if (shown) {
+      renderCurrentParams();
+    }
+  };
   const deleteButton = doc.createElement("button");
   deleteButton.innerHTML = '<i class="fa-solid fa-trash-can"></i><span>\u5220\u9664\u5F53\u524D\u5A92\u4F53</span>';
   deleteButton.className = "st-chatu8-preview-action-button danger";
   deleteButton.title = "\u5220\u9664\u5F53\u524D\u5A92\u4F53";
   actionContainer.appendChild(downloadButton);
+  actionContainer.appendChild(paramsButton);
   actionContainer.appendChild(deleteButton);
   dialog.appendChild(closeButton);
   dialog.appendChild(imageContainer);
   dialog.appendChild(actionContainer);
+  dialog.appendChild(paramsPanel.panel);
   backdrop.appendChild(dialog);
   doc.body.appendChild(backdrop);
   let images = [];
   let mediaInfos = [];
   let currentIndex = 0;
+  function renderCurrentParams() {
+    if (!paramsPanel.isVisible()) return;
+    const info = mediaInfos[currentIndex] || {};
+    paramsPanel.render(info.genParams, currentTag, info.date);
+  }
   deleteButton.onclick = async () => {
     if (!window.top.confirm("\u786E\u5B9A\u8981\u5220\u9664\u8FD9\u5F20\u56FE\u7247\u5417\uFF1F")) {
       return;
@@ -34925,7 +37126,9 @@ function showImagePreview(img, button) {
       return;
     }
     mediaInfos = merged.images.map((entry) => ({
-      isVideo: entry.isVideo || false
+      isVideo: entry.isVideo || false,
+      genParams: entry.genParams || null,
+      date: entry.date || 0
     }));
     const blobPromises = merged.images.map(async (imageEntry) => {
       const isVideo = imageEntry.isVideo || false;
@@ -35147,6 +37350,7 @@ function showImagePreview(img, button) {
     }
     currentIndex = index;
     imageCounter.textContent = `${currentIndex + 1} / ${images.length}`;
+    renderCurrentParams();
     const showNav = images.length > 1;
     prevButton.style.display = showNav ? "flex" : "none";
     nextButton.style.display = showNav ? "flex" : "none";
@@ -35183,7 +37387,9 @@ function showImagePreview(img, button) {
       return;
     }
     mediaInfos = merged.images.map((entry) => ({
-      isVideo: entry.isVideo || false
+      isVideo: entry.isVideo || false,
+      genParams: entry.genParams || null,
+      date: entry.date || 0
     }));
     const blobPromises = merged.images.map(async (imageEntry) => {
       const isVideo = imageEntry.isVideo || false;
@@ -35265,6 +37471,7 @@ var init_imagePreview = __esm({
     init_dialogs();
     init_generation();
     init_utils();
+    init_genParams();
   }
 });
 
@@ -35433,10 +37640,10 @@ function processImagePlaceholdersForElement(targetElement) {
   findAndReplaceInElement(targetElement);
 }
 function initializeImageProcessing() {
-  if (extension_settings42[extensionName]) {
-    const currentTheme = extension_settings42[extensionName].themes?.[extension_settings42[extensionName].theme_id] || {};
-    applyGenerateButtonStyle(extension_settings42[extensionName].generate_btn_style || "\u9ED8\u8BA4", isThemeDark(currentTheme));
-    applyImageFrameStyle(extension_settings42[extensionName].image_frame_style || "\u65E0\u6837\u5F0F", isThemeDark(currentTheme));
+  if (extension_settings43[extensionName]) {
+    const currentTheme = extension_settings43[extensionName].themes?.[extension_settings43[extensionName].theme_id] || {};
+    applyGenerateButtonStyle(extension_settings43[extensionName].generate_btn_style || "\u9ED8\u8BA4", isThemeDark(currentTheme));
+    applyImageFrameStyle(extension_settings43[extensionName].image_frame_style || "\u65E0\u6837\u5F0F", isThemeDark(currentTheme));
   }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", processAllImagePlaceholders);
@@ -35474,7 +37681,7 @@ var init_iframe = __esm({
       if (autoClickTimer) {
         clearTimeout(autoClickTimer);
       }
-      if (extension_settings42[extensionName].zidongdianji2 !== "true") {
+      if (extension_settings43[extensionName].zidongdianji2 !== "true") {
         autoClickTimer = setTimeout(() => {
           window.zidongdianji = false;
           autoClickTimer = null;
@@ -35486,7 +37693,7 @@ var init_iframe = __esm({
       if (autoClickTimer) {
         clearTimeout(autoClickTimer);
       }
-      if (extension_settings42[extensionName].zidongdianji2 !== "true") {
+      if (extension_settings43[extensionName].zidongdianji2 !== "true") {
         autoClickTimer = setTimeout(() => {
           window.zidongdianji = false;
           autoClickTimer = null;
@@ -35498,7 +37705,7 @@ var init_iframe = __esm({
       if (autoClickTimer) {
         clearTimeout(autoClickTimer);
       }
-      if (extension_settings42[extensionName].zidongdianji2 !== "true") {
+      if (extension_settings43[extensionName].zidongdianji2 !== "true") {
         autoClickTimer = setTimeout(() => {
           window.zidongdianji = false;
           autoClickTimer = null;
@@ -35842,7 +38049,7 @@ var init_avatarConfig = __esm({
 
 
 function ensureDataStructure() {
-  const settings3 = extension_settings69[extensionName];
+  const settings3 = extension_settings71[extensionName];
   if (!settings3.personaProfiles) {
     settings3.personaProfiles = {
       presets: {},
@@ -35938,7 +38145,7 @@ async function onPresetChange() {
   const newPresetId = $container?.find("#ch-persona-preset-id").val() || "";
   profiles.currentPresetId = newPresetId;
   await loadPersonaPresetData();
-  saveSettingsDebounced45();
+  saveSettingsDebounced48();
 }
 async function onNewPreset() {
   clearTimeout(_autoSaveTimer);
@@ -35956,7 +38163,7 @@ async function onNewPreset() {
   });
   profiles.presets[name] = emptyPreset;
   profiles.currentPresetId = name;
-  saveSettingsDebounced45();
+  saveSettingsDebounced48();
   loadPersonaPresetList();
   clearPersonaFields();
   toastr.success(`\u4EBA\u8BBE\u9884\u8BBE\u300C${name}\u300D\u5DF2\u521B\u5EFA\u3002`);
@@ -35979,7 +38186,7 @@ async function onSaveAsPreset() {
   const name = result.trim();
   saveCurrentPersonaData(name);
   profiles.currentPresetId = name;
-  saveSettingsDebounced45();
+  saveSettingsDebounced48();
   loadPersonaPresetList();
   toastr.success(`\u4EBA\u8BBE\u9884\u8BBE\u300C${name}\u300D\u5DF2\u4FDD\u5B58\u3002`);
 }
@@ -36007,7 +38214,7 @@ async function onRenamePreset() {
   if (profiles.currentUserPresetId === currentName) {
     profiles.currentUserPresetId = newName;
   }
-  saveSettingsDebounced45();
+  saveSettingsDebounced48();
   loadPersonaPresetList();
   toastr.success(`\u4EBA\u8BBE\u9884\u8BBE\u5DF2\u91CD\u547D\u540D\u4E3A\u300C${newName}\u300D`);
 }
@@ -36032,7 +38239,7 @@ async function onDeletePreset() {
   delete profiles.presets[presetId];
   const remaining = Object.keys(profiles.presets);
   profiles.currentPresetId = remaining.length > 0 ? remaining[0] : "";
-  saveSettingsDebounced45();
+  saveSettingsDebounced48();
   loadPersonaPresetList();
   await loadPersonaPresetData();
   toastr.success(`\u4EBA\u8BBE\u9884\u8BBE\u300C${presetId}\u300D\u5DF2\u5220\u9664\u3002`);
@@ -36141,7 +38348,7 @@ async function onImportPreset(event) {
     if (firstKey) {
       profiles.currentPresetId = firstKey;
     }
-    saveSettingsDebounced45();
+    saveSettingsDebounced48();
     loadPersonaPresetList();
     await loadPersonaPresetData();
     const total = Object.keys(presetsToImport).length;
@@ -36155,7 +38362,7 @@ async function onImportPreset(event) {
 function onGlobalSettingChange() {
   const profiles = ensureDataStructure();
   profiles.enabled = $container?.find("#ch-persona-enabled").prop("checked") || false;
-  saveSettingsDebounced45();
+  saveSettingsDebounced48();
 }
 function bindFieldAutoSave(container) {
   PERSONA_FIELDS.forEach((field) => {
@@ -36199,7 +38406,7 @@ function createPersonaPreset(name, data = {}) {
   });
   profiles.presets[finalName] = preset;
   profiles.currentPresetId = finalName;
-  saveSettingsDebounced45();
+  saveSettingsDebounced48();
   loadPersonaPresetList();
   loadPersonaPresetData();
   return finalName;
@@ -36214,7 +38421,7 @@ function saveCurrentPersonaData(presetId) {
     }
   });
   profiles.presets[presetId] = preset;
-  saveSettingsDebounced45();
+  saveSettingsDebounced48();
 }
 function downloadJson(data, filename) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -36258,7 +38465,7 @@ async function onPersonaAvatarUpload(event) {
         await deleteConfigImage(oldAvatarId);
       }
       profiles.presets[presetId].avatarId = avatarId;
-      saveSettingsDebounced45();
+      saveSettingsDebounced48();
     }
     displayPersonaAvatar(compressedBase64);
     toastr.success("\u5934\u50CF\u4E0A\u4F20\u6210\u529F\uFF01");
@@ -36283,7 +38490,7 @@ async function onPersonaAvatarRemove() {
   try {
     await deleteConfigImage(avatarId);
     profiles.presets[presetId].avatarId = "";
-    saveSettingsDebounced45();
+    saveSettingsDebounced48();
     clearPersonaAvatarDisplay();
     toastr.success("\u5934\u50CF\u5DF2\u79FB\u9664\u3002");
   } catch (error) {
@@ -36690,7 +38897,7 @@ __export(send_data_exports, {
 
 
 function getWorldBookConfig() {
-  const settings3 = extension_settings70[extensionName];
+  const settings3 = extension_settings72[extensionName];
   if (!settings3.worldBookConfig) {
     settings3.worldBookConfig = {
       worldBookSelections: {},
@@ -36711,7 +38918,7 @@ function saveWorldBookConfig() {
     }
   }
   config.worldBookSelections = newWorldBookSelections;
-  saveSettingsDebounced46();
+  saveSettingsDebounced49();
 }
 function toggleWorldEntryState(worldName, entryUid, newState = null) {
   if (!worldEntrySelections[worldName]) {
@@ -37197,19 +39404,19 @@ function initSendData(settingsModal) {
   eventSource28.on(event_types5.GENERATION_STARTED, loadAndRenderWorlds);
   const intervalId = setInterval(async () => {
     let conet = getContext16();
-    const settings3 = extension_settings70[extensionName];
-    if (conet && conet.chatId) {
+    const settings3 = extension_settings72[extensionName];
+    if (conet && conet.chatId && conet.chat && conet.chat.length > 0) {
       if (!conet.chatMetadata) conet.chatMetadata = {};
       if (!conet.chatMetadata.variables) conet.chatMetadata.variables = {};
       conet.chatMetadata.variables.zhihuiji = settings3.scriptEnabled;
-      await saveChatConditional5();
+      await saveMetadata();
       clearInterval(intervalId);
     }
   }, 2e3);
   eventSource28.on(event_types5.CHAT_CHANGED, async () => {
     let conet = getContext16();
-    const settings3 = extension_settings70[extensionName];
-    if (conet && conet.chatId) {
+    const settings3 = extension_settings72[extensionName];
+    if (conet && conet.chatId && conet.chat && conet.chat.length > 0) {
       if (!conet.chatMetadata) conet.chatMetadata = {};
       if (!conet.chatMetadata.variables) conet.chatMetadata.variables = {};
       conet.chatMetadata.variables.zhihuiji = settings3.scriptEnabled;
@@ -37251,7 +39458,7 @@ function initSendData(settingsModal) {
           }
         }
       }
-      await saveChatConditional5();
+      await saveMetadata();
     }
   });
 }
@@ -37386,12 +39593,12 @@ function displayTestResult(container, worldBooksData, contextElements) {
       const isConstant = entry.constant === true;
       const keys = Array.isArray(entry.key) ? entry.key : entry.key ? [entry.key] : [];
       const keyDisplay = keys.length > 0 ? keys.slice(0, 5).join(", ") + (keys.length > 5 ? "..." : "") : "";
-      const escapeHtml4 = (text) => $("<div>").text(text).html();
-      const escapedContent = escapeHtml4(entryContent);
-      const escapedPreview = escapeHtml4(entryPreview);
-      const escapedName = escapeHtml4(entryName);
-      const escapedKeyDisplay = escapeHtml4(keyDisplay);
-      const escapedKeysTitle = escapeHtml4(keys.join(", "));
+      const escapeHtml5 = (text) => $("<div>").text(text).html();
+      const escapedContent = escapeHtml5(entryContent);
+      const escapedPreview = escapeHtml5(entryPreview);
+      const escapedName = escapeHtml5(entryName);
+      const escapedKeyDisplay = escapeHtml5(keyDisplay);
+      const escapedKeysTitle = escapeHtml5(keys.join(", "));
       const borderColor = isConstant ? "rgba(255, 193, 7, 0.4)" : "rgba(66, 165, 245, 0.3)";
       const bgColor = isConstant ? "rgba(255, 193, 7, 0.08)" : "rgba(66, 165, 245, 0.05)";
       const titleColor = isConstant ? "#ffc107" : "#64b5f6";
@@ -37706,7 +39913,7 @@ function setFloorTargetElement(element) {
       text: cleanedText,
       timestamp: Date.now()
     });
-    const settings3 = extension_settings71[extensionName]?.chatu8_ai_assistant;
+    const settings3 = extension_settings73[extensionName]?.chatu8_ai_assistant;
     const maxCount = settings3?.floor_count || 1;
     if (manualCollectedMessages.length > maxCount) {
       const removed = manualCollectedMessages.splice(0, manualCollectedMessages.length - maxCount);
@@ -37799,7 +40006,7 @@ function processTextThroughRegex(text) {
   });
 }
 async function buildFloorContext() {
-  const settings3 = extension_settings71[extensionName]?.chatu8_ai_assistant;
+  const settings3 = extension_settings73[extensionName]?.chatu8_ai_assistant;
   if (!settings3?.floor_message_enabled) {
     return "";
   }
@@ -37840,7 +40047,7 @@ async function showFloorInfoPanel() {
     console.warn("[FloorMessage] \u672A\u6536\u96C6\u697C\u5C42\u4FE1\u606F");
     return;
   }
-  const settings3 = extension_settings71[extensionName]?.chatu8_ai_assistant;
+  const settings3 = extension_settings73[extensionName]?.chatu8_ai_assistant;
   const count = settings3?.floor_count || 1;
   const messages = await collectFloorMessagesFromContext(count);
   if (messages.length === 0) {
@@ -38611,7 +40818,7 @@ async function handlePersonaGenRequest(el = null, extraContext = "", overrideDem
     let contextElements = [];
     let nowtxt = extraContext || "";
     if (el) {
-      const historyDepth = (extension_settings72[extensionName]?.llm_history_depth ?? 2) + 1;
+      const historyDepth = (extension_settings74[extensionName]?.llm_history_depth ?? 2) + 1;
       contextElements = await getElContext(el, historyDepth) || [];
       if (contextElements.length > 0) {
         nowtxt = contextElements[contextElements.length - 1];
@@ -38681,11 +40888,11 @@ ${extraContext}`);
 `;
     }
     updateCombinedPrompt(prompt2, diagnosticText);
-    const isRegexTestMode = extension_settings72[extensionName]?.regexTestMode ?? false;
+    const isRegexTestMode = extension_settings74[extensionName]?.regexTestMode ?? false;
     if (isRegexTestMode) {
       setStatus(statusEl, "\u{1F9EA} \u6B63\u5219\u6D4B\u8BD5\u6A21\u5F0F\uFF1A\u5DF2\u505C\u6B62 LLM \u8BF7\u6C42\uFF0C\u4EC5\u5C55\u793A Prompt");
       console.log("[PersonaGen] \u6B63\u5219\u6D4B\u8BD5\u6A21\u5F0F - LLM \u8BF7\u6C42\u5DF2\u8DF3\u8FC7");
-      extension_settings72[extensionName].regexTestMode = false;
+      extension_settings74[extensionName].regexTestMode = false;
       $("#ch-regex-test-mode").prop("checked", false);
       console.log("[PersonaGen] \u6B63\u5219\u6D4B\u8BD5\u6A21\u5F0F\u5DF2\u81EA\u52A8\u5173\u95ED\uFF08\u4E00\u6B21\u6027\u89E6\u53D1\uFF09");
       if (btnEl) btnEl.disabled = false;
@@ -38916,7 +41123,7 @@ function updateManagementImagePreview(container) {
 }
 function showTypeSelectionPopup() {
   return new Promise((resolve) => {
-    const isMobile3 = isMobileDevice();
+    const isMobile3 = isMobileDeviceDialog();
     let topOffset = 10;
     let maxHeight = "none";
     if (isMobile3) {
@@ -38937,6 +41144,8 @@ function showTypeSelectionPopup() {
       bubble.classList.add("mobile");
       bubble.style.top = `${topOffset}px`;
       bubble.style.maxHeight = maxHeight;
+    } else {
+      clampPopupToViewport(bubble);
     }
     const title = document.createElement("div");
     title.className = "st-chatu8-popup-title";
@@ -38982,7 +41191,7 @@ function showTypeSelectionPopup() {
 function showPersonaGenDemandPopup(messagePreview, generationType = "character") {
   return new Promise((resolve) => {
     const uploadedImages = [];
-    const isMobile3 = isMobileDevice();
+    const isMobile3 = isMobileDeviceDialog();
     let topOffset = 10;
     let maxHeight = "none";
     if (isMobile3) {
@@ -39002,6 +41211,8 @@ function showPersonaGenDemandPopup(messagePreview, generationType = "character")
       bubble.classList.add("mobile");
       bubble.style.top = `${topOffset}px`;
       bubble.style.maxHeight = maxHeight;
+    } else {
+      clampPopupToViewport(bubble);
     }
     const title = document.createElement("div");
     title.className = "st-chatu8-popup-title";
@@ -39270,7 +41481,7 @@ async function refreshWorldBookCache(worldName) {
   }
 }
 function getKnowledgeBaseConfig() {
-  const settings3 = extension_settings75[extensionName];
+  const settings3 = extension_settings77[extensionName];
   if (!settings3.knowledgeBaseConfig) {
     settings3.knowledgeBaseConfig = {
       enabled: false,
@@ -39294,7 +41505,7 @@ function isKnowledgeBaseEnabled() {
 }
 function setKnowledgeBaseEnabled(enabled) {
   getKnowledgeBaseConfig().enabled = enabled;
-  saveSettingsDebounced48();
+  saveSettingsDebounced51();
 }
 async function buildKnowledgeBasePromptContent(lastUserText = "") {
   const config = getKnowledgeBaseConfig();
@@ -39527,7 +41738,7 @@ var init_knowledgeBaseService = __esm({
 
 
 function ensureDataStructure2() {
-  const settings3 = extension_settings76[extensionName];
+  const settings3 = extension_settings78[extensionName];
   if (!settings3.personaProfiles) {
     settings3.personaProfiles = {
       presets: {},
@@ -39635,7 +41846,7 @@ async function onPresetChange2() {
   const newPresetId = $container2?.find("#ch-user-preset-id").val() || "";
   profiles.currentUserPresetId = newPresetId;
   await loadUserPresetData();
-  saveSettingsDebounced49();
+  saveSettingsDebounced52();
 }
 async function onNewPreset2() {
   clearTimeout(_autoSaveTimer2);
@@ -39653,7 +41864,7 @@ async function onNewPreset2() {
   });
   profiles.presets[name] = emptyPreset;
   profiles.currentUserPresetId = name;
-  saveSettingsDebounced49();
+  saveSettingsDebounced52();
   loadUserPresetList();
   clearUserFields();
   toastr.success(`User\u9884\u8BBE\u300C${name}\u300D\u5DF2\u521B\u5EFA\u3002`);
@@ -39676,7 +41887,7 @@ async function onSaveAsPreset2() {
   const name = result.trim();
   saveCurrentUserData(name);
   profiles.currentUserPresetId = name;
-  saveSettingsDebounced49();
+  saveSettingsDebounced52();
   loadUserPresetList();
   toastr.success(`User\u9884\u8BBE\u300C${name}\u300D\u5DF2\u4FDD\u5B58\u3002`);
 }
@@ -39704,7 +41915,7 @@ async function onRenamePreset2() {
   if (profiles.currentPresetId === currentName) {
     profiles.currentPresetId = newName;
   }
-  saveSettingsDebounced49();
+  saveSettingsDebounced52();
   loadUserPresetList();
   toastr.success(`User\u9884\u8BBE\u5DF2\u91CD\u547D\u540D\u4E3A\u300C${newName}\u300D`);
 }
@@ -39732,7 +41943,7 @@ async function onDeletePreset2() {
   if (profiles.currentPresetId === presetId) {
     profiles.currentPresetId = "";
   }
-  saveSettingsDebounced49();
+  saveSettingsDebounced52();
   loadUserPresetList();
   await loadUserPresetData();
   toastr.success(`\u9884\u8BBE\u300C${presetId}\u300D\u5DF2\u5220\u9664\u3002`);
@@ -39839,7 +42050,7 @@ async function onImportPreset2(event) {
     if (firstKey) {
       profiles.currentUserPresetId = firstKey;
     }
-    saveSettingsDebounced49();
+    saveSettingsDebounced52();
     loadUserPresetList();
     await loadUserPresetData();
     const total = Object.keys(presetsToImport).length;
@@ -39853,7 +42064,7 @@ async function onImportPreset2(event) {
 function onGlobalSettingChange2() {
   const profiles = ensureDataStructure2();
   profiles.userEnabled = $container2?.find("#ch-user-enabled").prop("checked") || false;
-  saveSettingsDebounced49();
+  saveSettingsDebounced52();
 }
 function bindFieldAutoSave2(container) {
   PERSONA_FIELDS.forEach((field) => {
@@ -39893,7 +42104,7 @@ function saveCurrentUserData(presetId) {
     }
   });
   profiles.presets[presetId] = preset;
-  saveSettingsDebounced49();
+  saveSettingsDebounced52();
 }
 function downloadJson2(data, filename) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -39937,7 +42148,7 @@ async function onUserAvatarUpload(event) {
         await deleteConfigImage(oldAvatarId);
       }
       profiles.presets[presetId].avatarId = avatarId;
-      saveSettingsDebounced49();
+      saveSettingsDebounced52();
     }
     displayUserAvatar(compressedBase64);
     toastr.success("\u5934\u50CF\u4E0A\u4F20\u6210\u529F\uFF01");
@@ -39962,7 +42173,7 @@ async function onUserAvatarRemove() {
   try {
     await deleteConfigImage(avatarId);
     profiles.presets[presetId].avatarId = "";
-    saveSettingsDebounced49();
+    saveSettingsDebounced52();
     clearUserAvatarDisplay();
     toastr.success("\u5934\u50CF\u5DF2\u79FB\u9664\u3002");
   } catch (error) {
@@ -40058,12 +42269,12 @@ var init_userPreset = __esm({
 // utils/settings/knowledgeBase/personaService.js
 
 function isPersonaEnabled() {
-  const profiles = extension_settings77[extensionName]?.personaProfiles;
+  const profiles = extension_settings79[extensionName]?.personaProfiles;
   if (!profiles) return false;
   return profiles.enabled === true && !!profiles.currentPresetId && !!profiles.presets?.[profiles.currentPresetId];
 }
 function getCurrentPersona() {
-  const profiles = extension_settings77[extensionName]?.personaProfiles;
+  const profiles = extension_settings79[extensionName]?.personaProfiles;
   if (!profiles || !profiles.currentPresetId) return null;
   return profiles.presets?.[profiles.currentPresetId] || null;
 }
@@ -40142,12 +42353,12 @@ var init_personaService = __esm({
 // utils/settings/knowledgeBase/userService.js
 
 function isUserEnabled() {
-  const profiles = extension_settings78[extensionName]?.personaProfiles;
+  const profiles = extension_settings80[extensionName]?.personaProfiles;
   if (!profiles) return false;
   return profiles.userEnabled === true && !!profiles.currentUserPresetId && !!profiles.presets?.[profiles.currentUserPresetId];
 }
 function getCurrentUser() {
-  const profiles = extension_settings78[extensionName]?.personaProfiles;
+  const profiles = extension_settings80[extensionName]?.personaProfiles;
   if (!profiles || !profiles.currentUserPresetId) return null;
   return profiles.presets?.[profiles.currentUserPresetId] || null;
 }
@@ -40267,12 +42478,12 @@ function clearAvatarCache() {
   _userAvatarCache = { key: null, value: null };
 }
 async function getCurrentCharAvatar() {
-  const aiConfig = extension_settings81[extensionName]?.chatu8_ai_assistant || {};
+  const aiConfig = extension_settings83[extensionName]?.chatu8_ai_assistant || {};
   const systemPromptKey = aiConfig.system_prompt_key || "default";
   if (systemPromptKey !== "custom") {
     return DEFAULT_AVATARS.persona;
   }
-  const personaProfiles = extension_settings81[extensionName]?.personaProfiles;
+  const personaProfiles = extension_settings83[extensionName]?.personaProfiles;
   if (!personaProfiles || !personaProfiles.enabled) {
     return DEFAULT_AVATARS.persona;
   }
@@ -40289,12 +42500,12 @@ async function getCurrentCharAvatar() {
   return result;
 }
 async function getCurrentUserAvatar() {
-  const aiConfig = extension_settings81[extensionName]?.chatu8_ai_assistant || {};
+  const aiConfig = extension_settings83[extensionName]?.chatu8_ai_assistant || {};
   const systemPromptKey = aiConfig.system_prompt_key || "default";
   if (systemPromptKey !== "custom") {
     return DEFAULT_AVATARS.user;
   }
-  const personaProfiles = extension_settings81[extensionName]?.personaProfiles;
+  const personaProfiles = extension_settings83[extensionName]?.personaProfiles;
   if (!personaProfiles || !personaProfiles.userEnabled) {
     return DEFAULT_AVATARS.user;
   }
@@ -40311,10 +42522,10 @@ async function getCurrentUserAvatar() {
   return result;
 }
 function getAssistantDisplayName() {
-  const aiConfig = extension_settings81[extensionName]?.chatu8_ai_assistant || {};
+  const aiConfig = extension_settings83[extensionName]?.chatu8_ai_assistant || {};
   const systemPromptKey = aiConfig.system_prompt_key || "default";
   if (systemPromptKey === "custom") {
-    const personaProfiles = extension_settings81[extensionName]?.personaProfiles;
+    const personaProfiles = extension_settings83[extensionName]?.personaProfiles;
     if (personaProfiles?.enabled) {
       const presetId = personaProfiles.currentPresetId;
       const preset = presetId ? personaProfiles.presets?.[presetId] : null;
@@ -40347,11 +42558,11 @@ async function updateChatAvatars(chatBody) {
 function initAvatarUpdateListener(chatBody) {
   if (!chatBody || !chatBody.length) return;
   const checkInterval = setInterval(async () => {
-    const personaProfiles = extension_settings81[extensionName]?.personaProfiles;
+    const personaProfiles = extension_settings83[extensionName]?.personaProfiles;
     if (!personaProfiles) return;
     const currentPresetId = personaProfiles.currentPresetId;
     const currentUserPresetId = personaProfiles.currentUserPresetId;
-    const aiConfig = extension_settings81[extensionName]?.chatu8_ai_assistant || {};
+    const aiConfig = extension_settings83[extensionName]?.chatu8_ai_assistant || {};
     const currentPromptKey = aiConfig.system_prompt_key || "default";
     const lastPresetId = chatBody.data("last-persona-preset-id");
     const lastUserPresetId = chatBody.data("last-user-preset-id");
@@ -40904,18 +43115,18 @@ var init_aiPrompts = __esm({
 
 
 function saveEdgePingToSettings() {
-  if (!extension_settings82[extensionName]) return;
-  extension_settings82[extensionName].edgePingCache = {
+  if (!extension_settings84[extensionName]) return;
+  extension_settings84[extensionName].edgePingCache = {
     servers: availableEdgeServers.map((s) => ({ name: s.name, url: s.url, latency: s.latency })),
     pingResult: lastEdgePingResult,
     pingTime: lastEdgePingTime
   };
-  saveSettingsDebounced52();
+  saveSettingsDebounced55();
   log("\u{1F4BE} Edge ping \u7ED3\u679C\u5DF2\u4FDD\u5B58\u5230\u63D2\u4EF6\u8BBE\u7F6E (edgePingCache)");
 }
 function loadEdgePingFromSettings() {
-  if (!extension_settings82[extensionName]) return false;
-  const cache = extension_settings82[extensionName].edgePingCache;
+  if (!extension_settings84[extensionName]) return false;
+  const cache = extension_settings84[extensionName].edgePingCache;
   if (!cache || !cache.servers || !cache.pingTime) return false;
   availableEdgeServers = cache.servers.map((s) => ({ name: s.name, url: s.url, latency: s.latency }));
   edgeServerIndex = 0;
@@ -41921,7 +44132,7 @@ function log2(msg) {
   console.log("[ASR]", msg);
 }
 function getASRConfig() {
-  const settings3 = extension_settings83[extensionName];
+  const settings3 = extension_settings85[extensionName];
   const defaults = defaultSettings.asr;
   return {
     ...defaults,
@@ -41929,12 +44140,12 @@ function getASRConfig() {
   };
 }
 function saveASRConfig(partial) {
-  if (!extension_settings83[extensionName]) return;
-  if (!extension_settings83[extensionName].asr) {
-    extension_settings83[extensionName].asr = { ...defaultSettings.asr };
+  if (!extension_settings85[extensionName]) return;
+  if (!extension_settings85[extensionName].asr) {
+    extension_settings85[extensionName].asr = { ...defaultSettings.asr };
   }
-  Object.assign(extension_settings83[extensionName].asr, partial);
-  saveSettingsDebounced53();
+  Object.assign(extension_settings85[extensionName].asr, partial);
+  saveSettingsDebounced56();
 }
 async function ensureMic() {
   if (persistentStream && persistentStream.active) return true;
@@ -42818,7 +45029,7 @@ function notifyAiGenerating() {
 }
 function notifyAiGenerationDone() {
   if (!conversationModeActive) return;
-  const settings3 = extension_settings83[extensionName];
+  const settings3 = extension_settings85[extensionName];
   const aiConfig = settings3?.chatu8_ai_assistant || {};
   if (!aiConfig.tts_enabled) {
     conversationMuted = false;
@@ -43914,6 +46125,7 @@ var init_novelaiSettingsModule = __esm({
 - Vibe \u6587\u4EF6\u751F\u6210\u5668\uFF1A\u751F\u6210\u5B98\u65B9\u517C\u5BB9\u7684 .naiv4vibe \u6587\u4EF6\uFF0C\u53EF\u5BFC\u5165 NovelAI \u5B98\u7F51
 - Vibe \u7EC4\u7F16\u8F91\u5668\uFF1A\u7BA1\u7406 Vibe \u7EC4\u9884\u8BBE\uFF0C\u6700\u591A\u53EF\u5305\u542B 4 \u4E2A Vibe
 - enableVibeGroupTransfer\uFF1A\u542F\u7528 Vibe \u7EC4\u6C1B\u56F4\u8F6C\u79FB\uFF08\u4E0E\u5355\u4E2A Vibe \u4E92\u65A5\uFF09\uFF08\u6CE8\u610Fnai4\u4EE5\u4E0A\u7684\u6C1B\u56F4\u8F6C\u79FB\u4F7F\u7528\u8FD9\u4E2A\uFF09
+- randomVibeGroup\uFF1A\u542F\u7528\u968F\u673A Vibe \u7EC4\uFF08\u6BCF\u6B21\u751F\u56FE\u4ECE\u6240\u6709\u975E\u7A7A\u7684 Vibe \u7EC4\u4E2D\u968F\u673A\u9009\u62E9\u4E00\u4E2A\uFF0C\u7A7A\u7EC4\u81EA\u52A8\u8DF3\u8FC7\uFF09\u3002\u9700\u642D\u914D enableVibeGroupTransfer \u4F7F\u7528
 - normalizeRefStrength\uFF1A\u5F52\u4E00\u5316\u53C2\u8003\u5F3A\u5EA6\u503C\uFF0C\u4F7F\u6240\u6709 Vibe \u7684\u5F3A\u5EA6\u603B\u548C\u4E3A 1.0
 
 \u25A0 \u89D2\u8272\u53C2\u8003\u533A\u57DF\uFF08NAI4.5\uFF09
@@ -49635,6 +51847,7 @@ var init_configDescriptions = __esm({
       nai3Variety: "NAI \u9AD8\u7EA7\u53C2\u6570\uFF1A\u591A\u6837\u6027\u63D0\u5347 Variety (\u5E03\u5C14\u5B57\u7B26\u4E32 'true'/'false')",
       nai3Deceisp: "NAI \u9AD8\u7EA7\u53C2\u6570\uFF1A\u7EC6\u8282\u63D0\u5347 Deceisp (\u5E03\u5C14\u5B57\u7B26\u4E32 'true'/'false')",
       enableVibeGroupTransfer: "NAI \u662F\u5426\u542F\u7528 Vibe \u7EC4\u5408\u8F6C\u6362\uFF08\u591A\u4E2A Vibe \u540C\u65F6\u751F\u6548\uFF09(\u5E03\u5C14\u5B57\u7B26\u4E32 'true'/'false')",
+      randomVibeGroup: "NAI \u662F\u5426\u542F\u7528\u968F\u673A Vibe \u7EC4\uFF08\u6BCF\u6B21\u751F\u56FE\u4ECE\u975E\u7A7A\u7684 Vibe \u7EC4\u4E2D\u968F\u673A\u9009\u62E9\u4E00\u4E2A\uFF09(\u5E03\u5C14\u5B57\u7B26\u4E32 'true'/'false')",
       normalizeRefStrength: "NAI \u662F\u5426\u5F52\u4E00\u5316 Vibe \u53C2\u8003\u5F3A\u5EA6 (\u5E03\u5C14\u5B57\u7B26\u4E32 'true'/'false')",
       nai3CharRef: "NAI \u662F\u5426\u542F\u7528\u89D2\u8272\u53C2\u8003\u529F\u80FD (\u5E03\u5C14\u5B57\u7B26\u4E32 'true'/'false')",
       nai3StylePerception: "NAI \u662F\u5426\u542F\u7528\u98CE\u683C\u611F\u77E5\u529F\u80FD (\u5E03\u5C14\u5B57\u7B26\u4E32 'true'/'false')",
@@ -49812,7 +52025,7 @@ __export(configUIRefresh_exports, {
 
 async function refreshAffectedUI(changedSettings) {
   try {
-    const settings3 = extension_settings84[extensionName];
+    const settings3 = extension_settings86[extensionName];
     if (changedSettings.workers || changedSettings.workerid || changedSettings.editWorkerid) {
       refreshWorkflowSelectors(settings3);
     }
@@ -50717,7 +52930,7 @@ function syncRangeInputs(key, value) {
     const maxTokensSlider2 = document.getElementById("ch-llm_max_tokens");
     const maxTokensInput = document.getElementById("ch-llm_max_tokens_value");
     if (maxTokensSlider2 && maxTokensInput) {
-      const settings3 = extension_settings84[extensionName];
+      const settings3 = extension_settings86[extensionName];
       const currentProfile = settings3.llm_profiles?.[settings3.current_llm_profile];
       if (currentProfile?.max_tokens !== void 0) {
         if (document.activeElement !== maxTokensSlider2) {
@@ -50740,7 +52953,7 @@ var init_configUIRefresh = __esm({
 
 
 function getExposedSettings() {
-  const rawSettings = extension_settings85[extensionName];
+  const rawSettings = extension_settings87[extensionName];
   if (!rawSettings) return {};
   const safeSettings = JSON.parse(JSON.stringify(rawSettings));
   delete safeSettings.themes;
@@ -50749,7 +52962,7 @@ function getExposedSettings() {
 }
 function updateSettingSafely(newSettings) {
   if (!newSettings || typeof newSettings !== "object") return false;
-  const currentSettings = extension_settings85[extensionName];
+  const currentSettings = extension_settings87[extensionName];
   if (!currentSettings) return false;
   let isModified = false;
   for (const [key, value] of Object.entries(newSettings)) {
@@ -50762,7 +52975,7 @@ function updateSettingSafely(newSettings) {
     }
   }
   if (isModified) {
-    saveSettingsDebounced54();
+    saveSettingsDebounced57();
     document.dispatchEvent(new CustomEvent("st-chatu8-config-updated", { detail: { changed: newSettings } }));
     refreshAffectedUI(newSettings);
     return true;
@@ -50770,12 +52983,12 @@ function updateSettingSafely(newSettings) {
   return false;
 }
 function getDetailedConfigKeys() {
-  const rawSettings = extension_settings85[extensionName];
+  const rawSettings = extension_settings87[extensionName];
   if (!rawSettings) return [];
   return Object.keys(rawSettings);
 }
 function getSpecificConfigData(key) {
-  const rawSettings = extension_settings85[extensionName];
+  const rawSettings = extension_settings87[extensionName];
   if (!rawSettings || !(key in rawSettings)) {
     return `[\u83B7\u53D6\u5931\u8D25] \u6240\u6709\u7684\u8BBE\u7F6E\u4E2D\u4E0D\u5B58\u5728\u952E\u540D\u4E3A: ${key} \u7684\u6570\u636E\u3002`;
   }
@@ -50790,7 +53003,7 @@ function getSpecificConfigData(key) {
   return String(data);
 }
 function checkRequiredConfigs() {
-  const s = extension_settings85[extensionName];
+  const s = extension_settings87[extensionName];
   if (!s) return "\u274C \u63D2\u4EF6\u914D\u7F6E\u5C1A\u672A\u521D\u59CB\u5316\u3002";
   const results = [];
   const mode = s.mode || "comfyui";
@@ -50881,7 +53094,7 @@ var init_configValidation = __esm({
 
 
 function resolveConfigPath(dotPath) {
-  const rawSettings = extension_settings86[extensionName];
+  const rawSettings = extension_settings88[extensionName];
   if (!rawSettings) return { target: null, error: "[\u9519\u8BEF] \u63D2\u4EF6\u914D\u7F6E\u5C1A\u672A\u521D\u59CB\u5316\u3002" };
   if (!dotPath || dotPath === "") {
     return { target: rawSettings, error: null };
@@ -50983,7 +53196,7 @@ ${jsonStr}`;
 }
 function writeConfigPath(dotPath, newValue) {
   if (!dotPath) return "[\u9519\u8BEF] write \u64CD\u4F5C\u9700\u8981\u6307\u5B9A\u8DEF\u5F84\u3002";
-  const rawSettings = extension_settings86[extensionName];
+  const rawSettings = extension_settings88[extensionName];
   if (!rawSettings) return "[\u9519\u8BEF] \u63D2\u4EF6\u914D\u7F6E\u5C1A\u672A\u521D\u59CB\u5316\u3002";
   const parts = dotPath.split(".");
   const lastKey = parts.pop();
@@ -51034,7 +53247,7 @@ function writeConfigPath(dotPath, newValue) {
   }
   const oldValue = isNewKey ? void 0 : parent[lastKey];
   parent[lastKey] = newValue;
-  saveSettingsDebounced55();
+  saveSettingsDebounced58();
   document.dispatchEvent(new CustomEvent("st-chatu8-config-updated", {
     detail: { changed: { [dotPath]: newValue } }
   }));
@@ -51292,7 +53505,7 @@ var init_configRegexBridge = __esm({
 
 
 function getWorkflowList() {
-  const s = extension_settings87[extensionName];
+  const s = extension_settings89[extensionName];
   if (!s || !s.workers) return "\u274C \u672A\u627E\u5230\u5DE5\u4F5C\u6D41\u6570\u636E\u3002";
   const names = Object.keys(s.workers);
   const current = s.workerid || "(\u672A\u9009\u62E9)";
@@ -51311,7 +53524,7 @@ function getWorkflowList() {
   return result;
 }
 function readWorkflow(name) {
-  const s = extension_settings87[extensionName];
+  const s = extension_settings89[extensionName];
   if (!s || !s.workers) return "\u274C \u672A\u627E\u5230\u5DE5\u4F5C\u6D41\u6570\u636E\u3002";
   if (!name) return "\u274C \u8BF7\u6307\u5B9A\u5DE5\u4F5C\u6D41\u540D\u79F0\u3002";
   if (!(name in s.workers)) {
@@ -51324,7 +53537,7 @@ function readWorkflow(name) {
 ${content}`;
 }
 function scanWorkflowVariables(name) {
-  const s = extension_settings87[extensionName];
+  const s = extension_settings89[extensionName];
   if (!s || !s.workers) return "\u274C \u672A\u627E\u5230\u5DE5\u4F5C\u6D41\u6570\u636E\u3002";
   if (!name) return "\u274C \u8BF7\u6307\u5B9A\u5DE5\u4F5C\u6D41\u540D\u79F0\u3002";
   if (!(name in s.workers)) {
@@ -51382,7 +53595,7 @@ function scanWorkflowVariables(name) {
   return result;
 }
 function replaceWorkflowVariable(name, variable, value) {
-  const s = extension_settings87[extensionName];
+  const s = extension_settings89[extensionName];
   if (!s || !s.workers) return "\u274C \u672A\u627E\u5230\u5DE5\u4F5C\u6D41\u6570\u636E\u3002";
   if (!name) return "\u274C \u8BF7\u6307\u5B9A\u5DE5\u4F5C\u6D41\u540D\u79F0\u3002";
   if (!variable) return "\u274C \u8BF7\u6307\u5B9A\u53D8\u91CF\u540D\u3002";
@@ -51408,11 +53621,11 @@ function replaceWorkflowVariable(name, variable, value) {
   if (s.workerid === name) {
     s.worker = content;
   }
-  saveSettingsDebounced56();
+  saveSettingsDebounced59();
   return `\u2705 \u5DF2\u5728\u5DE5\u4F5C\u6D41 "${name}" \u4E2D\u66FF\u6362 ${placeholder} \u2192 ${replacement} (${count} \u5904)`;
 }
 function saveWorkflow(name, content) {
-  const s = extension_settings87[extensionName];
+  const s = extension_settings89[extensionName];
   if (!s) return "\u274C \u63D2\u4EF6\u914D\u7F6E\u5C1A\u672A\u521D\u59CB\u5316\u3002";
   if (!name) return "\u274C \u8BF7\u6307\u5B9A\u5DE5\u4F5C\u6D41\u540D\u79F0\u3002";
   if (!content) return "\u274C \u8BF7\u63D0\u4F9B\u5DE5\u4F5C\u6D41\u5185\u5BB9\u3002";
@@ -51427,12 +53640,12 @@ function saveWorkflow(name, content) {
   if (s.workerid === name) {
     s.worker = content;
   }
-  saveSettingsDebounced56();
+  saveSettingsDebounced59();
   refreshWorkflowSelectors(s);
   return `\u2705 \u5DE5\u4F5C\u6D41 "${name}" \u5DF2${isNew ? "\u521B\u5EFA" : "\u4FDD\u5B58"} (${content.length}\u5B57\u7B26)`;
 }
 function listWorkflowNodes(name) {
-  const s = extension_settings87[extensionName];
+  const s = extension_settings89[extensionName];
   if (!s || !s.workers) return "\u274C \u672A\u627E\u5230\u5DE5\u4F5C\u6D41\u6570\u636E\u3002";
   if (!name) return "\u274C \u8BF7\u6307\u5B9A\u5DE5\u4F5C\u6D41\u540D\u79F0\u3002";
   if (!(name in s.workers)) {
@@ -51467,7 +53680,7 @@ function listWorkflowNodes(name) {
   return result;
 }
 function readWorkflowNode(name, nodeId) {
-  const s = extension_settings87[extensionName];
+  const s = extension_settings89[extensionName];
   if (!s || !s.workers) return "\u274C \u672A\u627E\u5230\u5DE5\u4F5C\u6D41\u6570\u636E\u3002";
   if (!name) return "\u274C \u8BF7\u6307\u5B9A\u5DE5\u4F5C\u6D41\u540D\u79F0\u3002";
   if (!nodeId) return "\u274C \u8BF7\u6307\u5B9A\u8282\u70B9ID\u3002";
@@ -51495,7 +53708,7 @@ function readWorkflowNode(name, nodeId) {
   return result;
 }
 function updateWorkflowNodeInput(name, nodeId, inputKey, value) {
-  const s = extension_settings87[extensionName];
+  const s = extension_settings89[extensionName];
   if (!s || !s.workers) return "\u274C \u672A\u627E\u5230\u5DE5\u4F5C\u6D41\u6570\u636E\u3002";
   if (!name) return "\u274C \u8BF7\u6307\u5B9A\u5DE5\u4F5C\u6D41\u540D\u79F0\u3002";
   if (!nodeId) return "\u274C \u8BF7\u6307\u5B9A\u8282\u70B9ID\u3002";
@@ -51528,7 +53741,7 @@ function updateWorkflowNodeInput(name, nodeId, inputKey, value) {
   if (s.workerid === name) {
     s.worker = newContent;
   }
-  saveSettingsDebounced56();
+  saveSettingsDebounced59();
   const title = node._meta?.title || node.class_type || "(\u672A\u547D\u540D)";
   let result = `\u2705 \u5DF2\u4FEE\u6539\u8282\u70B9 [${nodeId}] ${title} \u7684\u53C2\u6570\uFF1A
   ${inputKey}: ${JSON.stringify(oldValue)} \u2192 ${JSON.stringify(value)}`;
@@ -51541,7 +53754,7 @@ function updateWorkflowNodeInput(name, nodeId, inputKey, value) {
   return result;
 }
 function batchUpdateWorkflowNodes(name, updates) {
-  const s = extension_settings87[extensionName];
+  const s = extension_settings89[extensionName];
   if (!s || !s.workers) return "\u274C \u672A\u627E\u5230\u5DE5\u4F5C\u6D41\u6570\u636E\u3002";
   if (!name) return "\u274C \u8BF7\u6307\u5B9A\u5DE5\u4F5C\u6D41\u540D\u79F0\u3002";
   if (!Array.isArray(updates) || updates.length === 0) {
@@ -51592,7 +53805,7 @@ function batchUpdateWorkflowNodes(name, updates) {
   if (s.workerid === name) {
     s.worker = newContent;
   }
-  saveSettingsDebounced56();
+  saveSettingsDebounced59();
   let result = `\u{1F4DD} \u6279\u91CF\u4FEE\u6539\u5DE5\u4F5C\u6D41 "${name}" (\u6210\u529F ${successCount}/${updates.length})\uFF1A
 `;
   result += "\u2500".repeat(60) + "\n";
@@ -51603,7 +53816,7 @@ function batchUpdateWorkflowNodes(name, updates) {
   return result;
 }
 function deleteWorkflowNode(name, nodeId) {
-  const s = extension_settings87[extensionName];
+  const s = extension_settings89[extensionName];
   if (!s || !s.workers) return "\u274C \u672A\u627E\u5230\u5DE5\u4F5C\u6D41\u6570\u636E\u3002";
   if (!name) return "\u274C \u8BF7\u6307\u5B9A\u5DE5\u4F5C\u6D41\u540D\u79F0\u3002";
   if (!nodeId) return "\u274C \u8BF7\u6307\u5B9A\u8282\u70B9ID\u3002";
@@ -51629,11 +53842,11 @@ function deleteWorkflowNode(name, nodeId) {
   if (s.workerid === name) {
     s.worker = newContent;
   }
-  saveSettingsDebounced56();
+  saveSettingsDebounced59();
   return `\u2705 \u5DF2\u5220\u9664\u8282\u70B9 [${nodeId}] ${title}`;
 }
 function addWorkflowNode(name, nodeId, nodeData) {
-  const s = extension_settings87[extensionName];
+  const s = extension_settings89[extensionName];
   if (!s || !s.workers) return "\u274C \u672A\u627E\u5230\u5DE5\u4F5C\u6D41\u6570\u636E\u3002";
   if (!name) return "\u274C \u8BF7\u6307\u5B9A\u5DE5\u4F5C\u6D41\u540D\u79F0\u3002";
   if (!nodeId) return "\u274C \u8BF7\u6307\u5B9A\u8282\u70B9ID\u3002";
@@ -51660,7 +53873,7 @@ function addWorkflowNode(name, nodeId, nodeData) {
   if (s.workerid === name) {
     s.worker = newContent;
   }
-  saveSettingsDebounced56();
+  saveSettingsDebounced59();
   const title = nodeData._meta?.title || nodeData.class_type || "(\u672A\u547D\u540D)";
   return `\u2705 \u5DF2\u6DFB\u52A0\u8282\u70B9 [${nodeId}] ${title}`;
 }
@@ -52704,7 +54917,7 @@ function extractDialogueForTTS(rawReply, scope = "dialogue") {
   return { text: joinedText, segments };
 }
 function getEdgeTTSParams() {
-  const aiConfig = extension_settings88[extensionName]?.chatu8_ai_assistant || {};
+  const aiConfig = extension_settings90[extensionName]?.chatu8_ai_assistant || {};
   if (aiConfig.tts_engine !== "edge") return {};
   return {
     edgeVoice: aiConfig.tts_edge_voice,
@@ -52714,7 +54927,7 @@ function getEdgeTTSParams() {
   };
 }
 function speakNotification(text) {
-  const aiConfig = extension_settings88[extensionName]?.chatu8_ai_assistant || {};
+  const aiConfig = extension_settings90[extensionName]?.chatu8_ai_assistant || {};
   if (!aiConfig.tts_enabled || !text) return;
   eventSource35.emit(eventNames.TTS_STOP);
   const reqId = "tts-notify-" + Date.now();
@@ -52722,7 +54935,7 @@ function speakNotification(text) {
   eventSource35.emit(eventNames.TTS_REQUEST, { id: reqId, text, ...edgeParams });
 }
 function injectTTSStyleInstruction(systemPromptStr) {
-  const aiConfig = extension_settings88[extensionName]?.chatu8_ai_assistant || {};
+  const aiConfig = extension_settings90[extensionName]?.chatu8_ai_assistant || {};
   if (!aiConfig.tts_enabled || aiConfig.tts_engine !== "edge") return systemPromptStr;
   const voiceId = aiConfig.tts_edge_voice || "zh-CN-XiaoxiaoNeural";
   const styles = getEdgeVoiceStyles(voiceId);
@@ -52868,7 +55081,7 @@ function playCachedAudio(blobUrls, messageIndex) {
   playNext();
 }
 function tryPlayTTS(accumulatedReply, messageIndex = -1) {
-  const aiConfig = extension_settings88[extensionName]?.chatu8_ai_assistant || {};
+  const aiConfig = extension_settings90[extensionName]?.chatu8_ai_assistant || {};
   if (!aiConfig.tts_enabled) return;
   const scope = aiConfig.tts_scope || "dialogue";
   const result = extractDialogueForTTS(accumulatedReply, scope);
@@ -52916,7 +55129,7 @@ function handleTTSButtonClick(messageIndex) {
   const msgContent = activeChat.messages[messageIndex].content;
   const rawText = typeof msgContent === "string" ? msgContent : "";
   if (!rawText) return;
-  const aiConfig = extension_settings88[extensionName]?.chatu8_ai_assistant || {};
+  const aiConfig = extension_settings90[extensionName]?.chatu8_ai_assistant || {};
   const scope = aiConfig.tts_scope || "dialogue";
   const result = extractDialogueForTTS(rawText, scope);
   if (!result || !result.text) {
@@ -52968,7 +55181,7 @@ function setupTTSEventListeners() {
           if (activeChat && activeChat.messages[ttsActiveMessageIndex]) {
             const msgContent = activeChat.messages[ttsActiveMessageIndex].content;
             const rawText = typeof msgContent === "string" ? msgContent : "";
-            const aiConfig = extension_settings88[extensionName]?.chatu8_ai_assistant || {};
+            const aiConfig = extension_settings90[extensionName]?.chatu8_ai_assistant || {};
             const scope = aiConfig.tts_scope || "dialogue";
             const cacheResult = extractDialogueForTTS(rawText, scope);
             if (cacheResult && cacheResult.text) {
@@ -54711,7 +56924,7 @@ var init_assistantSession = __esm({
 // utils/assistant/assistantCommand.js
 
 function getAutoExecuteMode() {
-  const aiConfig = extension_settings90[extensionName]?.chatu8_ai_assistant || {};
+  const aiConfig = extension_settings92[extensionName]?.chatu8_ai_assistant || {};
   return aiConfig.auto_execute_commands === true;
 }
 function createPendingCommand(messageElement, commandContent) {
@@ -55188,11 +57401,11 @@ __export(assistantLLM_exports, {
 
 
 function isCustomMode() {
-  const aiConfig = extension_settings91[extensionName]?.chatu8_ai_assistant || {};
+  const aiConfig = extension_settings93[extensionName]?.chatu8_ai_assistant || {};
   return (aiConfig.system_prompt_key || defaultSystemPromptKey) === "custom";
 }
 function buildProfileData() {
-  const aiConfig = extension_settings91[extensionName]?.chatu8_ai_assistant || {};
+  const aiConfig = extension_settings93[extensionName]?.chatu8_ai_assistant || {};
   let sendImages;
   if (isCustomMode()) {
     try {
@@ -55218,7 +57431,7 @@ function buildProfileData() {
   };
 }
 async function buildSystemPrompt(kbTriggerText = "") {
-  const aiConfig = extension_settings91[extensionName]?.chatu8_ai_assistant || {};
+  const aiConfig = extension_settings93[extensionName]?.chatu8_ai_assistant || {};
   const promptKey = aiConfig.system_prompt_key || defaultSystemPromptKey;
   if (promptKey === "custom") {
     return null;
@@ -55233,7 +57446,7 @@ async function buildSystemPrompt(kbTriggerText = "") {
     systemPromptStr = systemPromptStr.replace("{settings}", "\n" + contextStr + "\n");
   }
   if (systemPromptStr.includes("{chatu8_code}")) {
-    const settings3 = extension_settings91[extensionName];
+    const settings3 = extension_settings93[extensionName];
     const chatu8Code = settings3?.chatu8_code || "\u672A\u5206\u914D";
     systemPromptStr = systemPromptStr.replace(/{chatu8_code}/g, chatu8Code);
   }
@@ -55577,7 +57790,7 @@ function _buildConversationHistory(rawMessages, imageCache) {
 }
 async function runLlmChain(activeChatRef, profileData, requestId, iterState, handleSendFn, handleRegenerateFn, boundAppendMessage) {
   const chatMessages = Array.isArray(activeChatRef.messages) ? activeChatRef.messages.filter((msg) => msg && typeof msg === "object") : [];
-  const kbConfig = extension_settings91[extensionName]?.knowledgeBaseConfig || {};
+  const kbConfig = extension_settings93[extensionName]?.knowledgeBaseConfig || {};
   const kbTriggerDepth = typeof kbConfig.triggerDepth === "number" ? kbConfig.triggerDepth : 1;
   const kbTriggerMessages = chatMessages.slice(-(kbTriggerDepth + 1));
   const kbTriggerText = kbTriggerMessages.map((m) => Array.isArray(m.content) ? m.content.find((c) => c.type === "text")?.text || "" : String(m.content || "")).filter((t) => t.trim()).join("\n");
@@ -55875,7 +58088,7 @@ async function handleSend(handleSendFn, handleRegenerateFn, boundAppendMessage, 
       return;
     }
   }
-  const aiConfig = extension_settings91[extensionName]?.chatu8_ai_assistant || {};
+  const aiConfig = extension_settings93[extensionName]?.chatu8_ai_assistant || {};
   const apiKey = aiConfig.api_key;
   if (!apiKey) {
     toastr?.error("\u672A\u914D\u7F6E\u667A\u7ED8\u59EC API Key\uFF0C\u8BF7\u70B9\u51FB\u9F7F\u8F6E\u56FE\u6807\u8BBE\u7F6E\u3002");
@@ -57445,7 +59658,7 @@ function updatePingStatusDisplay(pingData) {
   }
 }
 function refreshSettingsPanel() {
-  const aiConfig = extension_settings93[extensionName]?.chatu8_ai_assistant || {};
+  const aiConfig = extension_settings95[extensionName]?.chatu8_ai_assistant || {};
   dom.inputApiUrl.val(aiConfig.api_url || "");
   dom.inputApiKey.val(aiConfig.api_key || "");
   dom.inputModel.val(aiConfig.model || "mistral");
@@ -57515,7 +59728,7 @@ function refreshSettingsPanel() {
   dom.inputTopP.val(aiConfig.top_p ?? 1);
 }
 function checkAndShowSettings() {
-  const aiConfig = extension_settings93[extensionName]?.chatu8_ai_assistant || {};
+  const aiConfig = extension_settings95[extensionName]?.chatu8_ai_assistant || {};
   if (!aiConfig.api_key) {
     dom.settingsPanel.addClass("active");
     toastr?.info("\u521D\u6B21\u4F7F\u7528\u8BF7\u5148\u914D\u7F6E\u597D API \u548C \u6A21\u578B\u4FE1\u606F\u54E6~");
@@ -57523,10 +59736,10 @@ function checkAndShowSettings() {
   refreshSettingsPanel();
 }
 function autoSaveSettings() {
-  if (!extension_settings93[extensionName].chatu8_ai_assistant) {
-    extension_settings93[extensionName].chatu8_ai_assistant = {};
+  if (!extension_settings95[extensionName].chatu8_ai_assistant) {
+    extension_settings95[extensionName].chatu8_ai_assistant = {};
   }
-  const aiConfig = extension_settings93[extensionName].chatu8_ai_assistant;
+  const aiConfig = extension_settings95[extensionName].chatu8_ai_assistant;
   aiConfig.api_url = dom.inputApiUrl.val().trim();
   aiConfig.api_key = dom.inputApiKey.val().trim();
   aiConfig.model = dom.inputModel.val().trim();
@@ -57558,7 +59771,7 @@ function autoSaveSettings() {
   aiConfig.temperature = !isNaN(temp) ? temp : 0.8;
   const topP = parseFloat(dom.inputTopP.val());
   aiConfig.top_p = !isNaN(topP) ? topP : 1;
-  saveSettingsDebounced57();
+  saveSettingsDebounced60();
 }
 function initDialogEvents() {
   const {
@@ -57675,7 +59888,7 @@ function initDialogEvents() {
     setTTSEngineType(engine);
     ttsQwenOptions.toggle(engine === "qwen");
     ttsEdgeOptions.toggle(engine === "edge");
-    const aiConfig = extension_settings93[extensionName]?.chatu8_ai_assistant || {};
+    const aiConfig = extension_settings95[extensionName]?.chatu8_ai_assistant || {};
     if (engine === "qwen") {
       populateQwenVoices(aiConfig.tts_qwen_voice);
     } else if (engine === "edge") {
@@ -57719,11 +59932,11 @@ function initDialogEvents() {
         bestLatency: result.servers.length > 0 ? result.servers[0].latency : 0,
         timestamp: result.timestamp
       };
-      if (!extension_settings93[extensionName].chatu8_ai_assistant) {
-        extension_settings93[extensionName].chatu8_ai_assistant = {};
+      if (!extension_settings95[extensionName].chatu8_ai_assistant) {
+        extension_settings95[extensionName].chatu8_ai_assistant = {};
       }
-      extension_settings93[extensionName].chatu8_ai_assistant.tts_edge_ping = pingData;
-      saveSettingsDebounced57();
+      extension_settings95[extensionName].chatu8_ai_assistant.tts_edge_ping = pingData;
+      saveSettingsDebounced60();
       updatePingStatusDisplay(pingData);
     } catch (e) {
       ttsEdgePingStatus.text("\u68C0\u6D4B\u5931\u8D25: " + e.message).css("color", "#f44336");
@@ -57909,7 +60122,7 @@ function initDialogEvents() {
   let pipVideoElement = null;
   checkDesktopPet.on("change", async function() {
     const checked = $(this).prop("checked");
-    const settings3 = extension_settings93[extensionName];
+    const settings3 = extension_settings95[extensionName];
     if (checked) {
       try {
         const videoModeWasOff = !(settings3.enable_chatu8_fab_video === true || settings3.enable_chatu8_fab_video === "true");
@@ -58260,6 +60473,7 @@ init_config();
 
 // utils/sd.js
 init_utils();
+init_genParams();
 init_database();
 init_config();
 
@@ -58278,6 +60492,7 @@ init_utils();
 
 init_characterprompt();
 init_database();
+init_genParams();
 init_configDatabase();
 init_taskQueue();
 
@@ -58285,6 +60500,7 @@ init_taskQueue();
 init_utils();
 init_config();
 init_database();
+init_genParams();
 
 
 init_taskQueue();
@@ -58310,11 +60526,11 @@ function createDefaultStats() {
   };
 }
 function getStats() {
-  if (!extension_settings43[extensionName]) return createDefaultStats();
-  if (!extension_settings43[extensionName].imageGenStats) {
-    extension_settings43[extensionName].imageGenStats = createDefaultStats();
+  if (!extension_settings44[extensionName]) return createDefaultStats();
+  if (!extension_settings44[extensionName].imageGenStats) {
+    extension_settings44[extensionName].imageGenStats = createDefaultStats();
   }
-  const stats = extension_settings43[extensionName].imageGenStats;
+  const stats = extension_settings44[extensionName].imageGenStats;
   if (!stats.backends) stats.backends = {};
   if (!stats.total) stats.total = { success: 0, fail: 0 };
   if (!stats.daily) stats.daily = {};
@@ -58345,7 +60561,7 @@ function recordGeneration(backend, success) {
     if (!stats.daily[today]) stats.daily[today] = {};
     stats.daily[today][backend] = (stats.daily[today][backend] || 0) + 1;
   }
-  saveSettingsDebounced23();
+  saveSettingsDebounced25();
 }
 function handleImageResponse(_responseData) {
 }
@@ -58356,8 +60572,8 @@ function getImageGenStats() {
   return getStats();
 }
 function resetImageGenStats() {
-  extension_settings43[extensionName].imageGenStats = createDefaultStats();
-  saveSettingsDebounced23();
+  extension_settings44[extensionName].imageGenStats = createDefaultStats();
+  saveSettingsDebounced25();
 }
 function initImageGenStatsListener() {
   eventSource22.on(EventType.GENERATE_IMAGE_RESPONSE, handleImageResponse);
@@ -58706,17 +60922,17 @@ function showPlaceholderMenu(buttonElement, inputElement, inputName, recommended
   setTimeout(() => document.addEventListener("click", closeHandler), 0);
 }
 function worker_change() {
-  const settings3 = extension_settings44[extensionName];
+  const settings3 = extension_settings45[extensionName];
   const worker = document.getElementById("worker");
   const selectElement = document.getElementById("workerid");
   settings3["workerid"] = selectElement.value;
   settings3.worker = settings3.workers[settings3.workerid];
-  saveSettingsDebounced24();
+  saveSettingsDebounced26();
   worker.value = settings3["workers"][settings3["workerid"]];
   $(worker).trigger("input");
 }
 function worker_new() {
-  const settings3 = extension_settings44[extensionName];
+  const settings3 = extension_settings45[extensionName];
   stylInput("\u8BF7\u8F93\u5165\u65B0\u5DE5\u4F5C\u6D41\u9884\u8BBE\u7684\u540D\u79F0").then((newName) => {
     if (newName && newName.trim() !== "") {
       if (settings3.workers.hasOwnProperty(newName)) {
@@ -58739,13 +60955,13 @@ function worker_new() {
       settings3.worker = "";
       const worker = document.getElementById("worker");
       worker.value = "";
-      saveSettingsDebounced24();
+      saveSettingsDebounced26();
       toastr.success(`\u5DF2\u521B\u5EFA\u7A7A\u9884\u8BBE "${newName}"`);
     }
   });
 }
 function worker_rename() {
-  const settings3 = extension_settings44[extensionName];
+  const settings3 = extension_settings45[extensionName];
   const currentName = settings3.workerid;
   if (["\u9ED8\u8BA4", "\u9ED8\u8BA4\u4EBA\u7269\u4E00\u81F4", "\u9762\u90E8\u7EC6\u5316", "\u65B0\u7248\u9ED8\u8BA4", "\u9ED8\u8BA4-\u72EC\u7ACBVAE", "\u65B0weilin-vae"].includes(currentName) || !settings3.workers[currentName]) {
     alert("\u9ED8\u8BA4\u9884\u8BBE\u6216\u4E0D\u5B58\u5728\u7684\u9884\u8BBE\u4E0D\u80FD\u91CD\u547D\u540D\u3002");
@@ -58763,7 +60979,7 @@ function worker_rename() {
       if (settings3.editWorkerid === currentName) {
         settings3.editWorkerid = newName;
       }
-      saveSettingsDebounced24();
+      saveSettingsDebounced26();
       try {
         if (typeof window.loadSilterTavernChatu8Settings === "function") {
           window.loadSilterTavernChatu8Settings();
@@ -58776,7 +60992,7 @@ function worker_rename() {
   });
 }
 function worker_save() {
-  const settings3 = extension_settings44[extensionName];
+  const settings3 = extension_settings45[extensionName];
   stylInput("\u8BF7\u8F93\u5165\u914D\u7F6E\u540D\u79F0").then((result) => {
     if (result) {
       const worker = document.getElementById("worker");
@@ -58790,12 +61006,12 @@ function worker_save() {
       settings3.workerid = result;
       settings3.workers[result] = worker.value;
       settings3.worker = worker.value;
-      saveSettingsDebounced24();
+      saveSettingsDebounced26();
     }
   });
 }
 function worker_delete() {
-  const settings3 = extension_settings44[extensionName];
+  const settings3 = extension_settings45[extensionName];
   stylishConfirm("\u662F\u5426\u786E\u5B9A\u5220\u9664").then((result) => {
     if (result) {
       const worker = document.getElementById("worker");
@@ -58811,12 +61027,12 @@ function worker_delete() {
       settings3.workerid = "\u9ED8\u8BA4";
       settings3.worker = settings3["workers"][settings3["workerid"]];
       worker.value = settings3["workers"][settings3["workerid"]];
-      saveSettingsDebounced24();
+      saveSettingsDebounced26();
     }
   });
 }
 function worker_update() {
-  const settings3 = extension_settings44[extensionName];
+  const settings3 = extension_settings45[extensionName];
   const presetName = settings3.workerid;
   if (!presetName || !settings3.workers[presetName]) {
     alert("\u6CA1\u6709\u6D3B\u52A8\u7684\u5DE5\u4F5C\u6D41\u53EF\u4FDD\u5B58\u3002\u8BF7\u5148\u201C\u53E6\u5B58\u4E3A\u201D\u4E00\u4E2A\u65B0\u5DE5\u4F5C\u6D41\u3002");
@@ -58833,12 +61049,12 @@ function worker_update() {
       if (settings3.workerid === presetName) {
         settings3.worker = workerValue;
       }
-      saveSettingsDebounced24();
+      saveSettingsDebounced26();
     }
   });
 }
 function worker_export_current() {
-  const settings3 = extension_settings44[extensionName];
+  const settings3 = extension_settings45[extensionName];
   const selectedId = settings3.workerid;
   if (!selectedId || !settings3.workers[selectedId]) {
     alert("\u6CA1\u6709\u9009\u4E2D\u7684\u5DE5\u4F5C\u6D41\u53EF\u5BFC\u51FA\u3002");
@@ -58857,7 +61073,7 @@ function worker_export_current() {
   URL.revokeObjectURL(url);
 }
 function worker_export_all() {
-  const settings3 = extension_settings44[extensionName];
+  const settings3 = extension_settings45[extensionName];
   if (!settings3.workers || Object.keys(settings3.workers).length === 0) {
     alert("\u6CA1\u6709\u5DE5\u4F5C\u6D41\u53EF\u5BFC\u51FA\u3002");
     return;
@@ -58906,7 +61122,7 @@ function isRawComfyUIWorkflow(data) {
   return hasClassType;
 }
 async function worker_import() {
-  const settings3 = extension_settings44[extensionName];
+  const settings3 = extension_settings45[extensionName];
   const input = document.createElement("input");
   input.type = "file";
   input.accept = ".json";
@@ -58948,7 +61164,7 @@ async function worker_import() {
             if (workerTextarea) {
               workerTextarea.value = workflowData;
             }
-            saveSettingsDebounced24();
+            saveSettingsDebounced26();
             alert(`\u6210\u529F\u5BFC\u5165\u539F\u59CBComfyUI\u5DE5\u4F5C\u6D41\uFF0C\u5DF2\u4FDD\u5B58\u4E3A: "${name}"`);
           } else {
             alert("\u5BFC\u5165\u5DF2\u53D6\u6D88\u3002");
@@ -58977,7 +61193,7 @@ async function worker_import() {
               settings3.workers[key] = workflowData;
             }
           }
-          saveSettingsDebounced24();
+          saveSettingsDebounced26();
           alert(`\u6210\u529F\u5BFC\u5165 ${Object.keys(importedData).length} \u4E2A\u5DE5\u4F5C\u6D41\uFF0C\u5176\u4E2D ${newWorkflowsCount} \u4E2A\u662F\u5168\u65B0\u7684\u3002`);
         }
       } catch (err) {
@@ -59232,7 +61448,7 @@ function createInputControlByValue(inputName, currentValue, onChange) {
   }
 }
 async function visualizeWorkflow() {
-  const settings3 = extension_settings44[extensionName];
+  const settings3 = extension_settings45[extensionName];
   const workerEl = document.getElementById("worker");
   if (!workerEl || !workerEl.value.trim()) {
     alert("\u6CA1\u6709\u5DE5\u4F5C\u6D41\u53EF\u4EE5\u53EF\u89C6\u5316\u3002\u8BF7\u5148\u8F93\u5165\u6216\u9009\u62E9\u4E00\u4E2A\u5DE5\u4F5C\u6D41\u3002");
@@ -59625,7 +61841,7 @@ ${inputDetails || "  \u65E0"}`;
           settings3.workerid = name;
           settings3.workers[name] = workflowJson;
           settings3.worker = workflowJson;
-          saveSettingsDebounced24();
+          saveSettingsDebounced26();
           hasModifications = false;
           if (skippedCount > 0) {
             toastr.success(`\u5DE5\u4F5C\u6D41\u5DF2\u4FDD\u5B58\u4E3A "${name}"\uFF08\u542B ${skippedCount} \u4E2A\u8DF3\u8FC7\u8282\u70B9\uFF0C\u6267\u884C\u65F6\u751F\u6548\uFF09`);
@@ -59636,7 +61852,7 @@ ${inputDetails || "  \u65E0"}`;
       } else {
         settings3.workers[presetName] = workflowJson;
         settings3.worker = workflowJson;
-        saveSettingsDebounced24();
+        saveSettingsDebounced26();
         hasModifications = false;
         if (skippedCount > 0) {
           toastr.success(`\u5DE5\u4F5C\u6D41 "${presetName}" \u5DF2\u4FDD\u5B58\uFF08\u542B ${skippedCount} \u4E2A\u8DF3\u8FC7\u8282\u70B9\uFF0C\u6267\u884C\u65F6\u751F\u6548\uFF09`);
@@ -59650,17 +61866,17 @@ ${inputDetails || "  \u65E0"}`;
   };
 }
 function editWorker_change() {
-  const settings3 = extension_settings44[extensionName];
+  const settings3 = extension_settings45[extensionName];
   const editWorker = document.getElementById("editWorker");
   const selectElement = document.getElementById("editWorkerid");
   settings3["editWorkerid"] = selectElement.value;
   settings3.editWorker = settings3.workers[settings3.editWorkerid];
-  saveSettingsDebounced24();
+  saveSettingsDebounced26();
   editWorker.value = settings3["workers"][settings3["editWorkerid"]];
   $(editWorker).trigger("input");
 }
 function editWorker_new() {
-  const settings3 = extension_settings44[extensionName];
+  const settings3 = extension_settings45[extensionName];
   stylInput("\u8BF7\u8F93\u5165\u65B0\u4FEE\u56FE\u5DE5\u4F5C\u6D41\u9884\u8BBE\u7684\u540D\u79F0").then((newName) => {
     if (newName && newName.trim() !== "") {
       if (settings3.workers.hasOwnProperty(newName)) {
@@ -59683,13 +61899,13 @@ function editWorker_new() {
       settings3.editWorker = "";
       const editWorker = document.getElementById("editWorker");
       editWorker.value = "";
-      saveSettingsDebounced24();
+      saveSettingsDebounced26();
       toastr.success(`\u5DF2\u521B\u5EFA\u7A7A\u9884\u8BBE "${newName}"`);
     }
   });
 }
 function editWorker_rename() {
-  const settings3 = extension_settings44[extensionName];
+  const settings3 = extension_settings45[extensionName];
   const currentName = settings3.editWorkerid;
   if (["\u9ED8\u8BA4", "\u9ED8\u8BA4\u4EBA\u7269\u4E00\u81F4", "\u9762\u90E8\u7EC6\u5316", "\u65B0\u7248\u9ED8\u8BA4", "\u9ED8\u8BA4-\u72EC\u7ACBVAE", "\u65B0weilin-vae"].includes(currentName) || !settings3.workers[currentName]) {
     alert("\u9ED8\u8BA4\u9884\u8BBE\u6216\u4E0D\u5B58\u5728\u7684\u9884\u8BBE\u4E0D\u80FD\u91CD\u547D\u540D\u3002");
@@ -59707,7 +61923,7 @@ function editWorker_rename() {
       if (settings3.workerid === currentName) {
         settings3.workerid = newName;
       }
-      saveSettingsDebounced24();
+      saveSettingsDebounced26();
       try {
         if (typeof window.loadSilterTavernChatu8Settings === "function") {
           window.loadSilterTavernChatu8Settings();
@@ -59720,7 +61936,7 @@ function editWorker_rename() {
   });
 }
 function editWorker_save() {
-  const settings3 = extension_settings44[extensionName];
+  const settings3 = extension_settings45[extensionName];
   stylInput("\u8BF7\u8F93\u5165\u914D\u7F6E\u540D\u79F0").then((result) => {
     if (result) {
       const editWorker = document.getElementById("editWorker");
@@ -59740,12 +61956,12 @@ function editWorker_save() {
       settings3.editWorkerid = result;
       settings3.workers[result] = editWorker.value;
       settings3.editWorker = editWorker.value;
-      saveSettingsDebounced24();
+      saveSettingsDebounced26();
     }
   });
 }
 function editWorker_delete() {
-  const settings3 = extension_settings44[extensionName];
+  const settings3 = extension_settings45[extensionName];
   stylishConfirm("\u662F\u5426\u786E\u5B9A\u5220\u9664").then((result) => {
     if (result) {
       const editWorker = document.getElementById("editWorker");
@@ -59784,12 +62000,12 @@ function editWorker_delete() {
       settings3.editWorkerid = "\u65B0\u7248\u9ED8\u8BA4";
       settings3.editWorker = settings3["workers"][settings3["editWorkerid"]];
       editWorker.value = settings3["workers"][settings3["editWorkerid"]];
-      saveSettingsDebounced24();
+      saveSettingsDebounced26();
     }
   });
 }
 function editWorker_update() {
-  const settings3 = extension_settings44[extensionName];
+  const settings3 = extension_settings45[extensionName];
   const presetName = settings3.editWorkerid;
   if (!presetName || !settings3.workers[presetName]) {
     alert('\u6CA1\u6709\u6D3B\u52A8\u7684\u5DE5\u4F5C\u6D41\u53EF\u4FDD\u5B58\u3002\u8BF7\u5148"\u53E6\u5B58\u4E3A"\u4E00\u4E2A\u65B0\u5DE5\u4F5C\u6D41\u3002');
@@ -59813,12 +62029,12 @@ function editWorker_update() {
           workerTextarea.value = editWorkerValue;
         }
       }
-      saveSettingsDebounced24();
+      saveSettingsDebounced26();
     }
   });
 }
 function editWorker_export_current() {
-  const settings3 = extension_settings44[extensionName];
+  const settings3 = extension_settings45[extensionName];
   const selectedId = settings3.editWorkerid;
   if (!selectedId || !settings3.workers[selectedId]) {
     alert("\u6CA1\u6709\u9009\u4E2D\u7684\u5DE5\u4F5C\u6D41\u53EF\u5BFC\u51FA\u3002");
@@ -59840,7 +62056,7 @@ function editWorker_export_all() {
   worker_export_all();
 }
 async function editWorker_import() {
-  const settings3 = extension_settings44[extensionName];
+  const settings3 = extension_settings45[extensionName];
   const input = document.createElement("input");
   input.type = "file";
   input.accept = ".json";
@@ -59882,7 +62098,7 @@ async function editWorker_import() {
             if (editWorkerTextarea) {
               editWorkerTextarea.value = workflowData;
             }
-            saveSettingsDebounced24();
+            saveSettingsDebounced26();
             alert(`\u6210\u529F\u5BFC\u5165\u539F\u59CBComfyUI\u5DE5\u4F5C\u6D41\uFF0C\u5DF2\u4FDD\u5B58\u4E3A: "${name}"`);
           } else {
             alert("\u5BFC\u5165\u5DF2\u53D6\u6D88\u3002");
@@ -59911,7 +62127,7 @@ async function editWorker_import() {
               settings3.workers[key] = workflowData;
             }
           }
-          saveSettingsDebounced24();
+          saveSettingsDebounced26();
           alert(`\u6210\u529F\u5BFC\u5165 ${Object.keys(importedData).length} \u4E2A\u5DE5\u4F5C\u6D41\uFF0C\u5176\u4E2D ${newWorkflowsCount} \u4E2A\u662F\u5168\u65B0\u7684\u3002`);
         }
       } catch (err) {
@@ -59955,7 +62171,7 @@ function initWorkerControls(settingsModal) {
     }
   });
   settingsModal.find("#visualize_edit_workflow").on("click", () => {
-    const settings3 = extension_settings44[extensionName];
+    const settings3 = extension_settings45[extensionName];
     const originalWorker = settings3.worker;
     const originalWorkerId = settings3.workerid;
     settings3.worker = settings3.editWorker;
@@ -60056,7 +62272,7 @@ async function generateComfyUIImage({ prompt: link, width: Xwidth, height: Xheig
   if (typeof link === "string") {
     const match = link.match(sizeRegex);
     if (match) {
-      if (String(extension_settings45[extensionName].aiAutonomousResolution) !== "false") {
+      if (String(extension_settings46[extensionName].aiAutonomousResolution) !== "false") {
         Xwidth = parseInt(match[1], 10);
         Xheight = parseInt(match[2], 10);
       }
@@ -60066,7 +62282,7 @@ async function generateComfyUIImage({ prompt: link, width: Xwidth, height: Xheig
   if (typeof change === "string") {
     const match = change.match(sizeRegex);
     if (match) {
-      if (String(extension_settings45[extensionName].aiAutonomousResolution) !== "false") {
+      if (String(extension_settings46[extensionName].aiAutonomousResolution) !== "false") {
         Xwidth = parseInt(match[1], 10);
         Xheight = parseInt(match[2], 10);
       }
@@ -60077,17 +62293,17 @@ async function generateComfyUIImage({ prompt: link, width: Xwidth, height: Xheig
   link = await stripChineseAnnotations(link);
   change = processCharacterPrompt(change);
   change = await stripChineseAnnotations(change);
-  addLog(`\u5F00\u59CB ComfyUI \u751F\u56FE\u6D41\u7A0B\u3002\u5BA2\u6237\u7AEF\u4E3A${extension_settings45[extensionName].client}`);
-  addLog(`\u8BF7\u6C42\u5DE5\u4F5C\u6D41id - ${extension_settings45[extensionName].workerid}`);
+  addLog(`\u5F00\u59CB ComfyUI \u751F\u56FE\u6D41\u7A0B\u3002\u5BA2\u6237\u7AEF\u4E3A${extension_settings46[extensionName].client}`);
+  addLog(`\u8BF7\u6C42\u5DE5\u4F5C\u6D41id - ${extension_settings46[extensionName].workerid}`);
   addLog(`\u8BF7\u6C42\u5C3A\u5BF8: \u5BBD\u5EA6 - ${Xwidth || "\u9ED8\u8BA4"}, \u9AD8\u5EA6 - ${Xheight || "\u9ED8\u8BA4"}`);
-  if (extension_settings45[extensionName].MODEL_NAME.trim() === "\u8FDE\u63A5\u540E\u9009\u62E9") {
+  if (extension_settings46[extensionName].MODEL_NAME.trim() === "\u8FDE\u63A5\u540E\u9009\u62E9") {
     addLog("\u8BF7\u586B\u5199ComfyUI\u6A21\u578B\u3002");
     toastr.error("\u8BF7\u586B\u5199ComfyUI\u6A21\u578B\u3002");
     taskQueue.completeTask(taskId, false);
     currentTaskId = null;
     return;
   }
-  const url = extension_settings45[extensionName].comfyuiUrl.trim();
+  const url = extension_settings46[extensionName].comfyuiUrl.trim();
   const promptForGeneration = change && change.trim() !== "" ? change : link;
   addLog(`\u7528\u4E8E\u751F\u6210\u7684Tag: ${promptForGeneration}`);
   let Divide_roles = false;
@@ -60120,18 +62336,18 @@ async function generateComfyUIImage({ prompt: link, width: Xwidth, height: Xheig
     }
   }
   const _comfyui_yushe_id = getRandomYusheId("yusheid_comfyui");
-  if (!extension_settings45[extensionName].yushe || !extension_settings45[extensionName].yushe[_comfyui_yushe_id]) {
+  if (!extension_settings46[extensionName].yushe || !extension_settings46[extensionName].yushe[_comfyui_yushe_id]) {
     toastr.error("\u672A\u80FD\u627E\u5230\u6240\u9009\u7684\u56FA\u5B9A\u63D0\u793A\u8BCD\u9884\u8BBE\u3002\u8BF7\u524D\u5F80\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u65B0\u5EFA\u6216\u9009\u62E9\u4E00\u4E2A\u56FA\u5B9A\u63D0\u793A\u8BCD\u3002", "ComfyUI \u751F\u56FE\u9519\u8BEF");
     taskQueue.completeTask(taskId, false);
     currentTaskId = null;
     throw new Error("\u56FA\u5B9A\u63D0\u793A\u8BCD\u9884\u8BBE\u672A\u914D\u7F6E");
   }
-  const _comfyui_preset = extension_settings45[extensionName].yushe[_comfyui_yushe_id];
+  const _comfyui_preset = extension_settings46[extensionName].yushe[_comfyui_yushe_id];
   let prompt2 = await zhengmian(
     _comfyui_preset.fixedPrompt,
     modifiedPrompt,
     _comfyui_preset.fixedPrompt_end,
-    extension_settings45[extensionName].AQT_comfyui,
+    extension_settings46[extensionName].AQT_comfyui,
     insertions
   );
   prompt2 = replaceLoraTags(prompt2);
@@ -60142,7 +62358,7 @@ async function generateComfyUIImage({ prompt: link, width: Xwidth, height: Xheig
         return `<lora:${filename}:${paramStr}>`;
       }
       const params = paramStr.split(":");
-      if (extension_settings45[extensionName].weilin_lora_fix === "true") {
+      if (extension_settings46[extensionName].weilin_lora_fix === "true") {
         const p1 = params[0] || "1";
         const p2 = params[1] || "1";
         const p3 = params[2] || "1";
@@ -60155,7 +62371,7 @@ async function generateComfyUIImage({ prompt: link, width: Xwidth, height: Xheig
       }
     });
   }
-  if (extension_settings45[extensionName].worker.includes("WeiLin") && !extension_settings45[extensionName].worker.includes("WeiLinPromptUI")) {
+  if (extension_settings46[extensionName].worker.includes("WeiLin") && !extension_settings46[extensionName].worker.includes("WeiLinPromptUI")) {
     prompt2 = replaceLoraTags(prompt2, true);
     prompt2 = prompt2.replace(/<lora:([^:>]+)(\.safetensors)?:([^>]+)>/g, (match, filename, ext, weight) => {
       if (!prompt2.includes(".safetensors")) {
@@ -60164,14 +62380,14 @@ async function generateComfyUIImage({ prompt: link, width: Xwidth, height: Xheig
       return match;
     });
   }
-  if (extension_settings45[extensionName].worker.includes("WeiLinPromptUI")) {
+  if (extension_settings46[extensionName].worker.includes("WeiLinPromptUI")) {
     prompt2 = replaceLoraTags(prompt2, true);
     prompt2 = prompt2.replaceAll("<lora:", "<wlr:");
     prompt2 = prompt2.replaceAll(".safetensors", "");
   }
   console.log("prompt", prompt2);
   addLog(`\u6B63\u9762\u63D0\u793A\u8BCD: ${prompt2} `);
-  let negative_prompt = await fumian(_comfyui_preset.negativePrompt, extension_settings45[extensionName].UCP_comfyui);
+  let negative_prompt = await fumian(_comfyui_preset.negativePrompt, extension_settings46[extensionName].UCP_comfyui);
   if (!Divide_roles && window.collectedCharacterNegatives) {
     const characterNegatives = window.collectedCharacterNegatives.trim();
     if (characterNegatives) {
@@ -60186,7 +62402,7 @@ async function generateComfyUIImage({ prompt: link, width: Xwidth, height: Xheig
     addLog(`[\u667A\u7ED8\u59EC] \u6DFB\u52A0\u989D\u5916\u8D1F\u9762\u63D0\u793A\u8BCD: ${trimmedExtra} `);
     console.log("[ComfyUI] \u5408\u5E76\u667A\u7ED8\u59EC\u989D\u5916\u8D1F\u9762\u63D0\u793A\u8BCD:", trimmedExtra);
   }
-  if (extension_settings45[extensionName].worker.includes("WeiLinPromptUI")) {
+  if (extension_settings46[extensionName].worker.includes("WeiLinPromptUI")) {
     negative_prompt = replaceLoraTags(negative_prompt, true);
     negative_prompt = negative_prompt.replaceAll("<lora:", "<wlr:");
   } else {
@@ -60195,30 +62411,30 @@ async function generateComfyUIImage({ prompt: link, width: Xwidth, height: Xheig
   addLog(`\u8D1F\u9762\u63D0\u793A\u8BCD: ${negative_prompt} `);
   prompt2 = prompt2.replaceAll("\n", ",").replace(/,{2,}/g, ",");
   negative_prompt = negative_prompt.replaceAll("\n", ",").replace(/,{2,}/g, ",");
-  const normalizedModelName = normalizeBackslashPath(extension_settings45[extensionName].MODEL_NAME);
+  const normalizedModelName = normalizeBackslashPath(extension_settings46[extensionName].MODEL_NAME);
   let payload = {
     "prompt": prompt2,
     "negative_prompt": negative_prompt,
-    "steps": extension_settings45[extensionName].comfyui_steps,
-    "sampler_name": extension_settings45[extensionName].comfyuisamplerName,
-    "width": Xwidth ? Xwidth : extension_settings45[extensionName].comfyui_width,
-    "height": Xheight ? Xheight : extension_settings45[extensionName].comfyui_height,
-    "cfg_scale": extension_settings45[extensionName].cfg_comfyui,
-    "seed": extension_settings45[extensionName].comfyui_seed === 0 || extension_settings45[extensionName].comfyui_seed === "0" || extension_settings45[extensionName].comfyui_seed === "" || extension_settings45[extensionName].comfyui_seed === -1 || extension_settings45[extensionName].comfyui_seed === "-1" ? generateRandomSeed() : extension_settings45[extensionName].comfyui_seed,
+    "steps": extension_settings46[extensionName].comfyui_steps,
+    "sampler_name": extension_settings46[extensionName].comfyuisamplerName,
+    "width": Xwidth ? Xwidth : extension_settings46[extensionName].comfyui_width,
+    "height": Xheight ? Xheight : extension_settings46[extensionName].comfyui_height,
+    "cfg_scale": extension_settings46[extensionName].cfg_comfyui,
+    "seed": extension_settings46[extensionName].comfyui_seed === 0 || extension_settings46[extensionName].comfyui_seed === "0" || extension_settings46[extensionName].comfyui_seed === "" || extension_settings46[extensionName].comfyui_seed === -1 || extension_settings46[extensionName].comfyui_seed === "-1" ? generateRandomSeed() : extension_settings46[extensionName].comfyui_seed,
     "MODEL_NAME": normalizedModelName,
-    "c_quanzhong": extension_settings45[extensionName].c_quanzhong,
-    "c_idquanzhong": extension_settings45[extensionName].c_idquanzhong,
-    "c_xijie": extension_settings45[extensionName].c_xijie,
-    "c_fenwei": extension_settings45[extensionName].c_fenwei,
+    "c_quanzhong": extension_settings46[extensionName].c_quanzhong,
+    "c_idquanzhong": extension_settings46[extensionName].c_idquanzhong,
+    "c_xijie": extension_settings46[extensionName].c_xijie,
+    "c_fenwei": extension_settings46[extensionName].c_fenwei,
     "comfyuicankaotupian": window.comfyuicankaotupian,
-    "ipa": extension_settings45[extensionName].ipa,
-    "scheduler": normalizeSettingString(extension_settings45[extensionName].comfyui_scheduler),
-    "vae": normalizeSettingString(extension_settings45[extensionName].comfyui_vae),
-    "clip": normalizeSettingString(extension_settings45[extensionName].comfyuiCLIPName),
+    "ipa": extension_settings46[extensionName].ipa,
+    "scheduler": normalizeSettingString(extension_settings46[extensionName].comfyui_scheduler),
+    "vae": normalizeSettingString(extension_settings46[extensionName].comfyui_vae),
+    "clip": normalizeSettingString(extension_settings46[extensionName].comfyuiCLIPName),
     // 局部重绘参数（如果有）
     "inpaint_image": window.comfyuiInpaintImage || null,
     "inpaint_mask": window.comfyuiInpaintMask || null,
-    "inpaint_denoise": extension_settings45[extensionName].inpaint_denoise || "0.75",
+    "inpaint_denoise": extension_settings46[extensionName].inpaint_denoise || "0.75",
     "inpaint_positive": window.comfyuiInpaintPositivePrompt || "",
     "inpaint_negative": window.comfyuiInpaintNegativePrompt || ""
   };
@@ -60240,10 +62456,25 @@ Scheduler: ${payload.scheduler}
 --------------------
 `;
   addLog(report);
+  const _comfy_gen_params = buildGenParams("ComfyUI", {
+    model: payload.MODEL_NAME,
+    yushe: _comfyui_yushe_id,
+    yusheRandom: extension_settings46[extensionName].randomYushe === "true",
+    promptReplaceId: extension_settings46[extensionName].prompt_replace_id,
+    resolvedPrompt: payload.prompt,
+    negativePrompt: payload.negative_prompt,
+    width: payload.width,
+    height: payload.height,
+    seed: payload.seed,
+    steps: payload.steps,
+    sampler: payload.sampler_name,
+    scheduler: payload.scheduler,
+    cfgScale: payload.cfg_scale
+  });
   const clientId = "533ef3a3-39c0-4e39-9ced-37d290f371f8";
-  let workflowToUse = extension_settings45[extensionName].worker;
+  let workflowToUse = extension_settings46[extensionName].worker;
   if (change.includes("{ComfyUI\u5C40\u90E8\u91CD\u7ED8}") || change.includes("{\u5C40\u90E8\u91CD\u7ED8}")) {
-    workflowToUse = extension_settings45[extensionName].editWorker;
+    workflowToUse = extension_settings46[extensionName].editWorker;
   }
   try {
     const workflowObj = JSON.parse(workflowToUse);
@@ -60281,7 +62512,7 @@ Scheduler: ${payload.scheduler}
     lockAcquired = true;
     taskQueue.updateStatus(taskId, "running");
     let imageUrl;
-    if (extension_settings45[extensionName].client === "jiuguan") {
+    if (extension_settings46[extensionName].client === "jiuguan") {
       const response = await fetch("/api/sd/comfy/generate", {
         method: "POST",
         body: JSON.stringify({
@@ -60331,19 +62562,19 @@ Scheduler: ${payload.scheduler}
       setTimeout(() => {
         console.log("xiancheng \u4E3Atrue");
         window.xiancheng = true;
-      }, extension_settings45[extensionName].imageGenInterval);
+      }, extension_settings46[extensionName].imageGenInterval);
       ;
       taskQueue.completeTask(taskId, true);
       currentTaskId = null;
       console.log("format", format, "isVideo", isVideo);
-      if (String(extension_settings45[extensionName].convertToJpegStorage) === "true" && !isVideo) {
+      if (String(extension_settings46[extensionName].convertToJpegStorage) === "true" && !isVideo) {
         imageUrl = await convertImageToJpeg(imageUrl);
       }
       let finalFormat = format;
       if (isVideo) {
         finalFormat = `video/${mimeType}`;
       }
-      return { image: imageUrl, change: change_ || "", isVideo, format: finalFormat };
+      return { image: imageUrl, change: change_ || "", isVideo, format: finalFormat, genParams: _comfy_gen_params };
     } else {
       const urlObj = new URL(url + "/prompt");
       const response = await fetch(urlObj.href, {
@@ -60460,7 +62691,7 @@ Scheduler: ${payload.scheduler}
               reader.onerror = reject;
               reader.readAsDataURL(blob);
             });
-            if (String(extension_settings45[extensionName].convertToJpegStorage) === "true") {
+            if (String(extension_settings46[extensionName].convertToJpegStorage) === "true") {
               if (!imageInfo.isVideo) {
                 imageUrl = await convertImageToJpeg(imageUrl);
               }
@@ -60481,7 +62712,7 @@ Scheduler: ${payload.scheduler}
       setTimeout(() => {
         console.log("xiancheng \u4E3Atrue");
         window.xiancheng = true;
-      }, extension_settings45[extensionName].imageGenInterval);
+      }, extension_settings46[extensionName].imageGenInterval);
       ;
       if (!imageUrl) {
         throw new Error("\u672A\u80FD\u751F\u6210\u56FE\u7247 URL\u3002");
@@ -60491,7 +62722,7 @@ Scheduler: ${payload.scheduler}
       addLog(`\u5A92\u4F53 (${isVideo ? "\u89C6\u9891" : "\u56FE\u7247"}) \u5DF2\u6210\u529F\u83B7\u53D6\u5E76\u683C\u5F0F\u5316\u4E3A data URL\u3002`);
       taskQueue.completeTask(taskId, true);
       currentTaskId = null;
-      return { image: imageUrl, change: change_ || "", isVideo, format: mediaFormat };
+      return { image: imageUrl, change: change_ || "", isVideo, format: mediaFormat, genParams: _comfy_gen_params };
     }
   } catch (error) {
     if (lockAcquired) {
@@ -60521,9 +62752,9 @@ async function comfyuigenerate(requestData) {
     return;
   }
   try {
-    const { image: imageUrl, change: returnedChange, isVideo, format } = await generateComfyUIImage({ prompt: prompt2, width, height, change, extraNegativePrompt });
-    if (extension_settings45[extensionName].cache != "0") {
-      await setItemImg(prompt2, imageUrl, { change: returnedChange, isVideo, format });
+    const { image: imageUrl, change: returnedChange, isVideo, format, genParams } = await generateComfyUIImage({ prompt: prompt2, width, height, change, extraNegativePrompt });
+    if (extension_settings46[extensionName].cache != "0") {
+      await setItemImg(prompt2, imageUrl, { change: returnedChange, isVideo, format, genParams });
       addLog(`${isVideo ? "\u89C6\u9891" : "\u56FE\u50CF"}\u5DF2\u5B58\u5165\u6570\u636E\u5E93 for prompt: ${prompt2}`);
     } else {
       addLog(`\u7F13\u5B58\u8BBE\u7F6E\u4E3A\u4E0D\u5B58\u5165\u6570\u636E\u5E93`);
@@ -60559,7 +62790,7 @@ function initializeComfyuiListener() {
   addLog("comfyui \u751F\u56FE\u4E8B\u4EF6\u76D1\u542C\u5668\u5DF2\u521D\u59CB\u5316\uFF08\u542B\u65E7\u7248\u517C\u5BB9\uFF09\u3002");
 }
 async function replaceWithcomfyui() {
-  if (extension_settings45[extensionName].mode == "comfyui") {
+  if (extension_settings46[extensionName].mode == "comfyui") {
     if (!window.initializeComfyuiListener) {
       window.initializeComfyuiListener = true;
       initializeComfyuiListener();
@@ -60696,7 +62927,7 @@ async function generateBananaImage({ prompt: prompt2, width, height, change, ret
   currentAbortController = new AbortController();
   if (change && change.includes("{\u89C6\u9891}")) {
     addLog(`[Banana] \u89C6\u9891\u6A21\u5F0F\uFF1A\u8DF3\u8FC7\u56FE\u7247\u63D0\u793A\u8BCD\u5904\u7406\uFF0C\u76F4\u63A5\u6784\u5EFA\u89C6\u9891\u8BF7\u6C42`);
-    const bananaSettings2 = extension_settings46[extensionName].banana;
+    const bananaSettings2 = extension_settings47[extensionName].banana;
     const { videoModel: videoModel2, model: model2, apiUrl: apiUrl2, apiKey: apiKey2, conversationPresets: conversationPresets2, videoPresetId: videoPresetId2, aspectRatio: aspectRatio2 } = bananaSettings2;
     const useModel = videoModel2 || model2;
     addLog(`[Banana] \u89C6\u9891\u6A21\u5F0F\u4F7F\u7528\u6A21\u578B: ${useModel}`);
@@ -60732,6 +62963,13 @@ async function generateBananaImage({ prompt: prompt2, width, height, change, ret
     }
     history.push({ role: "user", content: userContent });
     addLog(`[Banana] \u89C6\u9891\u6A21\u5F0F\uFF1A\u6307\u4EE4 = ${combinedPrompt}`);
+    const _videoGenParams = buildGenParams("Banana \u89C6\u9891", {
+      model: useModel,
+      yushe: selectedVideoPresetId,
+      promptReplaceId: bananaSettings2.prompt_replace_id || "\u9ED8\u8BA4",
+      resolvedPrompt: combinedPrompt,
+      aspectRatio: aspectRatio2
+    });
     const payload2 = {
       model: useModel,
       messages: history.filter((entry) => entry.content.length > 0)
@@ -60745,7 +62983,7 @@ async function generateBananaImage({ prompt: prompt2, width, height, change, ret
     const path2 = "/v1/chat/completions";
     let baseUrl2 = apiUrl2.replace(/\/$/, "");
     let directUrl2 = baseUrl2 + "/chat/completions";
-    const client2 = extension_settings46[extensionName].client;
+    const client2 = extension_settings47[extensionName].client;
     let requestUrl2, requestHeaders2, requestBody2;
     if (client2 === "jiuguan") {
       let proxyBaseUrl = baseUrl2;
@@ -60801,7 +63039,7 @@ async function generateBananaImage({ prompt: prompt2, width, height, change, ret
             taskQueue.completeTask(taskId, true);
             currentTaskId2 = null;
             const changeClean = change.replaceAll("{\u89C6\u9891}", "");
-            return { image: videoDataUrl, change: changeClean || prompt2, isVideo: true, format: "video/mp4", originalUrl: videoUrl };
+            return { image: videoDataUrl, change: changeClean || prompt2, isVideo: true, format: "video/mp4", originalUrl: videoUrl, genParams: _videoGenParams };
           } catch (fetchError) {
             addLog(`[Banana] Failed to download video: ${fetchError.message}`);
             throw new Error(`\u89C6\u9891\u4E0B\u8F7D\u5931\u8D25: ${fetchError.message}`);
@@ -60825,7 +63063,7 @@ async function generateBananaImage({ prompt: prompt2, width, height, change, ret
   if (typeof prompt2 === "string") {
     const match = prompt2.match(sizeRegex);
     if (match) {
-      if (String(extension_settings46[extensionName].aiAutonomousResolution) !== "false") {
+      if (String(extension_settings47[extensionName].aiAutonomousResolution) !== "false") {
         width = parseInt(match[1], 10);
         height = parseInt(match[2], 10);
       }
@@ -60835,7 +63073,7 @@ async function generateBananaImage({ prompt: prompt2, width, height, change, ret
   if (typeof change === "string") {
     const match = change.match(sizeRegex);
     if (match) {
-      if (String(extension_settings46[extensionName].aiAutonomousResolution) !== "false") {
+      if (String(extension_settings47[extensionName].aiAutonomousResolution) !== "false") {
         width = parseInt(match[1], 10);
         height = parseInt(match[2], 10);
       }
@@ -60846,7 +63084,7 @@ async function generateBananaImage({ prompt: prompt2, width, height, change, ret
   prompt2 = await stripChineseAnnotations(prompt2);
   change = processCharacterPrompt(change);
   change = await stripChineseAnnotations(change);
-  addLog(`\u5F00\u59CB Banana\u751F\u56FE\u6D41\u7A0B\u3002\u5BA2\u6237\u7AEF\u4E3A${extension_settings46[extensionName].client}`);
+  addLog(`\u5F00\u59CB Banana\u751F\u56FE\u6D41\u7A0B\u3002\u5BA2\u6237\u7AEF\u4E3A${extension_settings47[extensionName].client}`);
   addLog(`\u8BF7\u6C42\u5C3A\u5BF8: \u5BBD\u5EA6 - ${width || "\u9ED8\u8BA4"}, \u9AD8\u5EA6 - ${height || "\u9ED8\u8BA4"}`);
   prompt2 = change && change.trim() !== "" ? change : prompt2;
   addLog(`\u7528\u4E8E\u751F\u6210\u7684Tag: ${prompt2}`);
@@ -60879,13 +63117,23 @@ async function generateBananaImage({ prompt: prompt2, width, height, change, ret
       }
     }
   }
-  const bananaSettings = extension_settings46[extensionName].banana;
+  const bananaSettings = extension_settings47[extensionName].banana;
   const { model, editModel, videoModel, apiUrl, apiKey, conversationPresets, conversationPresetId, editPresetId, videoPresetId, aspectRatio } = bananaSettings;
+  const imageSize = (bananaSettings.imageSize || "").trim() || "1024x1024";
   const useGrokFormat = String(bananaSettings.useGrokFormat) === "true";
   const isEditMode = !!(change && change.includes("{\u4FEE\u56FE}"));
   const isVideoMode = !!(change && change.includes("{\u89C6\u9891}"));
   const effectiveModel = isVideoMode ? videoModel || model : isEditMode ? editModel || model : model;
   addLog(`[Banana] Starting image generation with model: ${effectiveModel}${isEditMode ? " (\u4FEE\u56FE\u6A21\u5F0F)" : isVideoMode ? " (\u89C6\u9891\u6A21\u5F0F)" : ""}`);
+  let _banana_gen_params = null;
+  const _bananaSnapshot = (presetId, finalPromptText) => buildGenParams("Banana", {
+    model: effectiveModel,
+    yushe: presetId,
+    promptReplaceId: bananaSettings.prompt_replace_id || "\u9ED8\u8BA4",
+    resolvedPrompt: finalPromptText,
+    imageSize: effectiveModel.startsWith("imagen") ? void 0 : imageSize,
+    aspectRatio: effectiveModel.startsWith("imagen") ? aspectRatio : void 0
+  });
   if (useGrokFormat && !change.includes("{\u4FEE\u56FE}") && !change.includes("{\u89C6\u9891}")) {
     addLog("[Banana] \u542F\u7528 Grok \u539F\u751F images/generations \u683C\u5F0F");
     const grokPreset = conversationPresets[conversationPresetId] || { fixedPrompt: "", postfixPrompt: "" };
@@ -60900,13 +63148,15 @@ async function generateBananaImage({ prompt: prompt2, width, height, change, ret
       insertions["\u6700\u540E\u7F6E"]
     ].filter(Boolean).join(", ");
     addLog(`[Banana] Grok prompt: ${grokFinalPrompt}`);
+    _banana_gen_params = _bananaSnapshot(conversationPresetId, grokFinalPrompt);
     const grokPath = "/v1/images/generations";
     let grokBaseUrl = apiUrl.replace(/\/$/, "");
-    let grokDirectUrl = grokBaseUrl + "/images/generations";
+    let grokDirectUrl = /\/generations$/.test(grokBaseUrl) ? grokBaseUrl : grokBaseUrl + "/images/generations";
     const grokPayload = {
       model,
       prompt: grokFinalPrompt,
       n: 1,
+      size: imageSize,
       response_format: "b64_json"
     };
     const grokRequestUrl = grokDirectUrl;
@@ -60951,13 +63201,13 @@ async function generateBananaImage({ prompt: prompt2, width, height, change, ret
       if (!imageUrl) {
         throw new Error("Grok \u54CD\u5E94\u672A\u5305\u542B\u56FE\u7247\uFF08b64_json/url \u5747\u4E3A\u7A7A\uFF09");
       }
-      if (String(extension_settings46[extensionName].convertToJpegStorage) === "true") {
+      if (String(extension_settings47[extensionName].convertToJpegStorage) === "true") {
         imageUrl = await convertImageToJpeg(imageUrl);
       }
       addLog("[Banana] Grok \u6A21\u5F0F\uFF1A\u56FE\u7247\u751F\u6210\u6210\u529F");
       taskQueue.completeTask(taskId, true);
       currentTaskId2 = null;
-      return { image: imageUrl, change: change_ || "" };
+      return { image: imageUrl, change: change_ || "", genParams: _banana_gen_params };
     } catch (error) {
       addLog(`[Banana] Grok \u6A21\u5F0F\u9519\u8BEF: ${error.message}`);
       console.error("[Banana] Grok mode error:", error);
@@ -60994,21 +63244,26 @@ async function generateBananaImage({ prompt: prompt2, width, height, change, ret
       }
     };
     addLog(`[Banana] Built Imagen payload with prompt: ${finalPrompt}`);
+    _banana_gen_params = _bananaSnapshot(conversationPresetId, finalPrompt);
   } else {
     path = "/v1/chat/completions";
     let preset;
+    let selectedPresetId;
     if (change.includes("{\u4FEE\u56FE}")) {
       addLog("[Banana] \u542F\u7528\u4E86 {\u4FEE\u56FE} \u6807\u8BC6\u3002");
       const selectedEditPresetId = editPresetId || "\u9ED8\u8BA4";
       preset = conversationPresets[selectedEditPresetId] || { conversation: [], fixedPrompt: "" };
+      selectedPresetId = selectedEditPresetId;
       addLog(`[Banana] \u4F7F\u7528\u4FEE\u56FE\u9884\u8BBE: "${selectedEditPresetId}"`);
     } else if (change.includes("{\u89C6\u9891}")) {
       addLog("[Banana] \u542F\u7528\u4E86 {\u89C6\u9891} \u6807\u8BC6\u3002");
       const selectedVideoPresetId = videoPresetId || "\u9ED8\u8BA4";
       preset = conversationPresets[selectedVideoPresetId] || { conversation: [], fixedPrompt: "" };
+      selectedPresetId = selectedVideoPresetId;
       addLog(`[Banana] \u4F7F\u7528\u89C6\u9891\u9884\u8BBE: "${selectedVideoPresetId}"`);
     } else {
       preset = conversationPresets[conversationPresetId] || { conversation: [], fixedPrompt: "" };
+      selectedPresetId = conversationPresetId;
     }
     const finalPrompt = [
       preset.fixedPrompt,
@@ -61021,6 +63276,7 @@ async function generateBananaImage({ prompt: prompt2, width, height, change, ret
       insertions["\u6700\u540E\u7F6E"]
     ].filter(Boolean).join(", ");
     addLog(`\u6B63\u9762\u63D0\u793A\u8BCD: ${finalPrompt}`);
+    _banana_gen_params = _bananaSnapshot(selectedPresetId, finalPrompt);
     const history = [];
     for (const turn of preset.conversation) {
       const turnUserContent = [];
@@ -61041,7 +63297,7 @@ async function generateBananaImage({ prompt: prompt2, width, height, change, ret
       history.push({ role: "assistant", content: turnModelContent });
     }
     if (!change.includes("{\u4FEE\u56FE}") && !change.includes("{\u89C6\u9891}")) {
-      const bananaCharacterPresets = extension_settings46[extensionName].bananaCharacterPresets || {};
+      const bananaCharacterPresets = extension_settings47[extensionName].bananaCharacterPresets || {};
       for (const presetName in bananaCharacterPresets) {
         const charPreset = bananaCharacterPresets[presetName];
         const triggers = (charPreset.triggers || "").split("|").filter((t) => t.trim() !== "");
@@ -61103,7 +63359,8 @@ async function generateBananaImage({ prompt: prompt2, width, height, change, ret
     }
     payload = {
       model: effectiveModel,
-      messages: history.filter((entry) => entry.content.length > 0)
+      messages: history.filter((entry) => entry.content.length > 0),
+      size: imageSize
       // 临时禁用 config.imageConfig，排查部分模型（如 grok-imagine-*）不识别该字段导致生图异常
       // config: {
       //     imageConfig: {
@@ -61115,7 +63372,7 @@ async function generateBananaImage({ prompt: prompt2, width, height, change, ret
   }
   let baseUrl = apiUrl.replace(/\/$/, "");
   let directUrl = baseUrl + "/chat/completions";
-  const client = extension_settings46[extensionName].client;
+  const client = extension_settings47[extensionName].client;
   let requestUrl, requestHeaders, requestBody;
   if (client === "jiuguan") {
     let proxyBaseUrl = baseUrl;
@@ -61128,6 +63385,7 @@ async function generateBananaImage({ prompt: prompt2, width, height, change, ret
       custom_include_headers: `Authorization: "Bearer ${apiKey}"`,
       model: proxyModel,
       messages: payload.messages,
+      size: imageSize,
       stream: false
     };
     if (proxyModel.startsWith("imagen")) {
@@ -61183,7 +63441,7 @@ async function generateBananaImage({ prompt: prompt2, width, height, change, ret
             addLog(`[Banana] Video downloaded (${(videoBlob.size / 1024 / 1024).toFixed(2)} MB)`);
             taskQueue.completeTask(taskId, true);
             currentTaskId2 = null;
-            return { image: videoDataUrl, change: change_ || "", isVideo: true, format: "video/mp4", originalUrl: videoUrl };
+            return { image: videoDataUrl, change: change_ || "", isVideo: true, format: "video/mp4", originalUrl: videoUrl, genParams: _banana_gen_params };
           } catch (fetchError) {
             addLog(`[Banana] Failed to download video: ${fetchError.message}`);
             throw new Error(`\u89C6\u9891\u4E0B\u8F7D\u5931\u8D25: ${fetchError.message}`);
@@ -61237,7 +63495,7 @@ async function generateBananaImage({ prompt: prompt2, width, height, change, ret
                 reader.readAsDataURL(imageBlob);
               });
               imageUrl = base64Data;
-              if (String(extension_settings46[extensionName].convertToJpegStorage) === "true") {
+              if (String(extension_settings47[extensionName].convertToJpegStorage) === "true") {
                 imageUrl = await convertImageToJpeg(imageUrl);
               }
               addLog("[Banana] Successfully converted Markdown image to base64.");
@@ -61258,7 +63516,7 @@ async function generateBananaImage({ prompt: prompt2, width, height, change, ret
     addLog("[Banana] Image generated successfully.");
     taskQueue.completeTask(taskId, true);
     currentTaskId2 = null;
-    return { image: imageUrl, change: change_ || "" };
+    return { image: imageUrl, change: change_ || "", genParams: _banana_gen_params };
   } catch (error) {
     addLog(`[Banana] Fetch error: ${error.message}`);
     console.error("[Banana] Fetch error:", error);
@@ -61296,10 +63554,10 @@ async function bananaGenerate(requestData) {
   if (change && change.includes("{ComfyUI\u5C40\u90E8\u91CD\u7ED8}")) {
     addLog(`[Banana] \u68C0\u6D4B\u5230 {ComfyUI\u5C40\u90E8\u91CD\u7ED8} \u6807\u7B7E\uFF0C\u8F6C\u53D1\u5230 ComfyUI \u5904\u7406`);
     try {
-      const { image: imageUrl, change: returnedChange, isVideo, format } = await generateComfyUIImage({ prompt: prompt2, width, height, change, extraNegativePrompt: void 0 });
+      const { image: imageUrl, change: returnedChange, isVideo, format, genParams } = await generateComfyUIImage({ prompt: prompt2, width, height, change, extraNegativePrompt: void 0 });
       const cleanedChange = returnedChange.replaceAll("{ComfyUI\u5C40\u90E8\u91CD\u7ED8}", "");
-      if (extension_settings46[extensionName].cache != "0") {
-        await setItemImg(prompt2, imageUrl, { change: cleanedChange });
+      if (extension_settings47[extensionName].cache != "0") {
+        await setItemImg(prompt2, imageUrl, { change: cleanedChange, genParams });
         addLog(`\u56FE\u50CF\u5DF2\u5B58\u5165\u6570\u636E\u5E93 for prompt: ${prompt2}`);
       } else {
         addLog(`\u7F13\u5B58\u8BBE\u7F6E\u4E3A\u4E0D\u5B58\u5165\u6570\u636E\u5E93`);
@@ -61331,16 +63589,16 @@ async function bananaGenerate(requestData) {
     return;
   }
   try {
-    const { image: imageUrl, change: returnedChange, isVideo, format, originalUrl } = await generateBananaImage({ prompt: prompt2, width, height, change, retouchPrompt, retouchImage, videoPrompt, videoImage });
-    if (extension_settings46[extensionName].cache != "0") {
-      await setItemImg(prompt2, imageUrl, { change: change_, isVideo: isVideo || false, format: format || "image", originalUrl: originalUrl || "" });
+    const { image: imageUrl, change: returnedChange, isVideo, format, originalUrl, genParams } = await generateBananaImage({ prompt: prompt2, width, height, change, retouchPrompt, retouchImage, videoPrompt, videoImage });
+    if (extension_settings47[extensionName].cache != "0") {
+      await setItemImg(prompt2, imageUrl, { change: change_, isVideo: isVideo || false, format: format || "image", originalUrl: originalUrl || "", genParams });
       addLog(`\u56FE\u50CF\u5DF2\u5B58\u5165\u6570\u636E\u5E93 for prompt: ${prompt2}`);
-      if (extension_settings46[extensionName].banana.cishu) {
-        extension_settings46[extensionName].banana.cishu = extension_settings46[extensionName].banana.cishu + 1;
-        addLog(`\u5F53\u524D\u751F\u56FE\u6B21\u6570\u4E3A for prompt: ${extension_settings46[extensionName].banana.cishu}`);
+      if (extension_settings47[extensionName].banana.cishu) {
+        extension_settings47[extensionName].banana.cishu = extension_settings47[extensionName].banana.cishu + 1;
+        addLog(`\u5F53\u524D\u751F\u56FE\u6B21\u6570\u4E3A for prompt: ${extension_settings47[extensionName].banana.cishu}`);
       } else {
-        extension_settings46[extensionName].banana.cishu = 1;
-        addLog(`\u5F53\u524D\u751F\u56FE\u6B21\u6570\u4E3A for prompt: ${extension_settings46[extensionName].banana.cishu}`);
+        extension_settings47[extensionName].banana.cishu = 1;
+        addLog(`\u5F53\u524D\u751F\u56FE\u6B21\u6570\u4E3A for prompt: ${extension_settings47[extensionName].banana.cishu}`);
       }
     } else {
       addLog(`\u7F13\u5B58\u8BBE\u7F6E\u4E3A\u4E0D\u5B58\u5165\u6570\u636E\u5E93`);
@@ -61421,7 +63679,7 @@ function initializeBananaListener() {
   addLog("banana \u751F\u56FE\u4E8B\u4EF6\u76D1\u542C\u5668\u5DF2\u521D\u59CB\u5316\u3002");
 }
 async function replaceWithBanana() {
-  if (extension_settings46[extensionName].mode == "banana") {
+  if (extension_settings47[extensionName].mode == "banana") {
     if (!window.initializeBananaListener) {
       window.initializeBananaListener = true;
       initializeBananaListener();
@@ -61474,7 +63732,7 @@ async function generateSDImage({ prompt: link, width: Xwidth, height: Xheight, c
   if (typeof link === "string") {
     const match = link.match(sizeRegex);
     if (match) {
-      if (String(extension_settings47[extensionName].aiAutonomousResolution) !== "false") {
+      if (String(extension_settings48[extensionName].aiAutonomousResolution) !== "false") {
         Xwidth = parseInt(match[1], 10);
         Xheight = parseInt(match[2], 10);
       }
@@ -61484,7 +63742,7 @@ async function generateSDImage({ prompt: link, width: Xwidth, height: Xheight, c
   if (typeof change === "string") {
     const match = change.match(sizeRegex);
     if (match) {
-      if (String(extension_settings47[extensionName].aiAutonomousResolution) !== "false") {
+      if (String(extension_settings48[extensionName].aiAutonomousResolution) !== "false") {
         Xwidth = parseInt(match[1], 10);
         Xheight = parseInt(match[2], 10);
       }
@@ -61495,8 +63753,8 @@ async function generateSDImage({ prompt: link, width: Xwidth, height: Xheight, c
   change = processCharacterPrompt(change);
   link = await stripChineseAnnotations(link);
   change = await stripChineseAnnotations(change);
-  const url = extension_settings47[extensionName].sdUrl.trim();
-  const extension_settingss = extension_settings47[extensionName];
+  const url = extension_settings48[extensionName].sdUrl.trim();
+  const extension_settingss = extension_settings48[extensionName];
   addLog(`\u6B63\u5728\u901A\u8FC7sdwebui\u751F\u6210\u56FE\u7247...\u5BA2\u6237\u7AEF\u4E3A${extension_settingss.client},\u6A21\u578B\u4E3A${extension_settingss.sd_cchatu_8_model}`);
   const promptForGeneration = change && change.trim() !== "" ? change : link;
   addLog(`\u7528\u4E8E\u751F\u6210\u7684Tag: ${promptForGeneration}`);
@@ -61530,21 +63788,21 @@ async function generateSDImage({ prompt: link, width: Xwidth, height: Xheight, c
     }
   }
   const _sd_yushe_id = getRandomYusheId("yusheid_sd");
-  if (!extension_settings47[extensionName].yushe || !extension_settings47[extensionName].yushe[_sd_yushe_id]) {
+  if (!extension_settings48[extensionName].yushe || !extension_settings48[extensionName].yushe[_sd_yushe_id]) {
     toastr.error("\u672A\u80FD\u627E\u5230\u6240\u9009\u7684\u56FA\u5B9A\u63D0\u793A\u8BCD\u9884\u8BBE\u3002\u8BF7\u524D\u5F80\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u65B0\u5EFA\u6216\u9009\u62E9\u4E00\u4E2A\u56FA\u5B9A\u63D0\u793A\u8BCD\u3002", "SD \u751F\u56FE\u9519\u8BEF");
     taskQueue.completeTask(taskId, false);
     currentTaskId3 = null;
     throw new Error("\u56FA\u5B9A\u63D0\u793A\u8BCD\u9884\u8BBE\u672A\u914D\u7F6E");
   }
-  const _sd_preset = extension_settings47[extensionName].yushe[_sd_yushe_id];
+  const _sd_preset = extension_settings48[extensionName].yushe[_sd_yushe_id];
   let prompt2 = await zhengmian(
     _sd_preset.fixedPrompt,
     modifiedPrompt,
     _sd_preset.fixedPrompt_end,
-    extension_settings47[extensionName].AQT_sd,
+    extension_settings48[extensionName].AQT_sd,
     insertions
   );
-  let negative_prompt = await fumian(_sd_preset.negativePrompt, extension_settings47[extensionName].UCP_sd);
+  let negative_prompt = await fumian(_sd_preset.negativePrompt, extension_settings48[extensionName].UCP_sd);
   if (!Divide_roles && window.collectedCharacterNegatives) {
     const characterNegatives = window.collectedCharacterNegatives.trim();
     if (characterNegatives) {
@@ -61560,8 +63818,8 @@ async function generateSDImage({ prompt: link, width: Xwidth, height: Xheight, c
     console.log("[SD] \u5408\u5E76\u667A\u7ED8\u59EC\u989D\u5916\u8D1F\u9762\u63D0\u793A\u8BCD:", trimmedExtra);
   }
   addLog(`\u8D1F\u9762\u4E3A: ${negative_prompt}`);
-  extension_settings47["sd"]["auto_url"] = url;
-  await saveSettingsDebounced26();
+  extension_settings48["sd"]["auto_url"] = url;
+  await saveSettingsDebounced28();
   try {
     if (extension_settingss.client === "jiuguan") {
       const readmodel = await fetch("/api/sd/get-model", {
@@ -61664,6 +63922,21 @@ async function generateSDImage({ prompt: link, width: Xwidth, height: Xheight, c
       }
     });
   }
+  const _sd_gen_params = buildGenParams("Stable Diffusion", {
+    model: extension_settingss.sd_cchatu_8_model,
+    yushe: _sd_yushe_id,
+    yusheRandom: extension_settings48[extensionName].randomYushe === "true",
+    promptReplaceId: extension_settings48[extensionName].prompt_replace_id,
+    resolvedPrompt: prompt2,
+    negativePrompt: negative_prompt,
+    width: payload.width,
+    height: payload.height,
+    seed: payload.seed,
+    steps: payload.steps,
+    sampler: payload.sampler_name,
+    scheduler: payload.scheduler,
+    cfgScale: payload.cfg_scale
+  });
   const report = `
 ---
 ### \u751F\u56FE\u53C2\u6570\u62A5\u544A
@@ -61734,14 +64007,14 @@ async function generateSDImage({ prompt: link, width: Xwidth, height: Xheight, c
       setTimeout(() => {
         console.log("xiancheng \u4E3Atrue");
         window.xiancheng = true;
-      }, extension_settings47[extensionName].imageGenInterval);
+      }, extension_settings48[extensionName].imageGenInterval);
       ;
       taskQueue.completeTask(taskId, true);
       currentTaskId3 = null;
-      if (String(extension_settings47[extensionName].convertToJpegStorage) === "true") {
+      if (String(extension_settings48[extensionName].convertToJpegStorage) === "true") {
         imageUrl = await convertImageToJpeg(imageUrl);
       }
-      return { image: imageUrl, change: change || "" };
+      return { image: imageUrl, change: change || "", genParams: _sd_gen_params };
     } else {
       if (!taskQueue.isTaskInQueue(taskId)) {
         addLog("\u4EFB\u52A1\u5DF2\u88AB\u7528\u6237\u53D6\u6D88\u3002");
@@ -61758,7 +64031,7 @@ async function generateSDImage({ prompt: link, width: Xwidth, height: Xheight, c
       setTimeout(() => {
         console.log("xiancheng \u4E3Atrue");
         window.xiancheng = true;
-      }, extension_settings47[extensionName].imageGenInterval);
+      }, extension_settings48[extensionName].imageGenInterval);
       ;
       if (!response.ok) {
         const errorText = await response.text();
@@ -61775,10 +64048,10 @@ async function generateSDImage({ prompt: link, width: Xwidth, height: Xheight, c
       addLog("\u56FE\u50CF\u5DF2\u6210\u529F\u83B7\u53D6\u5E76\u683C\u5F0F\u5316\u4E3A data URL\u3002");
       taskQueue.completeTask(taskId, true);
       currentTaskId3 = null;
-      if (String(extension_settings47[extensionName].convertToJpegStorage) === "true") {
+      if (String(extension_settings48[extensionName].convertToJpegStorage) === "true") {
         imageUrl = await convertImageToJpeg(imageUrl);
       }
-      return { image: imageUrl, change: change_ || "" };
+      return { image: imageUrl, change: change_ || "", genParams: _sd_gen_params };
     }
   } catch (error) {
     if (lockAcquired) {
@@ -61807,10 +64080,10 @@ async function sdGenerate(requestData) {
   }
   if (change && change.includes("{ComfyUI\u5C40\u90E8\u91CD\u7ED8}")) {
     try {
-      const { image: imageUrl, change: returnedChange, isVideo, format } = await generateComfyUIImage({ prompt: prompt2, width, height, change, extraNegativePrompt });
+      const { image: imageUrl, change: returnedChange, isVideo, format, genParams } = await generateComfyUIImage({ prompt: prompt2, width, height, change, extraNegativePrompt });
       const cleanedChange = returnedChange.replaceAll("{ComfyUI\u5C40\u90E8\u91CD\u7ED8}", "");
-      if (extension_settings47[extensionName].cache != "0") {
-        await setItemImg(prompt2, imageUrl, { change: cleanedChange });
+      if (extension_settings48[extensionName].cache != "0") {
+        await setItemImg(prompt2, imageUrl, { change: cleanedChange, genParams });
         addLog(`\u56FE\u50CF\u5DF2\u5B58\u5165\u6570\u636E\u5E93 for prompt: ${prompt2}`);
       } else {
         addLog(`\u7F13\u5B58\u8BBE\u7F6E\u4E3A\u4E0D\u5B58\u5165\u6570\u636E\u5E93`);
@@ -61842,9 +64115,9 @@ async function sdGenerate(requestData) {
     return;
   }
   try {
-    const { image: imageUrl, change: returnedChange } = await generateSDImage({ prompt: prompt2, width, height, change, extraNegativePrompt });
-    if (extension_settings47[extensionName].cache != "0") {
-      await setItemImg(prompt2, imageUrl, { change: returnedChange });
+    const { image: imageUrl, change: returnedChange, genParams } = await generateSDImage({ prompt: prompt2, width, height, change, extraNegativePrompt });
+    if (extension_settings48[extensionName].cache != "0") {
+      await setItemImg(prompt2, imageUrl, { change: returnedChange, genParams });
       addLog(`\u56FE\u50CF\u5DF2\u5B58\u5165\u6570\u636E\u5E93 for prompt: ${prompt2}`);
     } else {
       addLog(`\u7F13\u5B58\u8BBE\u7F6E\u4E3A\u4E0D\u5B58\u5165\u6570\u636E\u5E93`);
@@ -61877,7 +64150,7 @@ function initializeSDListener() {
   addLog("SD \u751F\u56FE\u4E8B\u4EF6\u76D1\u542C\u5668\u5DF2\u521D\u59CB\u5316\u3002");
 }
 async function replaceWithSd() {
-  if (extension_settings47[extensionName].mode == "sd") {
+  if (extension_settings48[extensionName].mode == "sd") {
     if (!window.initializeSDListener) {
       window.initializeSDListener = true;
       initializeSDListener();
@@ -61939,7 +64212,7 @@ async function hashKey(key) {
   }
 }
 function getQueueBaseUrl() {
-  return extension_settings48[extensionName].cloudQueueUrl || "";
+  return extension_settings49[extensionName].cloudQueueUrl || "";
 }
 async function joinQueue(keyHash, userId, taskId) {
   const baseUrl = getQueueBaseUrl();
@@ -61947,7 +64220,7 @@ async function joinQueue(keyHash, userId, taskId) {
     throw new Error("\u4E91\u7AEF\u961F\u5217\u670D\u52A1\u5730\u5740\u672A\u914D\u7F6E");
   }
   addLog(`[\u961F\u5217] \u6B63\u5728\u52A0\u5165\u961F\u5217... (taskId: ${taskId.substring(0, 8)}...)`);
-  const greeting = (extension_settings48[extensionName].cloudQueueGreeting || "").substring(0, 15);
+  const greeting = (extension_settings49[extensionName].cloudQueueGreeting || "").substring(0, 15);
   const response = await fetch(`${baseUrl}/join-queue`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -62044,7 +64317,7 @@ async function waitForTurn(keyHash, userId, taskId, taskQueue2) {
         toastr.info(`\u6392\u961F\u4E2D: \u7B2C ${status.position + 1}/${status.queue_size || "?"} \u4F4D`, "\u961F\u5217", { timeOut: 3e3 });
         lastPosition = status.position;
       }
-      if (!shownGreeting && status.current_greeting && extension_settings48[extensionName].showQueueGreeting === "true") {
+      if (!shownGreeting && status.current_greeting && extension_settings49[extensionName].showQueueGreeting === "true") {
         logMsg += ` | \u524D\u65B9\u7528\u6237: "${status.current_greeting}"`;
         toastr.info(`\u524D\u65B9\u7528\u6237: "${status.current_greeting}"`, "\u961F\u5217", { timeOut: 5e3 });
         shownGreeting = true;
@@ -62079,7 +64352,7 @@ init_configDatabase();
 
 
 function getSettings() {
-  return extension_settings49[extensionName];
+  return extension_settings50[extensionName];
 }
 function shouldStoreVibeInServer() {
   return getSettings().vibeJiuguanchucun !== "false";
@@ -62117,7 +64390,7 @@ function setServerStorageEnabled() {
   if (checkbox) {
     checkbox.checked = true;
   }
-  saveSettingsDebounced27();
+  saveSettingsDebounced29();
 }
 function addStringId(targetSet, value) {
   if (typeof value === "string" && value.trim()) {
@@ -62274,15 +64547,16 @@ async function migrateVibeStorageToServer(options = {}) {
       console.error("[VibeStorage] \u8FC1\u79FB Vibe \u56FE\u7247\u5931\u8D25:", imageId, error);
     }
   }
-  saveSettingsDebounced27();
+  saveSettingsDebounced29();
   result.success = result.errors.length === 0;
   reportProgress(onProgress, total || 1, total || 1, "Vibe \u9152\u9986\u5B58\u50A8\u8FC1\u79FB\u5B8C\u6210");
   return result;
 }
 
 // utils/settings/vibeGroupEditor.js
+init_bulkSelectControls();
 function ensureVibeGroupPresets() {
-  const settings3 = extension_settings50[extensionName];
+  const settings3 = extension_settings51[extensionName];
   if (!settings3.vibeGroups || typeof settings3.vibeGroups !== "object" || Array.isArray(settings3.vibeGroups)) {
     if (settings3.vibeGroups) {
       console.error("[VibeGroup] Corrupted vibeGroups data detected, resetting to default:", settings3.vibeGroups);
@@ -62331,7 +64605,7 @@ function ensureVibeGroupPresets() {
 }
 function showVibeGroupEditorDialog() {
   const parent = document.getElementById("st-chatu8-settings") || document.body;
-  const settings3 = extension_settings50[extensionName];
+  const settings3 = extension_settings51[extensionName];
   ensureVibeGroupPresets();
   void warmMissingVibePresetThumbnails();
   const backdrop = document.createElement("div");
@@ -62415,7 +64689,7 @@ function showVibeGroupEditorDialog() {
       groupSelect.value = selectedPresetName;
       renderVibeSlots(slotsContainer, groupSelect, addVibeBtn);
       try {
-        saveSettingsDebounced28();
+        saveSettingsDebounced30();
         console.log("[VibeGroup] Selected preset from visual selector:", selectedPresetName);
       } catch (error) {
         console.error("[VibeGroup] Failed to save settings after preset selection:", {
@@ -62433,7 +64707,7 @@ function showVibeGroupEditorDialog() {
   saveBtn.onclick = () => saveCurrentGroup(groupSelect, statusDiv);
   deleteBtn.onclick = () => deleteCurrentGroup(groupSelect, statusDiv);
   addVibeBtn.onclick = () => {
-    const settings4 = extension_settings50[extensionName];
+    const settings4 = extension_settings51[extensionName];
     const vibeGroups = settings4.vibeGroups || {};
     const currentGroupId = groupSelect.value;
     const currentGroup = vibeGroups[currentGroupId];
@@ -62463,7 +64737,7 @@ function showVibeGroupEditorDialog() {
           });
           currentGroup.updatedAt = Date.now();
           try {
-            saveSettingsDebounced28();
+            saveSettingsDebounced30();
           } catch (error) {
             console.error("[VibeGroup] Failed to save settings after adding Vibe:", {
               vibeDataId: vibeDataId.substring(0, 12) + "...",
@@ -62525,7 +64799,7 @@ function showVibeGroupEditorDialog() {
     }
   };
   exportAllBtn.onclick = async () => {
-    const settings4 = extension_settings50[extensionName];
+    const settings4 = extension_settings51[extensionName];
     const vibeGroups = settings4.vibeGroups || {};
     const groupCount = Object.keys(vibeGroups).length;
     if (groupCount === 0) {
@@ -62626,7 +64900,7 @@ function showVibeGroupEditorDialog() {
   console.log("[VibeGroup] Dialog opened");
 }
 function loadGroupPresetList(selectElement) {
-  const settings3 = extension_settings50[extensionName];
+  const settings3 = extension_settings51[extensionName];
   const vibeGroups = settings3.vibeGroups || {};
   const currentGroupId = settings3.vibeGroupId || "\u9ED8\u8BA4\u7EC4";
   selectElement.innerHTML = "";
@@ -62647,7 +64921,7 @@ function loadGroupPresetList(selectElement) {
   console.log("[VibeGroup] Loaded preset list:", groupNames.length, "groups");
 }
 function createNewGroup(selectElement, statusDiv, slotsContainer, addVibeBtn) {
-  const settings3 = extension_settings50[extensionName];
+  const settings3 = extension_settings51[extensionName];
   const vibeGroups = settings3.vibeGroups || {};
   const groupName = prompt("\u8BF7\u8F93\u5165\u65B0\u7EC4\u540D\u79F0:");
   if (!groupName) {
@@ -62669,7 +64943,7 @@ function createNewGroup(selectElement, statusDiv, slotsContainer, addVibeBtn) {
   };
   settings3.vibeGroupId = trimmedName;
   try {
-    saveSettingsDebounced28();
+    saveSettingsDebounced30();
   } catch (error) {
     console.error("[VibeGroup] Failed to save settings after creating new group:", {
       groupName: trimmedName,
@@ -62687,7 +64961,7 @@ function createNewGroup(selectElement, statusDiv, slotsContainer, addVibeBtn) {
   console.log("[VibeGroup] Created new group:", trimmedName);
 }
 function saveCurrentGroup(selectElement, statusDiv) {
-  const settings3 = extension_settings50[extensionName];
+  const settings3 = extension_settings51[extensionName];
   const vibeGroups = settings3.vibeGroups || {};
   const currentGroupId = selectElement.value;
   if (!currentGroupId) {
@@ -62702,7 +64976,7 @@ function saveCurrentGroup(selectElement, statusDiv) {
   currentGroup.updatedAt = Date.now();
   settings3.vibeGroupId = currentGroupId;
   try {
-    saveSettingsDebounced28();
+    saveSettingsDebounced30();
   } catch (error) {
     console.error("[VibeGroup] Failed to save settings after saving group:", {
       groupId: currentGroupId,
@@ -62718,7 +64992,7 @@ function saveCurrentGroup(selectElement, statusDiv) {
   console.log("[VibeGroup] Saved group:", currentGroupId);
 }
 function deleteCurrentGroup(selectElement, statusDiv) {
-  const settings3 = extension_settings50[extensionName];
+  const settings3 = extension_settings51[extensionName];
   const vibeGroups = settings3.vibeGroups || {};
   const currentGroupId = selectElement.value;
   if (!currentGroupId) {
@@ -62749,7 +65023,7 @@ function deleteCurrentGroup(selectElement, statusDiv) {
     }
   }
   try {
-    saveSettingsDebounced28();
+    saveSettingsDebounced30();
   } catch (error) {
     console.error("[VibeGroup] Failed to save settings after deleting group:", {
       groupId: currentGroupId,
@@ -62790,7 +65064,7 @@ function showStatus(statusDiv, message, type = "info") {
   }, 5e3);
 }
 async function renderVibeSlots(slotsContainer, groupSelect, addVibeBtn) {
-  const settings3 = extension_settings50[extensionName];
+  const settings3 = extension_settings51[extensionName];
   const vibeGroups = settings3.vibeGroups || {};
   const currentGroupId = groupSelect.value;
   const currentGroup = vibeGroups[currentGroupId];
@@ -62812,7 +65086,7 @@ async function renderVibeSlots(slotsContainer, groupSelect, addVibeBtn) {
     console.error("[VibeGroup] Corrupted group data - vibes is not an array:", currentGroupId, currentGroup);
     currentGroup.vibes = [];
     currentGroup.updatedAt = Date.now();
-    saveSettingsDebounced28();
+    saveSettingsDebounced30();
     console.log("[VibeGroup] Fixed corrupted group data by initializing empty vibes array");
   }
   const vibes = currentGroup.vibes;
@@ -62837,7 +65111,7 @@ async function renderVibeSlots(slotsContainer, groupSelect, addVibeBtn) {
     console.log("[VibeGroup] Cleaned up corrupted Vibe references:", vibes.length, "->", validVibes.length);
     currentGroup.vibes = validVibes;
     currentGroup.updatedAt = Date.now();
-    saveSettingsDebounced28();
+    saveSettingsDebounced30();
   }
   const vibeCount = validVibes.length;
   addVibeBtn.innerHTML = `<i class="fa-solid fa-plus"></i> \u6DFB\u52A0 Vibe (${vibeCount}/4)`;
@@ -63045,7 +65319,7 @@ function warmMissingVibePresetThumbnails() {
     return vibeThumbnailWarmupPromise;
   }
   vibeThumbnailWarmupPromise = (async () => {
-    const settings3 = extension_settings50[extensionName];
+    const settings3 = extension_settings51[extensionName];
     const vibePresets = settings3.vibePresets || {};
     let updatedCount = 0;
     for (const presetName of Object.keys(vibePresets)) {
@@ -63060,7 +65334,7 @@ function warmMissingVibePresetThumbnails() {
           preset.thumbnail = thumbnail;
           updatedCount++;
           if (updatedCount % 5 === 0) {
-            saveSettingsDebounced28();
+            saveSettingsDebounced30();
           }
         }
       } catch (error) {
@@ -63072,7 +65346,7 @@ function warmMissingVibePresetThumbnails() {
       }
     }
     if (updatedCount > 0) {
-      saveSettingsDebounced28();
+      saveSettingsDebounced30();
       console.log("[VibeGroup] Warmed Vibe preset thumbnails:", updatedCount);
     }
   })().finally(() => {
@@ -63212,7 +65486,7 @@ async function updateVibeSlot(slotsContainer, slotIndex, vibeRef, groupSelect, a
   slotsContainer.appendChild(slotDiv);
 }
 function setupStrengthSliderSync(rangeSlider, numberInput, label, slotIndex, groupSelect) {
-  const settings3 = extension_settings50[extensionName];
+  const settings3 = extension_settings51[extensionName];
   const updateStrength = (value) => {
     let clampedValue = Math.max(0, Math.min(1, parseFloat(value) || 0));
     rangeSlider.value = clampedValue.toString();
@@ -63228,7 +65502,7 @@ function setupStrengthSliderSync(rangeSlider, numberInput, label, slotIndex, gro
       currentGroup.vibes[slotIndex].strength = clampedValue;
       currentGroup.updatedAt = Date.now();
       try {
-        saveSettingsDebounced28();
+        saveSettingsDebounced30();
       } catch (error) {
         console.error("[VibeGroup] Failed to save settings after strength update:", {
           slotIndex,
@@ -63251,7 +65525,7 @@ function setupStrengthSliderSync(rangeSlider, numberInput, label, slotIndex, gro
   };
 }
 function removeVibeFromSlot(slotIndex, slotsContainer, groupSelect, addVibeBtn) {
-  const settings3 = extension_settings50[extensionName];
+  const settings3 = extension_settings51[extensionName];
   const vibeGroups = settings3.vibeGroups || {};
   const currentGroupId = groupSelect.value;
   const currentGroup = vibeGroups[currentGroupId];
@@ -63262,7 +65536,7 @@ function removeVibeFromSlot(slotIndex, slotsContainer, groupSelect, addVibeBtn) 
   currentGroup.vibes.splice(slotIndex, 1);
   currentGroup.updatedAt = Date.now();
   try {
-    saveSettingsDebounced28();
+    saveSettingsDebounced30();
   } catch (error) {
     console.error("[VibeGroup] Failed to save settings after removing Vibe:", {
       slotIndex,
@@ -63278,7 +65552,7 @@ function removeVibeFromSlot(slotIndex, slotsContainer, groupSelect, addVibeBtn) 
 }
 async function showVibeVisualSelector(onSelect) {
   const parent = document.getElementById("st-chatu8-settings") || document.body;
-  const settings3 = extension_settings50[extensionName];
+  const settings3 = extension_settings51[extensionName];
   const vibePresets = settings3.vibePresets || {};
   void warmMissingVibePresetThumbnails();
   let currentPage = 1;
@@ -63505,7 +65779,7 @@ async function showVibeVisualSelector(onSelect) {
     if (thumbnailTasks.length > 0) {
       Promise.allSettled(thumbnailTasks).then(() => {
         if (thumbnailsBackfilled) {
-          saveSettingsDebounced28();
+          saveSettingsDebounced30();
         }
       });
     }
@@ -63539,7 +65813,7 @@ async function showVibeVisualSelector(onSelect) {
   console.log("[VibeGroup] Visual selector opened with", allPresetNames.length, "presets");
 }
 async function exportVibeGroup(groupId) {
-  const settings3 = extension_settings50[extensionName];
+  const settings3 = extension_settings51[extensionName];
   const vibeGroups = settings3.vibeGroups || {};
   const group = vibeGroups[groupId];
   if (!group) {
@@ -63626,7 +65900,7 @@ async function exportVibeGroup(groupId) {
   console.log("[VibeGroup] Exported group:", groupId, "with", vibeIds.length, "Vibes,", Object.keys(relatedPresets).length, "presets");
 }
 async function exportAllVibeGroups() {
-  const settings3 = extension_settings50[extensionName];
+  const settings3 = extension_settings51[extensionName];
   const vibeGroups = settings3.vibeGroups || {};
   const allVibeIds = /* @__PURE__ */ new Set();
   for (const groupId in vibeGroups) {
@@ -63752,7 +66026,7 @@ async function importVibeGroup(jsonString) {
       result.errors.push("\u6587\u4EF6\u683C\u5F0F\u9519\u8BEF: \u7F3A\u5C11 vibeData \u5B57\u6BB5");
       return result;
     }
-    const settings3 = extension_settings50[extensionName];
+    const settings3 = extension_settings51[extensionName];
     const vibeGroups = settings3.vibeGroups || {};
     const savedVibeIds = /* @__PURE__ */ new Set();
     const vibeDataKeys = Object.keys(importData.vibeData);
@@ -63909,7 +66183,7 @@ async function importVibeGroup(jsonString) {
       }
       settings3.vibePresets = existingPresets;
     }
-    saveSettingsDebounced28();
+    saveSettingsDebounced30();
     result.success = true;
     return result;
   } catch (error) {
@@ -63985,7 +66259,7 @@ function validateVibeGroupStorage(group, groupName) {
   return isValid;
 }
 function validateAllVibeGroups() {
-  const settings3 = extension_settings50[extensionName];
+  const settings3 = extension_settings51[extensionName];
   const vibeGroups = settings3.vibeGroups || {};
   const result = {
     totalGroups: 0,
@@ -64057,7 +66331,7 @@ async function findExistingVibeData(vibeData) {
   if (!vibeData || typeof vibeData !== "object") {
     return null;
   }
-  const settings3 = extension_settings50[extensionName];
+  const settings3 = extension_settings51[extensionName];
   const vibeGroups = settings3.vibeGroups || {};
   const vibePresets = settings3.vibePresets || {};
   const allVibeIds = /* @__PURE__ */ new Set();
@@ -64173,7 +66447,7 @@ async function saveVibeDataWithDuplicatePrevention(vibeData) {
 }
 async function showVibeGroupVisualSelector(onSelect) {
   const parent = document.getElementById("st-chatu8-settings") || document.body;
-  const settings3 = extension_settings50[extensionName];
+  const settings3 = extension_settings51[extensionName];
   ensureVibeGroupPresets();
   let currentPage = 1;
   let pageSize = 12;
@@ -64460,7 +66734,7 @@ async function showVibeGroupVisualSelector(onSelect) {
         preset.coverImageId = newImageId;
         preset.updatedAt = Date.now();
         try {
-          saveSettingsDebounced28();
+          saveSettingsDebounced30();
         } catch (error) {
           console.error("[VibeGroupVisualSelector] Failed to save settings after cover image upload:", error);
           alert(`\u56FE\u7247\u5DF2\u4E0A\u4F20\u4F46\u4FDD\u5B58\u8BBE\u7F6E\u5931\u8D25: ${error.message}`);
@@ -64510,7 +66784,7 @@ async function showVibeGroupVisualSelector(onSelect) {
       delete preset.coverImageId;
       preset.updatedAt = Date.now();
       try {
-        saveSettingsDebounced28();
+        saveSettingsDebounced30();
       } catch (error) {
         console.error("[VibeGroupVisualSelector] Failed to save settings after deleting cover image:", error);
         alert(`\u56FE\u7247\u5DF2\u5220\u9664\u4F46\u4FDD\u5B58\u8BBE\u7F6E\u5931\u8D25: ${error.message}`);
@@ -64553,7 +66827,7 @@ async function showVibeGroupVisualSelector(onSelect) {
       console.log("[VibeGroupVisualSelector] Updated vibeGroupId to:", trimmedName);
     }
     try {
-      saveSettingsDebounced28();
+      saveSettingsDebounced30();
     } catch (error) {
       console.error("[VibeGroupVisualSelector] Failed to save settings after renaming preset:", error);
       alert(`\u91CD\u547D\u540D\u6210\u529F\u4F46\u4FDD\u5B58\u8BBE\u7F6E\u5931\u8D25: ${error.message}`);
@@ -64613,7 +66887,7 @@ async function showVibeGroupVisualSelector(onSelect) {
         console.log("[VibeGroupVisualSelector] Switched to group:", settings3.vibeGroupId);
       }
       try {
-        saveSettingsDebounced28();
+        saveSettingsDebounced30();
       } catch (error) {
         console.error("[VibeGroupVisualSelector] Failed to save settings after deleting preset:", error);
         alert(`\u5220\u9664\u6210\u529F\u4F46\u4FDD\u5B58\u8BBE\u7F6E\u5931\u8D25: ${error.message}`);
@@ -64679,6 +66953,7 @@ async function showVibeGroupVisualSelector(onSelect) {
             `;
       gridContainer.style.opacity = "1";
       gridContainer.style.transform = "translateY(0)";
+      bulkControls.refresh();
       console.log("[VibeGroupVisualSelector] Displayed empty state");
       return;
     }
@@ -64698,26 +66973,22 @@ async function showVibeGroupVisualSelector(onSelect) {
           if (isBulkDeleteMode) {
             if (selectedForDelete.has(name)) {
               selectedForDelete.delete(name);
-              cardElement.classList.remove("bulk-selected");
+              cardElement.classList.remove("selected-for-delete");
               console.log("[VibeGroupVisualSelector] Deselected for bulk delete:", name);
             } else {
               selectedForDelete.add(name);
-              cardElement.classList.add("bulk-selected");
+              cardElement.classList.add("selected-for-delete");
               console.log("[VibeGroupVisualSelector] Selected for bulk delete:", name);
             }
-            const bulkDeleteBtn2 = backdrop.querySelector(".st-chatu8-mode-toggle-bulk-delete");
-            if (bulkDeleteBtn2 && selectedForDelete.size > 0) {
-              bulkDeleteBtn2.innerHTML = `<i class="fa-solid fa-trash"></i> \u786E\u8BA4\u5220\u9664 (${selectedForDelete.size})`;
-            } else if (bulkDeleteBtn2) {
-              bulkDeleteBtn2.innerHTML = `<i class="fa-solid fa-trash"></i> \u6279\u91CF\u5220\u9664`;
-            }
+            updateBulkDeleteLabel();
+            bulkControls.refresh();
           } else if (isManagementMode3) {
             console.log("[VibeGroupVisualSelector] Card clicked in management mode - no action");
           } else {
             console.log("[VibeGroupVisualSelector] Card clicked in normal mode:", name);
             settings3.vibeGroupId = name;
             try {
-              saveSettingsDebounced28();
+              saveSettingsDebounced30();
             } catch (error) {
               console.error("[VibeGroupVisualSelector] Failed to save settings after preset selection:", error);
               alert(`\u9009\u62E9\u6210\u529F\u4F46\u4FDD\u5B58\u8BBE\u7F6E\u5931\u8D25: ${error.message}`);
@@ -64743,8 +67014,11 @@ async function showVibeGroupVisualSelector(onSelect) {
         });
         imageContainer.appendChild(actionButtons);
       }
+      card.dataset.presetName = presetName;
       gridContainer.appendChild(card);
     }
+    syncCardSelection();
+    bulkControls.refresh();
     gridContainer.style.opacity = "1";
     gridContainer.style.transform = "translateY(0)";
     console.log("[VibeGroupVisualSelector] Rendered", pagePresetNames.length, "cards");
@@ -64773,6 +67047,39 @@ async function showVibeGroupVisualSelector(onSelect) {
     renderCurrentPage();
     console.log("[VibeGroupVisualSelector] Page size changed to:", pageSize);
   };
+  function updateBulkDeleteLabel() {
+    const btn = backdrop.querySelector(".st-chatu8-mode-toggle-bulk-delete");
+    if (!btn) return;
+    if (isBulkDeleteMode && selectedForDelete.size > 0) {
+      btn.innerHTML = `<i class="fa-solid fa-trash"></i> \u786E\u8BA4\u5220\u9664 (${selectedForDelete.size})`;
+    } else if (isBulkDeleteMode) {
+      btn.innerHTML = `<i class="fa-solid fa-trash"></i> \u53D6\u6D88\u5220\u9664`;
+    } else {
+      btn.innerHTML = `<i class="fa-solid fa-trash"></i> \u6279\u91CF\u5220\u9664`;
+    }
+  }
+  function syncCardSelection() {
+    const cards = backdrop.querySelectorAll(".st-chatu8-preset-card");
+    cards.forEach((card) => {
+      const name = card.dataset.presetName;
+      const shouldSelect = isBulkDeleteMode && name && selectedForDelete.has(name);
+      card.classList.toggle("selected-for-delete", !!shouldSelect);
+    });
+  }
+  const modeControls = backdrop.querySelector(".st-chatu8-viz-mode-controls");
+  const bulkControls = createBulkSelectControls({
+    container: modeControls,
+    selected: selectedForDelete,
+    // "默认组" is the fallback group (vibeGroupId resets to it after deletion),
+    // so keep it out of select all / invert to avoid wiping it in one click.
+    // It can still be deleted deliberately by clicking its card.
+    getSelectable: () => filteredPresetNames.filter((name) => name !== "\u9ED8\u8BA4\u7EC4"),
+    onChange: () => {
+      syncCardSelection();
+      updateBulkDeleteLabel();
+    },
+    style: "btn"
+  });
   updateFilteredPresets();
   updatePaginationUI();
   renderCurrentPage();
@@ -64811,8 +67118,9 @@ async function showVibeGroupVisualSelector(onSelect) {
         bulkDeleteBtn2.classList.remove("active");
         bulkDeleteBtn2.style.backgroundColor = "";
         bulkDeleteBtn2.style.borderColor = "";
-        bulkDeleteBtn2.innerHTML = `<i class="fa-solid fa-trash"></i> \u6279\u91CF\u5220\u9664`;
       }
+      updateBulkDeleteLabel();
+      bulkControls.hide();
       console.log("[VibeGroupVisualSelector] Exited bulk delete mode (switched to management mode)");
     }
     renderCurrentPage();
@@ -64821,6 +67129,14 @@ async function showVibeGroupVisualSelector(onSelect) {
   bulkDeleteBtn.onclick = () => {
     if (isBulkDeleteMode && selectedForDelete.size > 0) {
       handleBulkDelete(selectedForDelete, () => {
+        isBulkDeleteMode = false;
+        selectedForDelete.clear();
+        backdrop.classList.remove("st-chatu8-mode-bulk-delete");
+        bulkDeleteBtn.classList.remove("active");
+        bulkDeleteBtn.style.backgroundColor = "";
+        bulkDeleteBtn.style.borderColor = "";
+        updateBulkDeleteLabel();
+        bulkControls.hide();
         updateFilteredPresets();
         updatePaginationUI();
         renderCurrentPage();
@@ -64833,14 +67149,17 @@ async function showVibeGroupVisualSelector(onSelect) {
         bulkDeleteBtn.style.backgroundColor = "rgba(244, 67, 54, 0.2)";
         bulkDeleteBtn.style.borderColor = "#f44336";
         selectedForDelete.clear();
+        updateBulkDeleteLabel();
+        bulkControls.show();
         console.log("[VibeGroupVisualSelector] Entered bulk delete mode");
       } else {
         backdrop.classList.remove("st-chatu8-mode-bulk-delete");
         bulkDeleteBtn.classList.remove("active");
         bulkDeleteBtn.style.backgroundColor = "";
         bulkDeleteBtn.style.borderColor = "";
-        bulkDeleteBtn.innerHTML = `<i class="fa-solid fa-trash"></i> \u6279\u91CF\u5220\u9664`;
         selectedForDelete.clear();
+        updateBulkDeleteLabel();
+        bulkControls.hide();
         console.log("[VibeGroupVisualSelector] Exited bulk delete mode");
       }
       if (isManagementMode) {
@@ -64857,7 +67176,7 @@ async function showVibeGroupVisualSelector(onSelect) {
   console.log("[VibeGroupVisualSelector] Dialog opened");
 }
 async function handleBulkDelete(selectedPresets, onRefreshGrid) {
-  const settings3 = extension_settings50[extensionName];
+  const settings3 = extension_settings51[extensionName];
   const vibeGroups = settings3.vibeGroups || {};
   const currentGroupId = settings3.vibeGroupId;
   const confirmed = confirm(`\u786E\u5B9A\u8981\u5220\u9664\u9009\u4E2D\u7684 ${selectedPresets.size} \u4E2A Vibe \u7EC4\u9884\u8BBE\u5417\uFF1F\u6B64\u64CD\u4F5C\u65E0\u6CD5\u64A4\u9500\u3002`);
@@ -64908,7 +67227,7 @@ async function handleBulkDelete(selectedPresets, onRefreshGrid) {
     console.log("[VibeGroupVisualSelector] Current group was deleted, switched to:", settings3.vibeGroupId);
   }
   try {
-    saveSettingsDebounced28();
+    saveSettingsDebounced30();
   } catch (error) {
     console.error("[VibeGroupVisualSelector] Failed to save settings after bulk delete:", error);
     alert(`\u6279\u91CF\u5220\u9664\u5B8C\u6210\u4F46\u4FDD\u5B58\u8BBE\u7F6E\u5931\u8D25: ${error.message}
@@ -64944,6 +67263,7 @@ function initVibeGroupEditor(settingsModal) {
 }
 
 // utils/novelai.js
+init_genParams();
 function normalizeNovelAIOtherSiteUrl(value) {
   if (typeof value !== "string") {
     return "";
@@ -64969,6 +67289,7 @@ var currentCloudQueueInfo = null;
 function cleanNovelAIPayload(payload, modelVersion) {
   const isNAI3 = modelVersion === "nai-diffusion-3";
   const isNAI4or45 = modelVersion.includes("nai-diffusion-4");
+  const isNAI5 = modelVersion.includes("nai-diffusion-5");
   const cleanedPayload = { ...payload };
   if (isNAI3) {
     delete cleanedPayload.reference_image_multiple_cached;
@@ -64982,6 +67303,20 @@ function cleanNovelAIPayload(payload, modelVersion) {
     delete cleanedPayload.reference_image_multiple;
     delete cleanedPayload.reference_information_extracted_multiple;
     addLog("[PayloadClean] \u5DF2\u79FB\u9664 NAI3 \u6570\u7EC4\uFF08\u4F7F\u7528 NAI4/4.5 \u6A21\u578B\uFF09");
+  } else if (isNAI5) {
+    delete cleanedPayload.reference_image_multiple;
+    delete cleanedPayload.reference_information_extracted_multiple;
+    delete cleanedPayload.skip_cfg_above_sigma;
+    if (Array.isArray(cleanedPayload.reference_strength_multiple) && cleanedPayload.reference_strength_multiple.length === 0) {
+      delete cleanedPayload.reference_strength_multiple;
+    }
+    if (Array.isArray(cleanedPayload.reference_image_multiple_cached) && cleanedPayload.reference_image_multiple_cached.length === 0) {
+      delete cleanedPayload.reference_image_multiple_cached;
+    }
+    if (cleanedPayload.sampler === "ddim_v3") {
+      cleanedPayload.sampler = "k_euler_ancestral";
+    }
+    addLog("[PayloadClean] \u5DF2\u9488\u5BF9 NAI5 \u6A21\u578B\u6E05\u7406\u7279\u5B9A\u4E0D\u652F\u6301\u7684\u53C2\u6570");
   }
   return cleanedPayload;
 }
@@ -65042,8 +67377,8 @@ async function applySingleVibeTransfer(preset_data) {
   try {
     addLog("[SingleVibe] \u5904\u7406 NAI3 \u5355\u4E2A Vibe Transfer");
     const processedImage = await processReferenceImage(window.nai3VibeTransferImage);
-    const infoExtracted = Number(extension_settings51[extensionName].InformationExtracted);
-    const strength = Number(extension_settings51[extensionName].ReferenceStrength);
+    const infoExtracted = Number(extension_settings52[extensionName].InformationExtracted);
+    const strength = Number(extension_settings52[extensionName].ReferenceStrength);
     if (isNaN(infoExtracted) || infoExtracted < 0 || infoExtracted > 1) {
       throw new Error(`InformationExtracted \u503C\u65E0\u6548: ${infoExtracted}\u3002\u5FC5\u987B\u5728 0 \u5230 1 \u4E4B\u95F4\u3002`);
     }
@@ -65106,9 +67441,9 @@ function createLoggableNovelAIPayload(payload) {
   return loggablePayload;
 }
 async function applyVibeGroupTransfer(preset_data) {
-  const settings3 = extension_settings51[extensionName];
+  const settings3 = extension_settings52[extensionName];
   const vibeGroups = settings3.vibeGroups || {};
-  const currentGroupId = settings3.vibeGroupId;
+  const currentGroupId = getRandomVibeGroupId();
   if (!vibeGroups || Object.keys(vibeGroups).length === 0) {
     const warningMsg = "\u8B66\u544A: \u672A\u627E\u5230 Vibe \u7EC4\u3002\u8BF7\u5148\u521B\u5EFA\u81F3\u5C11\u4E00\u4E2A Vibe \u7EC4\u3002";
     console.warn("[VibeGroup] No Vibe groups exist");
@@ -65211,8 +67546,8 @@ async function applyVibeGroupTransfer(preset_data) {
     return;
   }
   const totalStrength = vibeDataArray.reduce((sum, v) => sum + v.strength, 0);
-  const shouldNormalize = extension_settings51[extensionName].normalizeRefStrength === "true";
-  const isNAI45Model = ["nai-diffusion-4-5-full", "nai-diffusion-4-5-curated"].includes(extension_settings51[extensionName].novelaimode);
+  const shouldNormalize = extension_settings52[extensionName].normalizeRefStrength === "true";
+  const isNAI45Model = ["nai-diffusion-4-5-full", "nai-diffusion-4-5-curated"].includes(extension_settings52[extensionName].novelaimode);
   let normalizedStrength;
   if (shouldNormalize && isNAI45Model) {
     normalizedStrength = vibeDataArray.map((v) => v.strength);
@@ -65246,9 +67581,10 @@ async function applyVibeGroupTransfer(preset_data) {
   if (failureCount > 0 && successCount > 0) {
     toastr.warning(`\u90E8\u5206 Vibe \u5904\u7406\u5931\u8D25 (${failureCount}/${vibes.length})\uFF0C\u4F46\u751F\u6210\u5C06\u7EE7\u7EED\u8FDB\u884C`, "Vibe \u7EC4\u6C1B\u56F4\u8F6C\u79FB");
   }
+  return currentGroup.name || currentGroupId;
 }
 async function applyCharacterReferenceGroup(preset_data) {
-  const settings3 = extension_settings51[extensionName];
+  const settings3 = extension_settings52[extensionName];
   const charRefGroups = settings3.charRefGroups || {};
   const currentGroupId = settings3.charRefGroupId;
   if (!charRefGroups || Object.keys(charRefGroups).length === 0) {
@@ -65379,8 +67715,10 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
     prompt: link
   });
   currentTaskId4 = taskId;
-  addLog(`\u5F00\u59CB NovelAI \u751F\u56FE\u6D41\u7A0B...\u5BA2\u6237\u7AEF\u4E3A${extension_settings51[extensionName].client}`);
+  addLog(`\u5F00\u59CB NovelAI \u751F\u56FE\u6D41\u7A0B...\u5BA2\u6237\u7AEF\u4E3A${extension_settings52[extensionName].client}`);
   addLog(`\u8BF7\u6C42\u5C3A\u5BF8: \u5BBD\u5EA6 - ${Xwidth || "\u9ED8\u8BA4"}, \u9AD8\u5EA6 - ${Xheight || "\u9ED8\u8BA4"}`);
+  let _nai_vibe_group_name;
+  let _nai_gen_params = null;
   console.log("\u6B63\u5728\u5904\u7406\u4E2D\u6587\u6CE8\u91CA...", link);
   let change_ = change;
   if (change) {
@@ -65393,7 +67731,7 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
   if (typeof link === "string") {
     const match = link.match(sizeRegex);
     if (match) {
-      if (String(extension_settings51[extensionName].aiAutonomousResolution) !== "false") {
+      if (String(extension_settings52[extensionName].aiAutonomousResolution) !== "false") {
         Xwidth = parseInt(match[1], 10);
         Xheight = parseInt(match[2], 10);
       }
@@ -65403,7 +67741,7 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
   if (typeof change === "string") {
     const match = change.match(sizeRegex);
     if (match) {
-      if (String(extension_settings51[extensionName].aiAutonomousResolution) !== "false") {
+      if (String(extension_settings52[extensionName].aiAutonomousResolution) !== "false") {
         Xwidth = parseInt(match[1], 10);
         Xheight = parseInt(match[2], 10);
       }
@@ -65416,31 +67754,36 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
   link = await stripChineseAnnotations(link);
   change = await stripChineseAnnotations(change);
   console.log("\u6B63\u5728\u5904\u7406\u4E2D\u6587\u6CE8\u91CA\u5B8C\u6210...", link);
-  if (extension_settings51[extensionName].novelaiApi == "000000") {
+  if (extension_settings52[extensionName].novelaiApi == "000000") {
     addLog("\u8BF7\u586B\u5199 NovelAI API Key");
     toastr.error("\u8BF7\u586B\u5199 NovelAI API Key");
     taskQueue.completeTask(taskId, false);
     currentTaskId4 = null;
     throw new Error("\u8BF7\u586B\u5199 NovelAI API Key");
   }
-  const promptForGeneration = change && change.trim() !== "" ? change : link;
+  let promptForGeneration = change && change.trim() !== "" ? change : link;
   addLog(`\u7528\u4E8E\u751F\u6210\u7684Tag: ${promptForGeneration}`);
   let Divide_roles = false;
-  if (promptForGeneration.includes("Scene Composition") && (extension_settings51[extensionName].novelaimode == "nai-diffusion-4-curated-preview" || extension_settings51[extensionName].novelaimode == "nai-diffusion-4-full" || extension_settings51[extensionName].novelaimode == "nai-diffusion-4-5-full" || extension_settings51[extensionName].novelaimode == "nai-diffusion-4-5-curated")) {
+  const modelMode = extension_settings52[extensionName].novelaimode || "";
+  if (promptForGeneration.includes("Scene Composition") && (modelMode.includes("nai-diffusion-4") || modelMode.includes("nai-diffusion-5"))) {
     Divide_roles = true;
   }
   addLog(`\u662F\u5426\u542F\u7528\u5206\u89D2\u8272\u6A21\u5F0F (Divide_roles): ${Divide_roles}`);
-  let access_token = extension_settings51[extensionName].novelaiApi;
+  let access_token = extension_settings52[extensionName].novelaiApi;
   let aqt = "";
-  if (extension_settings51[extensionName].AQT_novelai != "" && extension_settings51[extensionName].novelaimode == "nai-diffusion-4-curated-preview") {
+  if (extension_settings52[extensionName].AQT_novelai != "" && extension_settings52[extensionName].novelaimode == "nai-diffusion-4-curated-preview") {
     aqt = "rating:general, best quality, very aesthetic, absurdres";
-  } else if (extension_settings51[extensionName].AQT_novelai != "" && extension_settings51[extensionName].novelaimode == "nai-diffusion-4-full") {
+  } else if (extension_settings52[extensionName].AQT_novelai != "" && extension_settings52[extensionName].novelaimode == "nai-diffusion-4-full") {
     aqt = "no text, best quality, very aesthetic, absurdres";
-  } else if (extension_settings51[extensionName].AQT_novelai != "" && extension_settings51[extensionName].novelaimode == "nai-diffusion-4-5-full") {
+  } else if (extension_settings52[extensionName].AQT_novelai != "" && extension_settings52[extensionName].novelaimode == "nai-diffusion-4-5-full") {
     aqt = "very aesthetic, masterpiece, no text";
-  } else if (extension_settings51[extensionName].AQT_novelai != "" && extension_settings51[extensionName].novelaimode == "nai-diffusion-4-5-curated") {
+  } else if (extension_settings52[extensionName].AQT_novelai != "" && extension_settings52[extensionName].novelaimode == "nai-diffusion-4-5-curated") {
     aqt = "very aesthetic, masterpiece, no text, -0.8::feet::, rating:general";
-  } else if (extension_settings51[extensionName].AQT_novelai != "" && extension_settings51[extensionName].novelaimode == "nai-diffusion-3") {
+  } else if (extension_settings52[extensionName].AQT_novelai != "" && extension_settings52[extensionName].novelaimode == "nai-diffusion-5-full") {
+    aqt = "very aesthetic, amazing quality, no text";
+  } else if (extension_settings52[extensionName].AQT_novelai != "" && extension_settings52[extensionName].novelaimode == "nai-diffusion-5-curated") {
+    aqt = "very aesthetic, masterpiece, no text";
+  } else if (extension_settings52[extensionName].AQT_novelai != "" && extension_settings52[extensionName].novelaimode == "nai-diffusion-3") {
     aqt = "best quality, amazing quality, very aesthetic, absurdres";
   }
   addLog(`AQT (\u8D28\u91CF\u6807\u7B7E) \u8BBE\u7F6E: ${aqt || "\u65E0"}`);
@@ -65454,7 +67797,7 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
     mainPrompt = prompt_data["Scene Composition"];
     for (let i = 1; i <= 4; i++) {
       if (prompt_data[`Character ${i} coordinates`]) {
-        if (!extension_settings51[extensionName].AI_use_coords == "true") {
+        if (!extension_settings52[extensionName].AI_use_coords == "true") {
           prompt_data[`Character ${i} coordinates`] = {};
         }
       }
@@ -65468,7 +67811,7 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
   }
   console.log("11111111" + JSON.stringify(prompt_data[`Character 1 coordinates`]));
   let { modifiedPrompt, insertions } = await prompt_replace(mainPrompt, other_prompt);
-  if (Divide_roles && extension_settings51[extensionName].client == "jiuguan") {
+  if (Divide_roles && extension_settings52[extensionName].client == "jiuguan") {
     for (let i = 1; i <= 4; i++) {
       if (prompt_data[`Character ${i} Prompt`]) {
         modifiedPrompt = modifiedPrompt + " | " + prompt_replace_for_character(prompt_data[`Character ${i} Prompt`], (mainPrompt || "") + " " + (other_prompt || ""));
@@ -65476,13 +67819,13 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
     }
   }
   const _nai_yushe_id = getRandomYusheId("yusheid_novelai");
-  if (!extension_settings51[extensionName].yushe || !extension_settings51[extensionName].yushe[_nai_yushe_id]) {
+  if (!extension_settings52[extensionName].yushe || !extension_settings52[extensionName].yushe[_nai_yushe_id]) {
     toastr.error("\u672A\u80FD\u627E\u5230\u6240\u9009\u7684\u56FA\u5B9A\u63D0\u793A\u8BCD\u9884\u8BBE\u3002\u8BF7\u524D\u5F80\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u65B0\u5EFA\u6216\u9009\u62E9\u4E00\u4E2A\u56FA\u5B9A\u63D0\u793A\u8BCD\u3002", "NovelAI \u751F\u56FE\u9519\u8BEF");
     taskQueue.completeTask(taskId, false);
     currentTaskId4 = null;
     throw new Error("\u56FA\u5B9A\u63D0\u793A\u8BCD\u9884\u8BBE\u672A\u914D\u7F6E");
   }
-  const _nai_preset = extension_settings51[extensionName].yushe[_nai_yushe_id];
+  const _nai_preset = extension_settings52[extensionName].yushe[_nai_yushe_id];
   prompt2 = await zhengmian(
     _nai_preset.fixedPrompt,
     modifiedPrompt,
@@ -65490,57 +67833,71 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
     aqt,
     insertions
   );
-  if (extension_settings51[extensionName].addFurryDataset == "true") {
+  if (extension_settings52[extensionName].addFurryDataset == "true") {
     prompt2 = "fur dataset, " + prompt2;
     addLog("\u6DFB\u52A0\u4E86 'fur dataset' \u5230\u63D0\u793A\u8BCD\u3002");
   }
   let UCP_novelai = "";
-  addLog(`\u6B63\u5728\u6839\u636E\u6A21\u578B (${extension_settings51[extensionName].novelaimode}) \u548C UCP \u9884\u8BBE (${extension_settings51[extensionName].UCP_novelai}) \u9009\u62E9\u8D1F\u9762\u63D0\u793A\u8BCD...`);
-  if (extension_settings51[extensionName].novelaimode == "nai-diffusion-3" && extension_settings51[extensionName].UCP_novelai == "Heavy") {
+  addLog(`\u6B63\u5728\u6839\u636E\u6A21\u578B (${extension_settings52[extensionName].novelaimode}) \u548C UCP \u9884\u8BBE (${extension_settings52[extensionName].UCP_novelai}) \u9009\u62E9\u8D1F\u9762\u63D0\u793A\u8BCD...`);
+  if (extension_settings52[extensionName].novelaimode == "nai-diffusion-3" && extension_settings52[extensionName].UCP_novelai == "Heavy") {
     UCP_novelai = "lowres, {bad}, error, fewer, extra, missing, worst quality, jpeg artifacts, bad quality, watermark, unfinished, displeasing, chromatic aberration, signature, extra digits, artistic error, username, scan, [abstract]";
   }
-  if (extension_settings51[extensionName].novelaimode == "nai-diffusion-3" && extension_settings51[extensionName].UCP_novelai == "Light") {
+  if (extension_settings52[extensionName].novelaimode == "nai-diffusion-3" && extension_settings52[extensionName].UCP_novelai == "Light") {
     UCP_novelai = "lowres, jpeg artifacts, worst quality, watermark, blurry, very displeasing";
   }
-  if (extension_settings51[extensionName].novelaimode == "nai-diffusion-3" && extension_settings51[extensionName].UCP_novelai == "Human Focus") {
+  if (extension_settings52[extensionName].novelaimode == "nai-diffusion-3" && extension_settings52[extensionName].UCP_novelai == "Human Focus") {
     UCP_novelai = "lowres, {bad}, error, fewer, extra, missing, worst quality, jpeg artifacts, bad quality, watermark, unfinished, displeasing, chromatic aberration, signature, extra digits, artistic error, username, scan, [abstract], bad anatomy, bad hands, @_@, mismatched pupils, heart-shaped pupils, glowing eyes";
   }
-  if (extension_settings51[extensionName].novelaimode == "nai-diffusion-4-full" && extension_settings51[extensionName].UCP_novelai == "Human Focus") {
+  if (extension_settings52[extensionName].novelaimode == "nai-diffusion-4-full" && extension_settings52[extensionName].UCP_novelai == "Human Focus") {
   }
-  if (extension_settings51[extensionName].novelaimode == "nai-diffusion-4-full" && extension_settings51[extensionName].UCP_novelai == "Heavy") {
+  if (extension_settings52[extensionName].novelaimode == "nai-diffusion-4-full" && extension_settings52[extensionName].UCP_novelai == "Heavy") {
     UCP_novelai = "blurry, lowres, error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, multiple views, logo, too many watermarks, white blank page, blank page";
   }
-  if (extension_settings51[extensionName].novelaimode == "nai-diffusion-4-full" && extension_settings51[extensionName].UCP_novelai == "Light") {
+  if (extension_settings52[extensionName].novelaimode == "nai-diffusion-4-full" && extension_settings52[extensionName].UCP_novelai == "Light") {
     UCP_novelai = "blurry, lowres, error, worst quality, bad quality, jpeg artifacts, very displeasing, white blank page, blank page";
   }
-  if (extension_settings51[extensionName].novelaimode == "nai-diffusion-4-curated-preview" && extension_settings51[extensionName].UCP_novelai == "Human Focus") {
+  if (extension_settings52[extensionName].novelaimode == "nai-diffusion-4-curated-preview" && extension_settings52[extensionName].UCP_novelai == "Human Focus") {
   }
-  if (extension_settings51[extensionName].novelaimode == "nai-diffusion-4-curated-preview" && extension_settings51[extensionName].UCP_novelai == "Heavy") {
+  if (extension_settings52[extensionName].novelaimode == "nai-diffusion-4-curated-preview" && extension_settings52[extensionName].UCP_novelai == "Heavy") {
     UCP_novelai = "blurry, lowres, error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, logo, dated, signature, multiple views, gigantic breasts, white blank page, blank page";
   }
-  if (extension_settings51[extensionName].novelaimode == "nai-diffusion-4-curated-preview" && extension_settings51[extensionName].UCP_novelai == "Light") {
+  if (extension_settings52[extensionName].novelaimode == "nai-diffusion-4-curated-preview" && extension_settings52[extensionName].UCP_novelai == "Light") {
     UCP_novelai = "blurry, lowres, error, worst quality, bad quality, jpeg artifacts, very displeasing, logo, dated, signature, white blank page, blank page";
   }
-  if (extension_settings51[extensionName].novelaimode == "nai-diffusion-4-5-curated" && extension_settings51[extensionName].UCP_novelai == "Human Focus") {
+  if (extension_settings52[extensionName].novelaimode == "nai-diffusion-4-5-curated" && extension_settings52[extensionName].UCP_novelai == "Human Focus") {
     UCP_novelai = "blurry, lowres, upscaled, artistic error, film grain, scan artifacts, bad anatomy, bad hands, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, halftone, multiple views, logo, too many watermarks, @_@, mismatched pupils, glowing eyes, negative space, blank page";
   }
-  if (extension_settings51[extensionName].novelaimode == "nai-diffusion-4-5-curated" && extension_settings51[extensionName].UCP_novelai == "Heavy") {
+  if (extension_settings52[extensionName].novelaimode == "nai-diffusion-4-5-curated" && extension_settings52[extensionName].UCP_novelai == "Heavy") {
     UCP_novelai = "blurry, lowres, upscaled, artistic error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, halftone, multiple views, logo, too many watermarks, negative space, blank page";
   }
-  if (extension_settings51[extensionName].novelaimode == "nai-diffusion-4-5-curated" && extension_settings51[extensionName].UCP_novelai == "Light") {
+  if (extension_settings52[extensionName].novelaimode == "nai-diffusion-4-5-curated" && extension_settings52[extensionName].UCP_novelai == "Light") {
     UCP_novelai = "blurry, lowres, upscaled, artistic error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, halftone, multiple views, logo, too many watermarks, negative space, blank page";
   }
-  if (extension_settings51[extensionName].novelaimode == "nai-diffusion-4-5-full" && extension_settings51[extensionName].UCP_novelai == "Human Focus") {
+  if (extension_settings52[extensionName].novelaimode == "nai-diffusion-4-5-full" && extension_settings52[extensionName].UCP_novelai == "Human Focus") {
     UCP_novelai = "lowres, artistic error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, dithering, halftone, screentone, multiple views, logo, too many watermarks, negative space, blank page, @_@, mismatched pupils, glowing eyes, bad anatomy";
   }
-  if (extension_settings51[extensionName].novelaimode == "nai-diffusion-4-5-full" && extension_settings51[extensionName].UCP_novelai == "Heavy") {
+  if (extension_settings52[extensionName].novelaimode == "nai-diffusion-4-5-full" && extension_settings52[extensionName].UCP_novelai == "Heavy") {
     UCP_novelai = "lowres, artistic error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, dithering, halftone, screentone, multiple views, logo, too many watermarks, negative space, blank page";
   }
-  if (extension_settings51[extensionName].novelaimode == "nai-diffusion-4-5-full" && extension_settings51[extensionName].UCP_novelai == "Light") {
+  if (extension_settings52[extensionName].novelaimode == "nai-diffusion-4-5-full" && extension_settings52[extensionName].UCP_novelai == "Light") {
     UCP_novelai = "lowres, artistic error, scan artifacts, worst quality, bad quality, jpeg artifacts, multiple views, very displeasing, too many watermarks, negative space, blank page";
   }
-  if (extension_settings51[extensionName].novelaimode == "nai-diffusion-4-5-full" && extension_settings51[extensionName].UCP_novelai == "Furry Focus") {
+  if (extension_settings52[extensionName].novelaimode == "nai-diffusion-4-5-full" && extension_settings52[extensionName].UCP_novelai == "Furry Focus") {
     UCP_novelai = "{worst quality}, distracting watermark, unfinished, bad quality, {widescreen}, upscale, {sequence}, {{grandfathered content}}, blurred foreground, chromatic aberration, sketch, everyone, [sketch background], simple, [flat colors], ych (character), outline, multiple scenes, [[horror (theme)]], comic";
+  }
+  const isV5ModelUcp = extension_settings52[extensionName].novelaimode.includes("nai-diffusion-5");
+  if (isV5ModelUcp) {
+    if (extension_settings52[extensionName].UCP_novelai == "humanFocus") {
+      UCP_novelai = "lowres, artistic error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, dithering, halftone, screentone, multiple views, logo, too many watermarks, negative space, blank page, @_@, mismatched pupils, glowing eyes, bad anatomy";
+    } else if (extension_settings52[extensionName].UCP_novelai == "heavy") {
+      UCP_novelai = "lowres, artistic error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, dithering, halftone, screentone, multiple views, logo, too many watermarks, negative space, blank page";
+    } else if (extension_settings52[extensionName].UCP_novelai == "light") {
+      UCP_novelai = "lowres, bad hands, bad anatomy, artistic error, sepia, white haze, worst quality, very displeasing, jpeg artifacts, 0::ai-generated::";
+    } else if (extension_settings52[extensionName].UCP_novelai == "furryFocus") {
+      UCP_novelai = "{worst quality}, distracting watermark, unfinished, bad quality, {widescreen}, upscale, {sequence}, {{grandfathered content}}, blurred foreground, chromatic aberration, sketch, everyone, [sketch background], simple, [flat colors], ych (character), outline, multiple scenes, [[horror (theme)]], comic";
+    } else if (extension_settings52[extensionName].UCP_novelai == "none") {
+      UCP_novelai = "";
+    }
   }
   let negative_prompt = await fumian(_nai_preset.negativePrompt, UCP_novelai);
   if (!Divide_roles && window.collectedCharacterNegatives) {
@@ -65557,61 +67914,62 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
     addLog(`[\u667A\u7ED8\u59EC] \u6DFB\u52A0\u989D\u5916\u8D1F\u9762\u63D0\u793A\u8BCD: ${trimmedExtra}`);
     console.log("[NovelAI] \u5408\u5E76\u667A\u7ED8\u59EC\u989D\u5916\u8D1F\u9762\u63D0\u793A\u8BCD:", trimmedExtra);
   }
-  let use_coords = !extension_settings51[extensionName].AI_use_coords == "true";
+  let use_coords = !extension_settings52[extensionName].AI_use_coords == "true";
   let preset_data = {
     "params_version": 3,
-    "width": Number(Xwidth ? Xwidth : extension_settings51[extensionName].novelai_width),
-    "height": Number(Xheight ? Xheight : extension_settings51[extensionName].novelai_height),
-    "scale": Number(extension_settings51[extensionName].nai3Scale),
+    "width": Number(Xwidth ? Xwidth : extension_settings52[extensionName].novelai_width),
+    "height": Number(Xheight ? Xheight : extension_settings52[extensionName].novelai_height),
+    "scale": Number(extension_settings52[extensionName].nai3Scale),
     //提示词关联性
-    "sampler": extension_settings51[extensionName].novelai_sampler,
+    "sampler": extension_settings52[extensionName].novelai_sampler,
     //"k_euler",//使用的采样器   "k_dpm_2"   "k_dpmpp_2m"    "ddim_v3"  "k_dpmpp_2s_ancestral"
-    "steps": Number(extension_settings51[extensionName].novelai_steps),
+    "steps": Number(extension_settings52[extensionName].novelai_steps),
     //生成的步数
     "n_samples": 1,
     "ucPreset": 3,
     //预设
     "qualityToggle": true,
-    "sm": extension_settings51[extensionName].sm === "false" ? false : true,
-    "sm_dyn": extension_settings51[extensionName].dyn === "false" || extension_settings51[extensionName].sm === "false" ? false : true,
-    "dynamic_thresholding": extension_settings51[extensionName].nai3Deceisp === "false" ? false : true,
+    "sm": extension_settings52[extensionName].sm === "false" ? false : true,
+    "sm_dyn": extension_settings52[extensionName].dyn === "false" || extension_settings52[extensionName].sm === "false" ? false : true,
+    "dynamic_thresholding": extension_settings52[extensionName].nai3Deceisp === "false" ? false : true,
     "controlnet_strength": 1,
     "legacy": false,
     "legacy_uc": false,
     "add_original_image": true,
-    "cfg_rescale": Number(extension_settings51[extensionName].cfg_rescale),
+    "cfg_rescale": Number(extension_settings52[extensionName].cfg_rescale),
     //关联性调整
-    "noise_schedule": extension_settings51[extensionName].Schedule,
-    "skip_cfg_above_sigma": extension_settings51[extensionName].nai3Variety === "false" ? null : 19,
+    "noise_schedule": extension_settings52[extensionName].Schedule,
+    "skip_cfg_above_sigma": extension_settings52[extensionName].nai3Variety === "false" ? null : 19,
     "legacy_v3_extend": false,
     "stream": "msgpack",
-    "seed": extension_settings51[extensionName].novelai_seed === "0" || extension_settings51[extensionName].novelai_seed === "" || extension_settings51[extensionName].novelai_seed === "-1" ? generateRandomSeed() : Number(extension_settings51[extensionName].novelai_seed),
+    "seed": extension_settings52[extensionName].novelai_seed === "0" || extension_settings52[extensionName].novelai_seed === "" || extension_settings52[extensionName].novelai_seed === "-1" ? generateRandomSeed() : Number(extension_settings52[extensionName].novelai_seed),
     //生成的种子，下面是固定的负面提示词
     "negative_prompt": negative_prompt,
     "reference_image_multiple": [],
     "reference_information_extracted_multiple": [],
     "reference_strength_multiple": [],
     "reference_image_multiple_cached": [],
-    "normalize_reference_strength_multiple": extension_settings51[extensionName].normalizeRefStrength === "true",
+    "normalize_reference_strength_multiple": extension_settings52[extensionName].normalizeRefStrength === "true",
     "use_coords": use_coords
   };
-  if (extension_settings51[extensionName].novelaimode !== "nai-diffusion-3") {
+  if (extension_settings52[extensionName].novelaimode !== "nai-diffusion-3") {
     if (Divide_roles) {
       for (let i = 1; i <= 4; i++) {
         if (prompt_data[`Character ${i} Prompt`]) {
           prompt_data[`Character ${i} Prompt`] = await prompt_replace_for_character(prompt_data[`Character ${i} Prompt`], (mainPrompt || "") + " " + (other_prompt || ""));
+          prompt_data[`Character ${i} Prompt`] = prompt_data[`Character ${i} Prompt`].replace(/1boy/gi, "boy").replace(/1girl/gi, "girl");
         }
       }
       let characterPrompts = [];
       for (let i = 1; i <= 4; i++) {
         if (prompt_data[`Character ${i} Prompt`]) {
-          characterPrompts[i - 1] = { enabled: true, prompt: prompt_data[`Character ${i} Prompt`], center: prompt_data[`Character ${i} coordinates`], uc: prompt_data[`Character ${i} UC`] ? prompt_data[`Character ${i} UC`] : "one arms,lowres, aliasing, jaggy lines,bad hands,one legs" };
+          characterPrompts.push({ enabled: true, prompt: prompt_data[`Character ${i} Prompt`], center: prompt_data[`Character ${i} coordinates`], uc: prompt_data[`Character ${i} UC`] ? prompt_data[`Character ${i} UC`] : "" });
         }
       }
       let v4_negative_prompt = { caption: { base_caption: negative_prompt, char_captions: [] }, legacy_uc: false };
       for (let i = 1; i <= 4; i++) {
         if (prompt_data[`Character ${i} Prompt`]) {
-          v4_negative_prompt.caption.char_captions.push({ char_caption: prompt_data[`Character ${i} UC`] ? prompt_data[`Character ${i} UC`] : "one arms,lowres, aliasing, jaggy lines,bad hands,one legs", centers: [prompt_data[`Character ${i} coordinates`]] });
+          v4_negative_prompt.caption.char_captions.push({ char_caption: prompt_data[`Character ${i} UC`] ? prompt_data[`Character ${i} UC`] : "", centers: [prompt_data[`Character ${i} coordinates`]] });
         }
       }
       let v4_prompt = { caption: { base_caption: prompt2, char_captions: [] }, use_coords, use_order: true };
@@ -65620,25 +67978,25 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
           v4_prompt.caption.char_captions.push({ char_caption: prompt_data[`Character ${i} Prompt`], centers: [prompt_data[`Character ${i} coordinates`]] });
         }
       }
-      preset_data = { ...preset_data, characterPrompts, v4_prompt, v4_negative_prompt, add_original_image: true, skip_cfg_above_sigma: extension_settings51[extensionName].nai3Variety === "false" ? null : 19.343056794463642 };
-      if (extension_settings51[extensionName].nai3Variety != "false" && extension_settings51[extensionName].novelaimode == "nai-diffusion-4-full") {
+      preset_data = { ...preset_data, characterPrompts, v4_prompt, v4_negative_prompt, add_original_image: true, skip_cfg_above_sigma: extension_settings52[extensionName].nai3Variety === "false" ? null : 19.343056794463642 };
+      if (extension_settings52[extensionName].nai3Variety != "false" && extension_settings52[extensionName].novelaimode == "nai-diffusion-4-full") {
         preset_data["skip_cfg_above_sigma"] = 19;
       }
-      if (extension_settings51[extensionName].nai3Variety != "false" && (extension_settings51[extensionName].novelaimode == "nai-diffusion-4-5-curated" || extension_settings51[extensionName].novelaimode == "nai-diffusion-4-5-full")) {
+      if (extension_settings52[extensionName].nai3Variety != "false" && (extension_settings52[extensionName].novelaimode == "nai-diffusion-4-5-curated" || extension_settings52[extensionName].novelaimode == "nai-diffusion-4-5-full")) {
         preset_data["skip_cfg_above_sigma"] = 59.04722600415217;
       }
       preset_data = {
         "autoSmea": false,
-        "normalize_reference_strength_multiple": extension_settings51[extensionName].normalizeRefStrength === "true",
+        "normalize_reference_strength_multiple": extension_settings52[extensionName].normalizeRefStrength === "true",
         "inpaintImg2ImgStrength": 1,
-        "params_version": 3,
-        "width": Number(Xwidth ? Xwidth : extension_settings51[extensionName].novelai_width),
-        "height": Number(Xheight ? Xheight : extension_settings51[extensionName].novelai_height),
-        "scale": Number(extension_settings51[extensionName].nai3Scale),
+        "params_version": extension_settings52[extensionName].novelaimode.includes("nai-diffusion-5") ? 4 : 3,
+        "width": Number(Xwidth ? Xwidth : extension_settings52[extensionName].novelai_width),
+        "height": Number(Xheight ? Xheight : extension_settings52[extensionName].novelai_height),
+        "scale": Number(extension_settings52[extensionName].nai3Scale),
         //提示词关联性
-        "sampler": extension_settings51[extensionName].novelai_sampler,
+        "sampler": extension_settings52[extensionName].novelai_sampler,
         //"k_euler",//使用的采样器   "k_dpm_2"   "k_dpmpp_2m"    "ddim_v3"  "k_dpmpp_2s_ancestral"
-        "steps": Number(extension_settings51[extensionName].novelai_steps),
+        "steps": Number(extension_settings52[extensionName].novelai_steps),
         //生成的步数
         "n_samples": 1,
         "ucPreset": 3,
@@ -65649,12 +68007,12 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
         "legacy": false,
         "legacy_uc": false,
         "add_original_image": true,
-        "cfg_rescale": Number(extension_settings51[extensionName].cfg_rescale),
+        "cfg_rescale": Number(extension_settings52[extensionName].cfg_rescale),
         //关联性调整
-        "noise_schedule": extension_settings51[extensionName].Schedule,
-        "skip_cfg_above_sigma": extension_settings51[extensionName].nai3Variety === "false" ? null : 19.343056794463642,
+        "noise_schedule": extension_settings52[extensionName].Schedule,
+        "skip_cfg_above_sigma": extension_settings52[extensionName].nai3Variety === "false" ? null : 19.343056794463642,
         "legacy_v3_extend": false,
-        "seed": extension_settings51[extensionName].novelai_seed === "0" || extension_settings51[extensionName].novelai_seed === "" || extension_settings51[extensionName].novelai_seed === "-1" ? generateRandomSeed() : Number(extension_settings51[extensionName].novelai_seed),
+        "seed": extension_settings52[extensionName].novelai_seed === "0" || extension_settings52[extensionName].novelai_seed === "" || extension_settings52[extensionName].novelai_seed === "-1" ? generateRandomSeed() : Number(extension_settings52[extensionName].novelai_seed),
         //生成的种子，下面是固定的负面提示词
         "negative_prompt": negative_prompt,
         "reference_image_multiple": [],
@@ -65670,16 +68028,16 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
     } else {
       preset_data = {
         "autoSmea": false,
-        "normalize_reference_strength_multiple": extension_settings51[extensionName].normalizeRefStrength === "true",
+        "normalize_reference_strength_multiple": extension_settings52[extensionName].normalizeRefStrength === "true",
         "inpaintImg2ImgStrength": 1,
-        "params_version": 3,
-        "width": Number(Xwidth ? Xwidth : extension_settings51[extensionName].novelai_width),
-        "height": Number(Xheight ? Xheight : extension_settings51[extensionName].novelai_height),
-        "scale": Number(extension_settings51[extensionName].nai3Scale),
+        "params_version": extension_settings52[extensionName].novelaimode.includes("nai-diffusion-5") ? 4 : 3,
+        "width": Number(Xwidth ? Xwidth : extension_settings52[extensionName].novelai_width),
+        "height": Number(Xheight ? Xheight : extension_settings52[extensionName].novelai_height),
+        "scale": Number(extension_settings52[extensionName].nai3Scale),
         //提示词关联性
-        "sampler": extension_settings51[extensionName].novelai_sampler,
+        "sampler": extension_settings52[extensionName].novelai_sampler,
         //"k_euler",//使用的采样器   "k_dpm_2"   "k_dpmpp_2m"    "ddim_v3"  "k_dpmpp_2s_ancestral"
-        "steps": Number(extension_settings51[extensionName].novelai_steps),
+        "steps": Number(extension_settings52[extensionName].novelai_steps),
         //生成的步数
         "n_samples": 1,
         "ucPreset": 3,
@@ -65690,12 +68048,12 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
         "legacy": false,
         "legacy_uc": false,
         "add_original_image": true,
-        "cfg_rescale": Number(extension_settings51[extensionName].cfg_rescale),
+        "cfg_rescale": Number(extension_settings52[extensionName].cfg_rescale),
         //关联性调整
-        "noise_schedule": extension_settings51[extensionName].Schedule,
-        "skip_cfg_above_sigma": extension_settings51[extensionName].nai3Variety === "false" ? null : 19.343056794463642,
+        "noise_schedule": extension_settings52[extensionName].Schedule,
+        "skip_cfg_above_sigma": extension_settings52[extensionName].nai3Variety === "false" ? null : 19.343056794463642,
         "legacy_v3_extend": false,
-        "seed": extension_settings51[extensionName].novelai_seed === "0" || extension_settings51[extensionName].novelai_seed === "" || extension_settings51[extensionName].novelai_seed === "-1" ? generateRandomSeed() : Number(extension_settings51[extensionName].novelai_seed),
+        "seed": extension_settings52[extensionName].novelai_seed === "0" || extension_settings52[extensionName].novelai_seed === "" || extension_settings52[extensionName].novelai_seed === "-1" ? generateRandomSeed() : Number(extension_settings52[extensionName].novelai_seed),
         //生成的种子，下面是固定的负面提示词
         "negative_prompt": negative_prompt,
         "reference_image_multiple": [],
@@ -65723,23 +68081,23 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
       };
     }
   }
-  if (extension_settings51[extensionName].novelai_sampler == "k_euler_ancestral") {
+  if (extension_settings52[extensionName].novelai_sampler == "k_euler_ancestral") {
     preset_data["deliberate_euler_ancestral_bug"] = false;
     preset_data["prefer_brownian"] = true;
   }
-  if (extension_settings51[extensionName].nai3Variety != "false") {
-    preset_data["skip_cfg_above_sigma"] = calculateSkipCfgAboveSigma(preset_data.width, preset_data.height, extension_settings51[extensionName].novelaimode);
+  if (extension_settings52[extensionName].nai3Variety != "false") {
+    preset_data["skip_cfg_above_sigma"] = calculateSkipCfgAboveSigma(preset_data.width, preset_data.height, extension_settings52[extensionName].novelaimode);
   }
-  const isNAI3 = extension_settings51[extensionName].novelaimode === "nai-diffusion-3";
-  const isNAI45 = ["nai-diffusion-4-5-full", "nai-diffusion-4-5-curated"].includes(extension_settings51[extensionName].novelaimode);
+  const isNAI3 = extension_settings52[extensionName].novelaimode === "nai-diffusion-3";
+  const isNAI45 = ["nai-diffusion-4-5-full", "nai-diffusion-4-5-curated"].includes(extension_settings52[extensionName].novelaimode);
   const isNAI4or45 = [
     "nai-diffusion-4-full",
     "nai-diffusion-4-curated-preview",
     "nai-diffusion-4-5-full",
     "nai-diffusion-4-5-curated"
-  ].includes(extension_settings51[extensionName].novelaimode);
-  const isBrowserClient = extension_settings51[extensionName].client !== "jiuguan";
-  if (extension_settings51[extensionName].nai3CharRef === "true" && isNAI45 && isBrowserClient) {
+  ].includes(extension_settings52[extensionName].novelaimode);
+  const isBrowserClient = extension_settings52[extensionName].client !== "jiuguan";
+  if (extension_settings52[extensionName].nai3CharRef === "true" && isNAI45 && isBrowserClient) {
     try {
       await applyCharacterReferenceGroup(preset_data);
     } catch (error) {
@@ -65747,7 +68105,7 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
       addLog(`[CharRef] \u9519\u8BEF: \u89D2\u8272\u53C2\u8003\u5E94\u7528\u5931\u8D25: ${error.message}`);
       toastr.error("\u89D2\u8272\u53C2\u8003\u5E94\u7528\u5931\u8D25\uFF0C\u5C06\u7EE7\u7EED\u8FDB\u884C\u56FE\u50CF\u751F\u6210", "\u89D2\u8272\u53C2\u8003");
     }
-  } else if (extension_settings51[extensionName].nai3CharRef === "true") {
+  } else if (extension_settings52[extensionName].nai3CharRef === "true") {
     if (!isNAI45) {
       addLog("[CharRef] \u8DF3\u8FC7: \u5F53\u524D\u6A21\u578B\u4E0D\u652F\u6301\u89D2\u8272\u53C2\u8003 (\u4EC5\u652F\u6301 NAI4.5)");
       console.warn("[CharRef] Skipped: Current model does not support Character Reference (NAI4.5 only)");
@@ -65756,15 +68114,15 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
       addLog("[CharRef] \u8DF3\u8FC7: \u9152\u9986\u7AEF\u4E0D\u652F\u6301\u89D2\u8272\u53C2\u8003");
       console.warn("[CharRef] Skipped: Tavern client does not support Character Reference");
     }
-  } else if (extension_settings51[extensionName].enableVibeGroupTransfer === "true" && isNAI4or45 && isBrowserClient) {
+  } else if (extension_settings52[extensionName].enableVibeGroupTransfer === "true" && isNAI4or45 && isBrowserClient) {
     try {
-      await applyVibeGroupTransfer(preset_data);
+      _nai_vibe_group_name = await applyVibeGroupTransfer(preset_data);
     } catch (error) {
       console.error("[VibeGroup] Unexpected error in Vibe Group Transfer:", error);
       addLog(`[VibeGroup] \u9519\u8BEF: Vibe \u7EC4\u6C1B\u56F4\u8F6C\u79FB\u5931\u8D25: ${error.message}`);
       toastr.error("Vibe \u7EC4\u6C1B\u56F4\u8F6C\u79FB\u5931\u8D25\uFF0C\u5C06\u7EE7\u7EED\u8FDB\u884C\u56FE\u50CF\u751F\u6210", "Vibe \u7EC4\u6C1B\u56F4\u8F6C\u79FB");
     }
-  } else if (extension_settings51[extensionName].enableVibeGroupTransfer === "true") {
+  } else if (extension_settings52[extensionName].enableVibeGroupTransfer === "true") {
     if (!isNAI4or45) {
       addLog("[VibeGroup] \u8DF3\u8FC7: \u5F53\u524D\u6A21\u578B\u4E0D\u652F\u6301 Vibe \u7EC4\u6C1B\u56F4\u8F6C\u79FB (\u4EC5\u652F\u6301 NAI4/4.5)");
       console.warn("[VibeGroup] Skipped: Current model does not support Vibe Group Transfer (NAI4/4.5 only)");
@@ -65773,7 +68131,7 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
       addLog("[VibeGroup] \u8DF3\u8FC7: \u9152\u9986\u7AEF\u4E0D\u652F\u6301 Vibe \u7EC4\u6C1B\u56F4\u8F6C\u79FB");
       console.warn("[VibeGroup] Skipped: Tavern client does not support Vibe Group Transfer");
     }
-  } else if (extension_settings51[extensionName].nai3VibeTransfer === "true" && isNAI3) {
+  } else if (extension_settings52[extensionName].nai3VibeTransfer === "true" && isNAI3) {
     try {
       await applySingleVibeTransfer(preset_data);
     } catch (error) {
@@ -65781,16 +68139,45 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
       addLog(`[SingleVibe] \u9519\u8BEF: \u5355\u4E2A Vibe \u8F6C\u79FB\u5931\u8D25: ${error.message}`);
       toastr.error("Vibe \u8F6C\u79FB\u5931\u8D25\uFF0C\u5C06\u7EE7\u7EED\u8FDB\u884C\u56FE\u50CF\u751F\u6210", "Vibe \u8F6C\u79FB");
     }
-  } else if (extension_settings51[extensionName].nai3VibeTransfer === "true") {
+  } else if (extension_settings52[extensionName].nai3VibeTransfer === "true") {
     if (!isNAI3) {
       addLog("[SingleVibe] \u8DF3\u8FC7: \u5F53\u524D\u6A21\u578B\u4E0D\u652F\u6301\u5355\u4E2A Vibe \u8F6C\u79FB (\u4EC5\u652F\u6301 NAI3)");
       console.warn("[SingleVibe] Skipped: Current model does not support Single Vibe Transfer (NAI3 only)");
     }
   }
+  const isV5Model = extension_settings52[extensionName].novelaimode.includes("nai-diffusion-5");
+  if (isV5Model) {
+    let tag_hint_uc_preset = 0;
+    let ucPresetId = "heavy";
+    if (extension_settings52[extensionName].UCP_novelai == "heavy") {
+      tag_hint_uc_preset = 1;
+      ucPresetId = "heavy";
+    } else if (extension_settings52[extensionName].UCP_novelai == "furryFocus") {
+      tag_hint_uc_preset = 2;
+      ucPresetId = "furry_focus";
+    } else if (extension_settings52[extensionName].UCP_novelai == "light") {
+      tag_hint_uc_preset = 3;
+      ucPresetId = "light";
+    } else if (extension_settings52[extensionName].UCP_novelai == "humanFocus") {
+      tag_hint_uc_preset = 4;
+      ucPresetId = "human_focus";
+    } else if (extension_settings52[extensionName].UCP_novelai == "none") {
+      tag_hint_uc_preset = 0;
+      ucPresetId = "none";
+    }
+    preset_data.straight_alpha = extension_settings52[extensionName].novelai_straight_alpha === true;
+    preset_data.tag_hint_qt = 1;
+    preset_data.tag_hint_uc_preset = tag_hint_uc_preset;
+    preset_data.ucPresetId = ucPresetId;
+    preset_data.qualityPresetId = preset_data.qualityToggle ? "standard" : "none";
+    delete preset_data.ucPreset;
+    delete preset_data.qualityToggle;
+    preset_data.image_format = "png";
+  }
   addLog("[Payload] \u5F00\u59CB\u6E05\u7406\u548C\u9A8C\u8BC1 payload...");
-  preset_data = cleanNovelAIPayload(preset_data, extension_settings51[extensionName].novelaimode);
+  preset_data = cleanNovelAIPayload(preset_data, extension_settings52[extensionName].novelaimode);
   try {
-    validateNovelAIPayload(preset_data, extension_settings51[extensionName].novelaimode);
+    validateNovelAIPayload(preset_data, extension_settings52[extensionName].novelaimode);
   } catch (validationError) {
     addLog(`[\u9A8C\u8BC1\u5931\u8D25] ${validationError.message}`);
     toastr.error(`Payload \u9A8C\u8BC1\u5931\u8D25: ${validationError.message}`, "NovelAI \u751F\u6210\u9519\u8BEF");
@@ -65799,18 +68186,36 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
     throw validationError;
   }
   const payload = preset_data;
+  _nai_gen_params = buildGenParams("NovelAI", {
+    model: extension_settings52[extensionName].novelaimode,
+    yushe: _nai_yushe_id,
+    yusheRandom: extension_settings52[extensionName].randomYushe === "true",
+    promptReplaceId: extension_settings52[extensionName].prompt_replace_id,
+    vibeGroup: _nai_vibe_group_name,
+    vibeGroupRandom: extension_settings52[extensionName].randomVibeGroup === "true",
+    charRefGroup: extension_settings52[extensionName].nai3CharRef === "true" ? extension_settings52[extensionName].charRefGroupId : void 0,
+    resolvedPrompt: prompt2,
+    negativePrompt: payload.negative_prompt,
+    width: payload.width,
+    height: payload.height,
+    seed: payload.seed,
+    steps: payload.steps,
+    sampler: payload.sampler,
+    scheduler: payload.noise_schedule,
+    cfgScale: payload.scale
+  });
   const loggablePayload = createLoggableNovelAIPayload(payload);
-  if (extension_settings51[extensionName].client != "jiuguan") {
+  if (extension_settings52[extensionName].client != "jiuguan") {
     addLog(`\u6700\u7EC8\u751F\u56FE\u53C2\u6570 (payload): ${JSON.stringify(loggablePayload, null, 2)}`);
   }
   let urlObj = new URL("https://image.novelai.net/ai/generate-image");
-  if (extension_settings51[extensionName].novelaisite != "\u5B98\u7F51") {
-    if (extension_settings51[extensionName].client == "jiuguan") {
+  if (extension_settings52[extensionName].novelaisite != "\u5B98\u7F51") {
+    if (extension_settings52[extensionName].client == "jiuguan") {
       taskQueue.completeTask(taskId, false);
       currentTaskId4 = null;
       throw new Error("\u9152\u9986\u7AEF\u4E0D\u652F\u6301\u81EA\u5B9A\u4E49\u7AD9\u70B9\uFF01");
     }
-    let otherSite = normalizeNovelAIOtherSiteUrl(extension_settings51[extensionName].novelaiOtherSite);
+    let otherSite = normalizeNovelAIOtherSiteUrl(extension_settings52[extensionName].novelaiOtherSite);
     if (!otherSite) {
       taskQueue.completeTask(taskId, false);
       currentTaskId4 = null;
@@ -65820,7 +68225,7 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
   }
   try {
     let re = "";
-    if (extension_settings51[extensionName].client == "jiuguan") {
+    if (extension_settings52[extensionName].client == "jiuguan") {
       while (!window.xiancheng) {
         if (!taskQueue.isTaskInQueue(taskId)) {
           addLog("\u4EFB\u52A1\u5DF2\u88AB\u7528\u6237\u53D6\u6D88");
@@ -65829,7 +68234,7 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
         await sleep(1e3);
       }
       window.xiancheng = false;
-      if (extension_settings51[extensionName].enableCloudQueue === "true") {
+      if (extension_settings52[extensionName].enableCloudQueue === "true") {
         const keyHash = await hashKey(access_token);
         const userId = getUserId();
         try {
@@ -65850,18 +68255,18 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
         body: JSON.stringify({})
       });
       if (read.ok) {
-        if (extension_settings51[extensionName].novelaiApi_id != "") {
+        if (extension_settings52[extensionName].novelaiApi_id != "") {
           const read2 = await fetch("/api/secrets/delete", {
             method: "POST",
             headers: getRequestHeaders(window.token),
-            body: JSON.stringify({ id: extension_settings51[extensionName].novelaiApi_id, key: "api_key_novel" })
+            body: JSON.stringify({ id: extension_settings52[extensionName].novelaiApi_id, key: "api_key_novel" })
           });
         }
         let id = "";
         const re2 = await fetch("/api/secrets/write", {
           method: "POST",
           headers: getRequestHeaders(window.token),
-          body: JSON.stringify({ key: "api_key_novel", value: extension_settings51[extensionName].novelaiApi, label: "\u63D2\u4EF6\u8BBE\u7F6E\u7684api_key_novel" })
+          body: JSON.stringify({ key: "api_key_novel", value: extension_settings52[extensionName].novelaiApi, label: "\u63D2\u4EF6\u8BBE\u7F6E\u7684api_key_novel" })
         });
         if (!re2.ok) {
           const errorText = await re2.text();
@@ -65871,8 +68276,8 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
         try {
           const novelid = JSON.parse(responseText);
           if (novelid && novelid.id) {
-            extension_settings51[extensionName].novelaiApi_id = novelid.id;
-            saveSettingsDebounced29();
+            extension_settings52[extensionName].novelaiApi_id = novelid.id;
+            saveSettingsDebounced31();
             await fetch("/api/secrets/rotate", {
               method: "POST",
               headers: getRequestHeaders(window.token),
@@ -65884,7 +68289,13 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
           console.warn(`Could not parse JSON from /api/secrets/write. Response was: "${responseText}". Continuing without rotating key.`);
         }
       }
-      const tavernAIPayload = { prompt: prompt2, model: extension_settings51[extensionName].novelaimode, sampler: preset_data.sampler, scheduler: preset_data.noise_schedule, steps: preset_data.steps, scale: preset_data.scale, width: preset_data.width, height: preset_data.height, negative_prompt: preset_data.negative_prompt, decrisper: preset_data.dynamic_thresholding, variety_boost: preset_data.skip_cfg_above_sigma, sm: preset_data.sm, sm_dyn: preset_data.sm_dyn, seed: preset_data.seed };
+      const tavernAIPayload = { prompt: prompt2, model: extension_settings52[extensionName].novelaimode, sampler: preset_data.sampler, scheduler: preset_data.noise_schedule, steps: preset_data.steps, scale: preset_data.scale, width: preset_data.width, height: preset_data.height, negative_prompt: preset_data.negative_prompt, decrisper: preset_data.dynamic_thresholding, variety_boost: preset_data.skip_cfg_above_sigma, sm: preset_data.sm, sm_dyn: preset_data.sm_dyn, seed: preset_data.seed };
+      if (extension_settings52[extensionName].novelaimode.includes("nai-diffusion-5")) {
+        tavernAIPayload.straight_alpha = preset_data.straight_alpha;
+        tavernAIPayload.tag_hint_qt = preset_data.tag_hint_qt;
+        tavernAIPayload.tag_hint_uc_preset = preset_data.tag_hint_uc_preset;
+        tavernAIPayload.use_new_shared_trial = true;
+      }
       addLog(`\u6700\u7EC8\u751F\u56FE\u53C2\u6570 (payload): ${JSON.stringify(tavernAIPayload, null, 2)}`);
       const result = await fetch("/api/novelai/generate-image", { method: "POST", headers: getRequestHeaders(window.token), body: JSON.stringify(tavernAIPayload), signal: currentAbortController2?.signal });
       if (currentCloudQueueInfo) {
@@ -65894,7 +68305,7 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
       setTimeout(() => {
         console.log("xiancheng \u4E3Atrue");
         window.xiancheng = true;
-      }, extension_settings51[extensionName].imageGenInterval);
+      }, extension_settings52[extensionName].imageGenInterval);
       ;
       if (!result.ok) {
         const text = await result.text();
@@ -65912,9 +68323,9 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
       let data11 = "";
       let Authorization = "Bearer " + access_token;
       let recaptcha_token = "";
-      data11 = { "input": prompt2, "model": extension_settings51[extensionName].novelaimode, "action": "generate", "parameters": payload, "use_new_shared_trial": true };
+      data11 = { "input": prompt2, "model": extension_settings52[extensionName].novelaimode, "action": "generate", "parameters": payload, "use_new_shared_trial": true };
       if (recaptcha_token) {
-        data11 = { "input": prompt2, "model": extension_settings51[extensionName].novelaimode, "action": "generate", "parameters": payload, "recaptcha_token": recaptcha_token.token, "use_new_shared_trial": true };
+        data11 = { "input": prompt2, "model": extension_settings52[extensionName].novelaimode, "action": "generate", "parameters": payload, "recaptcha_token": recaptcha_token.token, "use_new_shared_trial": true };
         Authorization = "Bearer " + recaptcha_token.token;
       }
       console.log("data11:", data11);
@@ -65928,7 +68339,7 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
       }
       ;
       window.xiancheng = false;
-      if (extension_settings51[extensionName].enableCloudQueue === "true") {
+      if (extension_settings52[extensionName].enableCloudQueue === "true") {
         const keyHash = await hashKey(access_token);
         const userId = getUserId();
         try {
@@ -65959,7 +68370,7 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
           setTimeout(() => {
             console.log("xiancheng \u4E3Atrue");
             window.xiancheng = true;
-          }, extension_settings51[extensionName].imageGenInterval);
+          }, extension_settings52[extensionName].imageGenInterval);
           ;
           addLog(`\u91CD\u8BD5\u5931\u8D25: ${finalError.message}`);
           throw finalError;
@@ -65972,7 +68383,7 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
       setTimeout(() => {
         console.log("xiancheng \u4E3Atrue");
         window.xiancheng = true;
-      }, extension_settings51[extensionName].imageGenInterval);
+      }, extension_settings52[extensionName].imageGenInterval);
       ;
       if (!response.ok) {
         const mess = await response.text();
@@ -66018,10 +68429,10 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
       await completeQueue(currentCloudQueueInfo.keyHash, currentCloudQueueInfo.userId, currentCloudQueueInfo.taskId, currentCloudQueueInfo.lockToken);
       currentCloudQueueInfo = null;
     }
-    if (String(extension_settings51[extensionName].convertToJpegStorage) === "true") {
+    if (String(extension_settings52[extensionName].convertToJpegStorage) === "true") {
       imageUrl = await convertImageToJpeg(imageUrl);
     }
-    return { image: imageUrl, change: change_ || "" };
+    return { image: imageUrl, change: change_ || "", genParams: _nai_gen_params };
   } catch (error) {
     if (currentCloudQueueInfo) {
       if (isAborted) {
@@ -66034,7 +68445,7 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
     setTimeout(() => {
       console.log("xiancheng \u4E3Atrue");
       window.xiancheng = true;
-    }, extension_settings51[extensionName].imageGenInterval);
+    }, extension_settings52[extensionName].imageGenInterval);
     ;
     const isAborted = error.name === "AbortError" || error.message === "\u4EFB\u52A1\u5DF2\u53D6\u6D88";
     if (isAborted) {
@@ -66049,11 +68460,12 @@ async function generateNovelAIImage({ prompt: link, width: Xwidth, height: Xheig
 }
 async function generateNovelAIInpaint({ prompt: link, width: Xwidth, height: Xheight, change }) {
   clearLog();
+  let _inpaint_gen_params = null;
   const sizeRegex = /,?\s*(\d{2,4})x(\d{2,4})(?=[;\s]*$)/i;
   if (typeof link === "string") {
     const match = link.match(sizeRegex);
     if (match) {
-      if (String(extension_settings51[extensionName].aiAutonomousResolution) !== "false") {
+      if (String(extension_settings52[extensionName].aiAutonomousResolution) !== "false") {
         Xwidth = parseInt(match[1], 10);
         Xheight = parseInt(match[2], 10);
       }
@@ -66063,7 +68475,7 @@ async function generateNovelAIInpaint({ prompt: link, width: Xwidth, height: Xhe
   if (typeof change === "string") {
     const match = change.match(sizeRegex);
     if (match) {
-      if (String(extension_settings51[extensionName].aiAutonomousResolution) !== "false") {
+      if (String(extension_settings52[extensionName].aiAutonomousResolution) !== "false") {
         Xwidth = parseInt(match[1], 10);
         Xheight = parseInt(match[2], 10);
       }
@@ -66102,14 +68514,14 @@ async function generateNovelAIInpaint({ prompt: link, width: Xwidth, height: Xhe
     addLog(`[NovelAI Inpaint] \u63D0\u793A\u8BCD: ${inpaintPrompt}`);
     addLog(`[NovelAI Inpaint] \u8D1F\u9762\u63D0\u793A\u8BCD: ${negativePrompt}`);
     addLog(`[NovelAI Inpaint] \u5F3A\u5EA6: ${strength}`);
-    const access_token = extension_settings51[extensionName].novelaiApi;
+    const access_token = extension_settings52[extensionName].novelaiApi;
     if (!access_token || access_token === "000000") {
       throw new Error("\u8BF7\u586B\u5199 NovelAI API Key");
     }
-    const imgWidth = Number(window.novelaiInpaintWidth) || Number(Xwidth) || Number(extension_settings51[extensionName].novelai_width) || 1024;
-    const imgHeight = Number(window.novelaiInpaintHeight) || Number(Xheight) || Number(extension_settings51[extensionName].novelai_height) || 1024;
+    const imgWidth = Number(window.novelaiInpaintWidth) || Number(Xwidth) || Number(extension_settings52[extensionName].novelai_width) || 1024;
+    const imgHeight = Number(window.novelaiInpaintHeight) || Number(Xheight) || Number(extension_settings52[extensionName].novelai_height) || 1024;
     addLog(`[NovelAI Inpaint] \u56FE\u50CF\u5C3A\u5BF8: ${imgWidth}x${imgHeight}`);
-    const seed = extension_settings51[extensionName].novelai_seed === "0" || extension_settings51[extensionName].novelai_seed === "" || extension_settings51[extensionName].novelai_seed === "-1" ? generateRandomSeed() : Number(extension_settings51[extensionName].novelai_seed);
+    const seed = extension_settings52[extensionName].novelai_seed === "0" || extension_settings52[extensionName].novelai_seed === "" || extension_settings52[extensionName].novelai_seed === "-1" ? generateRandomSeed() : Number(extension_settings52[extensionName].novelai_seed);
     const payload = {
       "action": "infill",
       "input": inpaintPrompt,
@@ -66117,9 +68529,9 @@ async function generateNovelAIInpaint({ prompt: link, width: Xwidth, height: Xhe
       "parameters": {
         "width": imgWidth,
         "height": imgHeight,
-        "scale": Number(extension_settings51[extensionName].nai3Scale) || 5,
-        "sampler": extension_settings51[extensionName].novelai_sampler || "k_euler_ancestral",
-        "steps": Number(extension_settings51[extensionName].novelai_steps) || 28,
+        "scale": Number(extension_settings52[extensionName].nai3Scale) || 5,
+        "sampler": extension_settings52[extensionName].novelai_sampler || "k_euler_ancestral",
+        "steps": Number(extension_settings52[extensionName].novelai_steps) || 28,
         "seed": seed,
         "n_samples": 1,
         "image": imageBase64,
@@ -66139,8 +68551,8 @@ async function generateNovelAIInpaint({ prompt: link, width: Xwidth, height: Xhe
         "legacy": false,
         "legacy_uc": false,
         "legacy_v3_extend": false,
-        "normalize_reference_strength_multiple": extension_settings51[extensionName].normalizeRefStrength === "true",
-        "noise_schedule": extension_settings51[extensionName].Schedule || "karras",
+        "normalize_reference_strength_multiple": extension_settings52[extensionName].normalizeRefStrength === "true",
+        "noise_schedule": extension_settings52[extensionName].Schedule || "karras",
         "qualityToggle": true,
         "skip_cfg_above_sigma": 19,
         "ucPreset": 0,
@@ -66170,6 +68582,19 @@ async function generateNovelAIInpaint({ prompt: link, width: Xwidth, height: Xhe
       }
     };
     addLog(`[NovelAI Inpaint] \u8BF7\u6C42\u53C2\u6570\u5DF2\u6784\u5EFA\u5B8C\u6210`);
+    _inpaint_gen_params = buildGenParams("NovelAI \u5C40\u90E8\u91CD\u7ED8", {
+      model: payload.model,
+      promptReplaceId: extension_settings52[extensionName].prompt_replace_id,
+      resolvedPrompt: inpaintPrompt,
+      negativePrompt,
+      width: payload.parameters.width,
+      height: payload.parameters.height,
+      seed: payload.parameters.seed,
+      steps: payload.parameters.steps,
+      sampler: payload.parameters.sampler,
+      scheduler: payload.parameters.noise_schedule,
+      cfgScale: payload.parameters.scale
+    });
     while (!window.xiancheng) {
       if (!taskQueue.isTaskInQueue(taskId)) {
         addLog("[NovelAI Inpaint] \u4EFB\u52A1\u5DF2\u88AB\u7528\u6237\u53D6\u6D88");
@@ -66178,7 +68603,7 @@ async function generateNovelAIInpaint({ prompt: link, width: Xwidth, height: Xhe
       await sleep(1e3);
     }
     window.xiancheng = false;
-    if (extension_settings51[extensionName].enableCloudQueue === "true") {
+    if (extension_settings52[extensionName].enableCloudQueue === "true") {
       const keyHash = await hashKey(access_token);
       const userId = getUserId();
       try {
@@ -66194,11 +68619,11 @@ async function generateNovelAIInpaint({ prompt: link, width: Xwidth, height: Xhe
     }
     taskQueue.updateStatus(taskId, "running");
     let urlObj = new URL("https://image.novelai.net/ai/generate-image");
-    if (extension_settings51[extensionName].novelaisite != "\u5B98\u7F51") {
-      if (extension_settings51[extensionName].client == "jiuguan") {
+    if (extension_settings52[extensionName].novelaisite != "\u5B98\u7F51") {
+      if (extension_settings52[extensionName].client == "jiuguan") {
         throw new Error("\u9152\u9986\u7AEF\u4E0D\u652F\u6301\u81EA\u5B9A\u4E49\u7AD9\u70B9\u7684\u5C40\u90E8\u91CD\u7ED8\uFF01");
       }
-      const otherSite = normalizeNovelAIOtherSiteUrl(extension_settings51[extensionName].novelaiOtherSite);
+      const otherSite = normalizeNovelAIOtherSiteUrl(extension_settings52[extensionName].novelaiOtherSite);
       if (!otherSite) {
         throw new Error("\u5DF2\u9009\u62E9\u7B2C\u4E09\u65B9\u7AD9\u70B9\uFF0C\u4F46\u672A\u586B\u5199 novelaiOtherSite \u5730\u5740");
       }
@@ -66232,7 +68657,7 @@ async function generateNovelAIInpaint({ prompt: link, width: Xwidth, height: Xhe
         }
         setTimeout(() => {
           window.xiancheng = true;
-        }, extension_settings51[extensionName].imageGenInterval);
+        }, extension_settings52[extensionName].imageGenInterval);
         addLog(`[NovelAI Inpaint] \u91CD\u8BD5\u5931\u8D25: ${finalError.message}`);
         throw finalError;
       }
@@ -66243,7 +68668,7 @@ async function generateNovelAIInpaint({ prompt: link, width: Xwidth, height: Xhe
     }
     setTimeout(() => {
       window.xiancheng = true;
-    }, extension_settings51[extensionName].imageGenInterval);
+    }, extension_settings52[extensionName].imageGenInterval);
     if (!response.ok) {
       const errorText = await response.text();
       let userFriendlyError = `\u8BF7\u6C42\u5931\u8D25, \u72B6\u6001\u7801: ${response.status}, \u9519\u8BEF\u4FE1\u606F: ${errorText}`;
@@ -66276,11 +68701,11 @@ async function generateNovelAIInpaint({ prompt: link, width: Xwidth, height: Xhe
     taskQueue.completeTask(taskId, true);
     currentTaskId4 = null;
     currentAbortController2 = null;
-    if (String(extension_settings51[extensionName].convertToJpegStorage) === "true") {
+    if (String(extension_settings52[extensionName].convertToJpegStorage) === "true") {
       imageUrl = await convertImageToJpeg(imageUrl);
     }
     addLog("[NovelAI Inpaint] \u5C40\u90E8\u91CD\u7ED8\u5B8C\u6210\uFF01");
-    return { image: imageUrl, change: change || "" };
+    return { image: imageUrl, change: change || "", genParams: _inpaint_gen_params };
   } catch (error) {
     if (currentCloudQueueInfo) {
       const isAborted2 = error.name === "AbortError" || error.message === "\u4EFB\u52A1\u5DF2\u53D6\u6D88";
@@ -66293,7 +68718,7 @@ async function generateNovelAIInpaint({ prompt: link, width: Xwidth, height: Xhe
     }
     setTimeout(() => {
       window.xiancheng = true;
-    }, extension_settings51[extensionName].imageGenInterval);
+    }, extension_settings52[extensionName].imageGenInterval);
     const isAborted = error.name === "AbortError" || error.message === "\u4EFB\u52A1\u5DF2\u53D6\u6D88";
     if (isAborted) {
       addLog("[NovelAI Inpaint] \u8BF7\u6C42\u5DF2\u88AB\u7528\u6237\u53D6\u6D88");
@@ -66325,11 +68750,11 @@ async function novelaigenerate(requestData) {
   }
   if (change && change.includes("{ComfyUI\u5C40\u90E8\u91CD\u7ED8}")) {
     try {
-      const { image: imageUrl, change: returnedChange, isVideo, format } = await generateComfyUIImage({ prompt: prompt2, width, height, change, extraNegativePrompt });
+      const { image: imageUrl, change: returnedChange, isVideo, format, genParams } = await generateComfyUIImage({ prompt: prompt2, width, height, change, extraNegativePrompt });
       const cleanedChange = returnedChange.replaceAll("{ComfyUI\u5C40\u90E8\u91CD\u7ED8}", "");
       try {
-        if (extension_settings51[extensionName].cache != "0") {
-          await setItemImg(prompt2, imageUrl, { change: cleanedChange, isVideo, format });
+        if (extension_settings52[extensionName].cache != "0") {
+          await setItemImg(prompt2, imageUrl, { change: cleanedChange, isVideo, format, genParams });
           addLog(`\u56FE\u50CF\u5DF2\u5B58\u5165\u6570\u636E\u5E93 for prompt: ${prompt2}`);
         } else {
           addLog(`\u7F13\u5B58\u8BBE\u7F6E\u4E3A\u4E0D\u5B58\u5165\u6570\u636E\u5E93`);
@@ -66357,11 +68782,11 @@ async function novelaigenerate(requestData) {
   }
   if (change && change.includes("{NovelAI\u5C40\u90E8\u91CD\u7ED8}")) {
     try {
-      const { image: imageUrl, change: returnedChange } = await generateNovelAIInpaint({ prompt: prompt2, width, height, change });
+      const { image: imageUrl, change: returnedChange, genParams } = await generateNovelAIInpaint({ prompt: prompt2, width, height, change });
       const cleanedChange = returnedChange.replaceAll("{NovelAI\u5C40\u90E8\u91CD\u7ED8}", "");
       try {
-        if (extension_settings51[extensionName].cache != "0") {
-          await setItemImg(prompt2, imageUrl, { change: cleanedChange });
+        if (extension_settings52[extensionName].cache != "0") {
+          await setItemImg(prompt2, imageUrl, { change: cleanedChange, genParams });
           addLog(`\u56FE\u50CF\u5DF2\u5B58\u5165\u6570\u636E\u5E93 for prompt: ${prompt2}`);
         } else {
           addLog(`\u7F13\u5B58\u8BBE\u7F6E\u4E3A\u4E0D\u5B58\u5165\u6570\u636E\u5E93`);
@@ -66410,10 +68835,10 @@ async function novelaigenerate(requestData) {
     return;
   }
   try {
-    const { image: imageUrl, change: returnedChange } = await generateNovelAIImage({ prompt: prompt2, width, height, change, extraNegativePrompt });
+    const { image: imageUrl, change: returnedChange, genParams } = await generateNovelAIImage({ prompt: prompt2, width, height, change, extraNegativePrompt });
     try {
-      if (extension_settings51[extensionName].cache != "0") {
-        await setItemImg(prompt2, imageUrl, { change: returnedChange });
+      if (extension_settings52[extensionName].cache != "0") {
+        await setItemImg(prompt2, imageUrl, { change: returnedChange, genParams });
         addLog(`\u56FE\u50CF\u5DF2\u5B58\u5165\u6570\u636E\u5E93 for prompt: ${prompt2}`);
       } else {
         addLog(`\u7F13\u5B58\u8BBE\u7F6E\u4E3A\u4E0D\u5B58\u5165\u6570\u636E\u5E93`);
@@ -66473,7 +68898,7 @@ function initializeNovelAIListener() {
   addLog("NovelAI \u751F\u56FE\u4E8B\u4EF6\u76D1\u542C\u5668\u5DF2\u521D\u59CB\u5316\u3002");
 }
 async function replaceWithnovelai() {
-  if (extension_settings51[extensionName].mode == "novelai") {
+  if (extension_settings52[extensionName].mode == "novelai") {
     if (!window.initializeNovelAIListener) {
       window.initializeNovelAIListener = true;
       initializeNovelAIListener();
@@ -66492,12 +68917,531 @@ async function replaceWithnovelai() {
 init_config();
 init_database();
 init_configDatabase();
+
+
+
+
+// utils/configStorageDiagnose.js
+init_config();
+init_utils();
+
+
+var CONFIG_FOLDER = "chatu8_config";
+var CONFIG_DB_NAME2 = "chatu8_config_images";
+var CONFIG_STORE_NAME2 = "config_images";
+function baseName(p) {
+  return String(p || "").split("/").pop();
+}
+function extCount(names) {
+  const c = {};
+  for (const n of names) {
+    const ext = n.includes(".") ? n.split(".").pop().toLowerCase() : "(\u65E0\u6269\u5C55\u540D)";
+    c[ext] = (c[ext] || 0) + 1;
+  }
+  return c;
+}
+function classifyKey(key) {
+  if (key.startsWith("cfgimg_")) return "\u914D\u7F6E\u56FE\u7247";
+  if (key.startsWith("ai_chat_data_")) return "AI\u804A\u5929\u6570\u636E";
+  if (key.startsWith("kb_content_")) return "\u77E5\u8BC6\u5E93\u5185\u5BB9";
+  if (key.startsWith("log_session_")) return "\u65E5\u5FD7\u4F1A\u8BDD";
+  if (key === "ai_chat_history" || key === "ai_chat_index") return "AI\u804A\u5929\u7D22\u5F15";
+  if (key === "log_index") return "\u65E5\u5FD7\u7D22\u5F15";
+  return "\u5176\u4ED6JSON\u6570\u636E";
+}
+async function getIndexedDbIds() {
+  return new Promise((resolve) => {
+    try {
+      const req = indexedDB.open(CONFIG_DB_NAME2);
+      req.onsuccess = () => {
+        const db2 = req.result;
+        if (!db2.objectStoreNames.contains(CONFIG_STORE_NAME2)) {
+          db2.close();
+          return resolve([]);
+        }
+        const tx = db2.transaction([CONFIG_STORE_NAME2], "readonly");
+        const store = tx.objectStore(CONFIG_STORE_NAME2);
+        const kreq = store.getAllKeys();
+        kreq.onsuccess = () => {
+          resolve(kreq.result || []);
+          db2.close();
+        };
+        kreq.onerror = () => {
+          resolve([]);
+          db2.close();
+        };
+      };
+      req.onerror = () => resolve([]);
+    } catch (_) {
+      resolve([]);
+    }
+  });
+}
+async function probeSize(path) {
+  try {
+    const url = path.startsWith("/") ? path : `/${path}`;
+    const resp = await fetch(url, { method: "HEAD" });
+    if (!resp.ok) return null;
+    const len = resp.headers.get("content-length");
+    return len ? Number(len) : null;
+  } catch (_) {
+    return null;
+  }
+}
+function fmtMB(bytes) {
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+async function diagnoseConfigStorage(options = {}) {
+  const { probeSizes = true } = options;
+  const out = { folder: CONFIG_FOLDER };
+  console.group(`%c[ConfigDB \u8BCA\u65AD] ${CONFIG_FOLDER} \u6587\u4EF6\u5939\uFF08\u53EA\u8BFB\uFF0C\u4E0D\u4F1A\u5220\u9664\u4EFB\u4F55\u4E1C\u897F\uFF09`, "color:#2196F3;font-weight:bold");
+  try {
+    const resp = await fetch("/api/images/list", {
+      method: "POST",
+      headers: getRequestHeaders(window.token),
+      body: JSON.stringify({ folder: CONFIG_FOLDER, type: 7 })
+    });
+    if (!resp.ok) throw new Error(`\u5217\u8868\u8BF7\u6C42\u5931\u8D25: ${resp.status} ${resp.statusText}`);
+    const serverFiles = await resp.json();
+    if (!Array.isArray(serverFiles)) throw new Error("\u670D\u52A1\u5668\u8FD4\u56DE\u683C\u5F0F\u5F02\u5E38");
+    out.serverFileCount = serverFiles.length;
+    console.log("\u30101. \u670D\u52A1\u5668\u5B9E\u9645\u6587\u4EF6\u3011");
+    console.log(`  \u603B\u6570: ${serverFiles.length}`, extCount(serverFiles));
+    const registry = extension_settings53[extensionName]?.configImageStorage || {};
+    const registryKeys = Object.keys(registry);
+    const kindCount = {};
+    const referencedFiles = /* @__PURE__ */ new Set();
+    const registryNoPath = [];
+    for (const key of registryKeys) {
+      const kind = classifyKey(key);
+      kindCount[kind] = (kindCount[kind] || 0) + 1;
+      const p = registry[key]?.path;
+      if (p) referencedFiles.add(baseName(p));
+      else registryNoPath.push(key);
+    }
+    out.registryCount = registryKeys.length;
+    out.registryKinds = kindCount;
+    console.log("\u30102. \u6CE8\u518C\u8868 configImageStorage\u3011");
+    console.log(`  \u6761\u76EE\u603B\u6570: ${registryKeys.length}`);
+    console.log("  \u6309\u7528\u9014\u5206\u7C7B:", kindCount);
+    console.log(`  \u5F15\u7528\u7684\u552F\u4E00\u6587\u4EF6\u540D\u6570: ${referencedFiles.size}`);
+    if (registryNoPath.length) {
+      console.log(`  \u26A0 \u6709 ${registryNoPath.length} \u6761\u6CA1\u6709 path\uFF08\u5B58\u5728 IndexedDB \u800C\u975E\u670D\u52A1\u5668\uFF09`);
+    }
+    const dbIds = await getIndexedDbIds();
+    out.indexedDbCount = dbIds.length;
+    console.log("\u30103. \u6D4F\u89C8\u5668 IndexedDB \u6761\u76EE\u3011");
+    console.log(`  \u6761\u76EE\u6570: ${dbIds.length}\uFF08\u5B58\u5728\u6D4F\u89C8\u5668\u672C\u5730\uFF0C\u4E0D\u5360\u670D\u52A1\u5668\u7A7A\u95F4\uFF0C\u4E0E\u5B64\u513F\u5224\u5B9A\u65E0\u5173\uFF09`);
+    const serverSet = new Set(serverFiles);
+    const orphans = serverFiles.filter((f) => !referencedFiles.has(f));
+    const missing = [...referencedFiles].filter((f) => !serverSet.has(f));
+    out.orphans = orphans;
+    out.missing = missing;
+    out.orphanTotalBytes = 0;
+    const missingSet = new Set(missing);
+    out.missingEntries = registryKeys.filter((k) => registry[k]?.path && missingSet.has(baseName(registry[k].path))).map((k) => ({ key: k, path: registry[k].path, kind: classifyKey(k) }));
+    console.log("\u30104. \u4EA4\u53C9\u6BD4\u5BF9\u7ED3\u679C\u3011");
+    console.log(`  \u2713 \u6709\u6CE8\u518C\u8868\u5F15\u7528\u7684\u6587\u4EF6: ${serverFiles.length - orphans.length}`);
+    console.log(`  \u26A0 \u5B64\u513F\u6587\u4EF6\uFF08\u670D\u52A1\u5668\u6709\u3001\u6CE8\u518C\u8868\u65E0\u5F15\u7528\uFF09: ${orphans.length}`, extCount(orphans));
+    console.log(`  \u26A0 \u5931\u6548\u5F15\u7528\uFF08\u6CE8\u518C\u8868\u6709\u3001\u670D\u52A1\u5668\u5DF2\u65E0\u6587\u4EF6\uFF09: ${missing.length} \u4E2A\u6587\u4EF6\u540D / ${out.missingEntries.length} \u6761\u6CE8\u518C\u8868\u952E`);
+    if (missing.length) {
+      console.log("    \u5931\u6548\u5F15\u7528\u5BF9\u5E94\u7684\u6587\u4EF6\u540D:", missing.slice(0, 30));
+      console.log("    \u5BF9\u5E94\u6CE8\u518C\u8868\u952E\uFF08\u8FD9\u4E9B\u914D\u7F6E\u9879\u7684\u6570\u636E\u5DF2\u4E22\u5931\uFF09:");
+      console.table(out.missingEntries.slice(0, 40).map((e) => ({ \u952E: e.key, \u7528\u9014: e.kind, \u8DEF\u5F84: e.path })));
+    }
+    let settingsBlob = "";
+    try {
+      settingsBlob = JSON.stringify(extension_settings53[extensionName] || {});
+    } catch (_) {
+    }
+    const orphanSafe = [];
+    const orphanRisky = [];
+    for (const f of orphans) {
+      if (settingsBlob.includes(f)) orphanRisky.push(f);
+      else orphanSafe.push(f);
+    }
+    out.orphanSafe = orphanSafe;
+    out.orphanRisky = orphanRisky;
+    console.log("\u30105. \u5B64\u513F\u6587\u4EF6\u4E8C\u6B21\u6821\u9A8C\u3011");
+    console.log(`  \u5728\u63D2\u4EF6\u8BBE\u7F6E\u5168\u6587\u4E2D\u627E\u4E0D\u5230 \u2192 \u53EF\u5B89\u5168\u5220\u9664: ${orphanSafe.length}`);
+    console.log(`  \u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u4ECD\u88AB\u63D0\u53CA \u2192 \u9700\u4EBA\u5DE5\u786E\u8BA4: ${orphanRisky.length}`);
+    if (orphanRisky.length) {
+      console.warn("  \u26A0 \u4EE5\u4E0B\u5B64\u513F\u867D\u65E0\u6CE8\u518C\u8868\u5F15\u7528\uFF0C\u4F46\u8BBE\u7F6E\u91CC\u4ECD\u51FA\u73B0\uFF0C\u6682\u4E0D\u5EFA\u8BAE\u5220\u9664:");
+      console.log("   ", orphanRisky);
+    }
+    const orphanSizes = {};
+    out.orphanSizes = orphanSizes;
+    if (probeSizes && orphans.length) {
+      console.log("\u30106. \u5B64\u513F\u6587\u4EF6\u4F53\u79EF\u63A2\u6D4B\u4E2D...\u3011");
+      const rows = [];
+      let totalBytes = 0;
+      for (const f of orphans) {
+        const size = await probeSize(`/user/images/${CONFIG_FOLDER}/${f}`);
+        if (typeof size === "number") {
+          totalBytes += size;
+          orphanSizes[f] = size;
+        }
+        rows.push({
+          \u6587\u4EF6\u540D: f,
+          \u4F53\u79EF: typeof size === "number" ? `${(size / 1024).toFixed(0)} KB` : "(\u63A2\u6D4B\u5931\u8D25)",
+          \u5224\u5B9A: orphanSafe.includes(f) ? "\u53EF\u5B89\u5168\u5220\u9664" : "\u9700\u4EBA\u5DE5\u786E\u8BA4"
+        });
+      }
+      out.orphanTotalBytes = totalBytes;
+      console.log(`  \u5B64\u513F\u6587\u4EF6\u5408\u8BA1\u7EA6 ${fmtMB(totalBytes)}`);
+      console.table(rows);
+    } else if (orphans.length) {
+      console.log("\u30106. \u5B64\u513F\u6587\u4EF6\u6E05\u5355\u3011");
+      console.table(orphans.map((f) => ({
+        \u6587\u4EF6\u540D: f,
+        \u5224\u5B9A: orphanSafe.includes(f) ? "\u53EF\u5B89\u5168\u5220\u9664" : "\u9700\u4EBA\u5DE5\u786E\u8BA4"
+      })));
+    }
+    console.log("\u30107. \u6C47\u603B\u3011");
+    console.log(`  \u670D\u52A1\u5668\u6587\u4EF6 ${serverFiles.length} \u4E2A`);
+    console.log(`  \u5176\u4E2D\u88AB\u5F15\u7528 ${serverFiles.length - orphans.length} \u4E2A\uFF0C\u5B64\u513F ${orphans.length} \u4E2A`);
+    if (typeof out.orphanTotalBytes === "number") {
+      console.log(`  \u5B64\u513F\u53EF\u56DE\u6536\u7A7A\u95F4: ${fmtMB(out.orphanTotalBytes)}`);
+    }
+    console.log(`  \u6CE8\u518C\u8868\u5931\u6548\u5F15\u7528 ${missing.length} \u4E2A`);
+    console.log("  \u2139 \u672C\u6B21\u4E3A\u53EA\u8BFB\u8BCA\u65AD\uFF0C\u672A\u5220\u9664\u4EFB\u4F55\u6587\u4EF6\u3002");
+    console.log("  \u2139 \u5B8C\u6574\u7ED3\u679C\u5BF9\u8C61\u5DF2\u8FD4\u56DE\uFF0C\u53EF\u5C55\u5F00\u4E0B\u65B9\u67E5\u770B\uFF1A");
+    console.log(out);
+  } catch (error) {
+    console.error("[ConfigDB \u8BCA\u65AD] \u5931\u8D25:", error);
+    out.error = error.message;
+  } finally {
+    console.groupEnd();
+  }
+  return out;
+}
+async function cleanupConfigStorage(options = {}) {
+  const { orphanFiles = [], deadKeys = [], onProgress = null } = options;
+  const result = { deletedFiles: [], deletedKeys: [], skipped: [], errors: [] };
+  let settingsBlob = "";
+  try {
+    settingsBlob = JSON.stringify(extension_settings53[extensionName] || {});
+  } catch (_) {
+  }
+  const total = orphanFiles.length;
+  for (let i = 0; i < orphanFiles.length; i++) {
+    const fileName = orphanFiles[i];
+    if (onProgress) onProgress(i, total, fileName);
+    if (settingsBlob && settingsBlob.includes(fileName)) {
+      result.skipped.push(fileName);
+      console.warn(`[ConfigDB \u6E05\u7406] \u8DF3\u8FC7\uFF08\u8BBE\u7F6E\u4E2D\u4ECD\u88AB\u5F15\u7528\uFF09: ${fileName}`);
+      continue;
+    }
+    try {
+      const resp = await fetch("/api/images/delete", {
+        method: "POST",
+        headers: getRequestHeaders(window.token),
+        body: JSON.stringify({ path: `user/images/${CONFIG_FOLDER}/${fileName}` })
+      });
+      if (resp.ok || resp.status === 404) {
+        result.deletedFiles.push(fileName);
+      } else {
+        result.errors.push(`\u5220\u9664\u5931\u8D25 (${resp.status}): ${fileName}`);
+      }
+    } catch (e) {
+      result.errors.push(`\u5220\u9664\u5F02\u5E38: ${fileName} - ${e.message}`);
+    }
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  if (onProgress && total) onProgress(total, total, "");
+  if (deadKeys.length) {
+    const registry = extension_settings53[extensionName]?.configImageStorage;
+    if (registry) {
+      for (const key of deadKeys) {
+        if (key in registry) {
+          delete registry[key];
+          result.deletedKeys.push(key);
+        }
+      }
+      if (result.deletedKeys.length) saveSettingsDebounced32();
+    }
+  }
+  console.log(`[ConfigDB \u6E05\u7406] \u5B8C\u6210\uFF1A\u5220\u9664\u6587\u4EF6 ${result.deletedFiles.length} \u4E2A\uFF0C\u79FB\u9664\u6CE8\u518C\u8868\u6761\u76EE ${result.deletedKeys.length} \u6761\uFF0C\u8DF3\u8FC7 ${result.skipped.length} \u4E2A\uFF0C\u5931\u8D25 ${result.errors.length} \u4E2A`);
+  if (result.errors.length) console.warn("[ConfigDB \u6E05\u7406] \u5931\u8D25\u8BE6\u60C5:", result.errors);
+  return result;
+}
+if (typeof window !== "undefined") {
+  window.chatu8DiagnoseConfigStorage = diagnoseConfigStorage;
+  window.chatu8CleanupConfigStorage = cleanupConfigStorage;
+}
+
+// utils/configStorageCleanupModal.js
+init_ui_common();
+var CONFIG_FOLDER2 = "chatu8_config";
+var MODAL_ID = "st-chatu8-cfgclean-modal";
+function fileUrl(fileName) {
+  return `/user/images/${CONFIG_FOLDER2}/${encodeURIComponent(fileName)}`;
+}
+function escapeHtml2(str) {
+  return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+function fmtSize(bytes) {
+  if (typeof bytes !== "number" || !isFinite(bytes)) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+function fmtMB2(bytes) {
+  return `${((bytes || 0) / 1024 / 1024).toFixed(1)} MB`;
+}
+async function showConfigStorageCleanupModal() {
+  $(`#${MODAL_ID}`).remove();
+  const parent = document.getElementById("st-chatu8-settings") || document.body;
+  const $backdrop = $(`
+        <div id="${MODAL_ID}" class="st-chatu8-modal-backdrop st-chatu8-cfgclean-modal"
+             style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:10200;">
+            <div class="st-chatu8-confirm-box st-chatu8-popup-modal st-chatu8-popup-modal-large"
+                 style="max-width:700px; max-height:85vh; overflow-y:auto;">
+                <h3 class="st-chatu8-popup-title">\u914D\u7F6E\u5B58\u50A8\u6E05\u7406</h3>
+                <div class="st-chatu8-cfgclean-body">
+                    <div class="st-chatu8-cfgclean-empty">\u6B63\u5728\u626B\u63CF...</div>
+                </div>
+                <div class="st-chatu8-confirm-buttons">
+                    <button class="st-chatu8-btn st-chatu8-cfgclean-close-btn">\u5173\u95ED</button>
+                </div>
+            </div>
+        </div>
+    `);
+  $(parent).append($backdrop);
+  const $body = $backdrop.find(".st-chatu8-cfgclean-body");
+  const close = () => {
+    $backdrop.remove();
+  };
+  $backdrop.find(".st-chatu8-cfgclean-close-btn").on("click", close);
+  $backdrop.on("click", (e) => {
+    if (e.target === $backdrop[0]) close();
+  });
+  await renderContent($body, $backdrop);
+}
+async function renderContent($body, $backdrop) {
+  $body.html('<div class="st-chatu8-cfgclean-empty">\u6B63\u5728\u626B\u63CF\u670D\u52A1\u5668\u6587\u4EF6\u4E0E\u6CE8\u518C\u8868...</div>');
+  let data;
+  try {
+    data = await diagnoseConfigStorage();
+  } catch (e) {
+    $body.html(`<div class="st-chatu8-cfgclean-empty">\u626B\u63CF\u5931\u8D25: ${escapeHtml2(e.message)}</div>`);
+    return;
+  }
+  if (data.error) {
+    $body.html(`<div class="st-chatu8-cfgclean-empty">\u626B\u63CF\u5931\u8D25: ${escapeHtml2(data.error)}</div>`);
+    return;
+  }
+  const orphans = data.orphans || [];
+  const sizes = data.orphanSizes || {};
+  const riskySet = new Set(data.orphanRisky || []);
+  const missingEntries = data.missingEntries || [];
+  const summary = `\u670D\u52A1\u5668\u6587\u4EF6 ${data.serverFileCount} \u4E2A \xB7 \u5B64\u513F ${orphans.length} \u4E2A\uFF08${fmtMB2(data.orphanTotalBytes)}\uFF09\xB7 \u5931\u6548\u5F15\u7528 ${missingEntries.length} \u6761`;
+  const parts = [`<p class="st-chatu8-popup-description">${escapeHtml2(summary)}</p>`];
+  parts.push('<div class="st-chatu8-cfgclean-section-title">\u5B64\u513F\u6587\u4EF6\uFF08\u670D\u52A1\u5668\u4E0A\u5B58\u5728\uFF0C\u4F46\u6CE8\u518C\u8868\u65E0\u5F15\u7528\uFF09</div>');
+  if (!orphans.length) {
+    parts.push('<div class="st-chatu8-cfgclean-empty">\u6CA1\u6709\u5B64\u513F\u6587\u4EF6\uFF0C\u65E0\u9700\u6E05\u7406\u3002</div>');
+  } else {
+    parts.push(`
+            <div class="st-chatu8-import-toolbar">
+                <button class="st-chatu8-btn" data-act="orphan-all"><i class="fa-solid fa-check-double"></i> \u5168\u9009</button>
+                <button class="st-chatu8-btn" data-act="orphan-none"><i class="fa-solid fa-xmark"></i> \u53D6\u6D88\u5168\u9009</button>
+                <button class="st-chatu8-btn danger" data-act="orphan-del"><i class="fa-solid fa-trash"></i> \u5220\u9664\u9009\u4E2D</button>
+            </div>
+            <div class="st-chatu8-import-list" data-list="orphan">
+        `);
+    orphans.forEach((f, i) => {
+      const risky = riskySet.has(f);
+      const id = `cfgclean-orphan-${i}`;
+      parts.push(`
+                <div class="st-chatu8-import-item st-chatu8-cfgclean-item">
+                    <input type="checkbox" class="st-chatu8-import-checkbox" id="${id}"
+                           data-file="${escapeHtml2(f)}" ${risky ? "" : "checked"}>
+                    <div class="st-chatu8-cfgclean-thumb" data-file="${escapeHtml2(f)}" title="\u70B9\u51FB\u9884\u89C8">
+                        <img loading="lazy" src="${fileUrl(f)}" alt="${escapeHtml2(f)}">
+                    </div>
+                    <label class="st-chatu8-import-name" for="${id}">
+                        ${escapeHtml2(f)}
+                        <span class="st-chatu8-cfgclean-size">${fmtSize(sizes[f])}</span>
+                        ${risky ? '<span class="st-chatu8-cfgclean-badge">\u9700\u4EBA\u5DE5\u786E\u8BA4</span>' : ""}
+                    </label>
+                </div>
+            `);
+    });
+    parts.push("</div>");
+    parts.push('<div class="st-chatu8-cfgclean-empty">\u63D0\u793A\uFF1A\u90E8\u5206\u6587\u4EF6\u662F\u4F2A\u88C5\u6210 .png \u7684 JSON \u6570\u636E\uFF0C\u7F29\u7565\u56FE\u65E0\u6CD5\u663E\u793A\u5C5E\u6B63\u5E38\u73B0\u8C61\uFF0C\u4E0D\u4EE3\u8868\u6587\u4EF6\u635F\u574F\u3002\u5224\u5B9A\u53EF\u5220\u9664\u7684\u4F9D\u636E\u662F\u6CE8\u518C\u8868\u65E0\u5F15\u7528\u3002</div>');
+  }
+  parts.push('<div class="st-chatu8-cfgclean-section-title">\u5931\u6548\u5F15\u7528\uFF08\u6CE8\u518C\u8868\u6709\u8BB0\u5F55\uFF0C\u4F46\u670D\u52A1\u5668\u6587\u4EF6\u5DF2\u4E0D\u5B58\u5728\uFF09</div>');
+  if (!missingEntries.length) {
+    parts.push('<div class="st-chatu8-cfgclean-empty">\u6CA1\u6709\u5931\u6548\u5F15\u7528\u3002</div>');
+  } else {
+    parts.push(`
+            <div class="st-chatu8-import-toolbar">
+                <button class="st-chatu8-btn" data-act="dead-all"><i class="fa-solid fa-check-double"></i> \u5168\u9009</button>
+                <button class="st-chatu8-btn" data-act="dead-none"><i class="fa-solid fa-xmark"></i> \u53D6\u6D88\u5168\u9009</button>
+                <button class="st-chatu8-btn danger" data-act="dead-del"><i class="fa-solid fa-broom"></i> \u6E05\u7406\u9009\u4E2D</button>
+            </div>
+            <div class="st-chatu8-import-list" data-list="dead">
+        `);
+    missingEntries.forEach((e, i) => {
+      const id = `cfgclean-dead-${i}`;
+      parts.push(`
+                <div class="st-chatu8-import-item st-chatu8-cfgclean-item">
+                    <input type="checkbox" class="st-chatu8-import-checkbox" id="${id}"
+                           data-key="${escapeHtml2(e.key)}" checked>
+                    <label class="st-chatu8-import-name" for="${id}">
+                        ${escapeHtml2(e.key)}
+                        <span class="st-chatu8-cfgclean-size">${escapeHtml2(e.kind)}</span>
+                    </label>
+                </div>
+            `);
+    });
+    parts.push("</div>");
+    parts.push('<div class="st-chatu8-cfgclean-empty">\u8FD9\u4E9B\u6761\u76EE\u6307\u5411\u7684\u6587\u4EF6\u5DF2\u4ECE\u670D\u52A1\u5668\u6D88\u5931\uFF0C\u6570\u636E\u5DF2\u65E0\u6CD5\u6062\u590D\uFF0C\u6E05\u7406\u53EA\u662F\u79FB\u9664\u5931\u6548\u8BB0\u5F55\u3002</div>');
+  }
+  parts.push(`
+        <div class="st-chatu8-cfgclean-progress" style="display:none;">
+            <div class="st-chatu8-cfgclean-progress-track">
+                <div class="st-chatu8-cfgclean-progress-fill"></div>
+            </div>
+            <div class="st-chatu8-cfgclean-progress-text"></div>
+        </div>
+    `);
+  $body.html(parts.join(""));
+  bindThumbFallback($body);
+  bindEvents($body, $backdrop, { sizes });
+  updateCounts($body);
+}
+function bindThumbFallback($body) {
+  $body.find(".st-chatu8-cfgclean-thumb img").each(function() {
+    const img = this;
+    const replace = () => {
+      $(img).closest(".st-chatu8-cfgclean-thumb").removeAttr("title").html('<div class="st-chatu8-cfgclean-thumb-fallback" title="\u975E\u56FE\u7247\u6570\u636E\uFF0C\u65E0\u6CD5\u9884\u89C8"><i class="fa-solid fa-file-lines"></i></div>');
+    };
+    img.addEventListener("error", replace);
+    if (img.complete && img.naturalWidth === 0) replace();
+  });
+}
+function updateCounts($body) {
+  const orphanN = $body.find('[data-list="orphan"] .st-chatu8-import-checkbox:checked').length;
+  const deadN = $body.find('[data-list="dead"] .st-chatu8-import-checkbox:checked').length;
+  const $od = $body.find('[data-act="orphan-del"]');
+  $od.html(`<i class="fa-solid fa-trash"></i> \u5220\u9664\u9009\u4E2D(${orphanN})`).prop("disabled", orphanN === 0);
+  const $dd = $body.find('[data-act="dead-del"]');
+  $dd.html(`<i class="fa-solid fa-broom"></i> \u6E05\u7406\u9009\u4E2D(${deadN})`).prop("disabled", deadN === 0);
+}
+function bindEvents($body, $backdrop, ctx) {
+  $body.on("change", ".st-chatu8-import-checkbox", () => updateCounts($body));
+  $body.on("click", '[data-act="orphan-all"]', () => {
+    $body.find('[data-list="orphan"] .st-chatu8-import-checkbox').prop("checked", true);
+    updateCounts($body);
+  });
+  $body.on("click", '[data-act="orphan-none"]', () => {
+    $body.find('[data-list="orphan"] .st-chatu8-import-checkbox').prop("checked", false);
+    updateCounts($body);
+  });
+  $body.on("click", '[data-act="dead-all"]', () => {
+    $body.find('[data-list="dead"] .st-chatu8-import-checkbox').prop("checked", true);
+    updateCounts($body);
+  });
+  $body.on("click", '[data-act="dead-none"]', () => {
+    $body.find('[data-list="dead"] .st-chatu8-import-checkbox').prop("checked", false);
+    updateCounts($body);
+  });
+  $body.on("click", ".st-chatu8-cfgclean-thumb", function() {
+    const f = $(this).data("file");
+    if (f && $(this).find("img").length) showLightbox(f);
+  });
+  $body.on("click", '[data-act="orphan-del"]', async function() {
+    const files = $body.find('[data-list="orphan"] .st-chatu8-import-checkbox:checked').map((_, el) => $(el).data("file")).get();
+    if (!files.length) return;
+    const bytes = files.reduce((s, f) => s + (ctx.sizes[f] || 0), 0);
+    const ok = await stylishConfirm(
+      `\u786E\u8BA4\u5220\u9664 ${files.length} \u4E2A\u6587\u4EF6\uFF1F\u5171 ${fmtMB2(bytes)}\uFF0C\u5220\u9664\u540E\u65E0\u6CD5\u6062\u590D\u3002`
+    );
+    if (!ok) return;
+    await runCleanup($body, $backdrop, { orphanFiles: files });
+  });
+  $body.on("click", '[data-act="dead-del"]', async function() {
+    const keys = $body.find('[data-list="dead"] .st-chatu8-import-checkbox:checked').map((_, el) => $(el).data("key")).get();
+    if (!keys.length) return;
+    const ok = await stylishConfirm(
+      `\u786E\u8BA4\u79FB\u9664 ${keys.length} \u6761\u5931\u6548\u6CE8\u518C\u8868\u8BB0\u5F55\uFF1F\u5BF9\u5E94\u6587\u4EF6\u5DF2\u4E0D\u5B58\u5728\uFF0C\u6B64\u64CD\u4F5C\u53EA\u6E05\u7406\u8BB0\u5F55\u3002`
+    );
+    if (!ok) return;
+    await runCleanup($body, $backdrop, { deadKeys: keys });
+  });
+}
+async function runCleanup($body, $backdrop, payload) {
+  const $progress = $body.find(".st-chatu8-cfgclean-progress");
+  const $fill = $progress.find(".st-chatu8-cfgclean-progress-fill");
+  const $text = $progress.find(".st-chatu8-cfgclean-progress-text");
+  const $buttons = $body.find(".st-chatu8-btn").add($backdrop.find(".st-chatu8-cfgclean-close-btn"));
+  $buttons.prop("disabled", true);
+  $progress.show();
+  $fill.css("width", "0%");
+  $text.text("\u51C6\u5907\u4E2D...");
+  let result;
+  try {
+    result = await cleanupConfigStorage({
+      ...payload,
+      onProgress: (done, total, name) => {
+        const pct = total ? Math.floor(done / total * 100) : 100;
+        $fill.css("width", `${pct}%`);
+        $text.text(name ? `\u6B63\u5728\u5220\u9664 (${done}/${total}): ${name}` : `\u5904\u7406\u4E2D (${done}/${total})`);
+      }
+    });
+  } catch (e) {
+    console.error("[ConfigDB \u6E05\u7406] \u5931\u8D25:", e);
+    showToast(`\u6E05\u7406\u5931\u8D25: ${e.message}`, "error");
+    $buttons.prop("disabled", false);
+    $progress.hide();
+    return;
+  }
+  $progress.hide();
+  $buttons.prop("disabled", false);
+  const msgs = [];
+  if (result.deletedFiles.length) msgs.push(`\u5220\u9664 ${result.deletedFiles.length} \u4E2A\u6587\u4EF6`);
+  if (result.deletedKeys.length) msgs.push(`\u79FB\u9664 ${result.deletedKeys.length} \u6761\u8BB0\u5F55`);
+  if (result.skipped.length) msgs.push(`\u8DF3\u8FC7 ${result.skipped.length} \u4E2A\uFF08\u8BBE\u7F6E\u4E2D\u4ECD\u88AB\u5F15\u7528\uFF09`);
+  if (result.errors.length) msgs.push(`\u5931\u8D25 ${result.errors.length} \u4E2A`);
+  showToast(
+    msgs.length ? `\u6E05\u7406\u5B8C\u6210\uFF1A${msgs.join("\uFF0C")}` : "\u6CA1\u6709\u5185\u5BB9\u88AB\u6E05\u7406",
+    result.errors.length ? "warning" : "success"
+  );
+  await renderContent($body, $backdrop);
+}
+function showLightbox(fileName) {
+  const parent = document.getElementById("st-chatu8-settings") || document.body;
+  const $lb = $(`
+        <div class="st-chatu8-preview-backdrop" style="z-index:10300;">
+            <div class="st-chatu8-preview-dialog">
+                <span class="st-chatu8-preview-close">&times;</span>
+                <div class="st-chatu8-preview-image-container">
+                    <img src="${fileUrl(fileName)}" alt="${escapeHtml2(fileName)}"
+                         style="max-width:100%; max-height:100%; object-fit:contain;">
+                </div>
+            </div>
+        </div>
+    `);
+  const onKey = (e) => {
+    if (e.key === "Escape") close();
+  };
+  const close = () => {
+    document.removeEventListener("keydown", onKey);
+    $lb.remove();
+  };
+  $lb.find(".st-chatu8-preview-close").on("click", close);
+  $lb.on("click", (e) => {
+    if (e.target === $lb[0]) close();
+  });
+  document.addEventListener("keydown", onKey);
+  $(parent).append($lb);
+}
+
+// utils/ui.js
 init_ui_common();
 init_utils();
 init_workers();
-
-
-
 
 // utils/settings/prompt_replace.js
 init_config();
@@ -66506,7 +69450,7 @@ init_ui_common();
 
 var generationTabs = ["sd", "novelai", "comfyui"];
 function syncAllPromptReplaceFields(force = false) {
-  const settings3 = extension_settings52[extensionName];
+  const settings3 = extension_settings54[extensionName];
   const presetName = settings3.prompt_replace_id;
   const currentPreset = settings3.prompt_replace[presetName] || {};
   generationTabs.forEach((mode) => {
@@ -66523,7 +69467,7 @@ function syncAllPromptReplaceFields(force = false) {
   });
 }
 function prompt_replace_change(mode) {
-  const settings3 = extension_settings52[extensionName];
+  const settings3 = extension_settings54[extensionName];
   const suffix = getSuffix(mode);
   const selectElement = document.getElementById("prompt_replace_id" + suffix);
   const newPresetId = selectElement.value;
@@ -66535,7 +69479,7 @@ function prompt_replace_change(mode) {
     stylishConfirm("\u60A8\u6709\u672A\u4FDD\u5B58\u7684\u66FF\u6362\u89C4\u5219\u3002\u8981\u653E\u5F03\u8FD9\u4E9B\u66F4\u6539\u5E76\u5207\u6362\u9884\u8BBE\u5417\uFF1F").then((confirmed) => {
       if (confirmed) {
         settings3.prompt_replace_id = newPresetId;
-        saveSettingsDebounced30();
+        saveSettingsDebounced33();
         syncAllPromptReplaceFields(true);
       } else {
         selectElement.value = currentPresetId;
@@ -66543,12 +69487,12 @@ function prompt_replace_change(mode) {
     });
   } else {
     settings3.prompt_replace_id = newPresetId;
-    saveSettingsDebounced30();
+    saveSettingsDebounced33();
     syncAllPromptReplaceFields(true);
   }
 }
 function prompt_replace_new(mode) {
-  const settings3 = extension_settings52[extensionName];
+  const settings3 = extension_settings54[extensionName];
   stylInput("\u8BF7\u8F93\u5165\u65B0\u66FF\u6362\u89C4\u5219\u914D\u7F6E\u7684\u540D\u79F0").then((newName) => {
     if (newName && newName.trim() !== "") {
       if (settings3.prompt_replace[newName]) {
@@ -66557,7 +69501,7 @@ function prompt_replace_new(mode) {
       }
       settings3.prompt_replace[newName] = { "text": "" };
       settings3.prompt_replace_id = newName;
-      saveSettingsDebounced30();
+      saveSettingsDebounced33();
       try {
         if (typeof window.loadSilterTavernChatu8Settings === "function") {
           window.loadSilterTavernChatu8Settings();
@@ -66569,7 +69513,7 @@ function prompt_replace_new(mode) {
   });
 }
 function prompt_replace_rename(mode) {
-  const settings3 = extension_settings52[extensionName];
+  const settings3 = extension_settings54[extensionName];
   const currentName = settings3.prompt_replace_id;
   if (currentName === "\u9ED8\u8BA4" || !settings3.prompt_replace[currentName]) {
     alert("\u9ED8\u8BA4\u914D\u7F6E\u6216\u4E0D\u5B58\u5728\u7684\u914D\u7F6E\u4E0D\u80FD\u91CD\u547D\u540D\u3002");
@@ -66584,7 +69528,7 @@ function prompt_replace_rename(mode) {
       settings3.prompt_replace[newName] = settings3.prompt_replace[currentName];
       delete settings3.prompt_replace[currentName];
       settings3.prompt_replace_id = newName;
-      saveSettingsDebounced30();
+      saveSettingsDebounced33();
       try {
         if (typeof window.loadSilterTavernChatu8Settings === "function") {
           window.loadSilterTavernChatu8Settings();
@@ -66596,14 +69540,14 @@ function prompt_replace_rename(mode) {
   });
 }
 function prompt_replace_save(mode) {
-  const settings3 = extension_settings52[extensionName];
+  const settings3 = extension_settings54[extensionName];
   const suffix = getSuffix(mode);
   stylInput("\u8BF7\u8F93\u5165\u65B0\u66FF\u6362\u89C4\u5219\u914D\u7F6E\u7684\u540D\u79F0").then((result) => {
     if (result && result.trim() !== "") {
       const text = document.getElementById("prompt_replace_text" + suffix).value;
       settings3.prompt_replace[result] = { "text": text };
       settings3.prompt_replace_id = result;
-      saveSettingsDebounced30();
+      saveSettingsDebounced33();
       try {
         if (typeof window.loadSilterTavernChatu8Settings === "function") {
           window.loadSilterTavernChatu8Settings();
@@ -66616,7 +69560,7 @@ function prompt_replace_save(mode) {
   });
 }
 function prompt_replace_update(mode) {
-  const settings3 = extension_settings52[extensionName];
+  const settings3 = extension_settings54[extensionName];
   const suffix = getSuffix(mode);
   const presetName = settings3.prompt_replace_id;
   if (!presetName || !settings3.prompt_replace[presetName]) {
@@ -66627,7 +69571,7 @@ function prompt_replace_update(mode) {
     if (confirmed) {
       const text = document.getElementById("prompt_replace_text" + suffix).value;
       settings3.prompt_replace[presetName] = { "text": text };
-      saveSettingsDebounced30();
+      saveSettingsDebounced33();
       const textarea = document.getElementById("prompt_replace_text" + suffix);
       const warning = textarea.closest(".st-chatu8-field-col").querySelector(".st-chatu8-unsaved-warning");
       if (warning) $(warning).hide();
@@ -66635,7 +69579,7 @@ function prompt_replace_update(mode) {
   });
 }
 function prompt_replace_delete(mode) {
-  const settings3 = extension_settings52[extensionName];
+  const settings3 = extension_settings54[extensionName];
   const suffix = getSuffix(mode);
   const selectElement = document.getElementById("prompt_replace_id" + suffix);
   const valueToDelete = selectElement.value;
@@ -66647,7 +69591,7 @@ function prompt_replace_delete(mode) {
     if (result) {
       Reflect.deleteProperty(settings3.prompt_replace, valueToDelete);
       settings3.prompt_replace_id = "\u9ED8\u8BA4";
-      saveSettingsDebounced30();
+      saveSettingsDebounced33();
       try {
         if (typeof window.loadSilterTavernChatu8Settings === "function") {
           window.loadSilterTavernChatu8Settings();
@@ -66659,7 +69603,7 @@ function prompt_replace_delete(mode) {
   });
 }
 function prompt_replace_export_current() {
-  const settings3 = extension_settings52[extensionName];
+  const settings3 = extension_settings54[extensionName];
   const selectedId = settings3.prompt_replace_id;
   if (!selectedId || !settings3.prompt_replace[selectedId]) {
     alert("\u6CA1\u6709\u9009\u4E2D\u7684\u66FF\u6362\u89C4\u5219\u53EF\u5BFC\u51FA\u3002");
@@ -66678,7 +69622,7 @@ function prompt_replace_export_current() {
   URL.revokeObjectURL(url);
 }
 function prompt_replace_export_all() {
-  const settings3 = extension_settings52[extensionName];
+  const settings3 = extension_settings54[extensionName];
   if (!settings3.prompt_replace || Object.keys(settings3.prompt_replace).length === 0) {
     alert("\u6CA1\u6709\u66FF\u6362\u89C4\u5219\u53EF\u5BFC\u51FA\u3002");
     return;
@@ -66695,7 +69639,7 @@ function prompt_replace_export_all() {
   URL.revokeObjectURL(url);
 }
 function prompt_replace_import() {
-  const settings3 = extension_settings52[extensionName];
+  const settings3 = extension_settings54[extensionName];
   const input = document.createElement("input");
   input.type = "file";
   input.accept = ".json";
@@ -66715,7 +69659,7 @@ function prompt_replace_import() {
             settings3.prompt_replace[key] = importedData[key];
           }
         }
-        saveSettingsDebounced30();
+        saveSettingsDebounced33();
         try {
           if (typeof window.loadSilterTavernChatu8Settings === "function") {
             window.loadSilterTavernChatu8Settings();
@@ -66746,7 +69690,7 @@ function initPromptReplaceControls(settingsModal) {
     settingsModal.find(`#prompt_replace_export_all${suffix}`).on("click", prompt_replace_export_all);
     settingsModal.find(`#prompt_replace_import${suffix}`).on("click", prompt_replace_import);
     $(`#prompt_replace_text${suffix}`).on("input", function() {
-      const settings3 = extension_settings52[extensionName];
+      const settings3 = extension_settings54[extensionName];
       const presetName = settings3.prompt_replace_id;
       const currentPreset = settings3.prompt_replace[presetName] || {};
       const isDirty = $(this).val() !== (currentPreset.text ?? "");
@@ -66842,7 +69786,7 @@ function handleCancelTask(taskId) {
     } else if (task.type === TaskType.BANANA) {
       eventSource27.emit("st_chatu8_cancel_banana_task", { taskId });
       console.log("[TaskManager] \u5DF2\u89E6\u53D1 Banana \u53D6\u6D88\u4E8B\u4EF6");
-    } else if (extension_settings53[extensionName]?.client === "jiuguan") {
+    } else if (extension_settings55[extensionName]?.client === "jiuguan") {
       eventSource27.emit("sd_stop_generation");
       console.log("[TaskManager] \u5DF2\u901A\u77E5\u9152\u9986\u53D6\u6D88\u4EFB\u52A1");
     } else {
@@ -66919,8 +69863,8 @@ async function handleExportLog() {
     alert("\u65E5\u5FD7\u4E3A\u7A7A\u3002");
     return;
   }
-  const { extension_settings: extension_settings101 } = await import("../../../extensions.js");
-  const settings3 = extension_settings101["st-chatu8"] || {};
+  const { extension_settings: extension_settings103 } = await import("../../../extensions.js");
+  const settings3 = extension_settings103["st-chatu8"] || {};
   let settingsInfo = "========== st-chatu8 \u63D2\u4EF6\u8BBE\u7F6E\u4FE1\u606F ==========\n";
   settingsInfo += `1. \u667A\u6167\u59EC\u7684\u7248\u672C: 2.7.8 (\u6839\u636Emanifest.json)
 
@@ -66956,6 +69900,8 @@ async function handleExportLog() {
   settingsInfo += `- \u81EA\u52A8LLM\u8BF7\u6C42\u751F\u56FE(\u975E\u540C\u5C42): ${settings3.autoLLMImageGen ? "\u662F" : "\u5426"}
 `;
   settingsInfo += `- \u968F\u673A\u63D0\u793A\u8BCD\u9884\u8BBE: ${settings3.randomYushe ? "\u662F" : "\u5426"}
+`;
+  settingsInfo += `- \u968F\u673A Vibe \u7EC4: ${settings3.randomVibeGroup === "true" ? "\u662F" : "\u5426"}
 `;
   settingsInfo += `- AI\u81EA\u4E3B\u5206\u8FA8\u7387: ${settings3.aiAutonomousResolution ? "\u662F" : "\u5426"}
 `;
@@ -67194,7 +70140,7 @@ function handleClearLog() {
   stylishConfirm("\u786E\u5B9A\u8981\u6E05\u7A7A\u6240\u6709\u65E5\u5FD7\u5417\uFF1F\u6B64\u64CD\u4F5C\u5C06\u5F7B\u5E95\u5220\u9664\u6240\u6709\u5386\u53F2\u65E5\u5FD7\uFF0C\u4E0D\u53EF\u64A4\u9500\u3002").then((confirmed) => {
     if (confirmed) {
       clearAllLogs();
-      saveSettingsDebounced31();
+      saveSettingsDebounced34();
       updateLogView();
       toastr.success("\u65E5\u5FD7\u5DF2\u5168\u90E8\u6E05\u7A7A\u3002");
     }
@@ -67610,31 +70556,31 @@ function handleViewErrors() {
     const scopeLabel = error.sourceScope === "plugin" ? "\u672C\u63D2\u4EF6\u76F8\u5173" : error.sourceScope === "external" ? "\u5916\u90E8\u6765\u6E90" : "\u672A\u77E5\u6765\u6E90";
     html += `<div style="border-bottom: 1px solid #eee; padding: 10px 0;">`;
     html += `<div style="color: #f44336; font-weight: bold;">[${time}] ${error.type.toUpperCase()} <span style="color:#666; font-weight:normal;">(${scopeLabel})</span></div>`;
-    html += `<div style="margin: 5px 0;"><strong>\u7C7B\u578B:</strong> ${escapeHtml2(error.message)}</div>`;
+    html += `<div style="margin: 5px 0;"><strong>\u7C7B\u578B:</strong> ${escapeHtml3(error.message)}</div>`;
     html += `<div style="margin: 5px 0;"><strong>\u6B21\u6570:</strong> ${error.count || 1}</div>`;
-    html += `<div style="margin: 5px 0;"><strong>\u9996\u6B21\u51FA\u73B0:</strong> ${escapeHtml2(firstSeen)}</div>`;
+    html += `<div style="margin: 5px 0;"><strong>\u9996\u6B21\u51FA\u73B0:</strong> ${escapeHtml3(firstSeen)}</div>`;
     if (error.source) {
-      html += `<div style="margin: 5px 0;"><strong>\u6587\u4EF6:</strong> ${escapeHtml2(error.source)}</div>`;
+      html += `<div style="margin: 5px 0;"><strong>\u6587\u4EF6:</strong> ${escapeHtml3(error.source)}</div>`;
     }
     if (error.lineno != null || error.colno != null) {
-      html += `<div style="margin: 5px 0;"><strong>\u4F4D\u7F6E:</strong> ${escapeHtml2(`${error.lineno ?? "?"}:${error.colno ?? "?"}`)}</div>`;
+      html += `<div style="margin: 5px 0;"><strong>\u4F4D\u7F6E:</strong> ${escapeHtml3(`${error.lineno ?? "?"}:${error.colno ?? "?"}`)}</div>`;
     }
     if (error.context && error.context.message) {
-      html += `<div style="margin: 5px 0;"><strong>\u5185\u5BB9:</strong> ${escapeHtml2(error.context.message)}</div>`;
+      html += `<div style="margin: 5px 0;"><strong>\u5185\u5BB9:</strong> ${escapeHtml3(error.context.message)}</div>`;
     }
     if (error.context && error.context.title) {
-      html += `<div style="margin: 5px 0;"><strong>\u6807\u9898:</strong> ${escapeHtml2(error.context.title)}</div>`;
+      html += `<div style="margin: 5px 0;"><strong>\u6807\u9898:</strong> ${escapeHtml3(error.context.title)}</div>`;
     }
     if (error.errorMessage) {
-      html += `<div style="margin: 5px 0;"><strong>\u8BE6\u60C5:</strong> ${escapeHtml2(error.errorMessage)}</div>`;
+      html += `<div style="margin: 5px 0;"><strong>\u8BE6\u60C5:</strong> ${escapeHtml3(error.errorMessage)}</div>`;
     }
     if (error.errorName) {
-      html += `<div style="margin: 5px 0;"><strong>\u9519\u8BEF\u540D:</strong> ${escapeHtml2(error.errorName)}</div>`;
+      html += `<div style="margin: 5px 0;"><strong>\u9519\u8BEF\u540D:</strong> ${escapeHtml3(error.errorName)}</div>`;
     }
     if (error.stack) {
       const stackLines = error.stack.split("\n").slice(0, 3);
       html += `<div style="margin: 5px 0;"><strong>\u5806\u6808:</strong></div>`;
-      html += `<pre style="background: #f5f5f5; padding: 5px; overflow-x: auto; font-size: 11px;">${escapeHtml2(stackLines.join("\n"))}</pre>`;
+      html += `<pre style="background: #f5f5f5; padding: 5px; overflow-x: auto; font-size: 11px;">${escapeHtml3(stackLines.join("\n"))}</pre>`;
     }
     html += "</div>";
   }
@@ -67678,7 +70624,7 @@ function handleClearErrors() {
     }
   });
 }
-function escapeHtml2(text) {
+function escapeHtml3(text) {
   const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
@@ -67771,12 +70717,12 @@ function renderChangelog(entries, currentVersion) {
       } else if (/^(更名|重命名|rename)/.test(change)) {
         icon = "\u{1F4DD}";
       }
-      return `<li><span class="st-chatu8-changelog-icon">${icon}</span><span>${escapeHtml3(change)}</span></li>`;
+      return `<li><span class="st-chatu8-changelog-icon">${icon}</span><span>${escapeHtml4(change)}</span></li>`;
     }).join("");
     html += `
         <div class="st-chatu8-changelog-entry${isLatest ? " latest" : ""}${isCurrent ? " current" : ""}">
             <div class="st-chatu8-changelog-version-row">
-                <span class="st-chatu8-changelog-version">${escapeHtml3(entry.version)}</span>
+                <span class="st-chatu8-changelog-version">${escapeHtml4(entry.version)}</span>
                 ${badgeHtml}
             </div>
             ${entry.changes.length > 0 ? `<ul class="st-chatu8-changelog-changes">${changesHtml}</ul>` : ""}
@@ -67784,7 +70730,7 @@ function renderChangelog(entries, currentVersion) {
   }
   return html;
 }
-function escapeHtml3(str) {
+function escapeHtml4(str) {
   const div = document.createElement("div");
   div.textContent = str;
   return div.innerHTML;
@@ -67923,8 +70869,12 @@ init_ai();
 init_config();
 init_configDatabase();
 init_ui_common();
+init_bulkSelectControls();
+init_presetGroupManager();
+init_presetSearchMatcher();
 
 
+var GROUP_SCOPE = "yushe";
 async function showPresetVisualSelector(mode, settings3, onSelect) {
   const parent = document.getElementById("st-chatu8-settings") || document.body;
   const backdrop = document.createElement("div");
@@ -67935,6 +70885,9 @@ async function showPresetVisualSelector(mode, settings3, onSelect) {
   let pageSize = settings3.presetVisualPageSize || 12;
   let filteredPresets = [];
   let gridColumns = settings3.presetVisualGridColumns || 6;
+  let currentGroupId = null;
+  let groupDropdown = null;
+  let groupManageBtn = null;
   backdrop.innerHTML = `
         <div class="st-chatu8-workflow-viz-dialog st-chatu8-preset-viz-dialog-wrapper">
             <div class="st-chatu8-workflow-viz-header">
@@ -67944,7 +70897,7 @@ async function showPresetVisualSelector(mode, settings3, onSelect) {
             <div class="st-chatu8-workflow-viz-toolbar" style="justify-content: space-between; align-items: center; gap: 15px;">
                 <div class="st-chatu8-viz-search-container" style="position: relative; flex-grow: 1; max-width: 300px;">
                     <i class="fa-solid fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #aaa; pointer-events: none;"></i>
-                    <input type="text" class="st-chatu8-viz-search-input" placeholder="\u641C\u7D22\u9884\u8BBE..." style="width: 100%; padding: 8px 12px 8px 36px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; color: white; outline: none; transition: all 0.3s;">
+                    <input type="text" class="st-chatu8-viz-search-input" placeholder="\u641C\u7D22\u540D\u79F0\u6216\u63D0\u793A\u8BCD\u5185\u5BB9..." style="width: 100%; padding: 8px 12px 8px 36px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; color: white; outline: none; transition: all 0.3s;">
                 </div>
                 <div style="display: flex; gap: 10px;">
                     <div class="st-chatu8-viz-bulk-delete" style="cursor: pointer; padding: 6px 14px; background: rgba(255,255,255,0.1); border-radius: 20px; font-size: 0.9em; user-select: none; white-space: nowrap; display: flex; align-items: center; gap: 6px; transition: all 0.3s;">
@@ -67998,11 +70951,17 @@ async function showPresetVisualSelector(mode, settings3, onSelect) {
             </div>
         </div>
     `;
+  function closeDialog() {
+    if (groupDropdown) groupDropdown.destroy();
+    if (groupManageBtn) groupManageBtn.destroy();
+    window.removeEventListener("resize", handleResize);
+    if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+  }
   const closeBtn = backdrop.querySelector(".st-chatu8-workflow-viz-close");
-  closeBtn.onclick = () => parent.removeChild(backdrop);
+  closeBtn.onclick = () => closeDialog();
   backdrop.onclick = (e) => {
     if (e.target === backdrop) {
-      parent.removeChild(backdrop);
+      closeDialog();
     }
   };
   const searchInput = backdrop.querySelector(".st-chatu8-viz-search-input");
@@ -68017,6 +70976,18 @@ async function showPresetVisualSelector(mode, settings3, onSelect) {
   const bulkDeleteBtn = backdrop.querySelector(".st-chatu8-viz-bulk-delete");
   const confirmDeleteBtn = backdrop.querySelector(".st-chatu8-viz-confirm-delete");
   const toggleBtn = backdrop.querySelector(".st-chatu8-viz-mode-toggle");
+  const bulkControls = createBulkSelectControls({
+    container: toggleBtn.parentNode,
+    insertBefore: toggleBtn,
+    selected: selectedForDelete,
+    // "默认" 是删除后的兜底预设（settings.yusheid* 会重置到它），
+    // 不纳入全选/反选范围，避免一次全选把兜底也删掉
+    getSelectable: () => filteredPresets.filter((name) => name !== "\u9ED8\u8BA4"),
+    onChange: () => {
+      syncCardSelection();
+      updateConfirmButton();
+    }
+  });
   toggleBtn.onclick = () => {
     if (isBulkDeleteMode) {
       exitBulkDeleteMode();
@@ -68034,8 +71005,17 @@ async function showPresetVisualSelector(mode, settings3, onSelect) {
     bulkDeleteBtn.style.color = "inherit";
     bulkDeleteBtn.querySelector("span").textContent = "\u6279\u91CF\u5220\u9664";
     confirmDeleteBtn.style.display = "none";
+    bulkControls.hide();
     const cards = backdrop.querySelectorAll(".st-chatu8-preset-card");
     cards.forEach((card) => card.classList.remove("selected-for-delete"));
+  }
+  function syncCardSelection() {
+    const cards = backdrop.querySelectorAll(".st-chatu8-preset-card");
+    cards.forEach((card) => {
+      const name = card.dataset.presetName;
+      const shouldSelect = isBulkDeleteMode && name && selectedForDelete.has(name);
+      card.classList.toggle("selected-for-delete", !!shouldSelect);
+    });
   }
   bulkDeleteBtn.onclick = () => {
     if (wrapper.classList.contains("st-chatu8-mode-manage")) {
@@ -68050,6 +71030,7 @@ async function showPresetVisualSelector(mode, settings3, onSelect) {
       bulkDeleteBtn.style.color = "white";
       bulkDeleteBtn.querySelector("span").textContent = "\u53D6\u6D88\u5220\u9664";
       confirmDeleteBtn.style.display = "flex";
+      bulkControls.show();
       updateConfirmButton();
     } else {
       exitBulkDeleteMode();
@@ -68075,13 +71056,14 @@ async function showPresetVisualSelector(mode, settings3, onSelect) {
           delete settings3.yushe[presetName];
           deletedCount++;
         }
+        removeMember(settings3, GROUP_SCOPE, presetName);
         const suffix2 = getSuffix(mode);
         const yusheIdKey2 = `yusheid${mode === "sd" ? "_sd" : suffix2}`;
         if (settings3[yusheIdKey2] === presetName) {
           settings3[yusheIdKey2] = "\u9ED8\u8BA4";
         }
       }
-      await saveSettingsDebounced32();
+      await saveSettingsDebounced35();
       alert(`\u6210\u529F\u5220\u9664 ${deletedCount} \u4E2A\u9884\u8BBE\u3002`);
       exitBulkDeleteMode();
       updateFilteredPresets();
@@ -68090,15 +71072,44 @@ async function showPresetVisualSelector(mode, settings3, onSelect) {
         currentPage = totalPages;
       }
       renderCurrentPage();
+      if (groupDropdown) groupDropdown.refresh();
     }
   };
-  parent.appendChild(backdrop);
   const grid = backdrop.querySelector(".st-chatu8-preset-grid");
   const suffix = getSuffix(mode);
   const yusheIdKey = `yusheid${mode === "sd" ? "_sd" : suffix}`;
   const currentPresetId = settings3[yusheIdKey];
   const presets = settings3.yushe || {};
-  const allPresetNames = Object.keys(presets);
+  const getAllPresetNames = () => Object.keys(presets);
+  groupDropdown = createGroupDropdown({
+    container: toggleBtn.parentNode,
+    insertBefore: bulkDeleteBtn,
+    settings: settings3,
+    scope: GROUP_SCOPE,
+    getAllNames: getAllPresetNames,
+    onFilterChange: (groupId) => {
+      currentGroupId = groupId;
+      currentPage = 1;
+      updateFilteredPresets();
+      renderCurrentPage();
+    }
+  });
+  groupManageBtn = createGroupManageButton({
+    container: toggleBtn.parentNode,
+    insertBefore: bulkDeleteBtn,
+    settings: settings3,
+    scope: GROUP_SCOPE,
+    getAllNames: getAllPresetNames,
+    onChanged: () => {
+      if (groupDropdown) {
+        groupDropdown.syncAfterGroupChange();
+        currentGroupId = groupDropdown.getCurrentGroupId();
+      }
+      currentPage = 1;
+      updateFilteredPresets();
+      renderCurrentPage();
+    }
+  });
   const paginationPrev = backdrop.querySelector(".st-chatu8-pagination-prev");
   const paginationNext = backdrop.querySelector(".st-chatu8-pagination-next");
   const paginationCurrent = backdrop.querySelector(".st-chatu8-pagination-current");
@@ -68107,13 +71118,8 @@ async function showPresetVisualSelector(mode, settings3, onSelect) {
   const paginationSizeSelect = backdrop.querySelector(".st-chatu8-pagination-size");
   const gridColumnsSelect = backdrop.querySelector(".st-chatu8-grid-columns-select");
   function updateFilteredPresets() {
-    if (searchQuery) {
-      filteredPresets = allPresetNames.filter(
-        (name) => name.toLowerCase().includes(searchQuery)
-      );
-    } else {
-      filteredPresets = [...allPresetNames];
-    }
+    const names = filterByGroup(getAllPresetNames(), settings3, GROUP_SCOPE, currentGroupId);
+    filteredPresets = filterPresetsBySearch(names, presets, GROUP_SCOPE, searchQuery);
   }
   function updateGridLayout() {
     if (window.innerWidth > 1400) {
@@ -68121,6 +71127,9 @@ async function showPresetVisualSelector(mode, settings3, onSelect) {
     } else {
       grid.style.columnCount = "";
     }
+  }
+  function handleResize() {
+    updateGridLayout();
   }
   function updatePaginationUI() {
     const totalPages = Math.ceil(filteredPresets.length / pageSize) || 1;
@@ -68144,9 +71153,24 @@ async function showPresetVisualSelector(mode, settings3, onSelect) {
     const pagePresets = filteredPresets.slice(startIndex, endIndex);
     for (const presetName of pagePresets) {
       const preset = presets[presetName];
-      const card = await createPresetCard2(presetName, preset, presetName === currentPresetId, settings3, mode, handleCardClick);
+      const card = await createPresetCard2(presetName, preset, presetName === currentPresetId, settings3, mode, handleCardClick, {
+        // 归属变了只刷新下拉框计数，网格不动，免得卡片在用户脚下重排
+        onGroupChanged: () => {
+          if (groupDropdown) groupDropdown.refresh();
+          if (groupManageBtn) groupManageBtn.refresh();
+        },
+        onRefreshGrid: () => {
+          updateFilteredPresets();
+          renderCurrentPage();
+          if (groupDropdown) groupDropdown.refresh();
+        },
+        onCloseDialog: closeDialog
+      });
+      card.dataset.presetName = presetName;
       grid.appendChild(card);
     }
+    syncCardSelection();
+    bulkControls.refresh();
     updatePaginationUI();
     grid.style.transition = "opacity 0.3s ease, transform 0.3s ease";
     grid.style.opacity = "1";
@@ -68162,9 +71186,10 @@ async function showPresetVisualSelector(mode, settings3, onSelect) {
         cardElement.classList.add("selected-for-delete");
       }
       updateConfirmButton();
+      bulkControls.refresh();
     } else {
       onSelect(name);
-      parent.removeChild(backdrop);
+      closeDialog();
     }
   };
   paginationPrev.onclick = () => {
@@ -68183,29 +71208,24 @@ async function showPresetVisualSelector(mode, settings3, onSelect) {
   paginationSizeSelect.onchange = (e) => {
     pageSize = parseInt(e.target.value);
     settings3.presetVisualPageSize = pageSize;
-    saveSettingsDebounced32();
+    saveSettingsDebounced35();
     currentPage = 1;
     renderCurrentPage();
   };
   gridColumnsSelect.onchange = (e) => {
     gridColumns = parseInt(e.target.value);
     settings3.presetVisualGridColumns = gridColumns;
-    saveSettingsDebounced32();
+    saveSettingsDebounced35();
     updateGridLayout();
   };
   parent.appendChild(backdrop);
-  const handleResize = () => updateGridLayout();
   window.addEventListener("resize", handleResize);
-  const originalRemove = backdrop.remove.bind(backdrop);
-  backdrop.remove = function() {
-    window.removeEventListener("resize", handleResize);
-    originalRemove();
-  };
   updateFilteredPresets();
   updateGridLayout();
   renderCurrentPage();
 }
-async function createPresetCard2(presetName, preset, isSelected, settings3, mode, onClick) {
+async function createPresetCard2(presetName, preset, isSelected, settings3, mode, onClick, hooks = {}) {
+  const { onGroupChanged, onRefreshGrid, onCloseDialog } = hooks;
   const card = document.createElement("div");
   card.className = "st-chatu8-preset-card" + (isSelected ? " selected" : "");
   const imageContainer = document.createElement("div");
@@ -68250,12 +71270,18 @@ async function createPresetCard2(presetName, preset, isSelected, settings3, mode
       if (confirm(`\u786E\u5B9A\u8981\u5220\u9664\u9884\u8BBE "${presetName}" \u7684\u9884\u89C8\u56FE\u5417\uFF1F`)) {
         await deleteConfigImage(previewImageId);
         delete preset.previewImageId;
-        saveSettingsDebounced32();
+        saveSettingsDebounced35();
         refreshCardImage2(imageContainer, null);
       }
     };
     actions.appendChild(deleteImgBtn);
   }
+  actions.appendChild(createGroupTagButton({
+    settings: settings3,
+    scope: GROUP_SCOPE,
+    itemName: presetName,
+    onChanged: onGroupChanged
+  }));
   const renameBtn = document.createElement("button");
   renameBtn.className = "st-chatu8-preset-action-btn";
   renameBtn.title = "\u91CD\u547D\u540D\u9884\u8BBE (Rename Preset)";
@@ -68275,11 +71301,9 @@ async function createPresetCard2(presetName, preset, isSelected, settings3, mode
       if (settings3[yusheIdKey] === presetName) {
         settings3[yusheIdKey] = newName;
       }
-      saveSettingsDebounced32();
-      const backdrop = document.querySelector(".st-chatu8-workflow-viz-backdrop");
-      if (backdrop) backdrop.parentNode.removeChild(backdrop);
-      showPresetVisualSelector(mode, settings3, (name) => onClick(name, null)).then(() => {
-      });
+      renameMember(settings3, GROUP_SCOPE, presetName, newName);
+      saveSettingsDebounced35();
+      if (onRefreshGrid) onRefreshGrid();
     }
   };
   actions.appendChild(renameBtn);
@@ -68294,17 +71318,21 @@ async function createPresetCard2(presetName, preset, isSelected, settings3, mode
         deleteConfigImage(preset.previewImageId);
       }
       delete settings3.yushe[presetName];
+      removeMember(settings3, GROUP_SCOPE, presetName);
       const suffix = getSuffix(mode);
       const yusheIdKey = `yusheid${mode === "sd" ? "_sd" : suffix}`;
       const isDeletingCurrentPreset = settings3[yusheIdKey] === presetName;
       if (isDeletingCurrentPreset) {
         settings3[yusheIdKey] = "\u9ED8\u8BA4";
       }
-      saveSettingsDebounced32();
-      const backdrop = document.querySelector(".st-chatu8-workflow-viz-backdrop");
-      if (backdrop) backdrop.parentNode.removeChild(backdrop);
-      if (isDeletingCurrentPreset && typeof window.loadSilterTavernChatu8Settings === "function") {
-        window.loadSilterTavernChatu8Settings();
+      saveSettingsDebounced35();
+      if (isDeletingCurrentPreset) {
+        if (onCloseDialog) onCloseDialog();
+        if (typeof window.loadSilterTavernChatu8Settings === "function") {
+          window.loadSilterTavernChatu8Settings();
+        }
+      } else {
+        if (onRefreshGrid) onRefreshGrid();
       }
     }
   };
@@ -68374,7 +71402,7 @@ function handleImageUpload2(presetName, settings3, container) {
           settings3.yushe[presetName] = {};
         }
         settings3.yushe[presetName].previewImageId = newImageId;
-        saveSettingsDebounced32();
+        saveSettingsDebounced35();
         refreshCardImage2(container, newImageId);
       };
       reader.readAsDataURL(file);
@@ -68549,7 +71577,7 @@ async function handleAutocomplete3(inputEl, resultsEl) {
     return;
   }
   try {
-    const settings3 = extension_settings56[extensionName];
+    const settings3 = extension_settings58[extensionName];
     const startsWith = String(settings3.vocabulary_search_startswith) === "true";
     const limit = parseInt(settings3.vocabulary_search_limit, 10);
     const sortBy = settings3.vocabulary_search_sort;
@@ -68637,7 +71665,7 @@ function initPromptSettings(settingsModal, settings3) {
       $(warning).hide();
       if (presetName && settings3.yushe[presetName]) {
         settings3.yushe[presetName][field] = $(this).val();
-        saveSettingsDebounced33();
+        saveSettingsDebounced36();
       }
     });
     settingsModal.find(`#translate_fixedPrompt${suffix}`).on("click", () => translateAndAnnotateField("fixedPrompt", suffix));
@@ -68647,7 +71675,7 @@ function initPromptSettings(settingsModal, settings3) {
         const fixedPromptEl = document.getElementById(`fixedPrompt${suffix}`);
         const fixedPromptEndEl = document.getElementById(`fixedPrompt_end${suffix}`);
         const negativePromptEl = document.getElementById(`negativePrompt${suffix}`);
-        const presetsText = getNovelAIQualityPresetsText(extension_settings56[extensionName]);
+        const presetsText = getNovelAIQualityPresetsText(extension_settings58[extensionName]);
         if (fixedPromptEl && fixedPromptEndEl) {
           const t1 = await calculateNovelAITokens(fixedPromptEl.value);
           const t2 = await calculateNovelAITokens(fixedPromptEndEl.value);
@@ -68699,7 +71727,7 @@ function st_chatu8_tishici_change(mode, settings3) {
   const isDirty = fixedPrompt !== (currentPreset.fixedPrompt ?? "") || fixedPrompt_end !== (currentPreset.fixedPrompt_end ?? "") || negativePrompt !== (currentPreset.negativePrompt ?? "");
   const switchPreset = () => {
     settings3[yusheIdKey] = newPresetId;
-    saveSettingsDebounced33();
+    saveSettingsDebounced36();
     const newPreset = settings3.yushe[newPresetId] || {};
     document.getElementById("fixedPrompt" + suffix).value = newPreset.fixedPrompt ?? "";
     document.getElementById("fixedPrompt_end" + suffix).value = newPreset.fixedPrompt_end ?? "";
@@ -68737,7 +71765,7 @@ function st_chatu8_tishici_new(mode, settings3) {
       }
       settings3.yushe[newName] = { fixedPrompt: "", fixedPrompt_end: "", negativePrompt: "" };
       settings3[yusheIdKey] = newName;
-      saveSettingsDebounced33();
+      saveSettingsDebounced36();
       window.loadSilterTavernChatu8Settings();
       toastr.success(`\u5DF2\u521B\u5EFA\u7A7A\u9884\u8BBE "${newName}"`);
     }
@@ -68760,7 +71788,7 @@ function st_chatu8_tishici_rename(mode, settings3) {
       settings3.yushe[newName] = settings3.yushe[currentName];
       delete settings3.yushe[currentName];
       settings3[yusheIdKey] = newName;
-      saveSettingsDebounced33();
+      saveSettingsDebounced36();
       window.loadSilterTavernChatu8Settings();
       toastr.success(`\u9884\u8BBE\u5DF2\u91CD\u547D\u540D\u4E3A "${newName}"`);
     }
@@ -68776,7 +71804,7 @@ function st_chatu8_tishici_save(mode, settings3) {
       const yusheIdKey = `yusheid${mode === "sd" ? "_sd" : suffix}`;
       settings3.yushe[result] = { ...settings3.yushe[result] || {}, "fixedPrompt": fixedPrompt, "fixedPrompt_end": fixedPrompt_end, "negativePrompt": negativePrompt };
       settings3[yusheIdKey] = result;
-      saveSettingsDebounced33();
+      saveSettingsDebounced36();
       window.loadSilterTavernChatu8Settings();
       alert(`\u9884\u8BBE "${result}" \u5DF2\u4FDD\u5B58\u3002`);
     }
@@ -68796,7 +71824,7 @@ function st_chatu8_tishici_update(mode, settings3) {
       const fixedPrompt_end = document.getElementById("fixedPrompt_end" + suffix).value;
       const negativePrompt = document.getElementById("negativePrompt" + suffix).value;
       settings3.yushe[presetName] = { ...settings3.yushe[presetName], "fixedPrompt": fixedPrompt, "fixedPrompt_end": fixedPrompt_end, "negativePrompt": negativePrompt };
-      saveSettingsDebounced33();
+      saveSettingsDebounced36();
       const fields = ["fixedPrompt", "fixedPrompt_end", "negativePrompt"];
       fields.forEach((field) => {
         const textarea = document.getElementById(field + suffix);
@@ -68837,7 +71865,7 @@ function st_chatu8_tishici_delete(mode, settings3) {
     if (result) {
       Reflect.deleteProperty(settings3.yushe, valueToDelete);
       settings3[yusheIdKey] = "\u9ED8\u8BA4";
-      saveSettingsDebounced33();
+      saveSettingsDebounced36();
       window.loadSilterTavernChatu8Settings();
     }
   });
@@ -68975,7 +72003,7 @@ function st_chatu8_tishici_import(settings3) {
             settings3.yushe[key] = presetsToImport[key];
           }
         }
-        saveSettingsDebounced33();
+        saveSettingsDebounced36();
         window.loadSilterTavernChatu8Settings();
         let message = `\u6210\u529F\u5BFC\u5165 ${Object.keys(presetsToImport).length} \u4E2A\u9884\u8BBE\uFF0C\u5176\u4E2D ${newPresetsCount} \u4E2A\u662F\u5168\u65B0\u7684\u3002`;
         if (importedImagesCount > 0) {
@@ -69109,7 +72137,7 @@ function removeComfyUIImage() {
   dbs.storeDelete(COMFYUI_REF_CACHE_KEY);
 }
 async function handleImageUpload22(event) {
-  const settings3 = extension_settings57[extensionName];
+  const settings3 = extension_settings59[extensionName];
   const file = event.target.files[0];
   if (!file) return;
   try {
@@ -69239,14 +72267,14 @@ var PING_TIMEOUT = 5e3;
 var consecutiveErrors = 0;
 var keepAliveSuspended = false;
 function shouldKeepAlive() {
-  const settings3 = extension_settings58[extensionName];
+  const settings3 = extension_settings60[extensionName];
   if (!settings3) return false;
   const isEnabled = settings3.scriptEnabled === true || settings3.scriptEnabled === "true";
   const isComfyUIMode = settings3.mode === "comfyui";
   return isEnabled && isComfyUIMode && !keepAliveSuspended;
 }
 function pingViaSillyTavern() {
-  const comfyUrl = extension_settings58[extensionName]?.comfyuiUrl?.trim();
+  const comfyUrl = extension_settings60[extensionName]?.comfyuiUrl?.trim();
   if (!comfyUrl) {
     return;
   }
@@ -69271,7 +72299,7 @@ function pingViaSillyTavern() {
   });
 }
 function pingDirect() {
-  const comfyUrl = extension_settings58[extensionName]?.comfyuiUrl?.trim();
+  const comfyUrl = extension_settings60[extensionName]?.comfyuiUrl?.trim();
   if (!comfyUrl) {
     return;
   }
@@ -69305,7 +72333,7 @@ function doPing() {
   if (!shouldKeepAlive()) {
     return;
   }
-  const client = extension_settings58[extensionName]?.client;
+  const client = extension_settings60[extensionName]?.client;
   if (client === "jiuguan") {
     pingViaSillyTavern();
   } else {
@@ -69352,7 +72380,7 @@ function resetKeepAliveState() {
 // utils/settings/api_connections.js
 init_configDatabase();
 async function testComfyui() {
-  const settings3 = extension_settings59[extensionName];
+  const settings3 = extension_settings61[extensionName];
   let el = document.getElementById("comfyuiUrl");
   let testurl1 = removeTrailingSlash(el.value);
   let testurl = testurl1 + "/object_info";
@@ -69428,7 +72456,7 @@ async function testComfyui() {
   }
 }
 async function testSd() {
-  const settings3 = extension_settings59[extensionName];
+  const settings3 = extension_settings61[extensionName];
   const el = document.getElementById("sdUrl");
   const baseUrl = removeTrailingSlash(el.value);
   if (!isValidUrl(baseUrl)) {
@@ -69530,7 +72558,7 @@ function ComfyuiaddLORA() {
   const fixedPrompt = activeTab.find("#fixedPrompt_comfyui");
   const loraSelect = document.getElementById("ComfyuiLORA");
   if (!loraSelect.value || loraSelect.value.trim() === "" || loraSelect.disabled) {
-    if (extension_settings60[extensionName].client == "jiuguan") {
+    if (extension_settings62[extensionName].client == "jiuguan") {
       alert("\u62B1\u6B49\u9152\u9986\u5BA2\u6237\u7AEF\u65E0\u6CD5\u652F\u6301lora\u83B7\u53D6,\u8BF7\u53C2\u8003\u6587\u6863\u5C1D\u8BD5\u4F7F\u7528\u6D4F\u89C8\u5668\u5BA2\u6237\u7AEF");
     } else {
       alert("\u8BF7\u5148\u8FDE\u63A5ComfyUI\u83B7\u53D6lora");
@@ -69547,7 +72575,7 @@ function sd_add_lora() {
   const fixedPrompt = activeTab.find("#fixedPrompt");
   const loraSelect = document.getElementById("sd_cchatu_8_lora");
   if (!loraSelect.value || loraSelect.value.trim() === "" || loraSelect.disabled) {
-    if (extension_settings60[extensionName].client == "jiuguan") {
+    if (extension_settings62[extensionName].client == "jiuguan") {
       alert("\u62B1\u6B49\u9152\u9986\u5BA2\u6237\u7AEF\u65E0\u6CD5\u652F\u6301lora\u83B7\u53D6,\u8BF7\u53C2\u8003\u6587\u6863\u5C1D\u8BD5\u4F7F\u7528\u6D4F\u89C8\u5668\u5BA2\u6237\u7AEF");
     } else {
       alert("\u8BF7\u5148\u8FDE\u63A5SD\u83B7\u53D6lora");
@@ -69576,12 +72604,12 @@ function onRestoreDefaultSettingsClick() {
       stylishConfirm("\u4F60\u771F\u7684\u786E\u5B9A\u5417\uFF1F").then(async (result2) => {
         if (result2) {
           const defaults = JSON.parse(JSON.stringify(defaultSettings));
-          const settings3 = extension_settings61[extensionName];
+          const settings3 = extension_settings63[extensionName];
           Object.keys(settings3).forEach((key) => {
             delete settings3[key];
           });
           Object.assign(settings3, defaults);
-          saveSettingsDebounced37();
+          saveSettingsDebounced40();
           try {
             await initJiuguanStorage();
             console.log("[Settings] \u5DF2\u4ECE\u9690\u5199\u56FE\u7247\u91CD\u65B0\u52A0\u8F7D\u56FE\u7247\u7F13\u5B58");
@@ -69596,7 +72624,7 @@ function onRestoreDefaultSettingsClick() {
   });
 }
 function onExportSettingsClick() {
-  const settingsString = JSON.stringify(extension_settings61[extensionName], null, 4);
+  const settingsString = JSON.stringify(extension_settings63[extensionName], null, 4);
   const blob = new Blob([settingsString], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -69619,8 +72647,8 @@ function onImportSettingsClick() {
       reader.onload = async (e) => {
         try {
           const importedSettings = JSON.parse(e.target.result);
-          Object.assign(extension_settings61[extensionName], importedSettings);
-          saveSettingsDebounced37();
+          Object.assign(extension_settings63[extensionName], importedSettings);
+          saveSettingsDebounced40();
           try {
             await initJiuguanStorage();
             console.log("[Settings] \u5DF2\u4ECE\u9690\u5199\u56FE\u7247\u91CD\u65B0\u52A0\u8F7D\u56FE\u7247\u7F13\u5B58");
@@ -69651,6 +72679,7 @@ init_fab();
 init_config();
 init_database();
 init_ui_common();
+init_genParams();
 
 
 var allCachedImages = [];
@@ -69659,6 +72688,12 @@ var imageCacheItemsPerPage = 15;
 var selectedImages = /* @__PURE__ */ new Set();
 var imageObserver;
 var isMultiSelectMode = false;
+var recalcStartedAt = 0;
+var recalcPanelDismissed = false;
+function formatMB(bytes) {
+  if (!Number.isFinite(bytes) || bytes < 0) return "0 MB";
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
 function showCacheImagePreview(initialUUID) {
   const doc = document;
   let currentIndex = allCachedImages.findIndex((img) => img.uuid === initialUUID);
@@ -69836,14 +72871,31 @@ function showCacheImagePreview(initialUUID) {
       alert("\u65E0\u6CD5\u52A0\u8F7D\u5A92\u4F53\u6570\u636E\u8FDB\u884C\u4E0B\u8F7D\u3002");
     }
   };
+  const paramsPanel = createParamsPanel(doc);
+  function renderCurrentParams() {
+    if (!paramsPanel.isVisible()) return;
+    const info = allCachedImages[currentIndex] || {};
+    paramsPanel.render(info.genParams, void 0, info.timestamp);
+  }
+  const paramsButton = doc.createElement("button");
+  paramsButton.textContent = "\u67E5\u770B\u751F\u6210\u53C2\u6570";
+  paramsButton.className = "st-chatu8-preview-action-button";
+  paramsButton.title = "\u67E5\u770B\u8FD9\u5F20\u56FE\u7684\u751F\u6210\u53C2\u6570";
+  paramsButton.onclick = () => {
+    if (paramsPanel.toggle()) {
+      renderCurrentParams();
+    }
+  };
   const deleteButton = doc.createElement("button");
   deleteButton.textContent = "\u5220\u9664\u5F53\u524D\u5A92\u4F53";
   deleteButton.className = "st-chatu8-preview-action-button danger";
   actionContainer.appendChild(downloadButton);
+  actionContainer.appendChild(paramsButton);
   actionContainer.appendChild(deleteButton);
   dialog.appendChild(closeButton);
   dialog.appendChild(imageContainer);
   dialog.appendChild(actionContainer);
+  dialog.appendChild(paramsPanel.panel);
   backdrop.appendChild(dialog);
   doc.body.appendChild(backdrop);
   function updateNavButtons() {
@@ -69857,6 +72909,7 @@ function showCacheImagePreview(initialUUID) {
     const targetUUID = allCachedImages[currentIndex].uuid;
     loadImage2(targetUUID);
     updateNavButtons();
+    renderCurrentParams();
   }
   function handleKeyDown(e) {
     if (e.key === "ArrowLeft") {
@@ -70230,7 +73283,59 @@ function updateImageCacheInfo() {
   const selected = selectedImages.size;
   const videoCount = allCachedImages.filter((img) => img.isVideo).length;
   const imageCount = total - videoCount;
-  info.textContent = `\u603B\u8BA1 ${total} \u4E2A\u5A92\u4F53 (\u56FE\u7247: ${imageCount}, \u89C6\u9891: ${videoCount}) | \u9009\u4E2D ${selected} \u4E2A`;
+  let serverBytes = 0, serverCounted = 0, serverTotal = 0;
+  let dbBytes = 0, dbCounted = 0, dbTotal = 0;
+  for (const img of allCachedImages) {
+    const bytes = (typeof img.size === "number" ? img.size : 0) + (typeof img.thumbnail_size === "number" ? img.thumbnail_size : 0);
+    const counted = typeof img.size === "number";
+    if (img.source === "server") {
+      serverTotal++;
+      if (counted) {
+        serverCounted++;
+        serverBytes += bytes;
+      }
+    } else {
+      dbTotal++;
+      if (counted) {
+        dbCounted++;
+        dbBytes += bytes;
+      }
+    }
+  }
+  const unCounted = serverTotal - serverCounted + (dbTotal - dbCounted);
+  info.innerHTML = "";
+  const line1 = document.createElement("div");
+  line1.textContent = `\u603B\u8BA1 ${total} \u4E2A\u5A92\u4F53 (\u56FE\u7247: ${imageCount}, \u89C6\u9891: ${videoCount}) | \u9009\u4E2D ${selected} \u4E2A`;
+  info.appendChild(line1);
+  const line2 = document.createElement("div");
+  line2.className = "st-chatu8-cache-size-line";
+  const parts = [
+    `\u9152\u9986\u670D\u52A1\u5668 ${formatMB(serverBytes)} (${serverCounted}/${serverTotal} \u9879)`,
+    `\u6D4F\u89C8\u5668\u6570\u636E\u5E93 ${formatMB(dbBytes)} (${dbCounted}/${dbTotal} \u9879)`,
+    `\u5408\u8BA1 ${formatMB(serverBytes + dbBytes)}`
+  ];
+  if (unCounted > 0) parts.push(`\u672A\u7EDF\u8BA1 ${unCounted} \u9879`);
+  line2.textContent = parts.join(" \xB7 ");
+  info.appendChild(line2);
+  const line3 = document.createElement("div");
+  line3.className = "st-chatu8-cache-quota-line";
+  line3.id = "image-cache-quota-line";
+  info.appendChild(line3);
+  updateStorageQuotaLine();
+}
+async function updateStorageQuotaLine() {
+  const line = document.getElementById("image-cache-quota-line");
+  if (!line) return;
+  if (!navigator.storage || typeof navigator.storage.estimate !== "function") {
+    line.textContent = "\u6D4F\u89C8\u5668\u914D\u989D: \u5F53\u524D\u73AF\u5883\u4E0D\u652F\u6301\u67E5\u8BE2";
+    return;
+  }
+  try {
+    const { usage, quota } = await navigator.storage.estimate();
+    line.textContent = `\u6D4F\u89C8\u5668\u5B58\u50A8\u914D\u989D: \u5DF2\u7528 ${formatMB(usage)} / \u4E0A\u9650 ${formatMB(quota)}\uFF08\u6D4F\u89C8\u5668\u672C\u5730\u5168\u90E8\u6570\u636E\uFF0C\u542B\u804A\u5929\u8BB0\u5F55\u4E0E\u5176\u4ED6\u6269\u5C55\uFF0C\u4E0E\u4E0A\u65B9\u9152\u9986\u670D\u52A1\u5668\u6570\u5B57\u65E0\u5173\uFF09`;
+  } catch (e) {
+    line.textContent = "\u6D4F\u89C8\u5668\u914D\u989D: \u67E5\u8BE2\u5931\u8D25";
+  }
 }
 async function loadImageCache(options = {}) {
   const { preservePage = false } = options;
@@ -70255,8 +73360,13 @@ async function loadImageCache(options = {}) {
             path: imageEntry.path || null,
             // 服务器路径（如果有）
             thumbnail_path: imageEntry.thumbnail_path || null,
-            isVideo: imageEntry.isVideo || false
+            isVideo: imageEntry.isVideo || false,
             // 添加视频标识
+            // 尺寸字段：旧数据没有，保持 undefined 以区分「0 字节」和「未统计」
+            size: typeof imageEntry.size === "number" ? imageEntry.size : void 0,
+            thumbnail_size: typeof imageEntry.thumbnail_size === "number" ? imageEntry.thumbnail_size : void 0,
+            // 生成参数快照：老图没有，为 null
+            genParams: imageEntry.genParams || null
           };
           allCachedImages.push(imageData);
         }
@@ -70281,7 +73391,7 @@ async function loadImageCache(options = {}) {
   }
 }
 async function clearCache() {
-  const settings3 = extension_settings62[extensionName];
+  const settings3 = extension_settings64[extensionName];
   stylishConfirm(`\u4F60\u786E\u5B9A\u8981\u6E05\u9664\u6240\u6709\u8FC7\u671F\u7684\u56FE\u7247\u7F13\u5B58\u5417\uFF1F (\u8FC7\u671F\u65F6\u95F4: ${settings3.cache} \u5929)`).then(async (confirmed) => {
     if (confirmed) {
       try {
@@ -70329,8 +73439,167 @@ async function clearCache() {
     }
   });
 }
+var RECALC_PHASE_LABELS = {
+  db: "\u6D4F\u89C8\u5668\u6570\u636E\u5E93",
+  server: "\u9152\u9986\u5B58\u50A8",
+  writeback: "\u4FDD\u5B58\u7ED3\u679C",
+  done: "\u5B8C\u6210",
+  finished: "\u7EDF\u8BA1\u5B8C\u6210",
+  error: "\u7EDF\u8BA1\u5931\u8D25"
+};
+function renderRecalcProgress(payload) {
+  const panel = document.getElementById("image-cache-recalc-progress");
+  const bar = document.getElementById("image-cache-recalc-bar");
+  const title = document.getElementById("image-cache-recalc-title");
+  const detail = document.getElementById("image-cache-recalc-detail");
+  if (!panel || !bar || !title || !detail || !payload) return;
+  if (recalcPanelDismissed) return;
+  panel.style.display = "";
+  const { phase, current, total: phaseTotal, detail: msg, report: r, error } = payload;
+  if (phase === "error") {
+    title.textContent = "\u7EDF\u8BA1\u5931\u8D25";
+    detail.textContent = `\u53D1\u751F\u9519\u8BEF: ${error ? error.message : msg}\uFF0C\u8BE6\u60C5\u8BF7\u67E5\u770B\u63A7\u5236\u53F0\u3002`;
+    return;
+  }
+  if (phase === "finished") {
+    bar.style.width = "100%";
+    renderRecalcSummary(r);
+    return;
+  }
+  const pct = phaseTotal > 0 ? Math.min(100, Math.round(current / phaseTotal * 100)) : 0;
+  bar.style.width = `${pct}%`;
+  title.textContent = `${RECALC_PHASE_LABELS[phase] || phase} \u2014 ${pct}%`;
+  const lines = [msg || ""];
+  if (recalcStartedAt) {
+    lines.push(`\u5DF2\u7528\u65F6 ${((Date.now() - recalcStartedAt) / 1e3).toFixed(1)}s`);
+  }
+  if (r) {
+    if (r.skippedCount > 0) lines.push(`\u5DF2\u8DF3\u8FC7 ${r.skippedCount} \u9879\uFF08\u4E4B\u524D\u5DF2\u7EDF\u8BA1\uFF09`);
+    if (r.orphanCount > 0) lines.push(`\u53D1\u73B0\u5B64\u513F\u6570\u636E ${r.orphanCount} \u6761 (${formatMB(r.orphanBytes)})`);
+    if (r.failedCount > 0) lines.push(`\u63A2\u6D4B\u5931\u8D25 ${r.failedCount} \u4E2A`);
+  }
+  detail.textContent = lines.filter(Boolean).join("\n");
+}
+function renderRecalcSummary(report) {
+  if (recalcPanelDismissed) return;
+  const title = document.getElementById("image-cache-recalc-title");
+  const detail = document.getElementById("image-cache-recalc-detail");
+  if (!title || !detail || !report) return;
+  const elapsed = recalcStartedAt ? ((Date.now() - recalcStartedAt) / 1e3).toFixed(1) : "?";
+  if (report.cancelled) {
+    title.textContent = "\u5DF2\u53D6\u6D88";
+    detail.textContent = [
+      `\u7EDF\u8BA1\u88AB\u4E2D\u65AD\uFF0C\u5DF2\u5B8C\u6210\u7684\u90E8\u5206\u5DF2\u4FDD\u5B58\uFF0C\u4E0B\u6B21\u70B9\u51FB\u300C\u7EE7\u7EED\u7EDF\u8BA1\u300D\u53EF\u63A5\u7740\u7B97\u3002`,
+      `\u7528\u65F6 ${elapsed}s`
+    ].join("\n");
+    return;
+  }
+  title.textContent = "\u7EDF\u8BA1\u5B8C\u6210";
+  const summary = [
+    `\u9152\u9986\u5B58\u50A8\u539F\u56FE: ${formatMB(report.serverBytes)} (${report.serverCount} \u9879)`,
+    `\u6D4F\u89C8\u5668\u5B58\u50A8\u539F\u56FE: ${formatMB(report.dbBytes)} (${report.dbCount} \u9879)`,
+    `\u7F29\u7565\u56FE\u5408\u8BA1: ${formatMB(report.thumbnailBytes)} (${report.thumbnailCount} \u9879)`,
+    `\u5408\u8BA1: ${formatMB(report.serverBytes + report.dbBytes + report.thumbnailBytes)}`,
+    `\u7528\u65F6 ${elapsed}s`
+  ];
+  if (report.skippedCount > 0) {
+    summary.push(`\u8DF3\u8FC7 ${report.skippedCount} \u9879\uFF08\u4E4B\u524D\u5DF2\u7EDF\u8BA1\uFF09`);
+  }
+  if (report.remote) {
+    summary.push(`\u5DF2\u542F\u7528\u4E91\u9152\u9986\u9650\u6D41\uFF08\u5E76\u53D1 ${report.concurrency}\uFF09\uFF0C\u907F\u514D\u5360\u7528\u516C\u5171\u8D44\u6E90`);
+  }
+  if (report.orphanCount > 0) {
+    summary.push(`\u5B64\u513F\u6570\u636E: ${report.orphanCount} \u6761 (${formatMB(report.orphanBytes)})\uFF0C\u5143\u6570\u636E\u672A\u5F15\u7528\uFF0C\u53EF\u8003\u8651\u6E05\u7406`);
+  }
+  if (report.failedCount > 0) {
+    summary.push(`\u63A2\u6D4B\u5931\u8D25: ${report.failedCount} \u4E2A\u6587\u4EF6\uFF08\u53EF\u80FD\u5DF2\u88AB\u5220\u9664\uFF09`);
+  }
+  if (report.errors && report.errors.length > 0) {
+    summary.push(`\u9519\u8BEF\u793A\u4F8B: ${report.errors.slice(0, 3).join("; ")}`);
+    console.warn("[ImageCache] \u5C3A\u5BF8\u7EDF\u8BA1\u9519\u8BEF:", report.errors);
+  }
+  detail.textContent = summary.join("\n");
+}
+function syncRecalcButtons() {
+  const task = getSizeCalcTask();
+  const running = !!(task && task.running);
+  const startBtn = document.getElementById("image-cache-recalc-size");
+  const cancelBtn = document.getElementById("image-cache-recalc-cancel");
+  if (startBtn) {
+    startBtn.disabled = running;
+    startBtn.innerHTML = running ? '<i class="fa-solid fa-spinner fa-spin"></i> \u7EDF\u8BA1\u4E2D...' : '<i class="fa-solid fa-calculator"></i> \u8BA1\u7B97\u5927\u5C0F';
+  }
+  if (cancelBtn) {
+    cancelBtn.disabled = false;
+    cancelBtn.textContent = running ? "\u53D6\u6D88" : "\u5173\u95ED";
+    cancelBtn.classList.toggle("danger", running);
+  }
+}
+function hideRecalcPanel() {
+  const panel = document.getElementById("image-cache-recalc-progress");
+  if (panel) panel.style.display = "none";
+  recalcPanelDismissed = true;
+}
+async function recalcImageSizes(options = {}) {
+  const { force = false } = options;
+  const existing = getSizeCalcTask();
+  if (existing && existing.running) {
+    renderRecalcProgress(existing.lastProgress);
+    syncRecalcButtons();
+    return;
+  }
+  const total = allCachedImages.length;
+  if (total === 0) {
+    alert("\u56FE\u7247\u5E93\u4E3A\u7A7A\uFF0C\u65E0\u9700\u7EDF\u8BA1\u3002");
+    return;
+  }
+  let pending = 0;
+  for (const img of allCachedImages) {
+    if (typeof img.size !== "number") pending++;
+    if (typeof img.thumbnail_size !== "number") pending++;
+  }
+  const workload = force ? total * 2 : pending;
+  if (workload === 0) {
+    alert("\u6240\u6709\u9879\u76EE\u90FD\u5DF2\u7EDF\u8BA1\u5B8C\u6210\u3002\u5982\u9700\u91CD\u65B0\u6838\u5BF9\uFF0C\u8BF7\u4F7F\u7528\u300C\u5168\u90E8\u91CD\u7B97\u300D\u3002");
+    return;
+  }
+  if (workload > 3e3) {
+    const ok = await stylishConfirm(
+      `\u672C\u6B21\u9700\u8981\u7EDF\u8BA1 ${workload} \u4E2A\u9879\u76EE\uFF0C\u9884\u8BA1\u9700\u8981\u6570\u5206\u949F\u3002\u7EDF\u8BA1\u4F1A\u5728\u540E\u53F0\u8FDB\u884C\uFF0C\u53EF\u4EE5\u5173\u95ED\u8BBE\u7F6E\u9762\u677F\u3002\u662F\u5426\u7EE7\u7EED\uFF1F`
+    );
+    if (!ok) return;
+  }
+  recalcStartedAt = Date.now();
+  recalcPanelDismissed = false;
+  renderRecalcProgress({ phase: "db", current: 0, total: 1, detail: "\u51C6\u5907\u4E2D..." });
+  syncRecalcButtons();
+  try {
+    const report = await calculateAllImageSizes({ force });
+    renderRecalcSummary(report);
+    if (!report.cancelled) {
+      await loadImageCache({ preservePage: true });
+    } else {
+      await loadImageCache({ preservePage: true });
+    }
+  } catch (error) {
+    console.error("[ImageCache] \u91CD\u65B0\u8BA1\u7B97\u5927\u5C0F\u5931\u8D25:", error);
+    const title = document.getElementById("image-cache-recalc-title");
+    const detail = document.getElementById("image-cache-recalc-detail");
+    if (title) title.textContent = "\u7EDF\u8BA1\u5931\u8D25";
+    if (detail) detail.textContent = `\u53D1\u751F\u9519\u8BEF: ${error.message}\uFF0C\u8BE6\u60C5\u8BF7\u67E5\u770B\u63A7\u5236\u53F0\u3002`;
+  } finally {
+    syncRecalcButtons();
+  }
+}
 function initImageCache(settingsModal) {
-  settingsModal.find('a[data-tab="image-cache"]').on("click", loadImageCache);
+  settingsModal.find('a[data-tab="image-cache"]').on("click", async () => {
+    await loadImageCache();
+    const task = getSizeCalcTask();
+    if (task && task.running) {
+      renderRecalcProgress(task.lastProgress);
+    }
+    syncRecalcButtons();
+  });
   settingsModal.find("#Clear-Cache").on("click", clearCache);
   const jumpInput = document.getElementById("image-cache-jump-input");
   const jumpButton = document.getElementById("image-cache-jump-button");
@@ -70390,6 +73659,29 @@ function initImageCache(settingsModal) {
     grid.querySelectorAll(".st-chatu8-image-cache-item").forEach((item) => item.classList.remove("selected"));
     updateImageCacheInfo();
   });
+  $("#image-cache-recalc-size").on("click", () => recalcImageSizes({ force: false }));
+  $("#image-cache-recalc-all").on("click", async () => {
+    const existing = getSizeCalcTask();
+    if (existing && existing.running) {
+      alert("\u5DF2\u6709\u7EDF\u8BA1\u4EFB\u52A1\u5728\u8FDB\u884C\u4E2D\uFF0C\u8BF7\u7B49\u5F85\u5B8C\u6210\u6216\u5148\u53D6\u6D88\u3002");
+      return;
+    }
+    const ok = await stylishConfirm("\u5C06\u5FFD\u7565\u5DF2\u6709\u8BB0\u5F55\uFF0C\u91CD\u65B0\u7EDF\u8BA1\u5168\u90E8\u9879\u76EE\u3002\u786E\u5B9A\u7EE7\u7EED\uFF1F");
+    if (ok) recalcImageSizes({ force: true });
+  });
+  $("#image-cache-recalc-cancel").on("click", () => {
+    if (!cancelSizeCalc()) {
+      hideRecalcPanel();
+    }
+    syncRecalcButtons();
+  });
+  subscribeSizeCalcProgress((payload) => {
+    renderRecalcProgress(payload);
+    if (payload.phase === "finished" || payload.phase === "error") {
+      syncRecalcButtons();
+    }
+  });
+  syncRecalcButtons();
   $("#image-cache-delete-selected").on("click", async () => {
     if (selectedImages.size === 0) {
       alert("\u8BF7\u5148\u9009\u62E9\u8981\u5220\u9664\u7684\u56FE\u7247\u3002");
@@ -70518,39 +73810,60 @@ function updateNovelaiReferenceSectionsVisibility() {
   charRefSection.style.display = isCharRefVisible ? "block" : "none";
 }
 function updateNovelaiUcpOptions() {
-  const settings3 = extension_settings63[extensionName];
+  const settings3 = extension_settings65[extensionName];
   const novelaiModeSelect = document.getElementById("novelaimode");
   const ucpSelect = document.getElementById("UCP_novelai");
   if (!novelaiModeSelect || !ucpSelect) return;
   const selectedModel = novelaiModeSelect.value;
   const currentValue = settings3.UCP_novelai;
   ucpSelect.innerHTML = "";
-  const options = {
-    "\u65E0": "",
-    "Heavy": "Heavy",
-    "Light": "Light"
-  };
-  if (selectedModel === "nai-diffusion-3" || selectedModel === "nai-diffusion-4-5-full") {
-    options["Human Focus"] = "Human Focus";
+  const isV5 = selectedModel.includes("nai-diffusion-5");
+  const options = {};
+  if (isV5) {
+    options["\u65E0"] = "none";
+    options["Heavy"] = "heavy";
+    options["Furry Focus"] = "furryFocus";
+    options["Light"] = "light";
+    options["Human Focus"] = "humanFocus";
+  } else {
+    options["\u65E0"] = "";
+    options["Heavy"] = "Heavy";
+    options["Light"] = "Light";
+    if (selectedModel === "nai-diffusion-3" || selectedModel === "nai-diffusion-4-5-full") {
+      options["Human Focus"] = "Human Focus";
+    }
+    if (selectedModel === "nai-diffusion-4-5-full") {
+      options["Furry Focus"] = "Furry Focus";
+    }
+    options["\u4F5C\u8005\u9884\u8BBE"] = "bad proportions, out of focus, username, text, bad anatomy, lowres, worstquality, watermark, cropped, bad body, deformed, mutated, disfigured, poorly drawn face, malformed hands, extra arms, extra limb, missing limb, too many fingers, extra legs, bad feet, missing fingers, fused fingers, acnes, floating limbs, disconnected limbs, long neck, long body, mutation, ugly, blurry, low quality, sketches, normal quality, monochrome, grayscale, signature, logo, jpeg artifacts, unfinished, displeasing, chromatic aberration, extra digits, artistic error, scan, abstract, photo, realism, screencap";
+    options["\u4F5C\u8005\u9884set 2"] = "negativeXL_D, negativeXL, source_furry, extra limbs, deformations, long fingers, fused fingers, inaccurate_anatomy, bad proportions, poorly drawn hands, bad hands, extra_fingers, extra_hand, extra_arm, distorted fingers, ugly hands, creepy hands, six fingers, malformed fingers, long_fingers, interlocked fingers:1.2, ugly, deformed, uneven, asymmetrical, unnatural, missing fingers, extra digit, fewer digits, opaque eyes, small eyes, ugly eyes, blurred eyes, bad face, (bad anatomy, ugly face:1.2), (worst quality, low quality, not detailed, low resolution:1.2), motion_blur, blur, blur_censor, blurry, simple_background, text, error, cropped, normal quality, jpeg artifacts, watermark, logo, signature, username, artist name";
   }
-  if (selectedModel === "nai-diffusion-4-5-full") {
-    options["Furry Focus"] = "Furry Focus";
-  }
-  options["\u4F5C\u8005\u9884\u8BBE"] = "bad proportions, out of focus, username, text, bad anatomy, lowres, worstquality, watermark, cropped, bad body, deformed, mutated, disfigured, poorly drawn face, malformed hands, extra arms, extra limb, missing limb, too many fingers, extra legs, bad feet, missing fingers, fused fingers, acnes, floating limbs, disconnected limbs, long neck, long body, mutation, ugly, blurry, low quality, sketches, normal quality, monochrome, grayscale, signature, logo, jpeg artifacts, unfinished, displeasing, chromatic aberration, extra digits, artistic error, scan, abstract, photo, realism, screencap";
-  options["\u4F5C\u8005\u9884set 2"] = "negativeXL_D, negativeXL, source_furry, extra limbs, deformations, long fingers, fused fingers, inaccurate_anatomy, bad proportions, poorly drawn hands, bad hands, extra_fingers, extra_hand, extra_arm, distorted fingers, ugly hands, creepy hands, six fingers, malformed fingers, long_fingers, interlocked fingers:1.2, ugly, deformed, uneven, asymmetrical, unnatural, missing fingers, extra digit, fewer digits, opaque eyes, small eyes, ugly eyes, blurred eyes, bad face, (bad anatomy, ugly face:1.2), (worst quality, low quality, not detailed, low resolution:1.2), motion_blur, blur, blur_censor, blurry, simple_background, text, error, cropped, normal quality, jpeg artifacts, watermark, logo, signature, username, artist name";
   for (const [text, value] of Object.entries(options)) {
     const option = new Option(text, value);
     ucpSelect.add(option);
   }
   ucpSelect.value = currentValue;
   if (ucpSelect.selectedIndex === -1) {
-    ucpSelect.value = "Heavy";
-    settings3.UCP_novelai = "Heavy";
-    saveSettingsDebounced39();
+    if (isV5) {
+      if (currentValue === "Heavy") ucpSelect.value = "heavy";
+      else if (currentValue === "Light") ucpSelect.value = "light";
+      else if (currentValue === "Human Focus") ucpSelect.value = "humanFocus";
+      else if (currentValue === "Furry Focus") ucpSelect.value = "furryFocus";
+      else ucpSelect.value = "none";
+    } else {
+      if (currentValue === "heavy") ucpSelect.value = "Heavy";
+      else if (currentValue === "light") ucpSelect.value = "Light";
+      else if (currentValue === "humanFocus") ucpSelect.value = "Human Focus";
+      else if (currentValue === "furryFocus") ucpSelect.value = "Furry Focus";
+      else if (currentValue === "none") ucpSelect.value = "";
+      else ucpSelect.value = "Heavy";
+    }
+    settings3.UCP_novelai = ucpSelect.value;
+    saveSettingsDebounced42();
   }
 }
 function updateNovelaiModelSchedule() {
-  const settings3 = extension_settings63[extensionName];
+  const settings3 = extension_settings65[extensionName];
   const novelaiModeSelect = document.getElementById("novelaimode");
   const scheduleSelect = document.getElementById("Schedule");
   const samplerSelect = document.getElementById("novelai_sampler");
@@ -70559,6 +73872,15 @@ function updateNovelaiModelSchedule() {
   updateNovelaiUcpOptions();
   updateNovelaiReferenceSectionsVisibility();
   const selectedModel = novelaiModeSelect.value;
+  const isV5 = selectedModel.includes("nai-diffusion-5");
+  const straightAlphaField = document.getElementById("st-chatu8-novelai-straight-alpha-field");
+  if (straightAlphaField) {
+    straightAlphaField.style.display = isV5 ? "flex" : "none";
+  }
+  const varietyField = document.querySelector("#nai3Variety")?.closest(".st-chatu8-field");
+  if (varietyField) {
+    varietyField.style.display = isV5 ? "none" : "flex";
+  }
   const nativeOption = [...scheduleSelect.options].find((opt) => opt.value === "native");
   const ddimOption = [...samplerSelect.options].find((opt) => opt.value === "ddim_v3");
   if (selectedModel === "nai-diffusion-3") {
@@ -70574,7 +73896,7 @@ function updateNovelaiModelSchedule() {
     if (ddimOption) {
       ddimOption.style.display = "none";
       if (samplerSelect.value === "ddim_v3") {
-        samplerSelect.value = "k_euler";
+        samplerSelect.value = isV5 ? "k_euler_ancestral" : "k_euler";
         $(samplerSelect).trigger("change");
       }
     }
@@ -70586,6 +73908,7 @@ function updateNovelaiModelSchedule() {
       nativeOption.remove();
     }
   }
+  updateNovelaiScheduleVisibility();
 }
 function updateNovelaiOtherSiteVisibility() {
   const clientSelect = document.getElementById("client");
@@ -70596,16 +73919,17 @@ function updateNovelaiOtherSiteVisibility() {
   otherSiteField.style.display = shouldShow ? "flex" : "none";
 }
 function updateNovelaiScheduleVisibility() {
+  const novelaiModeSelect = document.getElementById("novelaimode");
+  const isV5 = novelaiModeSelect && novelaiModeSelect.value.includes("nai-diffusion-5");
   const sampler = document.getElementById("novelai_sampler");
   const scheduleField = document.querySelector("#Schedule")?.closest(".st-chatu8-field");
   const scheduleSelect = document.getElementById("Schedule");
   if (!sampler || !scheduleField || !scheduleSelect) return;
   const selectedSampler = sampler.value;
-  if (selectedSampler === "ddim_v3") {
+  if (isV5 || selectedSampler === "ddim_v3") {
     scheduleField.style.display = "none";
   } else {
     scheduleField.style.display = "flex";
-    $(scheduleSelect).trigger("change");
   }
 }
 function initNovelaiUI(settingsModal) {
@@ -70623,7 +73947,7 @@ function initNovelaiUI(settingsModal) {
         if (typeof toastr !== "undefined") {
           toastr.info("\u5DF2\u81EA\u52A8\u4E3A\u60A8\u5207\u6362\u5BA2\u6237\u7AEF\u4E3A\uFF1A\u6D4F\u89C8\u5668");
         }
-        saveSettingsDebounced39();
+        saveSettingsDebounced42();
       }
     }
   });
@@ -70755,7 +74079,7 @@ async function buildVibeJson(imageBase64, vibeBase64, model, extractVal, strengt
   };
 }
 function ensureVibePresets() {
-  const settings3 = extension_settings64[extensionName];
+  const settings3 = extension_settings66[extensionName];
   if (!settings3.vibePresets) {
     settings3.vibePresets = {
       "\u9ED8\u8BA4": {
@@ -70774,7 +74098,7 @@ function ensureVibePresets() {
 }
 function showVibeGeneratorDialog() {
   const parent = document.getElementById("st-chatu8-settings") || document.body;
-  const settings3 = extension_settings64[extensionName];
+  const settings3 = extension_settings66[extensionName];
   ensureVibePresets();
   const backdrop = document.createElement("div");
   backdrop.className = "st-chatu8-workflow-viz-backdrop";
@@ -70984,7 +74308,7 @@ function showVibeGeneratorDialog() {
   loadCurrentPreset();
   presetSelect.onchange = () => {
     settings3.vibePresetId = presetSelect.value;
-    saveSettingsDebounced40();
+    saveSettingsDebounced43();
     loadCurrentPreset();
   };
   strengthRange.oninput = (e) => {
@@ -71024,7 +74348,7 @@ function showVibeGeneratorDialog() {
       selectedFile = null;
       settings3.vibePresets[presetId].imageId = newImageId;
       settings3.vibePresets[presetId].thumbnail = null;
-      saveSettingsDebounced40();
+      saveSettingsDebounced43();
       previewImage.src = imageData;
       previewImage.style.display = "block";
       previewContainer.querySelector(".st-chatu8-image-placeholder").style.display = "none";
@@ -71041,7 +74365,7 @@ function showVibeGeneratorDialog() {
         await deleteConfigImage(currentImageId);
         const presetId = presetSelect.value;
         settings3.vibePresets[presetId].imageId = null;
-        saveSettingsDebounced40();
+        saveSettingsDebounced43();
       } catch (error) {
         console.error("[Vibe] \u5220\u9664\u56FE\u7247\u5931\u8D25:", error);
       }
@@ -71063,7 +74387,7 @@ function showVibeGeneratorDialog() {
         vibeDataId: currentVibeDataId,
         thumbnail: settings3.vibePresets[presetId]?.thumbnail || null
       };
-      saveSettingsDebounced40();
+      saveSettingsDebounced43();
       showStatus3("\u9884\u8BBE\u5DF2\u4FDD\u5B58\uFF01", "success");
     } catch (error) {
       console.error("[Vibe] \u4FDD\u5B58\u9884\u8BBE\u5931\u8D25:", error);
@@ -71087,7 +74411,7 @@ function showVibeGeneratorDialog() {
         thumbnail: null
       };
       settings3.vibePresetId = newName;
-      saveSettingsDebounced40();
+      saveSettingsDebounced43();
       loadPresetList();
       loadCurrentPreset();
       showStatus3("\u65B0\u9884\u8BBE\u5DF2\u521B\u5EFA\uFF01", "success");
@@ -71111,7 +74435,7 @@ function showVibeGeneratorDialog() {
       }
       delete settings3.vibePresets[presetId];
       settings3.vibePresetId = "\u9ED8\u8BA4";
-      saveSettingsDebounced40();
+      saveSettingsDebounced43();
       loadPresetList();
       loadCurrentPreset();
       showStatus3("\u9884\u8BBE\u5DF2\u5220\u9664\uFF01", "success");
@@ -71267,7 +74591,7 @@ function showVibeGeneratorDialog() {
             settings3.vibePresets[key] = presetData;
             importedCount++;
           }
-          saveSettingsDebounced40();
+          saveSettingsDebounced43();
           loadPresetList();
           loadCurrentPreset();
           showStatus3(`\u6210\u529F\u5BFC\u5165 ${importedCount} \u4E2A\u9884\u8BBE${skippedCount > 0 ? `\uFF0C\u8DF3\u8FC7 ${skippedCount} \u4E2A` : ""}\uFF01`, "success");
@@ -71358,7 +74682,7 @@ function showVibeGeneratorDialog() {
             vibeDataId,
             thumbnail: thumbnailDataUrl
           };
-          saveSettingsDebounced40();
+          saveSettingsDebounced43();
           updateDownloadButtonState();
           if (warnings.length > 0) {
             showStatus3(`\u26A0\uFE0F Vibe \u6587\u4EF6\u5DF2\u4FDD\u5B58\uFF0C\u4F46\u5B58\u5728\u4EE5\u4E0B\u95EE\u9898\uFF1A<br>${warnings.map((w) => "\u2022 " + w).join("<br>")}`, "success");
@@ -71508,7 +74832,7 @@ function showVibeGeneratorDialog() {
         vibeDataId,
         thumbnail: finalJson.thumbnail || null
       };
-      saveSettingsDebounced40();
+      saveSettingsDebounced43();
       updateDownloadButtonState();
       const filename = `${finalJson.name}.naiv4vibe`;
       showStatus3(`\u2705 \u5B8C\u6210\uFF01Vibe \u6570\u636E\u5DF2\u81EA\u52A8\u4FDD\u5B58\u5230\u9884\u8BBE "${presetId}"<br>\u70B9\u51FB"\u4E0B\u8F7D Vibe \u6587\u4EF6"\u53EF\u5BFC\u51FA ${filename}`, "success");
@@ -71589,7 +74913,7 @@ init_configDatabase();
 
 
 function ensureCharRefGroups() {
-  const settings3 = extension_settings65[extensionName];
+  const settings3 = extension_settings67[extensionName];
   if (!settings3.charRefGroups || typeof settings3.charRefGroups !== "object" || Array.isArray(settings3.charRefGroups)) {
     if (settings3.charRefGroups) {
       console.error("[CharRef] Corrupted charRefGroups data detected, resetting to default:", settings3.charRefGroups);
@@ -71657,7 +74981,7 @@ function showCharRefStatus(statusDiv, message, type = "info") {
   }, 5e3);
 }
 function ensureCharRefPresets() {
-  const settings3 = extension_settings65[extensionName];
+  const settings3 = extension_settings67[extensionName];
   if (!settings3.charRefPresets || typeof settings3.charRefPresets !== "object" || Array.isArray(settings3.charRefPresets)) {
     if (settings3.charRefPresets) {
       console.error("[CharRef] Corrupted charRefPresets data detected, resetting to default:", settings3.charRefPresets);
@@ -71688,7 +75012,7 @@ function ensureCharRefPresets() {
 }
 function showCharRefUploadDialog() {
   const parent = document.getElementById("st-chatu8-settings") || document.body;
-  const settings3 = extension_settings65[extensionName];
+  const settings3 = extension_settings67[extensionName];
   ensureCharRefPresets();
   const backdrop = document.createElement("div");
   backdrop.className = "st-chatu8-workflow-viz-backdrop";
@@ -71820,7 +75144,7 @@ function showCharRefUploadDialog() {
   loadCurrentPreset();
   presetSelect.onchange = () => {
     settings3.charRefPresetId = presetSelect.value;
-    saveSettingsDebounced41();
+    saveSettingsDebounced44();
     loadCurrentPreset();
   };
   selectBtn.onclick = () => imageInput.click();
@@ -71858,7 +75182,7 @@ function showCharRefUploadDialog() {
         createdAt: settings3.charRefPresets[presetId]?.createdAt || Date.now(),
         updatedAt: Date.now()
       };
-      saveSettingsDebounced41();
+      saveSettingsDebounced44();
       previewImage.src = imageData;
       previewImage.style.display = "block";
       previewContainer.querySelector(".st-chatu8-image-placeholder").style.display = "none";
@@ -71880,7 +75204,7 @@ function showCharRefUploadDialog() {
         await deleteConfigImage(currentImageId);
         const presetId = presetSelect.value;
         settings3.charRefPresets[presetId].imageId = null;
-        saveSettingsDebounced41();
+        saveSettingsDebounced44();
       } catch (error) {
         console.error("[CharRef] \u5220\u9664\u56FE\u7247\u5931\u8D25:", error);
       }
@@ -71901,7 +75225,7 @@ function showCharRefUploadDialog() {
         updatedAt: Date.now()
       };
       settings3.charRefPresetId = newName;
-      saveSettingsDebounced41();
+      saveSettingsDebounced44();
       loadPresetList();
       loadCurrentPreset();
       showCharRefStatus(statusDiv, "\u65B0\u9884\u8BBE\u5DF2\u521B\u5EFA\uFF01", "success");
@@ -71924,7 +75248,7 @@ function showCharRefUploadDialog() {
       }
       delete settings3.charRefPresets[presetId];
       settings3.charRefPresetId = "\u9ED8\u8BA4";
-      saveSettingsDebounced41();
+      saveSettingsDebounced44();
       loadPresetList();
       loadCurrentPreset();
       showCharRefStatus(statusDiv, "\u9884\u8BBE\u5DF2\u5220\u9664\uFF01", "success");
@@ -72046,7 +75370,7 @@ function showCharRefUploadDialog() {
             settings3.charRefPresets[key] = presetData;
             importedCount++;
           }
-          saveSettingsDebounced41();
+          saveSettingsDebounced44();
           loadPresetList();
           loadCurrentPreset();
           showCharRefStatus(statusDiv, `\u6210\u529F\u5BFC\u5165 ${importedCount} \u4E2A\u9884\u8BBE${skippedCount > 0 ? `\uFF0C\u8DF3\u8FC7 ${skippedCount} \u4E2A` : ""}\uFF01`, "success");
@@ -72062,7 +75386,7 @@ function showCharRefUploadDialog() {
   console.log("[CharRef] Upload dialog opened");
 }
 function loadCharRefGroupList(selectElement) {
-  const settings3 = extension_settings65[extensionName];
+  const settings3 = extension_settings67[extensionName];
   const charRefGroups = settings3.charRefGroups || {};
   const currentGroupId = settings3.charRefGroupId || "\u9ED8\u8BA4\u7EC4";
   selectElement.innerHTML = "";
@@ -72083,7 +75407,7 @@ function loadCharRefGroupList(selectElement) {
   console.log("[CharRef] Loaded preset list:", groupNames.length, "groups");
 }
 function createNewCharRefGroup(selectElement, statusDiv) {
-  const settings3 = extension_settings65[extensionName];
+  const settings3 = extension_settings67[extensionName];
   const charRefGroups = settings3.charRefGroups || {};
   const groupName = prompt("\u8BF7\u8F93\u5165\u65B0\u7EC4\u540D\u79F0:");
   if (!groupName) {
@@ -72105,7 +75429,7 @@ function createNewCharRefGroup(selectElement, statusDiv) {
   };
   settings3.charRefGroupId = trimmedName;
   try {
-    saveSettingsDebounced41();
+    saveSettingsDebounced44();
   } catch (error) {
     console.error("[CharRef] Failed to save settings after creating new group:", {
       groupName: trimmedName,
@@ -72122,7 +75446,7 @@ function createNewCharRefGroup(selectElement, statusDiv) {
   console.log("[CharRef] Created new group:", trimmedName);
 }
 function saveCurrentCharRefGroup(selectElement, statusDiv) {
-  const settings3 = extension_settings65[extensionName];
+  const settings3 = extension_settings67[extensionName];
   const charRefGroups = settings3.charRefGroups || {};
   const currentGroupId = selectElement.value;
   if (!currentGroupId) {
@@ -72137,7 +75461,7 @@ function saveCurrentCharRefGroup(selectElement, statusDiv) {
   currentGroup.updatedAt = Date.now();
   settings3.charRefGroupId = currentGroupId;
   try {
-    saveSettingsDebounced41();
+    saveSettingsDebounced44();
   } catch (error) {
     console.error("[CharRef] Failed to save settings after saving group:", {
       groupId: currentGroupId,
@@ -72153,7 +75477,7 @@ function saveCurrentCharRefGroup(selectElement, statusDiv) {
   console.log("[CharRef] Saved group:", currentGroupId);
 }
 async function deleteCharRefGroup(selectElement, statusDiv) {
-  const settings3 = extension_settings65[extensionName];
+  const settings3 = extension_settings67[extensionName];
   const charRefGroups = settings3.charRefGroups || {};
   const currentGroupId = selectElement.value;
   if (!currentGroupId) {
@@ -72194,7 +75518,7 @@ async function deleteCharRefGroup(selectElement, statusDiv) {
     }
   }
   try {
-    saveSettingsDebounced41();
+    saveSettingsDebounced44();
   } catch (error) {
     console.error("[CharRef] Failed to save settings after deleting group:", {
       groupId: currentGroupId,
@@ -72211,7 +75535,7 @@ async function deleteCharRefGroup(selectElement, statusDiv) {
 }
 function showCharRefGroupEditorDialog() {
   const parent = document.getElementById("st-chatu8-settings") || document.body;
-  const settings3 = extension_settings65[extensionName];
+  const settings3 = extension_settings67[extensionName];
   ensureCharRefGroups();
   const backdrop = document.createElement("div");
   backdrop.className = "st-chatu8-workflow-viz-backdrop";
@@ -72284,7 +75608,7 @@ function showCharRefGroupEditorDialog() {
   console.log("[CharRef] Group editor dialog opened");
 }
 async function renderCharRefSlots(slotsContainer, groupSelect, addRefBtn) {
-  const settings3 = extension_settings65[extensionName];
+  const settings3 = extension_settings67[extensionName];
   const charRefGroups = settings3.charRefGroups || {};
   const currentGroupId = groupSelect.value;
   const currentGroup = charRefGroups[currentGroupId];
@@ -72306,7 +75630,7 @@ async function renderCharRefSlots(slotsContainer, groupSelect, addRefBtn) {
     console.error("[CharRef] Corrupted group data - references is not an array:", currentGroupId, currentGroup);
     currentGroup.references = [];
     currentGroup.updatedAt = Date.now();
-    saveSettingsDebounced41();
+    saveSettingsDebounced44();
     console.log("[CharRef] Fixed corrupted group data");
   }
   const references = currentGroup.references;
@@ -72396,7 +75720,7 @@ async function renderCharRefSlots(slotsContainer, groupSelect, addRefBtn) {
 }
 async function showCharRefImageLibrary(onSelect) {
   const parent = document.getElementById("st-chatu8-settings") || document.body;
-  const settings3 = extension_settings65[extensionName];
+  const settings3 = extension_settings67[extensionName];
   ensureCharRefPresets();
   const charRefPresets = settings3.charRefPresets || {};
   let currentPage = 1;
@@ -72596,7 +75920,7 @@ async function showCharRefImageLibrary(onSelect) {
   renderCurrentPage();
 }
 function addCharRefToGroup(groupSelect, slotsContainer, addRefBtn, statusDiv) {
-  const settings3 = extension_settings65[extensionName];
+  const settings3 = extension_settings67[extensionName];
   const charRefGroups = settings3.charRefGroups || {};
   const currentGroupId = groupSelect.value;
   const currentGroup = charRefGroups[currentGroupId];
@@ -72627,7 +75951,7 @@ function addCharRefToGroup(groupSelect, slotsContainer, addRefBtn, statusDiv) {
         });
         currentGroup.updatedAt = Date.now();
         try {
-          saveSettingsDebounced41();
+          saveSettingsDebounced44();
         } catch (error) {
           console.error("[CharRef] Failed to save settings after adding reference:", {
             imageId: imageId.substring(0, 12) + "...",
@@ -72665,7 +75989,7 @@ function addCharRefToGroup(groupSelect, slotsContainer, addRefBtn, statusDiv) {
   }
 }
 async function removeCharRefFromGroup(index, groupSelect, slotsContainer, addRefBtn, statusDiv) {
-  const settings3 = extension_settings65[extensionName];
+  const settings3 = extension_settings67[extensionName];
   const charRefGroups = settings3.charRefGroups || {};
   const currentGroupId = groupSelect.value;
   const currentGroup = charRefGroups[currentGroupId];
@@ -72685,7 +76009,7 @@ async function removeCharRefFromGroup(index, groupSelect, slotsContainer, addRef
   currentGroup.references.splice(index, 1);
   currentGroup.updatedAt = Date.now();
   try {
-    saveSettingsDebounced41();
+    saveSettingsDebounced44();
   } catch (error) {
     console.error("[CharRef] Failed to save settings after removing reference:", error);
     showCharRefStatus(statusDiv, `\u9519\u8BEF: \u4FDD\u5B58\u8BBE\u7F6E\u5931\u8D25 - ${error.message}`, "error");
@@ -72696,7 +76020,7 @@ async function removeCharRefFromGroup(index, groupSelect, slotsContainer, addRef
   console.log("[CharRef] Removed reference at index:", index);
 }
 function bindCharRefSlotEvents(slotsContainer, groupSelect, addRefBtn) {
-  const settings3 = extension_settings65[extensionName];
+  const settings3 = extension_settings67[extensionName];
   const charRefGroups = settings3.charRefGroups || {};
   const currentGroupId = groupSelect.value;
   const currentGroup = charRefGroups[currentGroupId];
@@ -72711,7 +76035,7 @@ function bindCharRefSlotEvents(slotsContainer, groupSelect, addRefBtn) {
         currentGroup.references[index].type = newType;
         currentGroup.updatedAt = Date.now();
         try {
-          saveSettingsDebounced41();
+          saveSettingsDebounced44();
           console.log("[CharRef] Updated reference type:", index, newType);
         } catch (error) {
           console.error("[CharRef] Failed to save after type change:", error);
@@ -72734,7 +76058,7 @@ function bindCharRefSlotEvents(slotsContainer, groupSelect, addRefBtn) {
         currentGroup.references[index].strength = value;
         currentGroup.updatedAt = Date.now();
         try {
-          saveSettingsDebounced41();
+          saveSettingsDebounced44();
         } catch (error) {
           console.error("[CharRef] Failed to save after strength change:", error);
         }
@@ -72754,7 +76078,7 @@ function bindCharRefSlotEvents(slotsContainer, groupSelect, addRefBtn) {
         currentGroup.references[index].strength = clampedValue;
         currentGroup.updatedAt = Date.now();
         try {
-          saveSettingsDebounced41();
+          saveSettingsDebounced44();
         } catch (error) {
           console.error("[CharRef] Failed to save after strength change:", error);
         }
@@ -72775,7 +76099,7 @@ function bindCharRefSlotEvents(slotsContainer, groupSelect, addRefBtn) {
         currentGroup.references[index].fidelity = value;
         currentGroup.updatedAt = Date.now();
         try {
-          saveSettingsDebounced41();
+          saveSettingsDebounced44();
         } catch (error) {
           console.error("[CharRef] Failed to save after fidelity change:", error);
         }
@@ -72795,7 +76119,7 @@ function bindCharRefSlotEvents(slotsContainer, groupSelect, addRefBtn) {
         currentGroup.references[index].fidelity = clampedValue;
         currentGroup.updatedAt = Date.now();
         try {
-          saveSettingsDebounced41();
+          saveSettingsDebounced44();
         } catch (error) {
           console.error("[CharRef] Failed to save after fidelity change:", error);
         }
@@ -73532,7 +76856,7 @@ var updateImageUI = (role, index, imageData) => {
   }
 };
 function initBananaUI(settingsModal) {
-  const getBananaSettings = () => extension_settings67[extensionName].banana;
+  const getBananaSettings = () => extension_settings69[extensionName].banana;
   const presetSelect = document.getElementById("st-chatu8-banana-conversation-preset-id");
   const saveButton = document.getElementById("st-chatu8-banana-conversation-save");
   const saveAsButton = document.getElementById("st-chatu8-banana-conversation-save-as");
@@ -73549,6 +76873,8 @@ function initBananaUI(settingsModal) {
   const apiUrlInput2 = document.getElementById("st-chatu8-banana-api-url");
   const apiKeyInput2 = document.getElementById("st-chatu8-banana-api-key");
   const aspectRatioSelect = document.getElementById("st-chatu8-banana-aspect-ratio");
+  const imageSizeSelect = document.getElementById("st-chatu8-banana-image-size-select");
+  const imageSizeInput = document.getElementById("st-chatu8-banana-image-size-input");
   const useGrokFormatCheckbox = document.getElementById("st-chatu8-banana-use-grok-format");
   const editPresetSelect = document.getElementById("st-chatu8-banana-edit-preset");
   const videoModelSelect = document.getElementById("st-chatu8-banana-video-model-select");
@@ -73609,7 +76935,7 @@ function initBananaUI(settingsModal) {
     if (!preset) return;
     const migrated = await migratePresetIfNeeded(preset);
     if (migrated) {
-      saveSettingsDebounced43();
+      saveSettingsDebounced46();
       console.log("[BananaUI] \u9884\u8BBE\u5DF2\u8FC1\u79FB\u5230\u65B0\u683C\u5F0F");
     }
     fixedPromptInput.value = preset.fixedPrompt || "";
@@ -73679,7 +77005,7 @@ function initBananaUI(settingsModal) {
       postfixPrompt: postfixPromptInput.value,
       conversation
     };
-    saveSettingsDebounced43();
+    saveSettingsDebounced46();
     toastr.success(`\u9884\u8BBE "${presetId}" \u5DF2\u4FDD\u5B58!`);
   });
   saveAsButton.addEventListener("click", async () => {
@@ -73723,7 +77049,7 @@ function initBananaUI(settingsModal) {
     populateDropdown();
     populateEditPresetDropdown();
     populateVideoPresetDropdown();
-    saveSettingsDebounced43();
+    saveSettingsDebounced46();
     toastr.success(`\u65B0\u9884\u8BBE "${newPresetName}" \u5DF2\u521B\u5EFA\u5E76\u52A0\u8F7D!`);
   });
   newButton.addEventListener("click", async () => {
@@ -73744,7 +77070,7 @@ function initBananaUI(settingsModal) {
     populateEditPresetDropdown();
     populateVideoPresetDropdown();
     await loadPreset(newPresetName);
-    saveSettingsDebounced43();
+    saveSettingsDebounced46();
     toastr.success(`\u7A7A\u9884\u8BBE "${newPresetName}" \u5DF2\u521B\u5EFA!`);
   });
   renameButton.addEventListener("click", async () => {
@@ -73771,7 +77097,7 @@ function initBananaUI(settingsModal) {
     populateDropdown();
     populateEditPresetDropdown();
     populateVideoPresetDropdown();
-    saveSettingsDebounced43();
+    saveSettingsDebounced46();
     toastr.success(`\u9884\u8BBE\u5DF2\u91CD\u547D\u540D\u4E3A "${newName}"`);
   });
   deleteButton.addEventListener("click", async () => {
@@ -73794,7 +77120,7 @@ function initBananaUI(settingsModal) {
     populateEditPresetDropdown();
     populateVideoPresetDropdown();
     await loadPreset(newPresetId);
-    saveSettingsDebounced43();
+    saveSettingsDebounced46();
     toastr.success(`\u9884\u8BBE "${presetId}" \u5DF2\u5220\u9664\u3002`);
   });
   exportButton.addEventListener("click", async () => {
@@ -73894,7 +77220,7 @@ function initBananaUI(settingsModal) {
           populateEditPresetDropdown();
           populateVideoPresetDropdown();
           await loadPreset(presetName);
-          saveSettingsDebounced43();
+          saveSettingsDebounced46();
           toastr.success(`\u9884\u8BBE "${presetName}" \u5DF2\u6210\u529F\u5BFC\u5165\u5E76\u52A0\u8F7D\uFF01`);
         } catch (error) {
           toastr.error(`\u5BFC\u5165\u5931\u8D25: ${error.message}`);
@@ -73907,11 +77233,11 @@ function initBananaUI(settingsModal) {
   });
   apiUrlInput2.addEventListener("input", () => {
     getBananaSettings().apiUrl = apiUrlInput2.value;
-    saveSettingsDebounced43();
+    saveSettingsDebounced46();
   });
   apiKeyInput2.addEventListener("input", () => {
     getBananaSettings().apiKey = apiKeyInput2.value;
-    saveSettingsDebounced43();
+    saveSettingsDebounced46();
   });
   const apiKeyToggle = document.getElementById("st-chatu8-banana-api-key-toggle");
   if (apiKeyToggle) {
@@ -73928,42 +77254,60 @@ function initBananaUI(settingsModal) {
   }
   modelSelect2.addEventListener("change", () => {
     getBananaSettings().model = modelSelect2.value;
-    saveSettingsDebounced43();
+    saveSettingsDebounced46();
     updateVisibility();
   });
   if (editModelSelect) {
     editModelSelect.addEventListener("change", () => {
       getBananaSettings().editModel = editModelSelect.value;
-      saveSettingsDebounced43();
+      saveSettingsDebounced46();
     });
   }
   if (videoModelSelect) {
     videoModelSelect.addEventListener("change", () => {
       getBananaSettings().videoModel = videoModelSelect.value;
-      saveSettingsDebounced43();
+      saveSettingsDebounced46();
     });
   }
   aspectRatioSelect.addEventListener("change", () => {
     getBananaSettings().aspectRatio = aspectRatioSelect.value;
-    saveSettingsDebounced43();
+    saveSettingsDebounced46();
   });
+  if (imageSizeSelect && imageSizeInput) {
+    imageSizeSelect.addEventListener("change", () => {
+      if (imageSizeSelect.value === "__custom__") {
+        imageSizeInput.focus();
+        return;
+      }
+      imageSizeInput.value = imageSizeSelect.value;
+      getBananaSettings().imageSize = imageSizeSelect.value;
+      saveSettingsDebounced46();
+    });
+    imageSizeInput.addEventListener("input", () => {
+      const val = imageSizeInput.value.trim();
+      getBananaSettings().imageSize = val;
+      const matched = Array.from(imageSizeSelect.options).some((opt) => opt.value === val);
+      imageSizeSelect.value = matched ? val : "__custom__";
+      saveSettingsDebounced46();
+    });
+  }
   if (useGrokFormatCheckbox) {
     useGrokFormatCheckbox.addEventListener("change", () => {
       getBananaSettings().useGrokFormat = useGrokFormatCheckbox.checked ? "true" : "false";
-      saveSettingsDebounced43();
+      saveSettingsDebounced46();
     });
   }
   if (editPresetSelect) {
     editPresetSelect.addEventListener("change", () => {
       getBananaSettings().editPresetId = editPresetSelect.value;
-      saveSettingsDebounced43();
+      saveSettingsDebounced46();
       toastr.success(`\u4FEE\u56FE\u9884\u8BBE\u5DF2\u8BBE\u7F6E\u4E3A: "${editPresetSelect.value}"`);
     });
   }
   if (videoPresetSelect) {
     videoPresetSelect.addEventListener("change", () => {
       getBananaSettings().videoPresetId = videoPresetSelect.value;
-      saveSettingsDebounced43();
+      saveSettingsDebounced46();
       toastr.success(`\u89C6\u9891\u9884\u8BBE\u5DF2\u8BBE\u7F6E\u4E3A: "${videoPresetSelect.value}"`);
     });
   }
@@ -73982,7 +77326,7 @@ function initBananaUI(settingsModal) {
         fetchModelsButton2.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
         let baseUrl = apiUrl.replace(/\/$/, "");
         let directModelsUrl = baseUrl + "/models";
-        const client = extension_settings67[extensionName].client;
+        const client = extension_settings69[extensionName].client;
         let response;
         if (client === "jiuguan") {
           let proxyBaseUrl = baseUrl;
@@ -74063,7 +77407,7 @@ function initBananaUI(settingsModal) {
         } else {
           modelSelect2.value = models[0].id;
           getBananaSettings().model = models[0].id;
-          saveSettingsDebounced43();
+          saveSettingsDebounced46();
         }
         if (editModelSelect) {
           if (models.some((m) => m.id === currentEditModel)) {
@@ -74071,7 +77415,7 @@ function initBananaUI(settingsModal) {
           } else {
             editModelSelect.value = models[0].id;
             getBananaSettings().editModel = models[0].id;
-            saveSettingsDebounced43();
+            saveSettingsDebounced46();
           }
         }
         if (videoModelSelect) {
@@ -74080,7 +77424,7 @@ function initBananaUI(settingsModal) {
           } else {
             videoModelSelect.value = models[0].id;
             getBananaSettings().videoModel = models[0].id;
-            saveSettingsDebounced43();
+            saveSettingsDebounced46();
           }
         }
         toastr.success(`\u6210\u529F\u83B7\u53D6 ${models.length} \u4E2A\u6A21\u578B`);
@@ -74124,6 +77468,12 @@ function initBananaUI(settingsModal) {
     editModelSelect.value = savedEditModel;
   }
   aspectRatioSelect.value = bananaSettings.aspectRatio || "1:1";
+  if (imageSizeSelect && imageSizeInput) {
+    const savedSize = bananaSettings.imageSize || "1024x1024";
+    imageSizeInput.value = savedSize;
+    const matchedSize = Array.from(imageSizeSelect.options).some((opt) => opt.value === savedSize);
+    imageSizeSelect.value = matchedSize ? savedSize : "__custom__";
+  }
   if (useGrokFormatCheckbox) {
     useGrokFormatCheckbox.checked = String(bananaSettings.useGrokFormat) === "true";
   }
@@ -74146,7 +77496,7 @@ function initBananaUI(settingsModal) {
   initBananaPromptReplace();
 }
 function initBananaPromptReplace() {
-  const getBananaSettings = () => extension_settings67[extensionName].banana;
+  const getBananaSettings = () => extension_settings69[extensionName].banana;
   const presetSelect = document.getElementById("st-chatu8-banana-prompt-replace-id");
   const textarea = document.getElementById("st-chatu8-banana-prompt-replace-text");
   const saveBtn = document.getElementById("st-chatu8-banana-prompt-replace-save");
@@ -74203,7 +77553,7 @@ function initBananaPromptReplace() {
       }
     }
     loadReplacePreset(presetSelect.value);
-    saveSettingsDebounced43();
+    saveSettingsDebounced46();
     toastr.success(`\u5DF2\u52A0\u8F7D\u66FF\u6362\u89C4\u5219: "${presetSelect.value}"`);
   });
   textarea.addEventListener("input", checkUnsaved);
@@ -74216,7 +77566,7 @@ function initBananaPromptReplace() {
     const confirmed = await stylishConfirm(`\u786E\u5B9A\u8981\u8986\u76D6\u5F53\u524D\u66FF\u6362\u89C4\u5219 "${presetId}" \u5417\uFF1F`);
     if (!confirmed) return;
     bananaSettings.prompt_replace[presetId] = { text: textarea.value };
-    saveSettingsDebounced43();
+    saveSettingsDebounced46();
     if (unsavedWarning) unsavedWarning.style.display = "none";
     toastr.success(`\u66FF\u6362\u89C4\u5219 "${presetId}" \u5DF2\u4FDD\u5B58!`);
   });
@@ -74233,7 +77583,7 @@ function initBananaPromptReplace() {
     bananaSettings.prompt_replace[newName] = { text: textarea.value };
     bananaSettings.prompt_replace_id = newName;
     populateReplaceDropdown();
-    saveSettingsDebounced43();
+    saveSettingsDebounced46();
     if (unsavedWarning) unsavedWarning.style.display = "none";
     toastr.success(`\u66FF\u6362\u89C4\u5219 "${newName}" \u5DF2\u4FDD\u5B58!`);
   });
@@ -74248,7 +77598,7 @@ function initBananaPromptReplace() {
     bananaSettings.prompt_replace_id = newName;
     populateReplaceDropdown();
     loadReplacePreset(newName);
-    saveSettingsDebounced43();
+    saveSettingsDebounced46();
     if (unsavedWarning) unsavedWarning.style.display = "none";
     toastr.success(`\u7A7A\u66FF\u6362\u89C4\u5219 "${newName}" \u5DF2\u521B\u5EFA!`);
   });
@@ -74272,7 +77622,7 @@ function initBananaPromptReplace() {
     delete bananaSettings.prompt_replace[currentName];
     bananaSettings.prompt_replace_id = newName;
     populateReplaceDropdown();
-    saveSettingsDebounced43();
+    saveSettingsDebounced46();
     toastr.success(`\u66FF\u6362\u89C4\u5219\u5DF2\u91CD\u547D\u540D\u4E3A "${newName}"`);
   });
   deleteBtn.addEventListener("click", async () => {
@@ -74287,7 +77637,7 @@ function initBananaPromptReplace() {
     bananaSettings.prompt_replace_id = "\u9ED8\u8BA4";
     populateReplaceDropdown();
     loadReplacePreset("\u9ED8\u8BA4");
-    saveSettingsDebounced43();
+    saveSettingsDebounced46();
     toastr.success(`\u66FF\u6362\u89C4\u5219 "${presetId}" \u5DF2\u5220\u9664\u3002`);
   });
   exportBtn.addEventListener("click", () => {
@@ -74331,7 +77681,7 @@ function initBananaPromptReplace() {
             }
           }
           populateReplaceDropdown();
-          saveSettingsDebounced43();
+          saveSettingsDebounced46();
           toastr.success(`\u6210\u529F\u5BFC\u5165 ${Object.keys(importedData).length} \u4E2A\u66FF\u6362\u89C4\u5219\uFF0C\u5176\u4E2D ${newCount} \u4E2A\u662F\u5168\u65B0\u7684\u3002`);
         } catch (err) {
           toastr.error("\u5BFC\u5165\u5931\u8D25\uFF0C\u8BF7\u786E\u4FDD\u6587\u4EF6\u662F\u6B63\u786E\u7684 JSON \u683C\u5F0F\u3002");
@@ -74388,7 +77738,7 @@ function parseTemplate(pattern) {
   return pattern.map((row) => row.split("").map((c) => c === "1" ? 1 : 0));
 }
 function createGestureCanvas(doc) {
-  if (isMobile() && !extension_settings68[extensionName].gestureShowTrail) return;
+  if (isMobile() && !extension_settings70[extensionName].gestureShowTrail) return;
   const existing = doc.getElementById("gesture-canvas");
   if (existing) existing.remove();
   gestureCanvas = doc.createElement("canvas");
@@ -74410,7 +77760,7 @@ function createGestureCanvas(doc) {
   gestureCtx = gestureCanvas.getContext("2d");
 }
 function removeGestureCanvas() {
-  if (isMobile() && !extension_settings68[extensionName].gestureShowTrail) return;
+  if (isMobile() && !extension_settings70[extensionName].gestureShowTrail) return;
   if (gestureCanvas && gestureCanvas.parentNode) {
     gestureCanvas.remove();
   }
@@ -74418,15 +77768,15 @@ function removeGestureCanvas() {
   gestureCtx = null;
 }
 function drawGestureTrail() {
-  if (isMobile() && !extension_settings68[extensionName].gestureShowTrail) return;
-  if (!gestureCtx || gesturePoints.length < 2 || !extension_settings68[extensionName].gestureShowTrail) return;
+  if (isMobile() && !extension_settings70[extensionName].gestureShowTrail) return;
+  if (!gestureCtx || gesturePoints.length < 2 || !extension_settings70[extensionName].gestureShowTrail) return;
   gestureCtx.clearRect(0, 0, gestureCanvas.width, gestureCanvas.height);
   gestureCtx.beginPath();
   gestureCtx.moveTo(gesturePoints[0].x, gesturePoints[0].y);
   for (let i = 1; i < gesturePoints.length; i++) {
     gestureCtx.lineTo(gesturePoints[i].x, gesturePoints[i].y);
   }
-  const trailColor = extension_settings68[extensionName].gestureTrailColor ?? "#00ff00";
+  const trailColor = extension_settings70[extensionName].gestureTrailColor ?? "#00ff00";
   gestureCtx.strokeStyle = trailColor;
   gestureCtx.lineWidth = 4;
   gestureCtx.lineCap = "round";
@@ -74546,11 +77896,11 @@ function matchGesture(points) {
   const gestureTemplates = {
     "gesture1": {
       name: "\u624B\u52BF\u4E00",
-      pattern: extension_settings68[extensionName].gesture1
+      pattern: extension_settings70[extensionName].gesture1
     },
     "gesture2": {
       name: "\u624B\u52BF\u4E8C",
-      pattern: extension_settings68[extensionName].gesture2
+      pattern: extension_settings70[extensionName].gesture2
     }
   };
   const results = [];
@@ -74577,7 +77927,7 @@ function matchGesture(points) {
   results.sort((a, b) => b.score - a.score);
   const best = results[0];
   best.allResults = results.slice(0, 5);
-  const threshold = (extension_settings68[extensionName].gestureMatchThreshold ?? 60) / 100;
+  const threshold = (extension_settings70[extensionName].gestureMatchThreshold ?? 60) / 100;
   if (best.score < threshold) {
     return {
       key: "unknown",
@@ -74600,8 +77950,8 @@ function getGestureEmoji(key) {
   return emojis[key] || "\u2753";
 }
 function showGestureResult(doc, result, userGrid, targetElement) {
-  if (isMobile() && !extension_settings68[extensionName].gestureShowTrail) return;
-  if (!extension_settings68[extensionName].gestureShowRecognition) {
+  if (isMobile() && !extension_settings70[extensionName].gestureShowTrail) return;
+  if (!extension_settings70[extensionName].gestureShowRecognition) {
     console.log("[\u624B\u52BF] \u5DF2\u7981\u7528\u8BC6\u522B\u7ED3\u679C\u5C55\u793A\u3002");
     return;
   }
@@ -74644,8 +77994,8 @@ function showGestureResult(doc, result, userGrid, targetElement) {
     (r, i) => `<span style="color: ${i === 0 ? "#0f0" : "#666"}">${i + 1}. ${r.name} (${Math.round(r.score * 100)}%)</span>`
   ).join("<br>");
   const gestureTemplates = {
-    "gesture1": { pattern: extension_settings68[extensionName].gesture1 },
-    "gesture2": { pattern: extension_settings68[extensionName].gesture2 }
+    "gesture1": { pattern: extension_settings70[extensionName].gesture1 },
+    "gesture2": { pattern: extension_settings70[extensionName].gesture2 }
   };
   resultDiv.innerHTML = `
         <div style="font-size: 40px; margin-bottom: 10px;">
@@ -74690,8 +78040,8 @@ function showGestureResult(doc, result, userGrid, targetElement) {
   }, 3500);
 }
 function showGestureHint(doc, text = "\u{1F3AF} \u7ED8\u5236\u624B\u52BF...") {
-  if (isMobile() && !extension_settings68[extensionName].gestureShowTrail) return;
-  if (!extension_settings68[extensionName].gestureShowTrail) return;
+  if (isMobile() && !extension_settings70[extensionName].gestureShowTrail) return;
+  if (!extension_settings70[extensionName].gestureShowTrail) return;
   const existing = doc.getElementById("gesture-hint");
   if (existing) existing.remove();
   const hint = doc.createElement("div");
@@ -74843,7 +78193,7 @@ function initDocumentGestureEvents(doc = document) {
   doc._gestureEventsInitialized = true;
   const handlers = {
     mousedown: (e) => {
-      if (!extension_settings68[extensionName].gestureEnabled) return;
+      if (!extension_settings70[extensionName].gestureEnabled) return;
       if (isMobile() || !isRecording && e.button !== 2) return;
       const mesText = e.target.closest('.mes_text[data-gesture-bindied="true"]');
       let targetEl = mesText;
@@ -74907,7 +78257,7 @@ function initDocumentGestureEvents(doc = document) {
       }
     },
     touchstart: (e) => {
-      if (!extension_settings68[extensionName].gestureEnabled) return;
+      if (!extension_settings70[extensionName].gestureEnabled) return;
       if (!isMobile() || e.touches.length !== 1) return;
       const mesText = e.target.closest('.mes_text[data-gesture-bindied="true"]');
       let targetEl = mesText;
@@ -75440,7 +78790,7 @@ function handleDoubleClick(e, targetElement, clickPoint) {
     timer.end("\u5DF2\u5FFD\u7565 - \u5F39\u7A97\u5DF2\u5B58\u5728");
     return;
   }
-  const clickTriggerEnabled = extension_settings73[extensionName]?.clickTriggerEnabled;
+  const clickTriggerEnabled = extension_settings75[extensionName]?.clickTriggerEnabled;
   if (!clickTriggerEnabled) {
     debugBranch("handleDoubleClick", "\u70B9\u51FB\u89E6\u53D1\u529F\u80FD\u672A\u542F\u7528", true, {
       \u6761\u4EF6: "clickTriggerEnabled",
@@ -76407,17 +79757,17 @@ function collectRegexEntriesFromUI() {
 function saveRegexEntriesToProfile() {
   const profileName = profileSelect2.val();
   if (!profileName) return;
-  const profiles = extension_settings74[extensionName].regex_profiles;
+  const profiles = extension_settings76[extensionName].regex_profiles;
   if (!profiles[profileName]) {
     profiles[profileName] = {};
   }
   profiles[profileName].regexEntries = collectRegexEntriesFromUI();
-  saveSettingsDebounced47();
+  saveSettingsDebounced50();
 }
 function loadRegexEntriesFromProfile() {
   const profileName = profileSelect2.val();
   if (!profileName) return;
-  const profiles = extension_settings74[extensionName].regex_profiles;
+  const profiles = extension_settings76[extensionName].regex_profiles;
   const profile = profiles[profileName];
   console.log("[st-chatu8] \u52A0\u8F7D\u6B63\u5219\u914D\u7F6E:", {
     \u914D\u7F6E\u540D\u79F0: profileName,
@@ -76559,8 +79909,8 @@ function bindRegexEntryEvents() {
   });
 }
 function loadRegexProfiles() {
-  const profiles = extension_settings74[extensionName].regex_profiles || {};
-  const currentProfileName = extension_settings74[extensionName].current_regex_profile;
+  const profiles = extension_settings76[extensionName].regex_profiles || {};
+  const currentProfileName = extension_settings76[extensionName].current_regex_profile;
   profileSelect2.empty();
   Object.keys(profiles).forEach((name) => {
     const option = new Option(name, name, name === currentProfileName, name === currentProfileName);
@@ -76573,13 +79923,13 @@ function loadRegexProfiles() {
 function onProfileSelectChange2() {
   const profileName = $(this).val();
   if (!profileName) return;
-  const profiles = extension_settings74[extensionName].regex_profiles;
+  const profiles = extension_settings76[extensionName].regex_profiles;
   const profile = profiles[profileName];
   if (profile) {
     beforeAfterEditor.val(profile.beforeAfterRegex || "");
     textEditor.val(profile.textRegex || "");
-    extension_settings74[extensionName].current_regex_profile = profileName;
-    saveSettingsDebounced47();
+    extension_settings76[extensionName].current_regex_profile = profileName;
+    saveSettingsDebounced50();
     loadRegexEntriesFromProfile();
   }
 }
@@ -76589,20 +79939,20 @@ function onSaveProfileClick2() {
     toastr.warning("\u6CA1\u6709\u9009\u4E2D\u7684\u914D\u7F6E\u3002");
     return;
   }
-  const profiles = extension_settings74[extensionName].regex_profiles;
+  const profiles = extension_settings76[extensionName].regex_profiles;
   const existingEntries = profiles[profileName]?.regexEntries || [];
   profiles[profileName] = {
     beforeAfterRegex: beforeAfterEditor.val(),
     textRegex: textEditor.val(),
     regexEntries: existingEntries
   };
-  saveSettingsDebounced47();
+  saveSettingsDebounced50();
   toastr.success(`\u914D\u7F6E "${profileName}" \u5DF2\u4FDD\u5B58\u3002`);
 }
 function onNewProfileClick2() {
   stylInput("\u8BF7\u8F93\u5165\u65B0\u7684\u6B63\u5219\u914D\u7F6E\u540D\u79F0").then((newName) => {
     if (!newName || newName.trim() === "") return;
-    const profiles = extension_settings74[extensionName].regex_profiles;
+    const profiles = extension_settings76[extensionName].regex_profiles;
     if (profiles[newName]) {
       toastr.error(`\u914D\u7F6E "${newName}" \u5DF2\u5B58\u5728\u3002`);
       return;
@@ -76612,8 +79962,8 @@ function onNewProfileClick2() {
       textRegex: "",
       regexEntries: []
     };
-    extension_settings74[extensionName].current_regex_profile = newName;
-    saveSettingsDebounced47();
+    extension_settings76[extensionName].current_regex_profile = newName;
+    saveSettingsDebounced50();
     loadRegexProfiles();
     toastr.success(`\u7A7A\u914D\u7F6E "${newName}" \u5DF2\u521B\u5EFA\u5E76\u9009\u4E2D\u3002`);
   });
@@ -76621,7 +79971,7 @@ function onNewProfileClick2() {
 function onSaveAsProfileClick() {
   stylInput("\u8BF7\u8F93\u5165\u53E6\u5B58\u4E3A\u7684\u914D\u7F6E\u540D\u79F0").then((newName) => {
     if (!newName || newName.trim() === "") return;
-    const profiles = extension_settings74[extensionName].regex_profiles;
+    const profiles = extension_settings76[extensionName].regex_profiles;
     if (profiles[newName]) {
       toastr.error(`\u914D\u7F6E "${newName}" \u5DF2\u5B58\u5728\u3002`);
       return;
@@ -76633,8 +79983,8 @@ function onSaveAsProfileClick() {
       textRegex: currentProfile.textRegex || "",
       regexEntries: JSON.parse(JSON.stringify(currentProfile.regexEntries || []))
     };
-    extension_settings74[extensionName].current_regex_profile = newName;
-    saveSettingsDebounced47();
+    extension_settings76[extensionName].current_regex_profile = newName;
+    saveSettingsDebounced50();
     loadRegexProfiles();
     toastr.success(`\u914D\u7F6E\u5DF2\u53E6\u5B58\u4E3A "${newName}"\u3002`);
   });
@@ -76651,15 +80001,15 @@ function onRenameProfileClick() {
   }
   stylInput("\u8BF7\u8F93\u5165\u65B0\u7684\u914D\u7F6E\u540D\u79F0", currentName).then((newName) => {
     if (newName && newName.trim() !== "" && newName !== currentName) {
-      const profiles = extension_settings74[extensionName].regex_profiles;
+      const profiles = extension_settings76[extensionName].regex_profiles;
       if (profiles[newName]) {
         toastr.error(`\u914D\u7F6E "${newName}" \u5DF2\u5B58\u5728\uFF0C\u8BF7\u6362\u4E00\u4E2A\u540D\u79F0\u3002`);
         return;
       }
       profiles[newName] = profiles[currentName];
       delete profiles[currentName];
-      extension_settings74[extensionName].current_regex_profile = newName;
-      saveSettingsDebounced47();
+      extension_settings76[extensionName].current_regex_profile = newName;
+      saveSettingsDebounced50();
       loadRegexProfiles();
       toastr.success(`\u914D\u7F6E\u5DF2\u91CD\u547D\u540D\u4E3A "${newName}"`);
     }
@@ -76671,14 +80021,14 @@ function onDeleteProfileClick2() {
     toastr.warning("\u6CA1\u6709\u9009\u4E2D\u7684\u914D\u7F6E\u3002");
     return;
   }
-  if (Object.keys(extension_settings74[extensionName].regex_profiles).length <= 1) {
+  if (Object.keys(extension_settings76[extensionName].regex_profiles).length <= 1) {
     toastr.error("\u4E0D\u80FD\u5220\u9664\u6700\u540E\u4E00\u4E2A\u914D\u7F6E\u3002");
     return;
   }
   if (confirm(`\u4F60\u786E\u5B9A\u8981\u5220\u9664\u914D\u7F6E "${profileName}" \u5417\uFF1F`)) {
-    delete extension_settings74[extensionName].regex_profiles[profileName];
-    extension_settings74[extensionName].current_regex_profile = Object.keys(extension_settings74[extensionName].regex_profiles)[0];
-    saveSettingsDebounced47();
+    delete extension_settings76[extensionName].regex_profiles[profileName];
+    extension_settings76[extensionName].current_regex_profile = Object.keys(extension_settings76[extensionName].regex_profiles)[0];
+    saveSettingsDebounced50();
     loadRegexProfiles();
     toastr.success(`\u914D\u7F6E "${profileName}" \u5DF2\u5220\u9664\u3002`);
   }
@@ -76689,7 +80039,7 @@ function onExportProfileClick2() {
     toastr.warning("\u6CA1\u6709\u9009\u4E2D\u7684\u914D\u7F6E\u53EF\u5BFC\u51FA\u3002");
     return;
   }
-  const profile = extension_settings74[extensionName].regex_profiles[profileName];
+  const profile = extension_settings76[extensionName].regex_profiles[profileName];
   const exportData = { [profileName]: profile };
   const blob = new Blob([JSON.stringify(exportData, null, 4)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -76715,11 +80065,11 @@ function onImportProfileClick2() {
           let importedCount = 0;
           for (const name in importedProfiles) {
             if (Object.prototype.hasOwnProperty.call(importedProfiles, name)) {
-              extension_settings74[extensionName].regex_profiles[name] = importedProfiles[name];
+              extension_settings76[extensionName].regex_profiles[name] = importedProfiles[name];
               importedCount++;
             }
           }
-          saveSettingsDebounced47();
+          saveSettingsDebounced50();
           loadRegexProfiles();
           toastr.success(`\u6210\u529F\u5BFC\u5165 ${importedCount} \u4E2A\u914D\u7F6E\u3002`);
         } catch (error) {
@@ -77077,7 +80427,7 @@ async function onTestRegexClick(requestId, options = {}) {
     } else {
       debugBranch("onTestRegexClick", "\u524D\u540E\u6B63\u5219\u4E3A\u7A7A\uFF0C\u8DF3\u8FC7", true);
     }
-    const settings3 = extension_settings74[extensionName];
+    const settings3 = extension_settings76[extensionName];
     const startTag = settings3?.startTag || "image###";
     const endTag = settings3?.endTag || "###";
     const escapedStart = startTag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -77186,7 +80536,7 @@ async function onTestRegexClick(requestId, options = {}) {
     addLog(`[Regex \u5904\u7406\u540E\u6587\u672C]
 ${final_text}`);
     const isAutomatedCall = !!requestId;
-    const isTestMode = extension_settings74[extensionName].regexTestMode;
+    const isTestMode = extension_settings76[extensionName].regexTestMode;
     if (isAutomatedCall || !isTestMode) {
       debugBranch("onTestRegexClick", "\u53D1\u9001\u6B63\u5219\u5904\u7406\u7ED3\u679C", true, {
         \u662F\u81EA\u52A8\u8C03\u7528: isAutomatedCall,
@@ -77210,13 +80560,13 @@ ${final_text}`);
   }
 }
 function onRegexTestModeChange() {
-  extension_settings74[extensionName].regexTestMode = $(this).is(":checked");
-  saveSettingsDebounced47();
+  extension_settings76[extensionName].regexTestMode = $(this).is(":checked");
+  saveSettingsDebounced50();
 }
 function onGestureEnabledChange() {
   const enabled = $(this).is(":checked");
-  extension_settings74[extensionName].gestureEnabled = enabled;
-  saveSettingsDebounced47();
+  extension_settings76[extensionName].gestureEnabled = enabled;
+  saveSettingsDebounced50();
   if (enabled) {
     initGestureMonitor();
   } else {
@@ -77225,8 +80575,8 @@ function onGestureEnabledChange() {
 }
 function onClickTriggerEnabledChange() {
   const enabled = $(this).is(":checked");
-  extension_settings74[extensionName].clickTriggerEnabled = enabled;
-  saveSettingsDebounced47();
+  extension_settings76[extensionName].clickTriggerEnabled = enabled;
+  saveSettingsDebounced50();
   if (enabled) {
     initClickTriggerMonitor();
   } else {
@@ -77234,34 +80584,34 @@ function onClickTriggerEnabledChange() {
   }
 }
 function onGestureShowRecognitionChange() {
-  extension_settings74[extensionName].gestureShowRecognition = $(this).is(":checked");
-  saveSettingsDebounced47();
+  extension_settings76[extensionName].gestureShowRecognition = $(this).is(":checked");
+  saveSettingsDebounced50();
 }
 function onGestureShowTrailChange() {
-  extension_settings74[extensionName].gestureShowTrail = $(this).is(":checked");
-  saveSettingsDebounced47();
+  extension_settings76[extensionName].gestureShowTrail = $(this).is(":checked");
+  saveSettingsDebounced50();
 }
 function onGestureTrailColorChange() {
-  extension_settings74[extensionName].gestureTrailColor = $(this).val();
-  saveSettingsDebounced47();
+  extension_settings76[extensionName].gestureTrailColor = $(this).val();
+  saveSettingsDebounced50();
 }
 function onImageGenDemandEnabledChange() {
-  extension_settings74[extensionName].imageGenDemandEnabled = $(this).is(":checked");
-  saveSettingsDebounced47();
+  extension_settings76[extensionName].imageGenDemandEnabled = $(this).is(":checked");
+  saveSettingsDebounced50();
 }
 function onGestureMatchThresholdChange() {
   const value = $(this).val();
   gestureMatchThresholdValue.text(`${value}%`);
-  extension_settings74[extensionName].gestureMatchThreshold = parseInt(value, 10);
-  saveSettingsDebounced47();
+  extension_settings76[extensionName].gestureMatchThreshold = parseInt(value, 10);
+  saveSettingsDebounced50();
 }
 function onDefaultCharDemandChange() {
-  extension_settings74[extensionName].defaultCharDemand = $(this).val();
-  saveSettingsDebounced47();
+  extension_settings76[extensionName].defaultCharDemand = $(this).val();
+  saveSettingsDebounced50();
 }
 function onDefaultImageDemandChange() {
-  extension_settings74[extensionName].defaultImageDemand = $(this).val();
-  saveSettingsDebounced47();
+  extension_settings76[extensionName].defaultImageDemand = $(this).val();
+  saveSettingsDebounced50();
 }
 function initRegexSettings() {
   profileSelect2 = $("#ch-regex-profile-select");
@@ -77280,18 +80630,18 @@ function initRegexSettings() {
   imageGenDemandEnabledSwitch = $("#ch-image-gen-demand-enabled");
   defaultCharDemandTextarea = $("#ch-default-char-demand");
   defaultImageDemandTextarea = $("#ch-default-image-demand");
-  regexTestModeSwitch.prop("checked", extension_settings74[extensionName].regexTestMode ?? false);
-  gestureEnabledSwitch.prop("checked", extension_settings74[extensionName].gestureEnabled ?? false);
-  clickTriggerEnabledSwitch.prop("checked", extension_settings74[extensionName].clickTriggerEnabled ?? true);
-  gestureShowRecognitionSwitch.prop("checked", extension_settings74[extensionName].gestureShowRecognition ?? true);
-  gestureShowTrailSwitch.prop("checked", extension_settings74[extensionName].gestureShowTrail ?? true);
-  gestureTrailColorPicker.val(extension_settings74[extensionName].gestureTrailColor ?? "#00ff00");
-  const threshold = extension_settings74[extensionName].gestureMatchThreshold ?? 60;
+  regexTestModeSwitch.prop("checked", extension_settings76[extensionName].regexTestMode ?? false);
+  gestureEnabledSwitch.prop("checked", extension_settings76[extensionName].gestureEnabled ?? false);
+  clickTriggerEnabledSwitch.prop("checked", extension_settings76[extensionName].clickTriggerEnabled ?? true);
+  gestureShowRecognitionSwitch.prop("checked", extension_settings76[extensionName].gestureShowRecognition ?? true);
+  gestureShowTrailSwitch.prop("checked", extension_settings76[extensionName].gestureShowTrail ?? true);
+  gestureTrailColorPicker.val(extension_settings76[extensionName].gestureTrailColor ?? "#00ff00");
+  const threshold = extension_settings76[extensionName].gestureMatchThreshold ?? 60;
   gestureMatchThresholdSlider.val(threshold);
   gestureMatchThresholdValue.text(`${threshold}%`);
-  imageGenDemandEnabledSwitch.prop("checked", extension_settings74[extensionName].imageGenDemandEnabled ?? false);
-  defaultCharDemandTextarea.val(extension_settings74[extensionName].defaultCharDemand ?? "");
-  defaultImageDemandTextarea.val(extension_settings74[extensionName].defaultImageDemand ?? "");
+  imageGenDemandEnabledSwitch.prop("checked", extension_settings76[extensionName].imageGenDemandEnabled ?? false);
+  defaultCharDemandTextarea.val(extension_settings76[extensionName].defaultCharDemand ?? "");
+  defaultImageDemandTextarea.val(extension_settings76[extensionName].defaultImageDemand ?? "");
   $("#ch-new-regex-profile-button").on("click", onNewProfileClick2);
   $("#ch-rename-regex-profile-button").on("click", onRenameProfileClick);
   $("#ch-save-regex-profile-button").on("click", onSaveProfileClick2);
@@ -77336,8 +80686,8 @@ async function onRecordGestureClick(gestureKey) {
   try {
     const newPattern = await recordGesture();
     if (newPattern) {
-      extension_settings74[extensionName][gestureKey] = newPattern;
-      saveSettingsDebounced47();
+      extension_settings76[extensionName][gestureKey] = newPattern;
+      saveSettingsDebounced50();
       toastr.success(`\u624B\u52BF "${gestureKey === "gesture1" ? "\u4E00" : "\u4E8C"}" \u5DF2\u66F4\u65B0\u3002`);
     }
   } catch (error) {
@@ -77346,7 +80696,7 @@ async function onRecordGestureClick(gestureKey) {
   }
 }
 function getRegexTestStatus() {
-  const testMode = extension_settings74[extensionName].regexTestMode ?? false;
+  const testMode = extension_settings76[extensionName].regexTestMode ?? false;
   const live = (cached, selector) => {
     if (cached && cached.length && cached[0] && $.contains(document, cached[0])) {
       return cached;
@@ -77371,8 +80721,8 @@ function getRegexTestStatus() {
     findRegex: (e.findRegex || "").substring(0, 60),
     replaceString: (e.replaceString || "").substring(0, 60)
   }));
-  const gestureEnabled = extension_settings74[extensionName].gestureEnabled ?? false;
-  const clickTriggerEnabled = extension_settings74[extensionName].clickTriggerEnabled ?? false;
+  const gestureEnabled = extension_settings76[extensionName].gestureEnabled ?? false;
+  const clickTriggerEnabled = extension_settings76[extensionName].clickTriggerEnabled ?? false;
   return {
     testMode,
     currentProfile,
@@ -77520,7 +80870,7 @@ init_knowledgeBase();
 
 
 function getKBConfig() {
-  const settings3 = extension_settings79[extensionName];
+  const settings3 = extension_settings81[extensionName];
   if (!settings3.knowledgeBaseConfig) {
     settings3.knowledgeBaseConfig = {
       enabled: false,
@@ -77535,7 +80885,7 @@ function getKBConfig() {
   return settings3.knowledgeBaseConfig;
 }
 function saveKBConfig() {
-  saveSettingsDebounced50();
+  saveSettingsDebounced53();
 }
 var kbWorldList = [];
 var kbActiveWorld = null;
@@ -78064,12 +81414,12 @@ function displayKBTestResult(container, knowledgeBaseData, triggerText) {
       const isConstant = entry.constant === true;
       const keys = Array.isArray(entry.key) ? entry.key : entry.key ? [entry.key] : [];
       const keyDisplay = keys.length > 0 ? keys.slice(0, 5).join(", ") + (keys.length > 5 ? "..." : "") : "";
-      const escapeHtml4 = (text) => $("<div>").text(text).html();
-      const escapedContent = escapeHtml4(entryContent);
-      const escapedPreview = escapeHtml4(entryPreview);
-      const escapedName = escapeHtml4(entryName);
-      const escapedKeyDisplay = escapeHtml4(keyDisplay);
-      const escapedKeysTitle = escapeHtml4(keys.join(", "));
+      const escapeHtml5 = (text) => $("<div>").text(text).html();
+      const escapedContent = escapeHtml5(entryContent);
+      const escapedPreview = escapeHtml5(entryPreview);
+      const escapedName = escapeHtml5(entryName);
+      const escapedKeyDisplay = escapeHtml5(keyDisplay);
+      const escapedKeysTitle = escapeHtml5(keys.join(", "));
       const borderColor = isConstant ? "rgba(255, 193, 7, 0.4)" : "rgba(156, 39, 176, 0.3)";
       const bgColor = isConstant ? "rgba(255, 193, 7, 0.08)" : "rgba(156, 39, 176, 0.05)";
       const titleColor = isConstant ? "#ffc107" : "#ba68c8";
@@ -78405,18 +81755,18 @@ function getAboutPageContent() {
     <div class="st-chatu8-settings-section">
         <h3>\u{1F31F} \u7AD9\u70B9\u63A8\u8350</h3>
         <div class="st-chatu8-about-links" style="flex-direction: column; gap: 10px;">
-            <a href="https://spell.novelai.dev/" target="_blank" class="st-chatu8-about-link" style="width: 100%; justify-content: flex-start;">
-                <i class="fa-solid fa-wand-magic-sparkles" style="min-width: 20px; text-align: center;"></i>
-                <div style="display: flex; flex-direction: column; align-items: flex-start; text-align: left; margin-left: 10px;">
-                    <span style="font-weight: bold;">Spell</span>
-                    <span style="font-size: 0.85em; opacity: 0.8; font-weight: normal;">\u53EF\u4EE5\u89E3\u6790\u56FE\u7247\u7684 novelai \u7684 tag \u548C comfyui \u7684\u5DE5\u4F5C\u6D41</span>
+            <a href="https://spell.novelai.dev/" target="_blank" class="st-chatu8-about-link st-chatu8-site-link">
+                <i class="fa-solid fa-wand-magic-sparkles st-chatu8-site-icon"></i>
+                <div class="st-chatu8-site-content">
+                    <span class="st-chatu8-site-title">Spell</span>
+                    <span class="st-chatu8-site-description">\u53EF\u4EE5\u89E3\u6790\u56FE\u7247\u7684 novelai \u7684 tag \u548C comfyui \u7684\u5DE5\u4F5C\u6D41</span>
                 </div>
             </a>
-            <a href="https://novelai-tag.pages.dev/" target="_blank" class="st-chatu8-about-link" style="width: 100%; justify-content: flex-start;">
-                <i class="fa-solid fa-tags" style="min-width: 20px; text-align: center;"></i>
-                <div style="display: flex; flex-direction: column; align-items: flex-start; text-align: left; margin-left: 10px;">
-                    <span style="font-weight: bold;">NovelAI Tag</span>
-                    <span style="font-size: 0.85em; opacity: 0.8; font-weight: normal;">novelai \u7684\u753B\u5E08\u4E32\u5206\u4EAB\u7AD9\u70B9</span>
+            <a href="https://novelai-tag.pages.dev/" target="_blank" class="st-chatu8-about-link st-chatu8-site-link">
+                <i class="fa-solid fa-tags st-chatu8-site-icon"></i>
+                <div class="st-chatu8-site-content">
+                    <span class="st-chatu8-site-title">NovelAI Tag</span>
+                    <span class="st-chatu8-site-description">novelai \u7684\u753B\u5E08\u4E32\u5206\u4EAB\u7AD9\u70B9</span>
                 </div>
             </a>
         </div>
@@ -78516,6 +81866,7 @@ var NOVELAI_PROFILE_KEYS = [
   "nai3Deceisp",
   // Vibe Transfer
   "enableVibeGroupTransfer",
+  "randomVibeGroup",
   "normalizeRefStrength",
   // 生成参数
   "novelai_width",
@@ -78546,7 +81897,7 @@ var COMFYUI_PROFILE_KEYS = [
   "cfg_comfyui"
 ];
 function getSettings2() {
-  return extension_settings80[extensionName];
+  return extension_settings82[extensionName];
 }
 function refreshNovelaiProfileSelect() {
   const settings3 = getSettings2();
@@ -78565,6 +81916,9 @@ function refreshNovelaiProfileSelect() {
     }
     if (profile.normalizeRefStrength === void 0) {
       profile.normalizeRefStrength = "false";
+    }
+    if (profile.randomVibeGroup === void 0) {
+      profile.randomVibeGroup = "false";
     }
   }
   select.innerHTML = "";
@@ -78618,6 +81972,9 @@ function applyNovelaiProfile(profile) {
   }
   if (profile.normalizeRefStrength === void 0) {
     profile.normalizeRefStrength = "false";
+  }
+  if (profile.randomVibeGroup === void 0) {
+    profile.randomVibeGroup = "false";
   }
   for (const key of NOVELAI_PROFILE_KEYS) {
     if (profile[key] !== void 0) {
@@ -78699,7 +82056,7 @@ function initProfileControls(settingsModal) {
     if (profile) {
       applyNovelaiProfile(profile);
       settings3.novelai_profile_id = profileId;
-      saveSettingsDebounced51();
+      saveSettingsDebounced54();
       toastr.success(`\u5DF2\u52A0\u8F7D\u914D\u7F6E: ${profileId}`);
     }
   });
@@ -78714,7 +82071,7 @@ function initProfileControls(settingsModal) {
     settings3.novelai_profiles[trimmedName] = collectNovelaiProfile();
     settings3.novelai_profile_id = trimmedName;
     refreshNovelaiProfileSelect();
-    saveSettingsDebounced51();
+    saveSettingsDebounced54();
     toastr.success(`\u5DF2\u521B\u5EFA\u914D\u7F6E: ${trimmedName}`);
   });
   settingsModal.find("#novelai_profile_save").on("click", async function() {
@@ -78725,7 +82082,7 @@ function initProfileControls(settingsModal) {
     const confirmed = await stylishConfirm("\u786E\u8BA4\u4FDD\u5B58", `\u786E\u5B9A\u8981\u5C06\u5F53\u524D\u6240\u6709\u8BBE\u7F6E\u4FDD\u5B58\u5E76\u8986\u76D6\u5230\u914D\u7F6E "${profileId}" \u4E2D\u5417\uFF1F`);
     if (!confirmed) return;
     settings3.novelai_profiles[profileId] = collectNovelaiProfile();
-    saveSettingsDebounced51();
+    saveSettingsDebounced54();
     toastr.success(`\u5DF2\u4FDD\u5B58\u5F53\u524D\u914D\u7F6E: ${profileId}`);
   });
   settingsModal.find("#novelai_profile_delete").on("click", async function() {
@@ -78741,7 +82098,7 @@ function initProfileControls(settingsModal) {
     delete settings3.novelai_profiles[profileId];
     settings3.novelai_profile_id = "\u9ED8\u8BA4";
     refreshNovelaiProfileSelect();
-    saveSettingsDebounced51();
+    saveSettingsDebounced54();
     toastr.success(`\u5DF2\u5220\u9664\u914D\u7F6E: ${profileId}`);
   });
   settingsModal.find("#novelai_profile_id").on("change", function() {
@@ -78750,7 +82107,7 @@ function initProfileControls(settingsModal) {
     if (profile) {
       applyNovelaiProfile(profile);
       settings3.novelai_profile_id = profileId;
-      saveSettingsDebounced51();
+      saveSettingsDebounced54();
     }
   });
   settingsModal.find("#comfyui_profile_load").on("click", function() {
@@ -78761,7 +82118,7 @@ function initProfileControls(settingsModal) {
     if (profile) {
       applyComfyuiProfile(profile);
       settings3.comfyui_profile_id = profileId;
-      saveSettingsDebounced51();
+      saveSettingsDebounced54();
       toastr.success(`\u5DF2\u52A0\u8F7D\u914D\u7F6E: ${profileId}`);
     }
   });
@@ -78776,7 +82133,7 @@ function initProfileControls(settingsModal) {
     settings3.comfyui_profiles[trimmedName] = collectComfyuiProfile();
     settings3.comfyui_profile_id = trimmedName;
     refreshComfyuiProfileSelect();
-    saveSettingsDebounced51();
+    saveSettingsDebounced54();
     toastr.success(`\u5DF2\u521B\u5EFA\u914D\u7F6E: ${trimmedName}`);
   });
   settingsModal.find("#comfyui_profile_save").on("click", async function() {
@@ -78787,7 +82144,7 @@ function initProfileControls(settingsModal) {
     const confirmed = await stylishConfirm("\u786E\u8BA4\u4FDD\u5B58", `\u786E\u5B9A\u8981\u5C06\u5F53\u524D\u6240\u6709\u8BBE\u7F6E\u4FDD\u5B58\u5E76\u8986\u76D6\u5230\u914D\u7F6E "${profileId}" \u4E2D\u5417\uFF1F`);
     if (!confirmed) return;
     settings3.comfyui_profiles[profileId] = collectComfyuiProfile();
-    saveSettingsDebounced51();
+    saveSettingsDebounced54();
     toastr.success(`\u5DF2\u4FDD\u5B58\u5F53\u524D\u914D\u7F6E: ${profileId}`);
   });
   settingsModal.find("#comfyui_profile_delete").on("click", async function() {
@@ -78803,7 +82160,7 @@ function initProfileControls(settingsModal) {
     delete settings3.comfyui_profiles[profileId];
     settings3.comfyui_profile_id = "\u9ED8\u8BA4";
     refreshComfyuiProfileSelect();
-    saveSettingsDebounced51();
+    saveSettingsDebounced54();
     toastr.success(`\u5DF2\u5220\u9664\u914D\u7F6E: ${profileId}`);
   });
   settingsModal.find("#comfyui_profile_id").on("change", function() {
@@ -78812,7 +82169,7 @@ function initProfileControls(settingsModal) {
     if (profile) {
       applyComfyuiProfile(profile);
       settings3.comfyui_profile_id = profileId;
-      saveSettingsDebounced51();
+      saveSettingsDebounced54();
     }
   });
   refreshNovelaiProfileSelect();
@@ -78932,11 +82289,11 @@ function showCodeGenerationAnimation() {
       rollCount++;
       if (rollCount >= maxRolls) {
         clearInterval(rollInterval);
-        const settings3 = extension_settings94[extensionName];
+        const settings3 = extension_settings96[extensionName];
         const finalCode = settings3 && settings3.chatu8_code || generateRandomCode();
         if (settings3 && !settings3.chatu8_code) {
           settings3.chatu8_code = finalCode;
-          saveSettingsDebounced58();
+          saveSettingsDebounced61();
           addLog(`[OpeningVideo] \u667A\u7ED8\u59EC\u7F16\u53F7\u515C\u5E95\u4FDD\u5B58: ${finalCode}`);
         }
         codeDisplay.textContent = finalCode;
@@ -79247,7 +82604,7 @@ function createVideoContainer() {
   return videoContainer;
 }
 function playOpeningVideo() {
-  const settings3 = extension_settings94[extensionName];
+  const settings3 = extension_settings96[extensionName];
   if (settings3 && settings3.chatu8_code) {
     addLog(`[OpeningVideo] \u5DF2\u6709\u667A\u7ED8\u59EC\u7F16\u53F7 ${settings3.chatu8_code}\uFF0C\u8DF3\u8FC7\u5F00\u573A\u89C6\u9891`);
     return;
@@ -79259,7 +82616,7 @@ function playOpeningVideo() {
   if (settings3 && !settings3.chatu8_code) {
     const preGeneratedCode = generateRandomCode();
     settings3.chatu8_code = preGeneratedCode;
-    saveSettingsDebounced58();
+    saveSettingsDebounced61();
     addLog(`[OpeningVideo] \u7F16\u53F7\u524D\u7F6E\u751F\u6210\u5E76\u4FDD\u5B58: ${preGeneratedCode}`);
   }
   try {
@@ -79630,6 +82987,7 @@ image### 1girl, solo, blue hair ###
   novelai_seed: "\u968F\u673A\u79CD\u5B50\uFF0C`-1` \u968F\u673A\uFF1B\u56FA\u5B9A\u503C\u53EF\u590D\u73B0",
   nai3VibeTransfer: "\u542F\u7528 Vibe Transfer\uFF08\u53C2\u8003\u56FE\u63A7\u5236\u753B\u98CE\uFF09",
   enableVibeGroupTransfer: "\u542F\u7528 Vibe **\u7EC4**\uFF08\u591A\u5F20\u53C2\u8003\u56FE\u5206\u7EC4\u5207\u6362\uFF09",
+  randomVibeGroup: '\u5F00\u542F\u540E\uFF0C\u6BCF\u6B21\u751F\u56FE\u65F6\u5C06\u4ECE\u6240\u6709**\u975E\u7A7A**\u7684 Vibe \u7EC4\u4E2D**\u968F\u673A\u9009\u62E9**\u4E00\u4E2A\u4F7F\u7528\uFF0C\u800C\u975E\u4F7F\u7528\u5F53\u524D\u56FA\u5B9A\u7684\u7EC4\u3002\u7A7A\u7EC4\u4F1A\u88AB\u81EA\u52A8\u8DF3\u8FC7\u3002\u9700\u8981\u540C\u65F6\u542F\u7528"Vibe \u7EC4\u6C1B\u56F4\u8F6C\u79FB"\u624D\u4F1A\u751F\u6548\u3002',
   normalizeRefStrength: "\u591A\u5F20\u53C2\u8003\u56FE\u65F6\u5F52\u4E00\u5316\u5F3A\u5EA6\uFF0C\u907F\u514D\u53E0\u52A0\u8FC7\u731B",
   InformationExtracted: "\u4FE1\u606F\u63D0\u53D6\u5EA6 `0~1`\uFF0C\u8D8A\u5927\u8D8A\u591A\u5730\u4F7F\u7528\u53C2\u8003\u56FE\u7684\u7EC6\u8282",
   ReferenceStrength: "\u53C2\u8003\u5F3A\u5EA6 `0~1`\uFF0C\u8D8A\u5927\u8D8A\u8D34\u8FD1\u53C2\u8003\u56FE",
@@ -79839,7 +83197,7 @@ var INJECTED_FLAG = "chatu8HelpTipInjected";
 var globalsInitialized = false;
 var markedLoadingTriggered = false;
 function isHelpTipsEnabled() {
-  const v = extension_settings95?.[extensionName]?.helpTipsEnabled;
+  const v = extension_settings97?.[extensionName]?.helpTipsEnabled;
   if (v === void 0 || v === null) return true;
   if (typeof v === "boolean") return v;
   return String(v).toLowerCase() !== "false";
@@ -80037,7 +83395,7 @@ window.autoLLMClick = false;
 var generationStartChatLength = 0;
 var generationStartSwipesLength = 0;
 function isPluginEnabled() {
-  const scriptEnabled = extension_settings96[extensionName]?.scriptEnabled;
+  const scriptEnabled = extension_settings98[extensionName]?.scriptEnabled;
   const enabled = scriptEnabled === true || scriptEnabled === "true";
   debugLog("autoLLMClick.isPluginEnabled", "\u68C0\u67E5\u63D2\u4EF6\u662F\u5426\u542F\u7528", {
     scriptEnabled,
@@ -80052,7 +83410,7 @@ function isAutoLLMEnabled() {
     });
     return false;
   }
-  const autoLLMImageGen = extension_settings96[extensionName]?.autoLLMImageGen;
+  const autoLLMImageGen = extension_settings98[extensionName]?.autoLLMImageGen;
   const enabled = autoLLMImageGen === true || autoLLMImageGen === "true";
   debugLog("autoLLMClick.isAutoLLMEnabled", "\u68C0\u67E5\u81EA\u52A8LLM\u751F\u56FE\u662F\u5426\u542F\u7528", {
     autoLLMImageGen,
@@ -80197,8 +83555,8 @@ eventSource37.on(event_types6.GENERATION_ENDED, async (data) => {
       debugBranch("autoLLMClick.GENERATION_ENDED", "\u6D88\u606F\u957F\u5EA6\u68C0\u67E5\u901A\u8FC7", true, {
         \u6D88\u606F\u957F\u5EA6: messageContent.length
       });
-      if (extension_settings96[extensionName]?.insertOriginalText !== "true") {
-        extension_settings96[extensionName].insertOriginalText = "true";
+      if (extension_settings98[extensionName]?.insertOriginalText !== "true") {
+        extension_settings98[extensionName].insertOriginalText = "true";
         console.log("[st-chatu8] Auto-enabled insertOriginalText due to message length > 200");
         debugLog("autoLLMClick.GENERATION_ENDED", "\u81EA\u52A8\u542F\u7528 insertOriginalText", {
           \u539F\u56E0: "\u6D88\u606F\u957F\u5EA6 > 200"
@@ -80208,8 +83566,8 @@ eventSource37.on(event_types6.GENERATION_ENDED, async (data) => {
           insertTextSwitch.checked = true;
         }
         try {
-          const { saveSettingsDebounced: saveSettingsDebounced61 } = await import("../../../../script.js");
-          saveSettingsDebounced61();
+          const { saveSettingsDebounced: saveSettingsDebounced64 } = await import("../../../../script.js");
+          saveSettingsDebounced64();
         } catch (e) {
           console.warn("[st-chatu8] Failed to save settings:", e);
         }
@@ -80272,6 +83630,7 @@ function initAutoLLMClick() {
 var settings2;
 var currentPreviewTheme2 = {};
 var generationTabs3 = ["sd", "novelai", "comfyui"];
+var MODE_NAV_TABS = ["sd", "novelai", "comfyui", "banana"];
 var tabIds = ["main", "sd", "novelai", "comfyui", "banana", "llm", "vocabulary", "knowledgeBase", "character", "theme", "fab", "image-cache", "regex", "send_data", "about", "log"];
 var FAB_ICON_ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 var FAB_ICON_MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -80387,7 +83746,7 @@ async function handleFabIconUpload(event) {
       forceServer: true
     });
     settings2.chatu8_fab_icon_image_id = imageId;
-    saveSettingsDebounced59();
+    saveSettingsDebounced62();
     await refreshFabIconPreview(iconData);
     applyFabSettings();
     if (oldImageId && oldImageId !== imageId) {
@@ -80417,7 +83776,7 @@ async function removeFabIconImage() {
     console.warn("[st-chatu8] \u5220\u9664\u60AC\u6D6E\u7403\u56FE\u6807\u5931\u8D25:", error);
   }
   settings2.chatu8_fab_icon_image_id = "";
-  saveSettingsDebounced59();
+  saveSettingsDebounced62();
   await refreshFabIconPreview("");
   applyFabSettings();
   toastr.success("\u5DF2\u6062\u590D\u9ED8\u8BA4\u60AC\u6D6E\u7403\u56FE\u6807\u3002");
@@ -80492,19 +83851,35 @@ async function loadAllTabsContent(container) {
     return false;
   }
 }
+function updateModeNavVisibility(settingsModal) {
+  const currentMode2 = settings2.mode || "comfyui";
+  let activeTabHidden = false;
+  MODE_NAV_TABS.forEach((tab) => {
+    const $link = settingsModal.find(`.st-chatu8-nav-link[data-tab="${tab}"]`);
+    if (!$link.length) return;
+    const visible = tab === currentMode2;
+    $link.toggle(visible);
+    if (!visible && $link.hasClass("active")) {
+      activeTabHidden = true;
+    }
+  });
+  if (activeTabHidden) {
+    settingsModal.find('.st-chatu8-nav-link[data-tab="main"]').trigger("click");
+  }
+}
 function updateGenerationModeHandlers() {
   replaceWithSd();
   replaceWithnovelai();
   replaceWithcomfyui();
   replaceWithBanana();
-  addLog("[UI] Generation mode handlers updated for mode: " + extension_settings97[extensionName].mode);
+  addLog("[UI] Generation mode handlers updated for mode: " + extension_settings99[extensionName].mode);
 }
 async function initUI({ check_update: check_update2 }) {
   const existingPanel = document.getElementById("st-chatu8-settings");
   if (existingPanel) {
     existingPanel.remove();
   }
-  settings2 = extension_settings97[extensionName];
+  settings2 = extension_settings99[extensionName];
   try {
     await initJiuguanStorage();
   } catch (error) {
@@ -80529,10 +83904,10 @@ async function initUI({ check_update: check_update2 }) {
     return;
   }
   async function loadSettingsIntoUI() {
-    settings2 = extension_settings97[extensionName];
+    settings2 = extension_settings99[extensionName];
     if (settings2.vibeJiuguanchucun === void 0) {
       settings2.vibeJiuguanchucun = defaultSettings.vibeJiuguanchucun;
-      saveSettingsDebounced59();
+      saveSettingsDebounced62();
     }
     if (!settings2.cacheStorageMigrated) {
       console.log("[UI] \u68C0\u6D4B\u5230\u672A\u8FC1\u79FB\u7684 cache \u6570\u636E\uFF0C\u5F00\u59CB\u8FC1\u79FB...");
@@ -80549,7 +83924,7 @@ async function initUI({ check_update: check_update2 }) {
       addLog("[CharRef] Conflict resolved on load: Character Reference takes priority over Vibe Transfer");
       console.warn("[CharRef] Conflict detected: Both Character Reference and Vibe Transfer were enabled. Disabling Vibe Transfer (Character Reference takes priority).");
       toastr.warning("\u68C0\u6D4B\u5230\u51B2\u7A81\uFF1A\u89D2\u8272\u53C2\u8003\u4F18\u5148\uFF0CVibe Transfer \u5DF2\u7981\u7528", "\u529F\u80FD\u51B2\u7A81");
-      saveSettingsDebounced59();
+      saveSettingsDebounced62();
     }
     if (!settings2.themes) {
       settings2.themes = JSON.parse(JSON.stringify(defaultThemes));
@@ -80558,7 +83933,7 @@ async function initUI({ check_update: check_update2 }) {
       settings2.theme_id = "\u9ED8\u8BA4-\u767D\u5929";
     }
     applyTheme(settings2.themes[settings2.theme_id]);
-    const mainKeys = ["scriptEnabled", "helpTipsEnabled", "newlineFixEnabled", "mode", "client", "displayMode", "heavyFrontendMode", "insertOriginalText", "dbclike", "collapseImage", "zidongdianji", "zidongdianji2", "longPressToEdit", "clickToPreview", "startTag", "endTag", "cache", "sdUrl", "st_chatu8_sd_auth", "comfyuiUrl", "novelaiApi", "novelaisite", "novelaiOtherSite", "enableCloudQueue", "cloudQueueUrl", "cloudQueueGreeting", "showQueueGreeting", "novelaimode", "novelai_sampler", "Schedule", "nai3Scale", "cfg_rescale", "AI_use_coords", "sm", "dyn", "nai3Variety", "nai3Deceisp", "sd_cwidth", "sd_cheight", "sd_csteps", "sd_cseed", "sdCfgScale", "restoreFaces", "novelai_width", "novelai_height", "novelai_steps", "novelai_seed", "nai3VibeTransfer", "enableVibeGroupTransfer", "normalizeRefStrength", "InformationExtracted", "ReferenceStrength", "nai3CharRef", "nai3StylePerception", "comfyui_width", "comfyui_height", "comfyui_steps", "comfyui_seed", "cfg_comfyui", "worker", "ipa", "c_fenwei", "c_xijie", "c_quanzhong", "c_idquanzhong", "AQT_sd", "UCP_sd", "AQT_novelai", "UCP_novelai", "AQT_comfyui", "UCP_comfyui", "addFurryDataset", "sd_cupscale_factor", "sd_chires_fix", "sd_chires_steps", "sd_cdenoising_strength", "sd_cclip_skip", "sd_cadetailer", "worldBookEnabled", "ai_temperature", "ai_top_p", "ai_presence_penalty", "ai_frequency_penalty", "ai_stream", "ai_private", "ai_token", "vocabulary_search_startswith", "vocabulary_search_limit", "vocabulary_search_sort", "enablePregen", "autoLLMImageGen", "randomYushe", "aiAutonomousResolution", "imageAlignment", "imageSizeScale", "imageGenInterval", "translation_system_prompt", "ai_test_system", "ai_test_user", "ai_test_output", "jiuguanchucun", "vibeJiuguanchucun", "convertToJpegStorage", "weilin_lora_fix"];
+    const mainKeys = ["scriptEnabled", "helpTipsEnabled", "newlineFixEnabled", "mode", "client", "displayMode", "heavyFrontendMode", "insertOriginalText", "dbclike", "collapseImage", "zidongdianji", "zidongdianji2", "longPressToEdit", "clickToPreview", "startTag", "endTag", "cache", "sdUrl", "st_chatu8_sd_auth", "comfyuiUrl", "novelaiApi", "novelaisite", "novelaiOtherSite", "enableCloudQueue", "cloudQueueUrl", "cloudQueueGreeting", "showQueueGreeting", "novelaimode", "novelai_sampler", "Schedule", "nai3Scale", "cfg_rescale", "AI_use_coords", "sm", "dyn", "nai3Variety", "nai3Deceisp", "sd_cwidth", "sd_cheight", "sd_csteps", "sd_cseed", "sdCfgScale", "restoreFaces", "novelai_width", "novelai_height", "novelai_steps", "novelai_seed", "nai3VibeTransfer", "enableVibeGroupTransfer", "randomVibeGroup", "normalizeRefStrength", "InformationExtracted", "ReferenceStrength", "nai3CharRef", "nai3StylePerception", "comfyui_width", "comfyui_height", "comfyui_steps", "comfyui_seed", "cfg_comfyui", "worker", "ipa", "c_fenwei", "c_xijie", "c_quanzhong", "c_idquanzhong", "AQT_sd", "UCP_sd", "AQT_novelai", "UCP_novelai", "AQT_comfyui", "UCP_comfyui", "addFurryDataset", "sd_cupscale_factor", "sd_chires_fix", "sd_chires_steps", "sd_cdenoising_strength", "sd_cclip_skip", "sd_cadetailer", "worldBookEnabled", "ai_temperature", "ai_top_p", "ai_presence_penalty", "ai_frequency_penalty", "ai_stream", "ai_private", "ai_token", "vocabulary_search_startswith", "vocabulary_search_limit", "vocabulary_search_sort", "enablePregen", "autoLLMImageGen", "randomYushe", "aiAutonomousResolution", "imageAlignment", "imageSizeScale", "imageGenInterval", "translation_system_prompt", "ai_test_system", "ai_test_user", "ai_test_output", "jiuguanchucun", "vibeJiuguanchucun", "convertToJpegStorage", "weilin_lora_fix"];
     mainKeys.forEach((key) => {
       const element = document.getElementById(key);
       if (element) {
@@ -80830,15 +84205,15 @@ async function initUI({ check_update: check_update2 }) {
     if (!settings2.workers["\u56FE\u50CF\u7F16\u8F91"]) {
       settings2.workers["\u56FE\u50CF\u7F16\u8F91"] = editwk;
       console.log('[Chatu8] \u5DF2\u81EA\u52A8\u6DFB\u52A0 "\u56FE\u50CF\u7F16\u8F91" \u5DE5\u4F5C\u6D41\u9884\u8BBE');
-      saveSettingsDebounced59();
+      saveSettingsDebounced62();
     }
     if (!settings2.editWorkerid) {
       settings2.editWorkerid = "\u56FE\u50CF\u7F16\u8F91";
-      saveSettingsDebounced59();
+      saveSettingsDebounced62();
     }
     if (!settings2.editWorker && settings2.workers[settings2.editWorkerid]) {
       settings2.editWorker = settings2.workers[settings2.editWorkerid];
-      saveSettingsDebounced59();
+      saveSettingsDebounced62();
     }
     if (!settings2.worldBookList) {
       settings2.worldBookList = { "\u9ED8\u8BA4": { "content": "" } };
@@ -80971,7 +84346,7 @@ async function initUI({ check_update: check_update2 }) {
   initVibeGroupEditor(settingsModal);
   initCharRefGroupEditor(settingsModal);
   settingsModal.find("#ch-settings-modal-close").on("click", hideSettingsPanel);
-  if (extension_settings97[extensionName].gestureEnabled == true || extension_settings97[extensionName].gestureEnabled === "true") {
+  if (extension_settings99[extensionName].gestureEnabled == true || extension_settings99[extensionName].gestureEnabled === "true") {
     initGestureMonitor();
   }
   initAutoLLMClick();
@@ -81048,9 +84423,23 @@ async function initUI({ check_update: check_update2 }) {
   if ($kbNavLink.length) {
     $kbNavLink.toggle(isKnowledgeBaseEnabled());
   }
+  updateModeNavVisibility(settingsModal);
   initAboutProtection(settingsModal[0]);
   initAiAssistant(settingsModal);
   settingsModal.find("#migrate-database-btn").on("click", migrateDatabase);
+  settingsModal.find("#diagnose-config-storage-btn").on("click", async function() {
+    const button = $(this);
+    const originalText2 = button.text();
+    button.prop("disabled", true).text("\u626B\u63CF\u4E2D...");
+    try {
+      await showConfigStorageCleanupModal();
+    } catch (e) {
+      console.error("[ConfigDB \u6E05\u7406] \u6253\u5F00\u5931\u8D25:", e);
+      showToast(`\u6253\u5F00\u6E05\u7406\u9762\u677F\u5931\u8D25: ${e.message}`, "error");
+    } finally {
+      button.prop("disabled", false).text(originalText2);
+    }
+  });
   settingsModal.find("#migrate-vibe-storage-btn").on("click", async function() {
     const button = $(this);
     const originalText2 = button.text();
@@ -81158,20 +84547,20 @@ async function initUI({ check_update: check_update2 }) {
   settingsModal.find("#novelai_size").on("change", () => size_change("novelai"));
   settingsModal.find("#comfyui_size").on("change", () => size_change("comfyui"));
   const allIDs = Object.keys(defaultSettings);
-  const ignoreIDs = ["yushe", "yusheid", "fixedPrompt", "fixedPrompt_end", "negativePrompt", "workers", "workerid", "worker", "themes", "theme_id", "prompt_replace", "prompt_replace_id", "prompt_replace_text", "UCP", "AQT", "nai3CharRef", "worldBookList", "worldBookList_id", "worldbook_content", "insertOriginalText", "convertToJpegStorage", "randomYushe"];
+  const ignoreIDs = ["yushe", "yusheid", "fixedPrompt", "fixedPrompt_end", "negativePrompt", "workers", "workerid", "worker", "themes", "theme_id", "prompt_replace", "prompt_replace_id", "prompt_replace_text", "UCP", "AQT", "nai3CharRef", "worldBookList", "worldBookList_id", "worldbook_content", "insertOriginalText", "convertToJpegStorage", "randomYushe", "randomVibeGroup"];
   $("#InformationExtracted, #InformationExtracted_range").on("input", (event) => {
     const value = $(event.target).val();
     $("#InformationExtracted").val(value);
     $("#InformationExtracted_range").val(value);
     settings2.InformationExtracted = value;
-    saveSettingsDebounced59();
+    saveSettingsDebounced62();
   });
   $("#ReferenceStrength, #ReferenceStrength_range").on("input", (event) => {
     const value = $(event.target).val();
     $("#ReferenceStrength").val(value);
     $("#ReferenceStrength_range").val(value);
     settings2.ReferenceStrength = value;
-    saveSettingsDebounced59();
+    saveSettingsDebounced62();
   });
   const CHATU8_IMAGE_REGEX_SCRIPT_NAME = "st-chatu8-\u4E0D\u53D1\u9001image\u6807\u7B7E";
   const CHATU8_IMAGE_REGEX_SCRIPT = {
@@ -81285,7 +84674,7 @@ async function initUI({ check_update: check_update2 }) {
   settingsModal.on("change", "#helpTipsEnabled", function() {
     const isEnabled = $(this).prop("checked");
     settings2.helpTipsEnabled = isEnabled ? "true" : "false";
-    saveSettingsDebounced59();
+    saveSettingsDebounced62();
     const container = settingsModal[0]?.querySelector(".st-chatu8-content");
     if (!container) return;
     if (isEnabled) {
@@ -81297,13 +84686,13 @@ async function initUI({ check_update: check_update2 }) {
   settingsModal.find("#insertOriginalText").on("change", async function() {
     const isEnabled = $(this).prop("checked");
     settings2.insertOriginalText = isEnabled.toString();
-    saveSettingsDebounced59();
+    saveSettingsDebounced62();
     await handleInsertOriginalTextRegex(isEnabled);
   });
   settingsModal.find("#convertToJpegStorage").on("change", function() {
     const isEnabled = $(this).prop("checked");
     settings2.convertToJpegStorage = isEnabled.toString();
-    saveSettingsDebounced59();
+    saveSettingsDebounced62();
     if (isEnabled) {
       toastr.info("\u65B0\u56FE\u7247\u5C06\u4EE5JPEG\u683C\u5F0F\u50A8\u5B58\uFF0C\u53EF\u8282\u7701\u7EA670%\u7A7A\u95F4", "JPEG\u50A8\u5B58\u5DF2\u542F\u7528");
       addLog("[\u7F13\u5B58] JPEG\u50A8\u5B58\u5DF2\u542F\u7528\uFF0C\u8D28\u91CF: 0.78");
@@ -81314,24 +84703,24 @@ async function initUI({ check_update: check_update2 }) {
   settingsModal.find("#autoLLMImageGen").on("change", async function() {
     const isEnabled = $(this).prop("checked");
     settings2.autoLLMImageGen = isEnabled.toString();
-    saveSettingsDebounced59();
+    saveSettingsDebounced62();
     if (isEnabled) {
       const changes = [];
       const insertTextSwitch = settingsModal.find("#insertOriginalText");
       if (insertTextSwitch.length && !insertTextSwitch.prop("checked")) {
         insertTextSwitch.prop("checked", true);
         settings2.insertOriginalText = "true";
-        saveSettingsDebounced59();
+        saveSettingsDebounced62();
         await handleInsertOriginalTextRegex(true);
         changes.push('\u5DF2\u5F00\u542F"\u63D2\u5165\u539F\u6587(\u975E\u540C\u5C42)"');
       }
-      if (extension_settings97[extensionName]?.imageGenDemandEnabled) {
-        extension_settings97[extensionName].imageGenDemandEnabled = false;
+      if (extension_settings99[extensionName]?.imageGenDemandEnabled) {
+        extension_settings99[extensionName].imageGenDemandEnabled = false;
         const imageGenDemandSwitch = $("#ch-image-gen-demand-enabled");
         if (imageGenDemandSwitch.length) {
           imageGenDemandSwitch.prop("checked", false);
         }
-        saveSettingsDebounced59();
+        saveSettingsDebounced62();
         changes.push('\u5DF2\u5173\u95ED"\u751F\u56FE\u9700\u6C42\u5F39\u7A97"');
       }
       if (changes.length > 0) {
@@ -81342,7 +84731,7 @@ async function initUI({ check_update: check_update2 }) {
   settingsModal.find("#randomYushe").on("change", function() {
     const isEnabled = $(this).prop("checked");
     settings2.randomYushe = isEnabled.toString();
-    saveSettingsDebounced59();
+    saveSettingsDebounced62();
     if (isEnabled) {
       const yusheKeys = Object.keys(settings2.yushe || {});
       toastr.info(`\u5F53\u524D\u5171\u6709 ${yusheKeys.length} \u4E2A\u63D0\u793A\u8BCD\u9884\u8BBE\uFF0C\u6BCF\u6B21\u751F\u56FE\u5C06\u968F\u673A\u9009\u62E9`, "\u968F\u673A\u9884\u8BBE\u5DF2\u542F\u7528");
@@ -81353,12 +84742,12 @@ async function initUI({ check_update: check_update2 }) {
   });
   $("#enable_chatu8_fab").on("change", (event) => {
     settings2.enable_chatu8_fab = $(event.target).prop("checked").toString();
-    saveSettingsDebounced59();
+    saveSettingsDebounced62();
     applyFabSettings();
   });
   $("#enable_chatu8_fab_video").on("change", (event) => {
     settings2.enable_chatu8_fab_video = $(event.target).prop("checked");
-    saveSettingsDebounced59();
+    saveSettingsDebounced62();
     toggleTraditionalFabSettings();
     applyFabSettings();
   });
@@ -81366,7 +84755,7 @@ async function initUI({ check_update: check_update2 }) {
   $("#enable_chatu8_desktop_pet").on("change", async (event) => {
     const checked = $(event.target).prop("checked");
     settings2.enable_chatu8_desktop_pet = checked;
-    saveSettingsDebounced59();
+    saveSettingsDebounced62();
     if (checked) {
       try {
         const videoPlayer = getGlobalVideoPlayer();
@@ -81374,7 +84763,7 @@ async function initUI({ check_update: check_update2 }) {
           toastr.error("\u672A\u627E\u5230\u89C6\u9891\u64AD\u653E\u5668\uFF0C\u8BF7\u5148\u542F\u7528\u89C6\u9891\u5F62\u8C61", "\u72EC\u7ACB\u7A97\u53E3");
           $(event.target).prop("checked", false);
           settings2.enable_chatu8_desktop_pet = false;
-          saveSettingsDebounced59();
+          saveSettingsDebounced62();
           return;
         }
         const glCanvas = document.getElementById("st-chatu8-fab-video-canvas");
@@ -81382,7 +84771,7 @@ async function initUI({ check_update: check_update2 }) {
           toastr.error("\u672A\u627E\u5230\u89C6\u9891\u753B\u5E03\u5143\u7D20\uFF0C\u8BF7\u5148\u542F\u7528\u89C6\u9891\u5F62\u8C61", "\u72EC\u7ACB\u7A97\u53E3");
           $(event.target).prop("checked", false);
           settings2.enable_chatu8_desktop_pet = false;
-          saveSettingsDebounced59();
+          saveSettingsDebounced62();
           return;
         }
         videoPlayer.setPipBackground(true);
@@ -81414,7 +84803,7 @@ async function initUI({ check_update: check_update2 }) {
           }
           settings2.enable_chatu8_desktop_pet = false;
           $("#enable_chatu8_desktop_pet").prop("checked", false);
-          saveSettingsDebounced59();
+          saveSettingsDebounced62();
           toastr.info("\u753B\u4E2D\u753B\u5DF2\u5173\u95ED\uFF0C\u667A\u7ED8\u59EC\u56DE\u5230\u6D4F\u89C8\u5668\u5185", "\u72EC\u7ACB\u7A97\u53E3");
         });
         toastr.success("\u667A\u7ED8\u59EC\u5DF2\u5F39\u51FA\u5230\u753B\u4E2D\u753B\u7A97\u53E3\uFF0C\u53EF\u7F6E\u9876\u663E\u793A\u5728\u5176\u4ED6\u5E94\u7528\u4E0A\u65B9", "\u72EC\u7ACB\u7A97\u53E3");
@@ -81431,7 +84820,7 @@ async function initUI({ check_update: check_update2 }) {
         }
         $(event.target).prop("checked", false);
         settings2.enable_chatu8_desktop_pet = false;
-        saveSettingsDebounced59();
+        saveSettingsDebounced62();
         if (err.name === "NotAllowedError") {
           toastr.warning(
             "\u753B\u4E2D\u753B\u8BF7\u6C42\u88AB\u62D2\u7EDD\u3002\u8BF7\u786E\u4FDD\u901A\u8FC7\u7528\u6237\u64CD\u4F5C\uFF08\u5982\u70B9\u51FB\uFF09\u89E6\u53D1\uFF0C\u4E14\u6D4F\u89C8\u5668\u5141\u8BB8\u753B\u4E2D\u753B\u3002",
@@ -81476,7 +84865,7 @@ async function initUI({ check_update: check_update2 }) {
       if (settings2.enable_chatu8_desktop_pet) {
         settings2.enable_chatu8_desktop_pet = false;
         $("#enable_chatu8_desktop_pet").prop("checked", false);
-        saveSettingsDebounced59();
+        saveSettingsDebounced62();
         if (document.pictureInPictureElement) {
           document.exitPictureInPicture().catch(() => {
           });
@@ -81508,7 +84897,7 @@ async function initUI({ check_update: check_update2 }) {
       $("#chatu8_fab_opacity").val(theme.opacity);
       $("#chatu8_fab_opacity_value").val(theme.opacity);
     }
-    saveSettingsDebounced59();
+    saveSettingsDebounced62();
     applyFabSettings();
   });
   $("#chatu8_fab_bg_color").on("change", (event) => {
@@ -81520,7 +84909,7 @@ async function initUI({ check_update: check_update2 }) {
       }
       $("#chatu8_fab_theme").val("\u81EA\u5B9A\u4E49");
     }
-    saveSettingsDebounced59();
+    saveSettingsDebounced62();
     applyFabSettings();
   });
   $("#chatu8_fab_icon_color").on("change", (event) => {
@@ -81532,7 +84921,7 @@ async function initUI({ check_update: check_update2 }) {
       }
       $("#chatu8_fab_theme").val("\u81EA\u5B9A\u4E49");
     }
-    saveSettingsDebounced59();
+    saveSettingsDebounced62();
     applyFabSettings();
   });
   $("#chatu8_fab_icon_upload_btn").on("click", () => {
@@ -81552,7 +84941,7 @@ async function initUI({ check_update: check_update2 }) {
       }
       $("#chatu8_fab_theme").val("\u81EA\u5B9A\u4E49");
     }
-    saveSettingsDebounced59();
+    saveSettingsDebounced62();
     applyFabSettings();
   });
   function centerFabPosition() {
@@ -81574,7 +84963,7 @@ async function initUI({ check_update: check_update2 }) {
       settings2.chatu8_fab_position.desktop.top = fab.style.top;
       settings2.chatu8_fab_position.desktop.left = fab.style.left;
     }
-    saveSettingsDebounced59();
+    saveSettingsDebounced62();
   }
   $("#chatu8_fab_size, #chatu8_fab_size_value").on("input", (event) => {
     const value = parseInt($(event.target).val(), 10);
@@ -81593,7 +84982,7 @@ async function initUI({ check_update: check_update2 }) {
     } else {
       settings2.chatu8_fab_size.desktop = value;
     }
-    saveSettingsDebounced59();
+    saveSettingsDebounced62();
     updateFabSize(value);
     setTimeout(() => {
       centerFabPosition();
@@ -81635,17 +85024,18 @@ async function initUI({ check_update: check_update2 }) {
         settings2[settingKey] = value;
         if (settingKey == "scriptEnabled") {
           let conet = getContext22();
-          const settings3 = extension_settings97[extensionName];
+          const settings3 = extension_settings99[extensionName];
           if (conet && conet.chatId) {
             if (!conet.chatMetadata) conet.chatMetadata = {};
             if (!conet.chatMetadata.variables) conet.chatMetadata.variables = {};
             conet.chatMetadata.variables.zhihuiji = settings3.scriptEnabled;
           }
         }
-        saveSettingsDebounced59();
+        saveSettingsDebounced62();
         if (settingKey === "mode") {
           updateGenerationModeHandlers();
           updateKeepAliveStatus();
+          updateModeNavVisibility(settingsModal);
         }
         if (settingKey === "imageAlignment" || settingKey === "imageSizeScale") {
           const currentTheme = settings2.themes?.[settings2.theme_id] || {};
@@ -81672,14 +85062,14 @@ async function initUI({ check_update: check_update2 }) {
             toastr.info("Vibe Transfer \u5DF2\u81EA\u52A8\u5173\u95ED\uFF0C\u56E0\u4E3A\u89D2\u8272\u53C2\u8003\u5DF2\u542F\u7528", "\u89D2\u8272\u53C2\u8003");
             addLog("[CharRef] Vibe Transfer disabled due to Character Reference activation");
           }
-          saveSettingsDebounced59();
+          saveSettingsDebounced62();
         } else {
           checkbox.prop("checked", false);
         }
       });
     } else {
       settings2.nai3CharRef = "false";
-      saveSettingsDebounced59();
+      saveSettingsDebounced62();
     }
   });
   settingsModal.find("#enableVibeGroupTransfer").on("change", function() {
@@ -81702,8 +85092,30 @@ async function initUI({ check_update: check_update2 }) {
       toastr.info("\u89D2\u8272\u53C2\u8003\u5DF2\u81EA\u52A8\u5173\u95ED\uFF0C\u56E0\u4E3A Vibe Transfer \u5DF2\u542F\u7528", "Vibe Transfer");
       addLog("[VibeTransfer] Character Reference disabled due to Vibe Transfer activation");
     }
-    saveSettingsDebounced59();
+    saveSettingsDebounced62();
     console.log("[VibeGroup] Vibe group transfer:", settings2.enableVibeGroupTransfer);
+  });
+  settingsModal.find("#randomVibeGroup").on("change", function() {
+    const isEnabled = $(this).prop("checked");
+    settings2.randomVibeGroup = isEnabled ? "true" : "false";
+    saveSettingsDebounced62();
+    if (isEnabled) {
+      const vibeGroups = settings2.vibeGroups || {};
+      const usableCount = Object.keys(vibeGroups).filter(
+        (key) => Array.isArray(vibeGroups[key]?.vibes) && vibeGroups[key].vibes.length > 0
+      ).length;
+      if (usableCount === 0) {
+        toastr.warning("\u5F53\u524D\u6CA1\u6709\u5305\u542B Vibe \u7684\u7EC4\uFF0C\u8BF7\u5148\u5728 Vibe \u7EC4\u7F16\u8F91\u5668\u4E2D\u6DFB\u52A0", "\u968F\u673A Vibe \u7EC4");
+      } else {
+        toastr.info(`\u5F53\u524D\u5171\u6709 ${usableCount} \u4E2A\u975E\u7A7A Vibe \u7EC4\uFF0C\u6BCF\u6B21\u751F\u56FE\u5C06\u968F\u673A\u9009\u62E9`, "\u968F\u673A Vibe \u7EC4\u5DF2\u542F\u7528");
+      }
+      addLog(`[\u968F\u673AVibe\u7EC4] \u5DF2\u542F\u7528\uFF0C\u6BCF\u6B21\u751F\u56FE\u5C06\u4ECE ${usableCount} \u4E2A\u975E\u7A7A\u7EC4\u4E2D\u968F\u673A\u9009\u62E9`);
+      if (settings2.enableVibeGroupTransfer !== "true") {
+        toastr.warning('\u8BF7\u540C\u65F6\u542F\u7528"Vibe \u7EC4\u6C1B\u56F4\u8F6C\u79FB"\uFF0C\u5426\u5219\u968F\u673A\u7EC4\u4E0D\u4F1A\u751F\u6548', "\u968F\u673A Vibe \u7EC4");
+      }
+    } else {
+      addLog("[\u968F\u673AVibe\u7EC4] \u5DF2\u5173\u95ED\uFF0C\u5C06\u4F7F\u7528\u56FA\u5B9A\u9009\u4E2D\u7684\u7EC4");
+    }
   });
   settingsModal.find("#nai3VibeTransfer").on("change", function() {
     const isEnabled = $(this).prop("checked");
@@ -81716,7 +85128,7 @@ async function initUI({ check_update: check_update2 }) {
       }
       console.log("[VibeGroup] Disabled Vibe group transfer (mutual exclusivity)");
     }
-    saveSettingsDebounced59();
+    saveSettingsDebounced62();
     console.log("[NovelAI] Single Vibe transfer:", settings2.nai3VibeTransfer);
   });
   window.addEventListener("comfyui-cache-updated", async (event) => {
@@ -81852,7 +85264,7 @@ var pregenManager = {
 
 // utils/settings/stream_generate.js
 function parsePrompts(text) {
-  const settings3 = extension_settings99[extensionName];
+  const settings3 = extension_settings101[extensionName];
   if (!settings3.startTag || !settings3.endTag) return [];
   const escapeRegExp2 = (string) => {
     return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -81868,11 +85280,11 @@ function parsePrompts(text) {
   });
 }
 eventSource39.on(event_types7.generation_started, () => {
-  if (String(extension_settings99[extensionName].enablePregen) !== "true") return;
+  if (String(extension_settings101[extensionName].enablePregen) !== "true") return;
   pregenManager.clear();
 });
 eventSource39.on(event_types7.STREAM_TOKEN_RECEIVED, (text) => {
-  if (String(extension_settings99[extensionName].enablePregen) !== "true" || !text) return;
+  if (String(extension_settings101[extensionName].enablePregen) !== "true" || !text) return;
   const prompts = parsePrompts(text);
   if (prompts.length > 0) {
     pregenManager.add(prompts);
@@ -82297,7 +85709,7 @@ async function check_update() {
   return true;
 }
 async function chenk() {
-  if (!(extension_settings100[extensionName].scriptEnabled == true || extension_settings100[extensionName].scriptEnabled == "true") || checkSendBuClass()) {
+  if (!(extension_settings102[extensionName].scriptEnabled == true || extension_settings102[extensionName].scriptEnabled == "true") || checkSendBuClass()) {
     return;
   }
   replaceWithcomfyui();
@@ -82392,7 +85804,7 @@ async function main() {
     "styles/summary-manager.css"
   ];
   cssFiles.forEach(loadCSS);
-  const mergedSettings = { ...JSON.parse(JSON.stringify(defaultSettings)), ...extension_settings100[extensionName] };
+  const mergedSettings = { ...JSON.parse(JSON.stringify(defaultSettings)), ...extension_settings102[extensionName] };
   if (mergedSettings.chatu8_fab_video_paths) {
     let pathsChanged = false;
     if (mergedSettings.chatu8_fab_video_paths.idle && mergedSettings.chatu8_fab_video_paths.idle.includes(".mp4")) {
@@ -82407,7 +85819,7 @@ async function main() {
       console.log("[st-chatu8] \u81EA\u52A8\u8FC1\u79FB\u65E7\u7248\u89C6\u9891\u914D\u7F6E\u8DEF\u5F84 -> .chatu8");
     }
   }
-  extension_settings100[extensionName] = mergedSettings;
+  extension_settings102[extensionName] = mergedSettings;
   installGlobalErrorHandler();
   initImageGenStatsListener();
   await initUI({ check_update });

@@ -110,6 +110,65 @@
     font-size: 0.9rem;
 }
 
+#st-chatu8-settings .st-chatu8-cache-info .st-chatu8-cache-size-line {
+    margin-top: 6px;
+    font-size: 0.85rem;
+}
+
+#st-chatu8-settings .st-chatu8-cache-info .st-chatu8-cache-quota-line {
+    margin-top: 4px;
+    font-size: 0.8rem;
+    opacity: 0.75;
+}
+
+#st-chatu8-settings .st-chatu8-cache-controls .st-chatu8-btn:disabled,
+#st-chatu8-settings .st-chatu8-recalc-header .st-chatu8-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Recalculate Size Progress */
+#st-chatu8-settings .st-chatu8-recalc-progress {
+    margin-bottom: 20px;
+    padding: 12px;
+    background-color: var(--st-chatu8-bg-secondary);
+    border-radius: var(--st-chatu8-border-radius);
+}
+
+#st-chatu8-settings .st-chatu8-recalc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+    color: var(--st-chatu8-text-primary);
+}
+
+#st-chatu8-settings .st-chatu8-recalc-bar-track {
+    width: 100%;
+    height: 8px;
+    background-color: var(--st-chatu8-bg-primary);
+    border: 1px solid var(--st-chatu8-border-color);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+#st-chatu8-settings .st-chatu8-recalc-bar-fill {
+    width: 0%;
+    height: 100%;
+    background-color: var(--st-chatu8-accent-primary);
+    transition: width 0.2s ease;
+}
+
+#st-chatu8-settings .st-chatu8-recalc-detail {
+    margin-top: 8px;
+    font-size: 0.8rem;
+    color: var(--st-chatu8-text-secondary);
+    white-space: pre-line;
+    line-height: 1.5;
+}
+
 /* Image Preview Styles */
 #st-chatu8-settings .st-chatu8-image-preview-container {
     width: 100%;

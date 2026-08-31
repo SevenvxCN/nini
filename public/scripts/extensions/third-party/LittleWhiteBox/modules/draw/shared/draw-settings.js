@@ -1,29 +1,49 @@
-import { NovelDrawStorage } from "../../../core/server-storage.js";
-import { normalizeDrawLlmApi } from "./draw-llm.js";
-
-// 历史兼容：共享画图设置仍存放在 LittleWhiteBox_NovelDraw.json/settings。
-// 不改文件名，避免迁移用户数据；这里仅抽出 provider-neutral 字段读写。
+// 共享画图设置与 NovelAI Provider 设置共用现行 settings 根对象；此模块只拥有通用字段。
 const SERVER_FILE_KEY = 'settings';
 export const DEFAULT_SHARED_GALLERY_CACHE_DAYS = 3;
 
 const DEFAULT_SHARED_DRAW_SETTINGS = {
     cacheDays: DEFAULT_SHARED_GALLERY_CACHE_DAYS,
-    llmApi: { provider: 'st', url: '', key: '', model: '', modelCache: [] },
-    useStream: false,
     useWorldInfo: false,
-    advancedMode: false,
     timeout: 120000,
     characterTags: [],
     danbooruLocalDB: false,
     messageFilterRules: [],
     worldbooks: { enabled: false, uploadedBooks: [], keywordFilterMode: 'auto' },
-    paramsPresets: [],
-    selectedParamsPresetId: null,
-    disablePrefill: false,
+    updatedAt: 0,
 };
+
+const NOVEL_DRAW_PROVIDER_SETTING_KEYS = new Set([
+    'configVersion',
+    'mode',
+    'apiKey',
+    'apiBaseUrl',
+    'sendMode',
+    'useImageBackendJobs',
+    'insecureTLS',
+    'selectedParamsPresetId',
+    'paramsPresets',
+    'requestDelay',
+    'autoLearnCharacters',
+    'autoLearnMode',
+    'overrideSize',
+    'showFloorButton',
+    'showFloatingButton',
+    'advancedMode',
+    'promptPresets',
+    'selectedPromptPresetId',
+    '_promptTemplateVersion',
+]);
 
 let settingsCache = null;
 let settingsLoaded = false;
+let storagePromise = null;
+
+async function getStorage() {
+    storagePromise ||= import('../../../core/server-storage.js')
+        .then((module) => module.NovelDrawStorage);
+    return storagePromise;
+}
 
 function cloneSettingsObject(obj) {
     if (typeof structuredClone === 'function') {
@@ -32,13 +52,13 @@ function cloneSettingsObject(obj) {
     return JSON.parse(JSON.stringify(obj));
 }
 
-function normalizeCharacterOutfits(outfits = []) {
-    return (Array.isArray(outfits) ? outfits : [])
-        .map(outfit => ({
-            name: String(outfit?.name || '').trim(),
-            tags: String(outfit?.tags || '').trim(),
+function normalizeNamedTagList(list = []) {
+    return (Array.isArray(list) ? list : [])
+        .map(item => ({
+            name: String(item?.name || '').trim(),
+            tags: String(item?.tags || '').trim(),
         }))
-        .filter(outfit => outfit.name || outfit.tags);
+        .filter(item => item.name || item.tags);
 }
 
 export function normalizeSharedCacheDays(value, fallback = DEFAULT_SHARED_GALLERY_CACHE_DAYS) {
@@ -47,44 +67,85 @@ export function normalizeSharedCacheDays(value, fallback = DEFAULT_SHARED_GALLER
     return Math.min(30, Math.max(1, Math.round(number)));
 }
 
-function normalizeSharedDrawSettings(saved = {}) {
-    const merged = {
-        ...saved,
-        llmApi: normalizeDrawLlmApi({ ...DEFAULT_SHARED_DRAW_SETTINGS.llmApi, ...(saved.llmApi || {}) }),
-        worldbooks: { ...DEFAULT_SHARED_DRAW_SETTINGS.worldbooks, ...(saved.worldbooks || {}) },
-    };
-
-    if (!Array.isArray(merged.worldbooks.uploadedBooks)) merged.worldbooks.uploadedBooks = [];
-    if (!Array.isArray(merged.paramsPresets)) merged.paramsPresets = [];
-    if (!Array.isArray(merged.messageFilterRules)) merged.messageFilterRules = [];
-    merged.cacheDays = normalizeSharedCacheDays(merged.cacheDays);
-    merged.messageFilterRules = merged.messageFilterRules
+export function normalizeSharedDrawSettings(saved = {}) {
+    const source = saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+    const rawWorldbooks = source.worldbooks && typeof source.worldbooks === 'object'
+        && !Array.isArray(source.worldbooks)
+        ? source.worldbooks
+        : {};
+    const messageFilterRules = (Array.isArray(source.messageFilterRules) ? source.messageFilterRules : [])
         .filter(rule => rule && typeof rule === 'object')
         .map(rule => ({ start: String(rule.start || ''), end: String(rule.end || '') }));
+    const characterTags = (Array.isArray(source.characterTags) ? source.characterTags : [])
+        .filter(char => char && typeof char === 'object')
+        .map(char => ({
+            id: String(char.id || `char-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`),
+            enabled: char.enabled !== false,
+            name: String(char.name || ''),
+            aliases: (Array.isArray(char.aliases) ? char.aliases : [])
+                .map(alias => String(alias || '').trim())
+                .filter(Boolean),
+            type: String(char.type || 'girl'),
+            appearance: String(char.appearance || char.tags || ''),
+            negativeTags: String(char.negativeTags || ''),
+            danbooruTag: String(char.danbooruTag || ''),
+            outfits: normalizeNamedTagList(char.outfits || char.costumes || char.clothes || []),
+            dynamicStates: normalizeNamedTagList(char.dynamicStates || []),
+        }));
+    const timeout = Number(source.timeout);
 
-    merged.characterTags = (merged.characterTags || []).map(char => ({
-        id: char.id || `char-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        name: char.name || '',
-        aliases: Array.isArray(char.aliases) ? char.aliases : [],
-        type: char.type || 'girl',
-        appearance: char.appearance || char.tags || '',
-        negativeTags: char.negativeTags || '',
-        danbooruTag: char.danbooruTag || '',
-        outfits: normalizeCharacterOutfits(char.outfits || char.costumes || char.clothes || []),
-    }));
+    return {
+        cacheDays: normalizeSharedCacheDays(source.cacheDays),
+        useWorldInfo: source.useWorldInfo === true,
+        timeout: Number.isFinite(timeout) && timeout > 0
+            ? Math.min(600000, Math.max(10000, Math.floor(timeout)))
+            : DEFAULT_SHARED_DRAW_SETTINGS.timeout,
+        characterTags,
+        danbooruLocalDB: source.danbooruLocalDB === true,
+        messageFilterRules,
+        worldbooks: {
+            enabled: rawWorldbooks.enabled === true,
+            uploadedBooks: Array.isArray(rawWorldbooks.uploadedBooks) ? rawWorldbooks.uploadedBooks : [],
+            keywordFilterMode: rawWorldbooks.keywordFilterMode === 'all_active' ? 'all_active' : 'auto',
+        },
+        updatedAt: Number(source.updatedAt) || 0,
+    };
+}
 
-    return { ...DEFAULT_SHARED_DRAW_SETTINGS, ...merged };
+function pickNovelDrawProviderSettings(value) {
+    const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    return Object.fromEntries(
+        Object.entries(source).filter(([key]) => NOVEL_DRAW_PROVIDER_SETTING_KEYS.has(key)),
+    );
+}
+
+export function mergeSharedDrawSettingsIntoStorageRoot(storageValue, sharedSettings) {
+    return {
+        ...pickNovelDrawProviderSettings(storageValue),
+        ...normalizeSharedDrawSettings(sharedSettings),
+    };
+}
+
+export function mergeNovelDrawProviderSettingsIntoStorageRoot(storageValue, providerSettings) {
+    return {
+        ...pickNovelDrawProviderSettings(providerSettings),
+        ...normalizeSharedDrawSettings(storageValue),
+    };
 }
 
 export async function loadSharedDrawSettings() {
     if (settingsLoaded && settingsCache) return settingsCache;
 
     try {
-        const saved = await NovelDrawStorage.get(SERVER_FILE_KEY, null);
+        const storage = await getStorage();
+        const saved = await storage.getStrict(SERVER_FILE_KEY, null);
         settingsCache = normalizeSharedDrawSettings(saved || {});
     } catch (error) {
         console.error('[DrawSettings] 加载共享画图设置失败:', error);
-        settingsCache = normalizeSharedDrawSettings({});
+        settingsCache = null;
+        settingsLoaded = false;
+        if (window.toastr) toastr.error('无法读取共享画图配置，已禁止保存，请稍后重试');
+        throw error;
     }
 
     settingsLoaded = true;
@@ -100,21 +161,27 @@ export function getSharedDrawSettings() {
 
 export async function updateSharedDrawSettingsPersistent(mutator, okText = '已保存', options = {}) {
     const { notify = false, silent = true } = options;
-    const saved = await NovelDrawStorage.get(SERVER_FILE_KEY, null);
-    const current = normalizeSharedDrawSettings(saved || settingsCache || {});
-    const draft = cloneSettingsObject(current);
-
-    if (typeof mutator === 'function') {
-        await mutator(draft);
+    if (!settingsLoaded || !settingsCache) {
+        console.error('[DrawSettings] 配置尚未成功加载，拒绝保存');
+        if (window.toastr) toastr.error('共享画图配置尚未成功加载，已禁止保存');
+        return false;
     }
-
-    const next = normalizeSharedDrawSettings(draft);
-    next.updatedAt = Date.now();
-    const previous = settingsCache ? cloneSettingsObject(settingsCache) : null;
+    const previous = cloneSettingsObject(settingsCache);
 
     try {
-        settingsCache = next;
-        const ok = await NovelDrawStorage.setAndSave(SERVER_FILE_KEY, next, { silent });
+        const storage = await getStorage();
+        const ok = await storage.updateAndSave(async (storageRoot) => {
+            const saved = storageRoot[SERVER_FILE_KEY];
+            const current = normalizeSharedDrawSettings(saved || settingsCache);
+            const draft = cloneSettingsObject(current);
+            if (typeof mutator === 'function') {
+                await mutator(draft);
+            }
+            const next = normalizeSharedDrawSettings(draft);
+            next.updatedAt = Date.now();
+            settingsCache = next;
+            storageRoot[SERVER_FILE_KEY] = mergeSharedDrawSettingsIntoStorageRoot(saved, next);
+        }, { silent });
         if (ok !== false) {
             if (notify && window.toastr) toastr.success(okText);
             return true;
@@ -128,11 +195,4 @@ export async function updateSharedDrawSettingsPersistent(mutator, okText = '已�
         if (notify && window.toastr) toastr.error(`保存失败：${error?.message || '网络异常'}`);
         return false;
     }
-}
-
-export function getActiveSharedParamsPreset() {
-    const settings = getSharedDrawSettings();
-    return settings.paramsPresets.find(p => p.id === settings.selectedParamsPresetId)
-        || settings.paramsPresets[0]
-        || { maxImages: 0, maxCharactersPerImage: 0 };
 }

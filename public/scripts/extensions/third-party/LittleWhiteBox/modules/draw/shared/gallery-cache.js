@@ -16,6 +16,7 @@ const CACHE_TTL = 5 * 60 * 1000;
 const PREVIEW_CACHE_LIMIT = 64;
 const PREVIEW_OBJECT_URL_LIMIT = 128;
 const PREVIEW_PRELOAD_LIMIT = 128;
+const CACHE_SYNC_CHANNEL_NAME = 'xb_novel_draw_preview_changes';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 状态
@@ -29,6 +30,8 @@ let currentGalleryData = null;
 const previewCache = new Map();
 const previewObjectUrlCache = new Map();
 const previewPreloadCache = new Map();
+const cacheChangeListeners = new Set();
+let cacheSyncChannel = null;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 图片显示 URL
@@ -42,6 +45,17 @@ function parseBase64Image(value) {
         mime: match?.[1] || 'image/png',
         data: match ? match[2] : raw,
     };
+}
+
+export function getBase64ImagePayload(value) {
+    const parsed = parseBase64Image(value);
+    if (!parsed?.data) return { base64: '', format: 'png' };
+    const format = parsed.mime === 'image/jpeg'
+        ? 'jpg'
+        : parsed.mime === 'image/webp'
+            ? 'webp'
+            : 'png';
+    return { base64: parsed.data, format };
 }
 
 function base64ToBlob(base64, mime) {
@@ -263,6 +277,59 @@ function invalidateCache(slotId) {
     }
 }
 
+function normalizeChangedSlotIds(slotIds) {
+    if (slotIds === null) return null;
+    return [...new Set((Array.isArray(slotIds) ? slotIds : [])
+        .map(slotId => String(slotId || '').trim())
+        .filter(Boolean))];
+}
+
+function notifyCacheChangeListeners(slotIds) {
+    for (const listener of cacheChangeListeners) {
+        try {
+            listener({ slotIds });
+        } catch (error) {
+            console.error('[GalleryCache] 处理跨标签页缓存变更失败:', error);
+        }
+    }
+}
+
+function ensureCacheSyncChannel() {
+    if (cacheSyncChannel || typeof globalThis.BroadcastChannel !== 'function') return cacheSyncChannel;
+    try {
+        cacheSyncChannel = new globalThis.BroadcastChannel(CACHE_SYNC_CHANNEL_NAME);
+        cacheSyncChannel.onmessage = (event) => {
+            if (event.data?.type !== 'invalidate') return;
+            const slotIds = normalizeChangedSlotIds(event.data.slotIds);
+            if (slotIds !== null && slotIds.length === 0) return;
+            if (slotIds === null) {
+                invalidateCache();
+            } else {
+                slotIds.forEach(invalidateCache);
+            }
+            notifyCacheChangeListeners(slotIds);
+        };
+    } catch {
+        cacheSyncChannel = null;
+    }
+    return cacheSyncChannel;
+}
+
+function publishCacheChange(slotIds) {
+    const normalized = normalizeChangedSlotIds(slotIds);
+    if (normalized !== null && normalized.length === 0) return;
+    try {
+        ensureCacheSyncChannel()?.postMessage({ type: 'invalidate', slotIds: normalized });
+    } catch {}
+}
+
+export function subscribeGalleryCacheChanges(listener) {
+    if (typeof listener !== 'function') return () => {};
+    cacheChangeListeners.add(listener);
+    ensureCacheSyncChannel();
+    return () => cacheChangeListeners.delete(listener);
+}
+
 function normalizePreviewBase64(value = '') {
     const parsed = parseBase64Image(value);
     if (!parsed?.data) return '';
@@ -362,7 +429,10 @@ export async function setSlotSelection(slotId, imgId) {
         try {
             const tx = database.transaction(DB_SELECTIONS_STORE, 'readwrite');
             tx.objectStore(DB_SELECTIONS_STORE).put({ slotId, selectedImgId: imgId, timestamp: Date.now() });
-            tx.oncomplete = () => resolve();
+            tx.oncomplete = () => {
+                publishCacheChange([slotId]);
+                resolve();
+            };
             tx.onerror = () => reject(tx.error);
         } catch (e) {
             reject(e);
@@ -427,7 +497,6 @@ export async function exportPortablePreviewsForSlots(slotIds = []) {
             errorMessage: preview.errorMessage || null,
             characterPrompts: preview.characterPrompts || null,
             negativePrompt: preview.negativePrompt || null,
-            anchor: String(preview.anchor || ''),
             timestamp: Number(preview.timestamp) || Date.now(),
         });
         selections.push({ slotId, selectedImgId: imgId });
@@ -477,7 +546,12 @@ export async function importPortablePreviews(previews = [], selections = [], opt
             reject(error);
         }
     });
+    const changedSlotIds = [...new Set([
+        ...records.map(record => record.slotId),
+        ...selectionRows.map(selection => selection.slotId),
+    ])];
     records.forEach((record) => invalidateCache(record.slotId));
+    publishCacheChange(changedSlotIds);
     return {
         importedPreviews: records.length,
         importedSelections: selectionRows.length,
@@ -491,7 +565,10 @@ export async function clearSlotSelection(slotId) {
         try {
             const tx = database.transaction(DB_SELECTIONS_STORE, 'readwrite');
             tx.objectStore(DB_SELECTIONS_STORE).delete(slotId);
-            tx.oncomplete = () => resolve();
+            tx.oncomplete = () => {
+                publishCacheChange([slotId]);
+                resolve();
+            };
             tx.onerror = () => reject(tx.error);
         } catch (e) {
             reject(e);
@@ -517,7 +594,6 @@ export async function storePreview(opts) {
         errorMessage = null,
         characterPrompts = null,
         negativePrompt = null,
-        anchor = '',
         source = '',
         chatId = '',
         characterName = '',
@@ -555,10 +631,13 @@ export async function storePreview(opts) {
                 errorMessage,
                 characterPrompts,
                 negativePrompt,
-                anchor,
                 timestamp: Date.now()
             });
-            tx.oncomplete = () => { invalidateCache(resolvedSlotId); resolve(); };
+            tx.oncomplete = () => {
+                invalidateCache(resolvedSlotId);
+                publishCacheChange([resolvedSlotId]);
+                resolve();
+            };
             tx.onerror = () => reject(tx.error);
         } catch (e) {
             reject(e);
@@ -568,7 +647,7 @@ export async function storePreview(opts) {
 
 export async function storeFailedPlaceholder(opts) {
     return storePreview({
-        imgId: `failed-${opts.slotId}-${Date.now()}`,
+        imgId: opts.imgId || `failed-${opts.slotId}-${Date.now()}`,
         slotId: opts.slotId,
         messageId: opts.messageId,
         source: opts.source || '',
@@ -586,7 +665,6 @@ export async function storeFailedPlaceholder(opts) {
         errorMessage: opts.errorMessage,
         characterPrompts: opts.characterPrompts || null,
         negativePrompt: opts.negativePrompt || null,
-        anchor: opts.anchor || '',
     });
 }
 
@@ -666,25 +744,27 @@ export async function getDisplayPreviewForSlot(slotId) {
     
     const successPreviews = previews.filter(p => p.status !== 'failed' && (p.base64 || p.savedUrl));
     const failedPreviews = previews.filter(p => p.status === 'failed' || (!p.base64 && !p.savedUrl));
+    const asFailure = (preview) => ({
+        preview,
+        historyCount: successPreviews.length,
+        hasData: false,
+        isFailed: true,
+        failedInfo: {
+            tags: preview?.tags || '',
+            positive: preview?.positive || '',
+            errorType: preview?.errorType,
+            errorMessage: preview?.errorMessage,
+        },
+    });
     
     if (successPreviews.length === 0) {
-        const latestFailed = failedPreviews[0];
-        return { 
-            preview: latestFailed, 
-            historyCount: 0, 
-            hasData: false,
-            isFailed: true,
-            failedInfo: {
-                tags: latestFailed?.tags || '',
-                positive: latestFailed?.positive || '',
-                errorType: latestFailed?.errorType,
-                errorMessage: latestFailed?.errorMessage
-            }
-        };
+        return asFailure(failedPreviews[0]);
     }
     
     const selectedImgId = await getSlotSelection(slotId);
     if (selectedImgId) {
+        const selectedFailure = failedPreviews.find(p => p.imgId === selectedImgId);
+        if (selectedFailure) return asFailure(selectedFailure);
         const selected = successPreviews.find(p => p.imgId === selectedImgId);
         if (selected) {
             return { preview: selected, historyCount: successPreviews.length, hasData: true, isFailed: false };
@@ -711,6 +791,7 @@ export async function deletePreview(imgId) {
             tx.oncomplete = () => {
                 revokePreviewObjectUrl(imgId);
                 if (slotId) invalidateCache(slotId);
+                publishCacheChange(slotId ? [slotId] : []);
                 resolve();
             };
             tx.onerror = () => reject(tx.error);
@@ -743,6 +824,7 @@ export async function updatePreviewSavedUrl(imgId, savedUrl) {
             tx.oncomplete = () => {
                 revokePreviewObjectUrl(imgId);
                 invalidateCache(preview.slotId);
+                publishCacheChange([preview.slotId]);
                 resolve();
             };
             tx.onerror = () => reject(tx.error);
@@ -758,7 +840,8 @@ export async function savePreviewImage(imgId, filePrefix = 'draw') {
     if (preview.savedUrl) return preview.savedUrl;
     if (!preview.base64) throw new Error('图片缓存不存在');
     const charName = preview.characterName || getChatCharacterName();
-    const url = await saveBase64AsFile(preview.base64, charName, `${filePrefix}_${imgId}`, 'png');
+    const image = getBase64ImagePayload(preview.base64);
+    const url = await saveBase64AsFile(image.base64, charName, `${filePrefix}_${imgId}`, image.format);
     await updatePreviewSavedUrl(imgId, url);
     return url;
 }
@@ -832,7 +915,11 @@ export async function clearExpiredCache(cacheDays = 3) {
                     cursor.continue(); 
                 }
             };
-            tx.oncomplete = () => { invalidateCache(); resolve(cleaned); };
+            tx.oncomplete = () => {
+                invalidateCache();
+                if (cleaned > 0) publishCacheChange(null);
+                resolve(cleaned);
+            };
         } catch {
             resolve(0);
         }
@@ -855,6 +942,7 @@ export async function clearAllCache() {
             tx.oncomplete = () => {
                 clearPreviewObjectUrls();
                 invalidateCache();
+                publishCacheChange(null);
                 resolve();
             };
             tx.onerror = () => reject(tx.error);
@@ -1121,7 +1209,8 @@ async function saveCurrentGalleryImage() {
     
     try {
         const charName = current.characterName || getChatCharacterName();
-        const url = await saveBase64AsFile(current.base64, charName, `novel_${current.imgId}`, 'png');
+        const image = getBase64ImagePayload(current.base64);
+        const url = await saveBase64AsFile(image.base64, charName, `novel_${current.imgId}`, image.format);
         await updatePreviewSavedUrl(current.imgId, url);
         current.savedUrl = url;
         await setSlotSelection(slotId, current.imgId);

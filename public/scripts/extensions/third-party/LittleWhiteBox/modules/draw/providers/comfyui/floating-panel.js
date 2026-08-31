@@ -1,4 +1,21 @@
+import { getContext } from '../../../../../../../extensions.js';
 import { registerToToolbar, removeFromToolbar } from '../../../../widgets/message-toolbar.js';
+import { formatScenePlannerProgress } from '../../shared/draw-common.js';
+import {
+    resolveCurrentDrawRunActivityTarget,
+    subscribeDrawRunActivity,
+} from '../../shared/draw-run-activity.js';
+import {
+    cancelPendingChildDrawRuns,
+    getPendingDrawWorkState,
+} from '../../shared/draw-run-controls.js';
+import { isDrawRunCancelledError, isDrawRunPendingError } from '../../shared/draw-run-production.js';
+import {
+    formatDrawRunProgress,
+    hasDrawRunProgressDetail,
+    resolveDrawRunActivityDetail,
+    resolveDrawRunUiState,
+} from '../../shared/draw-run-ui-state.js';
 import {
     abortGeneration,
     generateAndInsertImages,
@@ -7,17 +24,24 @@ import {
     updateSettingsPersistent,
     findLastAIMessageId,
     classifyError,
+    getGenerationPhase,
 } from './comfy-draw.js';
 
 const FLOAT_POS_KEY = 'xb_comfy_float_pos';
 const AUTO_RESET_DELAY = 8000;
+const DRAW_RUN_PROVIDER = 'comfyui';
 
 const FloatState = {
     IDLE: 'idle',
+    SUBMITTING: 'submitting',
+    ACCEPTED: 'accepted',
+    UNCERTAIN: 'uncertain',
     QUEUED: 'queued',
     LLM: 'llm',
     GEN: 'gen',
     COOLDOWN: 'cooldown',
+    RECONNECTING: 'reconnecting',
+    CANCELLING: 'cancelling',
     SUCCESS: 'success',
     PARTIAL: 'partial',
     ERROR: 'error',
@@ -47,6 +71,7 @@ let floatingCooldownEndTime = 0;
 let floatingCache = {};
 
 let stylesInjected = false;
+let drawRunActivityDispose = null;
 
 const STYLES = `
 :root {
@@ -539,9 +564,100 @@ function clearPanelCooldown(panelData) {
     panelData.cooldownEndTime = 0;
 }
 
-function startFloorCooldownTimer(panelData, duration) {
+async function syncDrawRunPanelState(messageId, detail = {}) {
+    // 当前 swipe 最多只有一个 Draw Run；即使用户切换了图片 Provider，
+    // 活动任务仍应在新面板可见并可取消。
+    const markerState = await getPendingDrawWorkState(messageId).catch(() => null);
+    if (!markerState) return;
+    const ctx = getContext();
+    const chatId = String(ctx?.chatId || '');
+    const message = ctx?.chat?.[Number(messageId)];
+    if (!chatId || !message) return;
+    const activeSwipeIndex = Number.isInteger(message.swipe_id) ? message.swipe_id : 0;
+    const swipeIndex = Number.isSafeInteger(markerState.swipeIndex)
+        ? markerState.swipeIndex
+        : activeSwipeIndex;
+    const provider = markerState.provider || detail?.provider || DRAW_RUN_PROVIDER;
+    const runId = markerState.runId || detail?.runId || '';
+    const activityTarget = { chatId, messageId, swipeIndex, provider, runId };
+    const matchedDetail = resolveDrawRunActivityDetail({
+        detail,
+        pending: markerState.pending,
+        ...activityTarget,
+    });
+    const progressDetail = markerState.backendAccepted && !hasDrawRunProgressDetail(matchedDetail)
+        ? { ...matchedDetail, stage: 'reattaching' }
+        : matchedDetail;
+    const effectiveDetail = markerState.cancelling
+        ? { ...progressDetail, ...activityTarget, phase: 'cancelling' }
+        : markerState.backendAccepted
+            ? { ...progressDetail, ...activityTarget, phase: 'active' }
+            : progressDetail;
+    const panelData = panelMap.get(messageId);
+    if (panelData) {
+        const next = resolveDrawRunUiState({
+            currentState: panelData.state,
+            pending: markerState.pending,
+            detail: effectiveDetail,
+            ...activityTarget,
+        });
+        if (next !== panelData.state
+            || (next === FloatState.ACCEPTED && hasDrawRunProgressDetail(matchedDetail))) {
+            setFloorState(messageId, next, effectiveDetail);
+        }
+    }
+    if (floatingEl && Number(messageId) === findLastAIMessageId()) {
+        const next = resolveDrawRunUiState({
+            currentState: floatingState,
+            pending: markerState.pending,
+            detail: effectiveDetail,
+            ...activityTarget,
+        });
+        if (markerState.pending) floatingMessageId = Number(messageId);
+        if (next !== floatingState
+            || (next === FloatState.ACCEPTED && hasDrawRunProgressDetail(matchedDetail))) {
+            setFloatingState(next, effectiveDetail);
+        }
+    }
+}
+
+function syncDrawRunActivity(detail = {}) {
+    const currentTarget = resolveCurrentDrawRunActivityTarget(detail, getContext());
+    if (!currentTarget) return;
+    const lastMessageId = findLastAIMessageId();
+    if (panelMap.has(currentTarget.messageId)
+        || (floatingEl && currentTarget.messageId === lastMessageId)) {
+        void syncDrawRunPanelState(currentTarget.messageId, detail);
+    }
+}
+
+export function refreshDrawRunUiState() {
+    const messageId = findLastAIMessageId();
+    if (floatingEl) {
+        const generationPhase = messageId >= 0 ? getGenerationPhase(messageId) : null;
+        if (generationPhase) {
+            floatingMessageId = messageId;
+            setFloatingState(generationPhase === 'llm'
+                ? FloatState.LLM
+                : generationPhase === 'submitting'
+                    ? FloatState.SUBMITTING
+                    : FloatState.GEN);
+        } else {
+            setFloatingState(FloatState.IDLE);
+        }
+    }
+    if (messageId >= 0) void syncDrawRunPanelState(messageId);
+}
+
+function resolveCooldownEndTime({ cooldownUntil, duration } = {}) {
+    const absolute = Number(cooldownUntil);
+    if (Number.isFinite(absolute) && absolute > 0) return absolute;
+    return Date.now() + Math.max(0, Number(duration) || 0);
+}
+
+function startFloorCooldownTimer(panelData, data) {
     clearPanelCooldown(panelData);
-    panelData.cooldownEndTime = Date.now() + duration;
+    panelData.cooldownEndTime = resolveCooldownEndTime(data);
     function tick() {
         if (!panelData.cooldownEndTime) return;
         const remaining = Math.max(0, panelData.cooldownEndTime - Date.now());
@@ -575,10 +691,29 @@ function setFloorState(messageId, state, data = {}) {
 
     el.classList.remove('working', 'cooldown', 'success', 'partial', 'error', 'show-detail');
     const { statusIcon, statusText } = panelData.cache;
+    if (statusText) statusText.className = 'nd-status-text';
 
     switch (state) {
         case FloatState.IDLE:
             panelData.result = { success: 0, total: 0, error: null, startTime: 0 };
+            break;
+        case FloatState.SUBMITTING:
+            el.classList.add('working');
+            if (!panelData.result.startTime) panelData.result.startTime = Date.now();
+            if (statusIcon) { statusIcon.textContent = '↥'; statusIcon.className = 'nd-status-icon nd-spin'; }
+            if (statusText) statusText.textContent = '提交后台';
+            break;
+        case FloatState.ACCEPTED:
+            el.classList.add('working');
+            if (!panelData.result.startTime) panelData.result.startTime = Date.now();
+            if (statusIcon) { statusIcon.textContent = '🎨'; statusIcon.className = 'nd-status-icon nd-spin'; }
+            if (statusText) statusText.textContent = formatDrawRunProgress(data);
+            break;
+        case FloatState.UNCERTAIN:
+            el.classList.add('working');
+            if (!panelData.result.startTime) panelData.result.startTime = Date.now();
+            if (statusIcon) { statusIcon.textContent = '↻'; statusIcon.className = 'nd-status-icon nd-spin'; }
+            if (statusText) statusText.textContent = '确认中';
             break;
         case FloatState.QUEUED:
             el.classList.add('working');
@@ -589,9 +724,9 @@ function setFloorState(messageId, state, data = {}) {
             break;
         case FloatState.LLM:
             el.classList.add('working');
-            panelData.result.startTime = Date.now();
+            if (!panelData.result.startTime) panelData.result.startTime = Date.now();
             if (statusIcon) { statusIcon.textContent = '⏳'; statusIcon.className = 'nd-status-icon nd-spin'; }
-            if (statusText) statusText.textContent = '分析';
+            if (statusText) statusText.textContent = formatScenePlannerProgress(data);
             break;
         case FloatState.GEN:
             el.classList.add('working');
@@ -602,7 +737,17 @@ function setFloorState(messageId, state, data = {}) {
         case FloatState.COOLDOWN:
             el.classList.add('cooldown');
             if (statusIcon) { statusIcon.textContent = '⏳'; statusIcon.className = 'nd-status-icon nd-spin'; }
-            startFloorCooldownTimer(panelData, data.duration || 0);
+            startFloorCooldownTimer(panelData, data);
+            break;
+        case FloatState.RECONNECTING:
+            el.classList.add('working');
+            if (statusIcon) { statusIcon.textContent = '↻'; statusIcon.className = 'nd-status-icon nd-spin'; }
+            if (statusText) statusText.textContent = '重连';
+            break;
+        case FloatState.CANCELLING:
+            el.classList.add('working');
+            if (statusIcon) { statusIcon.textContent = '⏳'; statusIcon.className = 'nd-status-icon nd-spin'; }
+            if (statusText) statusText.textContent = '取消中';
             break;
         case FloatState.SUCCESS:
             el.classList.add('success');
@@ -667,16 +812,23 @@ async function handleFloorDrawClick(messageId) {
         panelData.root.dataset.messageId = String(resolvedMessageId);
         panelMap.set(resolvedMessageId, panelData);
     }
+    const targetChatId = String(getContext()?.chatId || '');
     try {
         await generateAndInsertImages({
             messageId: resolvedMessageId,
             onStateChange: (state, data) => {
+                if (String(getContext()?.chatId || '') !== targetChatId) return;
                 switch (state) {
+                    case 'submitting': setFloorState(resolvedMessageId, FloatState.SUBMITTING, data); break;
+                    case 'accepted': setFloorState(resolvedMessageId, FloatState.ACCEPTED, data); break;
+                    case 'uncertain': setFloorState(resolvedMessageId, FloatState.UNCERTAIN, data); break;
                     case 'queued': setFloorState(resolvedMessageId, FloatState.QUEUED, data); break;
-                    case 'llm': setFloorState(resolvedMessageId, FloatState.LLM); break;
+                    case 'llm': setFloorState(resolvedMessageId, FloatState.LLM, data); break;
                     case 'gen':
                     case 'progress': setFloorState(resolvedMessageId, FloatState.GEN, data); break;
                     case 'cooldown': setFloorState(resolvedMessageId, FloatState.COOLDOWN, data); break;
+                    case 'reconnecting': setFloorState(resolvedMessageId, FloatState.RECONNECTING, data); break;
+                    case 'cancelling': setFloorState(resolvedMessageId, FloatState.CANCELLING, data); break;
                     case 'success':
                         if (data.aborted && data.success === 0) {
                             setFloorState(resolvedMessageId, FloatState.IDLE);
@@ -691,10 +843,16 @@ async function handleFloorDrawClick(messageId) {
         });
     } catch (error) {
         console.error('[ComfyDraw]', error);
-        if (error.message === '已取消' || error.message?.includes('已有任务进行中') || error.message?.includes('该楼层已有任务进行中')) {
+        if (String(getContext()?.chatId || '') !== targetChatId) return;
+        if (error?.uncertain === true) {
+            setFloorState(resolvedMessageId, FloatState.UNCERTAIN);
+        } else if (isDrawRunPendingError(error)) {
+            toastr?.info?.(error.message);
+        } else if (isDrawRunCancelledError(error) || error.message?.includes('已有任务进行中') || error.message?.includes('该楼层已有任务进行中')) {
             setFloorState(resolvedMessageId, FloatState.IDLE);
             if (error.message?.includes('任务进行中')) toastr?.info?.(error.message);
         } else {
+            toastr?.error?.(error?.message || '后台画图提交失败', '小白X画图');
             setFloorState(resolvedMessageId, FloatState.ERROR, { error: classifyError(error) });
         }
     }
@@ -708,9 +866,15 @@ function resolvePanelMessageId(panelData) {
 
 async function handleFloorAbort(messageId) {
     try {
-        if (abortGeneration(messageId)) {
-            setFloorState(messageId, FloatState.IDLE);
-            toastr?.info?.('已中止');
+        const aborted = abortGeneration(messageId);
+        if (aborted) {
+            setFloorState(messageId, FloatState.CANCELLING);
+            toastr?.info?.('正在中止');
+        }
+        const cancelledChild = await cancelPendingChildDrawRuns(messageId);
+        if (!aborted && cancelledChild) {
+            toastr?.info?.('正在中止');
+            void syncDrawRunPanelState(messageId, { messageId, phase: 'cancelling' });
         }
     } catch (error) {
         console.error('[ComfyDraw] 中止失败:', error);
@@ -734,7 +898,7 @@ function bindFloorPanelEvents(panelData) {
     });
     el.querySelector('.nd-layer-active')?.addEventListener('click', (e) => {
         e.stopPropagation();
-        if ([FloatState.QUEUED, FloatState.LLM, FloatState.GEN, FloatState.COOLDOWN].includes(panelData.state)) {
+        if ([FloatState.SUBMITTING, FloatState.ACCEPTED, FloatState.UNCERTAIN, FloatState.QUEUED, FloatState.LLM, FloatState.GEN, FloatState.COOLDOWN, FloatState.RECONNECTING].includes(panelData.state)) {
             void handleFloorAbort(messageId);
         } else if ([FloatState.SUCCESS, FloatState.PARTIAL, FloatState.ERROR].includes(panelData.state)) {
             updateFloorDetailPopup(messageId);
@@ -803,7 +967,10 @@ async function toggleQuickAutoMode() {
 function mountFloorPanel(messageEl, messageId) {
     if (panelMap.has(messageId)) {
         const existing = panelMap.get(messageId);
-        if (existing.root?.isConnected) return existing;
+        if (existing.root?.isConnected) {
+            void syncDrawRunPanelState(messageId);
+            return existing;
+        }
         existing._cleanup?.();
         panelMap.delete(messageId);
     }
@@ -819,6 +986,7 @@ function mountFloorPanel(messageEl, messageId) {
     cachePanelDOM(panelData);
     bindFloorPanelEvents(panelData);
     panelMap.set(messageId, panelData);
+    void syncDrawRunPanelState(messageId);
     return panelData;
 }
 
@@ -923,9 +1091,9 @@ function clearFloatingCooldownTimer() {
     floatingCooldownEndTime = 0;
 }
 
-function startFloatingCooldownTimer(duration) {
+function startFloatingCooldownTimer(data) {
     clearFloatingCooldownTimer();
-    floatingCooldownEndTime = Date.now() + duration;
+    floatingCooldownEndTime = resolveCooldownEndTime(data);
     function tick() {
         if (!floatingCooldownEndTime) return;
         const remaining = Math.max(0, floatingCooldownEndTime - Date.now());
@@ -954,10 +1122,32 @@ export function setFloatingState(state, data = {}) {
     floatingEl.classList.remove('working', 'cooldown', 'success', 'partial', 'error', 'show-detail');
     const { statusIcon, statusText } = floatingCache;
     if (!statusIcon || !statusText) return;
+    statusText.className = 'nd-status-text';
     switch (state) {
         case FloatState.IDLE:
             floatingMessageId = null;
             floatingResult = { success: 0, total: 0, error: null, startTime: 0 };
+            break;
+        case FloatState.SUBMITTING:
+            floatingEl.classList.add('working');
+            if (!floatingResult.startTime) floatingResult.startTime = Date.now();
+            statusIcon.textContent = '↥';
+            statusIcon.className = 'nd-status-icon nd-spin';
+            statusText.textContent = '提交后台';
+            break;
+        case FloatState.ACCEPTED:
+            floatingEl.classList.add('working');
+            if (!floatingResult.startTime) floatingResult.startTime = Date.now();
+            statusIcon.textContent = '🎨';
+            statusIcon.className = 'nd-status-icon nd-spin';
+            statusText.textContent = formatDrawRunProgress(data);
+            break;
+        case FloatState.UNCERTAIN:
+            floatingEl.classList.add('working');
+            if (!floatingResult.startTime) floatingResult.startTime = Date.now();
+            statusIcon.textContent = '↻';
+            statusIcon.className = 'nd-status-icon nd-spin';
+            statusText.textContent = '确认中';
             break;
         case FloatState.QUEUED:
             floatingEl.classList.add('working');
@@ -968,10 +1158,10 @@ export function setFloatingState(state, data = {}) {
             break;
         case FloatState.LLM:
             floatingEl.classList.add('working');
-            floatingResult.startTime = Date.now();
+            if (!floatingResult.startTime) floatingResult.startTime = Date.now();
             statusIcon.textContent = '⏳';
             statusIcon.className = 'nd-status-icon nd-spin';
-            statusText.textContent = '分析';
+            statusText.textContent = formatScenePlannerProgress(data);
             break;
         case FloatState.GEN:
             floatingEl.classList.add('working');
@@ -984,7 +1174,19 @@ export function setFloatingState(state, data = {}) {
             floatingEl.classList.add('cooldown');
             statusIcon.textContent = '⏳';
             statusIcon.className = 'nd-status-icon nd-spin';
-            startFloatingCooldownTimer(data.duration || 0);
+            startFloatingCooldownTimer(data);
+            break;
+        case FloatState.RECONNECTING:
+            floatingEl.classList.add('working');
+            statusIcon.textContent = '↻';
+            statusIcon.className = 'nd-status-icon nd-spin';
+            statusText.textContent = '重连';
+            break;
+        case FloatState.CANCELLING:
+            floatingEl.classList.add('working');
+            statusIcon.textContent = '⏳';
+            statusIcon.className = 'nd-status-icon nd-spin';
+            statusText.textContent = '取消中';
             break;
         case FloatState.SUCCESS:
             floatingEl.classList.add('success');
@@ -1089,7 +1291,7 @@ function routeFloatingClick(target) {
         }
         floatingEl.classList.toggle('expanded');
     } else if (target.closest('.nd-layer-active')) {
-        if ([FloatState.QUEUED, FloatState.LLM, FloatState.GEN, FloatState.COOLDOWN].includes(floatingState)) {
+        if ([FloatState.SUBMITTING, FloatState.ACCEPTED, FloatState.UNCERTAIN, FloatState.QUEUED, FloatState.LLM, FloatState.GEN, FloatState.COOLDOWN, FloatState.RECONNECTING].includes(floatingState)) {
             void handleFloatingAbort();
         } else if ([FloatState.SUCCESS, FloatState.PARTIAL, FloatState.ERROR].includes(floatingState)) {
             updateFloatingDetailPopup();
@@ -1106,16 +1308,23 @@ async function handleFloatingDrawClick() {
         return;
     }
     floatingMessageId = messageId;
+    const targetChatId = String(getContext()?.chatId || '');
     try {
         await generateAndInsertImages({
             messageId,
             onStateChange: (state, data) => {
+                if (String(getContext()?.chatId || '') !== targetChatId) return;
                 switch (state) {
+                    case 'submitting': setFloatingState(FloatState.SUBMITTING, data); break;
+                    case 'accepted': setFloatingState(FloatState.ACCEPTED, data); break;
+                    case 'uncertain': setFloatingState(FloatState.UNCERTAIN, data); break;
                     case 'queued': setFloatingState(FloatState.QUEUED, data); break;
-                    case 'llm': setFloatingState(FloatState.LLM); break;
+                    case 'llm': setFloatingState(FloatState.LLM, data); break;
                     case 'gen':
                     case 'progress': setFloatingState(FloatState.GEN, data); break;
                     case 'cooldown': setFloatingState(FloatState.COOLDOWN, data); break;
+                    case 'reconnecting': setFloatingState(FloatState.RECONNECTING, data); break;
+                    case 'cancelling': setFloatingState(FloatState.CANCELLING, data); break;
                     case 'success':
                         if (data.aborted && data.success === 0) {
                             setFloatingState(FloatState.IDLE);
@@ -1130,10 +1339,16 @@ async function handleFloatingDrawClick() {
         });
     } catch (error) {
         console.error('[ComfyDraw]', error);
-        if (error.message === '已取消' || error.message?.includes('已有任务进行中') || error.message?.includes('该楼层已有任务进行中')) {
+        if (String(getContext()?.chatId || '') !== targetChatId) return;
+        if (error?.uncertain === true) {
+            setFloatingState(FloatState.UNCERTAIN);
+        } else if (isDrawRunPendingError(error)) {
+            toastr?.info?.(error.message);
+        } else if (isDrawRunCancelledError(error) || error.message?.includes('已有任务进行中') || error.message?.includes('该楼层已有任务进行中')) {
             setFloatingState(FloatState.IDLE);
             if (error.message?.includes('任务进行中')) toastr?.info?.(error.message);
         } else {
+            toastr?.error?.(error?.message || '后台画图提交失败', '小白X画图');
             setFloatingState(FloatState.ERROR, { error: classifyError(error) });
         }
     }
@@ -1142,9 +1357,15 @@ async function handleFloatingDrawClick() {
 async function handleFloatingAbort() {
     try {
         const messageId = floatingMessageId;
-        if (messageId >= 0 && abortGeneration(messageId)) {
-            setFloatingState(FloatState.IDLE);
-            toastr?.info?.('已中止');
+        const aborted = messageId >= 0 && abortGeneration(messageId);
+        if (aborted) {
+            setFloatingState(FloatState.CANCELLING);
+            toastr?.info?.('正在中止');
+        }
+        const cancelledChild = messageId >= 0 && await cancelPendingChildDrawRuns(messageId);
+        if (!aborted && cancelledChild) {
+            toastr?.info?.('正在中止');
+            void syncDrawRunPanelState(messageId, { messageId, phase: 'cancelling' });
         }
     } catch (error) {
         console.error('[ComfyDraw] 中止失败:', error);
@@ -1241,6 +1462,8 @@ function createFloatingButton() {
     });
     document.addEventListener('click', handleFloatingOutsideClick, { passive: true });
     window.addEventListener('resize', applyFloatingPosition);
+    const messageId = findLastAIMessageId();
+    if (messageId >= 0) void syncDrawRunPanelState(messageId);
 }
 
 function destroyFloatingButton() {
@@ -1306,12 +1529,15 @@ export function updateButtonVisibility(showFloor, showFloating) {
 }
 
 export function initFloatingPanel() {
+    drawRunActivityDispose ??= subscribeDrawRunActivity(syncDrawRunActivity);
     if (getSettings().showFloatingButton !== false) {
         createFloatingButton();
     }
 }
 
 export function destroyFloatingPanel() {
+    drawRunActivityDispose?.();
+    drawRunActivityDispose = null;
     panelMap.forEach((data, messageId) => {
         if (data.autoResetTimer) clearTimeout(data.autoResetTimer);
         clearPanelCooldown(data);

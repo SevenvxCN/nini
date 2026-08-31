@@ -1,8 +1,13 @@
 import { computed, ref, type ComputedRef, type Ref } from 'vue';
-import type { TavernMessageRecord } from '../../../shared/session-db';
+import {
+    ScenePlacementError,
+    insertScenePlacements,
+    type ScenePlacement,
+} from '../../../../draw/shared/scene-placement.js';
+import type { TavernMessageContentUpdateResult, TavernMessageRecord } from '../../../shared/session-db';
 
 type TavernToastTone = 'info' | 'warning' | 'danger';
-type TavernDrawJobStatus = 'queued' | 'running' | 'success' | 'failed' | 'cancelled';
+type TavernDrawJobStatus = 'queued' | 'running' | 'awaiting-placement' | 'success' | 'failed' | 'cancelled';
 
 export interface TavernDrawQuickOption {
     value: string;
@@ -54,7 +59,13 @@ export interface TavernDrawControllerOptions {
     createHostRequestId: (prefix?: string) => string;
     requestHost: (type: string, payload?: Record<string, unknown>, options?: { signal?: AbortSignal; requestId?: string }) => Promise<Record<string, unknown>>;
     getTavernMessage: (sessionId?: string, order?: number) => Promise<TavernMessageRecord | null | undefined>;
-    updateTavernMessage: (sessionId?: string, order?: number, patch?: Partial<TavernMessageRecord>) => Promise<TavernMessageRecord | null | undefined>;
+    updateTavernMessageContentIfMatches: (
+        sessionId: string,
+        order: number,
+        expectedContent: string,
+        nextContent: string,
+    ) => Promise<TavernMessageContentUpdateResult>;
+    confirmPlacementFallback: () => Promise<boolean>;
     loadSelectedSessionMessageWindow: (options?: { reset?: boolean; sessionId?: string }) => Promise<void>;
     flashMessageAction: (message: TavernMessageRecord, action: string, ok: boolean) => void;
     showToast: (message: string, options?: { tone?: TavernToastTone; durationMs?: number }) => void;
@@ -106,101 +117,28 @@ const DEFAULT_TAVERN_DRAW_QUICK_SETTINGS: TavernDrawQuickSettings = {
     selectedSize: '',
 };
 
-function findAnchorPosition(content = '', anchor = '') {
-    const text = String(content || '');
-    const target = String(anchor || '').trim();
-    if (!target) {return -1;}
-    const direct = text.indexOf(target);
-    if (direct >= 0) {return direct + target.length;}
-    const compactTarget = target.replace(/\s+/g, '');
-    if (!compactTarget) {return -1;}
-    const compactText = text.replace(/\s+/g, '');
-    const compactIndex = compactText.indexOf(compactTarget);
-    if (compactIndex < 0) {return -1;}
-    let compactSeen = 0;
-    for (let index = 0; index < text.length; index += 1) {
-        if (/\s/.test(text[index])) {continue;}
-        compactSeen += 1;
-        if (compactSeen >= compactIndex + compactTarget.length) {
-            return index + 1;
-        }
-    }
-    return -1;
-}
-
-function findNearestSentenceEnd(content = '', startPos = -1) {
-    const text = String(content || '');
-    if (startPos < 0 || !text) {return startPos;}
-    if (startPos >= text.length) {return text.length;}
-    const maxLookAhead = 80;
-    const endLimit = Math.min(text.length, startPos + maxLookAhead);
-    const basicEnders = new Set(['。', '！', '？', '!', '?', '…']);
-    const closingMarks = new Set(['”', '“', '’', '‘', '」', '』', '】', '）', ')', '"', "'", '*', '~', '～', ']']);
-    const eatClosingMarks = (position: number) => {
-        let next = position;
-        while (next < text.length && closingMarks.has(text[next])) {
-            next += 1;
-        }
-        return next;
-    };
-    if (startPos > 0 && basicEnders.has(text[startPos - 1])) {
-        return eatClosingMarks(startPos);
-    }
-    for (let offset = 0; offset < maxLookAhead && startPos + offset < endLimit; offset += 1) {
-        const position = startPos + offset;
-        const char = text[position];
-        if (char === '\n') {return position + 1;}
-        if (basicEnders.has(char)) {return eatClosingMarks(position + 1);}
-        if (char === '.' && text.slice(position, position + 3) === '...') {
-            return eatClosingMarks(position + 3);
-        }
-    }
-    return startPos;
-}
-
-function insertTavernImageMarker(content = '', image: Record<string, unknown> = {}) {
-    const slotId = String(image.slotId || '').trim();
-    if (!slotId) {return { content, inserted: false, appended: false };}
-    const marker = `[tavern-image:${slotId}]`;
-    const text = String(content || '');
-    if (text.includes(marker)) {return { content: text, inserted: false, appended: false };}
-    let position = findAnchorPosition(text, String(image.anchor || ''));
-    if (position >= 0) {
-        position = findNearestSentenceEnd(text, position);
-    }
-    if (position >= 0) {
-        const before = text.slice(0, position);
-        const after = text.slice(position);
-        let insertText = marker;
-        if (before.length > 0 && !before.endsWith('\n')) {insertText = `\n${insertText}`;}
-        if (after.length > 0 && !after.startsWith('\n')) {insertText = `${insertText}\n`;}
-        return {
-            content: `${before}${insertText}${after}`,
-            inserted: true,
-            appended: false,
-        };
-    }
-    const needNewline = text.length > 0 && !text.endsWith('\n');
-    return {
-        content: `${text}${needNewline ? '\n' : ''}${marker}`,
-        inserted: true,
-        appended: true,
-    };
-}
-
 function insertTavernImageMarkers(content = '', images: unknown[] = []) {
-    let nextContent = String(content || '');
-    let inserted = 0;
-    let appended = 0;
-    (Array.isArray(images) ? images : []).forEach((rawImage) => {
+    const text = String(content || '');
+    const insertions = (Array.isArray(images) ? images : [])
+        .map((rawImage) => (rawImage && typeof rawImage === 'object' ? rawImage as Record<string, unknown> : {}))
+        .filter((image) => image.slotId)
+        .map((image) => ({
+            placement: image.placement as ScenePlacement | undefined,
+            content: `[tavern-image:${String(image.slotId).trim()}]`,
+        }))
+        .filter((insertion) => !text.includes(insertion.content));
+    if (!insertions.length) {return { content: text, inserted: 0 };}
+    return {
+        content: insertScenePlacements(text, insertions, { block: true }),
+        inserted: insertions.length,
+    };
+}
+
+function insertTavernImageMarkersAtTail(content = '', images: unknown[] = []) {
+    return insertTavernImageMarkers(content, (Array.isArray(images) ? images : []).map((rawImage) => {
         const image = rawImage && typeof rawImage === 'object' ? rawImage as Record<string, unknown> : {};
-        if (!image.slotId) {return;}
-        const result = insertTavernImageMarker(nextContent, image);
-        nextContent = result.content;
-        if (result.inserted) {inserted += 1;}
-        if (result.appended) {appended += 1;}
-    });
-    return { content: nextContent, inserted, appended };
+        return { ...image, placement: { mode: 'tail' } };
+    }));
 }
 
 function formatDrawProgress(stateName = '', data: Record<string, unknown> = {}) {
@@ -262,7 +200,7 @@ export function useTavernDrawController(options: TavernDrawControllerOptions): T
     }
 
     function isActiveDrawJob(job?: TavernDrawJob | null): boolean {
-        return job?.status === 'queued' || job?.status === 'running';
+        return job?.status === 'queued' || job?.status === 'running' || job?.status === 'awaiting-placement';
     }
 
     function runningDrawJobKey(): string {
@@ -312,7 +250,7 @@ export function useTavernDrawController(options: TavernDrawControllerOptions): T
         if (durationMs > 0) {
             window.setTimeout(() => {
                 const current = drawJobs.value[key];
-                if (!current || ['queued', 'running'].includes(current.status) || current.finishId !== finishId) {return;}
+                if (!current || ['queued', 'running', 'awaiting-placement'].includes(current.status) || current.finishId !== finishId) {return;}
                 removeDrawJob(key);
             }, durationMs);
         }
@@ -519,6 +457,9 @@ export function useTavernDrawController(options: TavernDrawControllerOptions): T
         if (job?.status === 'running') {
             return drawMessageStatusText(message) || '停止画图';
         }
+        if (job?.status === 'awaiting-placement') {
+            return drawMessageStatusText(message) || '取消等待插入';
+        }
         if (!canDrawMessage(message)) {
             return '这条消息暂不能画图';
         }
@@ -572,6 +513,15 @@ export function useTavernDrawController(options: TavernDrawControllerOptions): T
             }, 1800);
             return;
         }
+        if (job.status === 'awaiting-placement') {
+            finishDrawJobStatus(key, {
+                status: 'cancelled',
+                statusKind: 'error',
+                progressText: '已取消插入图片',
+            }, 1800);
+            void processNextDrawJob();
+            return;
+        }
         job.controller?.abort();
         clearCooldownTimer();
         setDrawJob(key, {
@@ -603,7 +553,11 @@ export function useTavernDrawController(options: TavernDrawControllerOptions): T
 
     function abortAllJobs(): void {
         Object.values(drawJobs.value).forEach((job) => {
-            job.controller?.abort();
+            if (job.status === 'awaiting-placement') {
+                cancelJob(job.key);
+            } else {
+                job.controller?.abort();
+            }
         });
         drawQueue.value = [];
         drawRequestJobKeys.clear();
@@ -642,6 +596,25 @@ export function useTavernDrawController(options: TavernDrawControllerOptions): T
         drawQueue.value = drawQueue.value.filter((key) => key !== nextKey);
         updateQueuedDrawJobStatuses();
         await runDrawJob(nextKey);
+    }
+
+    async function awaitPlacementFallback(jobKey: string, controller: AbortController): Promise<boolean | null> {
+        const current = drawJobs.value[jobKey];
+        if (!current || current.status !== 'running' || current.controller !== controller) {return null;}
+        const requestId = current.requestId;
+        clearCooldownTimer();
+        drawRequestJobKeys.delete(requestId);
+        setDrawJob(jobKey, {
+            status: 'awaiting-placement',
+            statusKind: 'running',
+            progressText: '图片已生成，等待确认插入位置',
+            controller: undefined,
+        });
+        void processNextDrawJob();
+        const accepted = await options.confirmPlacementFallback();
+        const latest = drawJobs.value[jobKey];
+        if (!latest || latest.status !== 'awaiting-placement' || latest.requestId !== requestId) {return null;}
+        return accepted;
     }
 
     function validateDrawableMessage(message: TavernMessageRecord | null | undefined, job: TavernDrawJob): string {
@@ -694,7 +667,9 @@ export function useTavernDrawController(options: TavernDrawControllerOptions): T
             const resultPayload = await options.requestHost('xb-tavern:draw-generate', {
                 payload: {
                     source: 'tavern',
-                    text: cleanText,
+                    // 发送完整原文：placement 的 offset/hash 以含旧 [tavern-image:] 标记的快照为准，
+                    // 写入时直接作用于原文，已有插图标记才能保留。
+                    text: currentMessage!.content || '',
                     title: options.roleLabel(currentMessage!.role),
                     sessionId: currentMessage!.sessionId,
                     messageOrder: currentMessage!.order,
@@ -731,22 +706,11 @@ export function useTavernDrawController(options: TavernDrawControllerOptions): T
                 options.flashMessageAction(latestMessage!, 'draw', false);
                 return;
             }
-            const latestSourceTextHash = drawSourceTextHash(latestMessage!.content || '');
-            if (latestSourceTextHash !== sourceTextHash) {
-                finishDrawJobStatus(jobKey, {
-                    status: 'cancelled',
-                    statusKind: 'error',
-                    progressText: '源楼层已变化',
-                }, 2600);
-                options.flashMessageAction(latestMessage!, 'draw', false);
-                return;
-            }
             const result = (resultPayload.result || resultPayload) as Record<string, unknown>;
             const images = Array.isArray(result.images) ? result.images : [];
-            const insertion = insertTavernImageMarkers(latestMessage!.content || '', images);
-            if (!insertion.inserted) {
-                const success = Number(result.success) || 0;
-                const total = Number(result.total) || images.length;
+            const success = Number(result.success) || 0;
+            const total = Number(result.total) || images.length;
+            if (!insertTavernImageMarkersAtTail('', images).inserted) {
                 const text = total > 0 && success === 0
                     ? `画图任务结束：${total} 张都失败了，未插入图片。`
                     : success > 0
@@ -760,19 +724,115 @@ export function useTavernDrawController(options: TavernDrawControllerOptions): T
                 options.flashMessageAction(latestMessage!, 'draw', false);
                 return;
             }
-            const updated = await options.updateTavernMessage(latestMessage!.sessionId, latestMessage!.order, { content: insertion.content });
+
+            let expectedContent = latestMessage!.content || '';
+            let insertion: ReturnType<typeof insertTavernImageMarkers>;
+            let tailFallbackAccepted = false;
+            let insertionAlreadyPresent = false;
+            if (drawSourceTextHash(expectedContent) !== sourceTextHash) {
+                const placementDecision = await awaitPlacementFallback(jobKey, controller);
+                if (placementDecision === null) {return;}
+                tailFallbackAccepted = placementDecision;
+                if (!tailFallbackAccepted) {
+                    finishDrawJobStatus(jobKey, {
+                        status: 'cancelled',
+                        statusKind: 'error',
+                        progressText: '正文已变化，图片已生成但未插入',
+                    }, 4200);
+                    options.flashMessageAction(latestMessage!, 'draw', false);
+                    return;
+                }
+                insertion = insertTavernImageMarkersAtTail(expectedContent, images);
+            } else {
+                try {
+                    insertion = insertTavernImageMarkers(expectedContent, images);
+                } catch (error) {
+                    if (!(error instanceof ScenePlacementError)) {throw error;}
+                    const placementDecision = await awaitPlacementFallback(jobKey, controller);
+                    if (placementDecision === null) {return;}
+                    tailFallbackAccepted = placementDecision;
+                    if (!tailFallbackAccepted) {
+                        finishDrawJobStatus(jobKey, {
+                            status: 'cancelled',
+                            statusKind: 'error',
+                            progressText: '图片已生成但未插入正文',
+                        }, 4200);
+                        options.flashMessageAction(latestMessage!, 'draw', false);
+                        return;
+                    }
+                    insertion = insertTavernImageMarkersAtTail(expectedContent, images);
+                }
+            }
+
+            if (!insertion.inserted) {
+                finishDrawJobStatus(jobKey, {
+                    status: 'success',
+                    statusKind: 'success',
+                    progressText: '本次图片已经在正文中',
+                }, 2600);
+                options.flashMessageAction(latestMessage!, 'draw', true);
+                return;
+            }
+
+            let updateResult = await options.updateTavernMessageContentIfMatches(
+                latestMessage!.sessionId,
+                latestMessage!.order,
+                expectedContent,
+                insertion.content,
+            );
+            if (updateResult.status === 'conflict') {
+                if (!tailFallbackAccepted) {
+                    const placementDecision = await awaitPlacementFallback(jobKey, controller);
+                    if (placementDecision === null) {return;}
+                    tailFallbackAccepted = placementDecision;
+                    if (!tailFallbackAccepted) {
+                        finishDrawJobStatus(jobKey, {
+                            status: 'cancelled',
+                            statusKind: 'error',
+                            progressText: '正文已变化，图片已生成但未插入',
+                        }, 4200);
+                        options.flashMessageAction(updateResult.message, 'draw', false);
+                        return;
+                    }
+                }
+                expectedContent = updateResult.message.content || '';
+                insertion = insertTavernImageMarkersAtTail(expectedContent, images);
+                insertionAlreadyPresent = insertion.inserted === 0;
+                updateResult = insertion.inserted
+                    ? await options.updateTavernMessageContentIfMatches(
+                        updateResult.message.sessionId,
+                        updateResult.message.order,
+                        expectedContent,
+                        insertion.content,
+                    )
+                    : { status: 'updated', message: updateResult.message };
+            }
+            if (updateResult.status !== 'updated') {
+                const progressText = updateResult.status === 'missing'
+                    ? '原楼层已删除，图片已生成但未插入'
+                    : '正文仍在变化，图片已生成但未插入';
+                finishDrawJobStatus(jobKey, {
+                    status: 'cancelled',
+                    statusKind: 'error',
+                    progressText,
+                }, 4200);
+                if (updateResult.message) {options.flashMessageAction(updateResult.message, 'draw', false);}
+                return;
+            }
+            const updated = updateResult.message;
             if (updated && options.selectedSessionId.value === latestMessage!.sessionId) {
                 await options.loadSelectedSessionMessageWindow({ sessionId: latestMessage!.sessionId });
             }
-            const success = Number(result.success) || 0;
-            const total = Number(result.total) || images.length;
             const allFailed = total > 0 && success === 0;
-            const fallbackText = insertion.appended ? `，${insertion.appended} 张追加到末尾` : '';
             const failureText = total > 0 ? `配图失败：${total} 张都失败了` : '配图失败';
             finishDrawJobStatus(jobKey, {
                 status: allFailed ? 'failed' : 'success',
                 statusKind: allFailed ? 'error' : 'success',
-                progressText: allFailed ? failureText : `${DRAW_COMPLETION_NOTICE_TEXT}${fallbackText}`,
+                progressText: allFailed
+                    ? failureText
+                    : insertionAlreadyPresent
+                        ? '本次图片已经在正文中'
+                        : DRAW_COMPLETION_NOTICE_TEXT,
             }, allFailed ? 4200 : 2600);
             options.flashMessageAction(updated || latestMessage!, 'draw', !allFailed && !!updated);
             void options.nextTick(options.enhanceChatMarkdown);

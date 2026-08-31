@@ -1,10 +1,17 @@
 import {
-    buildHostChatCompletionGenerateRequest,
+    assertHostChatCompletionsClient,
+    browserHostChatCompletionsClient,
     buildHostClaudeGeneratePayload,
-    createHostChatCompletion,
-    streamHostChatCompletion,
 } from '../../../shared/host-llm/chat-completions/client.js';
-import { redactRequestSecrets } from './request-inspection.js';
+import {
+    buildEffectiveReasoningConfig,
+    redactRequestSecrets,
+} from './request-inspection.js';
+import {
+    resolveTaskReasoning,
+    shouldOmitTemperatureForReasoning,
+} from '../reasoning-capabilities.js';
+import { isReasoningOutputVisible } from '../reasoning-config.js';
 
 function cloneJson(value) {
     if (value === undefined) return undefined;
@@ -13,6 +20,67 @@ function cloneJson(value) {
     } catch {
         return undefined;
     }
+}
+
+/**
+ * The host backend forwards `tool_choice` as `{ type: <string> }` straight to Anthropic, so the
+ * generic AgentCore value has to be translated to Anthropic vocabulary at this adapter boundary.
+ * The shared host/OpenAI helper stays untouched; other hosted providers keep receiving `required`.
+ */
+export function resolveHostClaudeToolChoice(toolChoice) {
+    const normalized = String(toolChoice || '').trim();
+    if (!normalized || normalized === 'auto') return 'auto';
+    if (normalized === 'required') return 'any';
+    if (normalized === 'none') return 'none';
+    throw new Error(
+        `酒馆托管 Claude 不支持 tool_choice：${normalized}。仅支持 auto/required/none。`,
+    );
+}
+
+/**
+ * Manual extended thinking is incompatible with a forced tool choice. The tool contract wins:
+ * reasoning is dropped for this request only, and the decision is surfaced as a notice.
+ */
+export function resolveHostClaudeToolProtocol(
+    config = {},
+    task = {},
+    reasoning = resolveTaskReasoning('sillytavern-claude', config, task.reasoning),
+) {
+    const hasTools = Array.isArray(task.tools) && task.tools.length > 0;
+    if (!hasTools) return { toolChoice: undefined, reasoningDisabledForForcedTool: false };
+    const toolChoice = resolveHostClaudeToolChoice(task.toolChoice);
+    const manualThinking = reasoning.profileId === 'sillytavern-claude-manual'
+        || reasoning.profileId === 'sillytavern-claude-adaptive-conditional';
+    return {
+        toolChoice,
+        reasoningDisabledForForcedTool: toolChoice === 'any'
+            && reasoning.mode === 'on'
+            && manualThinking,
+    };
+}
+
+export const HOST_CLAUDE_FORCED_TOOL_REASONING_NOTICE = '当前模型使用手动 thinking，与强制 Tool 调用冲突；本次请求已因强制 Tool 关闭 Reasoning。';
+
+function resolveEffectiveReasoning(config = {}, task = {}, protocol = {}, reasoning) {
+    const requestedReasoning = reasoning
+        || resolveTaskReasoning('sillytavern-claude', config, task.reasoning);
+    return protocol.reasoningDisabledForForcedTool
+        ? { ...requestedReasoning, mode: 'off', output: 'hide' }
+        : requestedReasoning;
+}
+
+function buildEffectiveConfig(task = {}, protocol = {}, effectiveReasoning = {}) {
+    return buildEffectiveReasoningConfig(task, {
+        reasoning: effectiveReasoning,
+        effort: effectiveReasoning.mode === 'on' ? effectiveReasoning.effort : '',
+        controlFields: protocol.controlFields || {},
+    });
+}
+
+function buildToolConfig(task = {}, protocol = {}) {
+    return {
+        toolChoice: String(protocol.toolChoice || ''),
+    };
 }
 
 function parseToolInputJson(text = '') {
@@ -80,6 +148,10 @@ function buildHostClaudeMessages(task = {}) {
         }
         messages.push(cloned);
     });
+    const systemPrompt = typeof task.systemPrompt === 'string' ? task.systemPrompt : '';
+    if (systemPrompt.trim() && !(messages[0]?.role === 'system' && messages[0]?.content === systemPrompt)) {
+        messages.unshift({ role: 'system', content: systemPrompt });
+    }
     return messages;
 }
 
@@ -121,7 +193,13 @@ function normalizeContentBlocks(content = []) {
                 };
             }
             if (block.type === 'thinking') {
-                return { type: 'thinking', thinking: String(block.thinking || block.text || '') };
+                return {
+                    type: 'thinking',
+                    thinking: String(block.thinking || block.text || ''),
+                    ...(typeof block.signature === 'string'
+                        ? { signature: block.signature }
+                        : {}),
+                };
             }
             if (block.type === 'redacted_thinking') {
                 return { type: 'redacted_thinking', data: String(block.data || '') };
@@ -190,13 +268,15 @@ function parseContentResult(content = [], options = {}) {
         .filter((block) => block.type === 'text')
         .map((block) => block.text || '')
         .join('\n');
-    const thoughts = normalized
-        .filter((block) => block.type === 'thinking' || block.type === 'redacted_thinking')
-        .map((block) => ({
-            label: block.type === 'thinking' ? '思考块' : '已脱敏思考块',
-            text: block.type === 'thinking' ? (block.thinking || '') : (block.data || ''),
-        }))
-        .filter((item) => item.text);
+    const thoughts = options.includeReasoningOutput === false
+        ? []
+        : normalized
+            .filter((block) => block.type === 'thinking' || block.type === 'redacted_thinking')
+            .map((block) => ({
+                label: block.type === 'thinking' ? '思考块' : '已脱敏思考块',
+                text: block.type === 'thinking' ? (block.thinking || '') : (block.data || ''),
+            }))
+            .filter((item) => item.text);
 
     return {
         text,
@@ -219,7 +299,7 @@ function emitStreamProgress(task, payload) {
     });
 }
 
-function createClaudeStreamAccumulator(task, config = {}) {
+function createClaudeStreamAccumulator(task, effectiveReasoning, config = {}) {
     const blocks = [];
     let finishReason = 'stop';
     let model = config.model || '';
@@ -238,7 +318,7 @@ function createClaudeStreamAccumulator(task, config = {}) {
         const result = buildStreamProgressSnapshot(blocks);
         emitStreamProgress(task, {
             text: result.text,
-            thoughts: result.thoughts,
+            thoughts: isReasoningOutputVisible(effectiveReasoning) ? result.thoughts : [],
             ...(Array.isArray(result.toolCalls) ? { toolCalls: result.toolCalls } : {}),
             ...(result.toolCallDraft ? { toolCallDraft: true } : {}),
         });
@@ -277,56 +357,130 @@ function createClaudeStreamAccumulator(task, config = {}) {
             }
         },
         result() {
-            return parseContentResult(blocks, { finishReason, model });
+            return parseContentResult(blocks, {
+                finishReason,
+                model,
+                includeReasoningOutput: isReasoningOutputVisible(effectiveReasoning),
+            });
         },
     };
 }
 
 export class SillyTavernClaudeAdapter {
-    constructor(config) {
+    constructor(config, hostClient = browserHostChatCompletionsClient) {
         this.config = config;
+        this.hostClient = assertHostChatCompletionsClient(hostClient);
     }
 
     buildMessages(task) {
         return buildHostClaudeMessages(task);
     }
 
-    buildPayload(task) {
+    resolveToolProtocol(task, reasoning) {
+        return resolveHostClaudeToolProtocol(this.config, task, reasoning);
+    }
+
+    buildPayload(
+        task,
+        protocol = this.resolveToolProtocol(task),
+        effectiveReasoning = resolveEffectiveReasoning(this.config, task, protocol),
+    ) {
         const stream = typeof task.onStreamProgress === 'function';
         const messages = this.buildMessages(task);
-        return buildHostClaudeGeneratePayload(this.config, task, messages, stream);
+        const effectiveTask = {
+            ...task,
+            toolChoice: protocol.toolChoice,
+            reasoning: effectiveReasoning,
+            temperature: shouldOmitTemperatureForReasoning(
+                { ...this.config, provider: 'sillytavern-claude' },
+                effectiveReasoning,
+            ) ? undefined : task.temperature,
+        };
+        const payload = buildHostClaudeGeneratePayload(this.config, effectiveTask, messages, stream);
+        if (effectiveReasoning.mode === 'on') {
+            payload.reasoning_effort = effectiveReasoning.effort;
+            payload.include_reasoning = isReasoningOutputVisible(effectiveReasoning);
+        } else if (effectiveReasoning.mode === 'off') {
+            payload.reasoning_effort = 'auto';
+            payload.include_reasoning = false;
+        } else {
+            payload.reasoning_effort = 'auto';
+            payload.include_reasoning = isReasoningOutputVisible(effectiveReasoning);
+        }
+        return payload;
     }
 
     async inspectRequest(task, options = {}) {
-        const payload = options.payload || this.buildPayload(task);
-        const request = await buildHostChatCompletionGenerateRequest(
+        const requestedReasoning = resolveTaskReasoning('sillytavern-claude', this.config, task.reasoning);
+        const protocol = options.protocol || this.resolveToolProtocol(task, requestedReasoning);
+        const effectiveReasoning = options.effectiveReasoning
+            || resolveEffectiveReasoning(this.config, task, protocol, requestedReasoning);
+        const payload = options.payload || this.buildPayload(task, protocol, effectiveReasoning);
+        const request = await this.hostClient.buildHostChatCompletionGenerateRequest(
             payload,
             typeof task.onStreamProgress === 'function',
         );
-        return this.buildRequestInspection(request);
+        return this.buildRequestInspection(request, protocol, task, effectiveReasoning);
     }
 
-    buildRequestInspection(request) {
+    buildRequestInspection(
+        request,
+        protocol = {},
+        task = {},
+        effectiveReasoning = resolveEffectiveReasoning(this.config, task, protocol),
+    ) {
+        const controlFields = {
+            ...(Object.hasOwn(request?.body || {}, 'reasoning_effort')
+                ? { reasoning_effort: request.body.reasoning_effort }
+                : {}),
+            ...(Object.hasOwn(request?.body || {}, 'include_reasoning')
+                ? { include_reasoning: request.body.include_reasoning }
+                : {}),
+        };
         return {
             provider: 'sillytavern-claude',
             model: this.config.model,
             transport: 'sillytavern-chat-completions',
             request: redactRequestSecrets(request),
+            effectiveConfig: {
+                ...buildToolConfig(task, protocol),
+                ...buildEffectiveConfig(task, { ...protocol, controlFields }, effectiveReasoning),
+            },
+            ...(protocol.reasoningDisabledForForcedTool
+                ? { notices: [HOST_CLAUDE_FORCED_TOOL_REASONING_NOTICE] }
+                : {}),
         };
     }
 
     async chat(task) {
+        const requestedReasoning = resolveTaskReasoning('sillytavern-claude', this.config, task.reasoning);
         const stream = typeof task.onStreamProgress === 'function';
-        const payload = this.buildPayload(task);
+        const protocol = this.resolveToolProtocol(task, requestedReasoning);
+        const effectiveReasoning = resolveEffectiveReasoning(
+            this.config,
+            task,
+            protocol,
+            requestedReasoning,
+        );
+        const payload = this.buildPayload(task, protocol, effectiveReasoning);
         let requestInspection = null;
         const onRequest = (request) => {
-            requestInspection = this.buildRequestInspection(request);
+            requestInspection = this.buildRequestInspection(
+                request,
+                protocol,
+                task,
+                effectiveReasoning,
+            );
         };
 
         try {
             if (stream) {
-                const accumulator = createClaudeStreamAccumulator(task, this.config);
-                await streamHostChatCompletion(payload, (event) => {
+                const accumulator = createClaudeStreamAccumulator(
+                    task,
+                    effectiveReasoning,
+                    this.config,
+                );
+                await this.hostClient.streamHostChatCompletion(payload, (event) => {
                     accumulator.accept(event);
                 }, { signal: task.signal, onRequest });
                 return {
@@ -335,7 +489,10 @@ export class SillyTavernClaudeAdapter {
                 };
             }
 
-            const response = await createHostChatCompletion(payload, { signal: task.signal, onRequest });
+            const response = await this.hostClient.createHostChatCompletion(
+                payload,
+                { signal: task.signal, onRequest },
+            );
             const content = Array.isArray(response?.content)
                 ? response.content
                 : [{
@@ -346,6 +503,7 @@ export class SillyTavernClaudeAdapter {
                 ...parseContentResult(content, {
                     finishReason: response?.stop_reason || response?.choices?.[0]?.finish_reason || 'stop',
                     model: response?.model || this.config.model,
+                    includeReasoningOutput: isReasoningOutputVisible(effectiveReasoning),
                 }),
                 requestInspection,
             };

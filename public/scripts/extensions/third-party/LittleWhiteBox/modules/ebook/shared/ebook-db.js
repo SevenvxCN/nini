@@ -168,6 +168,33 @@ export async function listBookFiles(bookId = '') {
         .sort((left, right) => left.path.localeCompare(right.path, 'zh-CN'));
 }
 
+export async function listBookFilePaths(bookId = '') {
+    const id = String(bookId || '').trim();
+    if (!id) return [];
+    const keys = await filesTable.where('bookId').equals(id).primaryKeys();
+    return keys
+        .map((key) => Array.isArray(key) ? String(key[1] || '') : '')
+        .filter(Boolean)
+        .sort((left, right) => left.localeCompare(right, 'zh-CN'));
+}
+
+export async function* iterateBookFiles(bookId = '', options = {}) {
+    const id = String(bookId || '').trim();
+    if (!id) return;
+    const pageSize = Math.max(1, Math.min(500, Math.floor(Number(options.pageSize) || 1)));
+    const paths = await listBookFilePaths(id);
+    for (let offset = 0; offset < paths.length; offset += pageSize) {
+        const rows = await filesTable.bulkGet(
+            paths.slice(offset, offset + pageSize).map((path) => [id, path]),
+        );
+        for (const row of rows) {
+            if (!row) continue;
+            const file = cloneFile(row);
+            if (file.path) yield file;
+        }
+    }
+}
+
 export async function getBookFile(bookId = '', path = '') {
     const id = String(bookId || '').trim();
     const normalizedPath = normalizeBookFilePath(path);
@@ -194,6 +221,42 @@ export async function upsertBookFile(bookId = '', path = '', content = '', optio
         await touchBook(id);
     }
     return cloneFile(file);
+}
+
+export async function updateBookFileContentIfMatches(
+    bookId = '',
+    path = '',
+    expectedContent = '',
+    nextContent = '',
+) {
+    const id = String(bookId || '').trim();
+    const normalizedPath = normalizeBookFilePath(path);
+    if (!id || !normalizedPath) throw new Error('book_path_required');
+    const expected = typeof expectedContent === 'string' ? expectedContent : String(expectedContent ?? '');
+    const content = typeof nextContent === 'string' ? nextContent : String(nextContent ?? '');
+
+    return await db.transaction('rw', filesTable, booksTable, async () => {
+        const [previous, book] = await Promise.all([
+            filesTable.get([id, normalizedPath]),
+            booksTable.get(id),
+        ]);
+        if (!previous || !book) {
+            return { ok: false, reason: 'missing', current: previous ? cloneFile(previous) : null };
+        }
+        if (String(previous.content || '') !== expected) {
+            return { ok: false, reason: 'conflict', current: cloneFile(previous) };
+        }
+
+        const timestamp = now();
+        const file = {
+            ...previous,
+            content,
+            updatedAt: timestamp,
+        };
+        await filesTable.put(file);
+        await booksTable.update(id, { updatedAt: timestamp });
+        return { ok: true, reason: '', file: cloneFile(file) };
+    });
 }
 
 export async function deleteBookPath(bookId = '', path = '') {

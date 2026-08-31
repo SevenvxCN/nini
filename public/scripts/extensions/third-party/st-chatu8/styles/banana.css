@@ -36,18 +36,19 @@
 
 /* 帮助文本样式 */
 .st-chatu8-settings-banana .st-chatu8-help-text {
-    font-size: 12px;
-    color: var(--st-chatu8-text-muted, #888);
+    font-size: 13px;
+    color: var(--st-chatu8-text-secondary);
     margin-bottom: 12px;
-    line-height: 1.5;
+    line-height: 1.6;
 }
 
 .st-chatu8-settings-banana .st-chatu8-help-text code {
-    background: var(--st-chatu8-input-bg, rgba(0,0,0,0.2));
+    background: var(--st-chatu8-input-bg);
+    color: var(--st-chatu8-text-primary);
     padding: 2px 6px;
     border-radius: 3px;
     font-family: 'Consolas', 'Monaco', monospace;
-    font-size: 11px;
+    font-size: 12px;
 }
 
 /* 替换规则说明折叠面板 */
@@ -66,7 +67,7 @@
     padding: 10px 12px;
     cursor: pointer;
     font-size: 13px;
-    color: var(--st-chatu8-text-color, #ccc);
+    color: var(--st-chatu8-text-primary);
     user-select: none;
     display: flex;
     align-items: center;
@@ -97,9 +98,9 @@
 .st-chatu8-banana-replace-help li {
     position: relative;
     padding: 6px 0;
-    font-size: 12px;
-    color: var(--st-chatu8-text-muted, #999);
-    line-height: 1.5;
+    font-size: 13px;
+    color: var(--st-chatu8-text-secondary);
+    line-height: 1.6;
 }
 
 .st-chatu8-banana-replace-help li::before {
@@ -110,7 +111,7 @@
 }
 
 .st-chatu8-banana-replace-help li strong {
-    color: var(--st-chatu8-text-color, #ddd);
+    color: var(--st-chatu8-text-primary);
     font-weight: 600;
 }
 

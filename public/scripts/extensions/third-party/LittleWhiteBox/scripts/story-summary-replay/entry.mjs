@@ -1,18 +1,50 @@
+/* global Buffer, process */
+
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { performance } from 'node:perf_hooks';
 
 import { indexedDB, IDBKeyRange } from 'fake-indexeddb';
-import { GoogleGenAI } from '@google/genai';
-
-import { getDefaultApiPrefix, resolveApiBaseUrl } from '../../shared/common/openai-url-utils.js';
 import {
     __setReplayContext,
     __setExtensionSettings,
     __resetMetadataSaveCount,
     __saveMetadataCallCount,
+    __immediateMetadataSaveCallCount,
+    __debouncedMetadataSaveCallCount,
 } from './shims/extensions.js';
 import { __setChatMetadata, chat_metadata } from './shims/script.js';
+import { callSummaryApi } from './api-client.mjs';
+import {
+    assertNaturalHistoryHealthy,
+    maintainNaturalHistoryAfterAi,
+    mergeCountedExternal,
+    throwNaturalStageFailure,
+} from './natural-runtime.mjs';
+import {
+    prepareGoldEvalPlan,
+    runGoldEvalCases,
+} from '../gold-eval/replay-session.mjs';
+import {
+    prepareNaturalCapturePlan,
+    runNaturalCaptureCases,
+} from '../gold-eval/natural-replay-session.mjs';
+import {
+    prepareNaturalRecallPlan,
+    runNaturalRecallCases,
+} from '../gold-eval/natural-recall-session.mjs';
+import {
+    prepareNaturalResumePlan,
+    runNaturalResumeCases,
+} from '../gold-eval/natural-resume-session.mjs';
+import { runGoldPromptOnly } from '../gold-eval/prompt-session.mjs';
+import {
+    prepareEventRerankGate,
+    runEventRerankGate,
+} from '../gold-eval/event-rerank-gate.mjs';
+import { withExternalCallTrace } from '../gold-eval/lib/transport-cassette.mjs';
+import { assertBootstrapHealthy } from '../gold-eval/baseline/bootstrap-health.mjs';
+import { withProductRecallTurn } from '../gold-eval/lib/product-recall-turn.mjs';
 
 class MemoryStorage {
     #map = new Map();
@@ -94,15 +126,7 @@ function decodeBase64Url(input) {
     return Buffer.from(normalized, 'base64').toString('utf8');
 }
 
-function normalizeProvider(provider) {
-    const value = String(provider || 'custom').trim().toLowerCase();
-    if (['anthropic', 'claude'].includes(value)) return 'anthropic';
-    if (['google', 'gemini'].includes(value)) return 'google';
-    if (['openai', 'custom', 'deepseek', 'cohere'].includes(value)) return 'openai';
-    return value;
-}
-
-function buildChatMessagesFromArgs(args) {
+function buildChatMessagesFromArgs(args, prefillMode = 'assistant') {
     const topMessages = JSON.parse(decodeBase64Url(args.top64 || 'W10='));
     const bottomMessages = JSON.parse(decodeBase64Url(args.bottom64 || 'W10='));
     const messages = [...topMessages, ...bottomMessages]
@@ -114,7 +138,7 @@ function buildChatMessagesFromArgs(args) {
 
     if (args.bottomassistant && String(args.bottomassistant).trim()) {
         messages.push({
-            role: 'assistant',
+            role: prefillMode === 'user-instruction' ? 'user' : 'assistant',
             content: String(args.bottomassistant),
         });
     }
@@ -122,225 +146,63 @@ function buildChatMessagesFromArgs(args) {
     return messages;
 }
 
-function applyGenerationParams(body, args) {
-    const numericFields = [
-        ['temperature', 'temperature'],
-        ['top_p', 'top_p'],
-        ['top_k', 'top_k'],
-        ['presence_penalty', 'presence_penalty'],
-        ['frequency_penalty', 'frequency_penalty'],
-    ];
-
-    for (const [argKey, bodyKey] of numericFields) {
-        const raw = args?.[argKey];
-        if (raw == null || raw === '') continue;
-        const value = Number(raw);
-        if (!Number.isFinite(value)) continue;
-        body[bodyKey] = value;
-    }
-}
-
-function extractOpenAiText(payload) {
-    const content = payload?.choices?.[0]?.message?.content;
-    if (typeof content === 'string') {
-        return content;
-    }
-    if (Array.isArray(content)) {
-        return content
-            .map((part) => {
-                if (typeof part === 'string') return part;
-                if (part?.type === 'text' && typeof part?.text === 'string') return part.text;
-                return '';
-            })
-            .join('');
-    }
-    return '';
-}
-
-async function callOpenAiCompatibleSummary(apiConfig, messages, args) {
-    const baseUrl = resolveApiBaseUrl(
-        String(apiConfig.url || ''),
-        getDefaultApiPrefix(apiConfig.provider || 'custom')
-    );
-
-    const body = {
-        model: String(apiConfig.model || '').trim(),
-        messages,
-        stream: false,
-    };
-    applyGenerationParams(body, args);
-
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-            Authorization: `Bearer ${apiConfig.key || ''}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
-        throw new Error(`Summary API ${response.status}: ${errorText.slice(0, 300)}`);
-    }
-
-    const data = await response.json();
-    return String(extractOpenAiText(data) || '').trim();
-}
-
-function splitAnthropicMessages(messages) {
-    const systemLines = [];
-    const chatMessages = [];
-
-    for (const message of messages) {
-        if (message.role === 'system') {
-            systemLines.push(message.content);
-            continue;
-        }
-        const role = message.role === 'assistant' ? 'assistant' : 'user';
-        chatMessages.push({
-            role,
-            content: [{ type: 'text', text: message.content }],
-        });
-    }
-
-    return {
-        system: systemLines.join('\n\n').trim(),
-        messages: chatMessages,
-    };
-}
-
-function extractAnthropicText(payload) {
-    if (!Array.isArray(payload?.content)) return '';
-    return payload.content
-        .map((part) => (part?.type === 'text' ? String(part?.text || '') : ''))
-        .join('');
-}
-
-async function callAnthropicSummary(apiConfig, messages, args) {
-    const { system, messages: anthropicMessages } = splitAnthropicMessages(messages);
-    const baseUrl = String(apiConfig.url || 'https://api.anthropic.com').replace(/\/+$/, '');
-    const body = {
-        model: String(apiConfig.model || '').trim(),
-        max_tokens: Math.max(32000, Number(args?.max_tokens) || 32000),
-        messages: anthropicMessages,
-    };
-    if (system) body.system = system;
-    applyGenerationParams(body, args);
-
-    const response = await fetch(`${baseUrl}/messages`, {
-        method: 'POST',
-        headers: {
-            'x-api-key': apiConfig.key || '',
-            'anthropic-version': '2023-06-01',
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
-        throw new Error(`Anthropic API ${response.status}: ${errorText.slice(0, 300)}`);
-    }
-
-    const data = await response.json();
-    return String(extractAnthropicText(data) || '').trim();
-}
-
-function toGoogleContents(messages) {
-    const systemLines = [];
-    const contents = [];
-
-    for (const message of messages) {
-        if (message.role === 'system') {
-            systemLines.push(message.content);
-            continue;
-        }
-        contents.push({
-            role: message.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: message.content }],
-        });
-    }
-
-    return {
-        contents,
-        systemInstruction: systemLines.join('\n\n').trim(),
-    };
-}
-
-function extractGoogleText(response) {
-    if (typeof response?.text === 'string' && response.text.trim()) {
-        return response.text.trim();
-    }
-    if (typeof response?.text === 'function') {
-        const maybeText = response.text();
-        if (typeof maybeText === 'string' && maybeText.trim()) {
-            return maybeText.trim();
-        }
-    }
-
-    const parts = response?.candidates?.[0]?.content?.parts || [];
-    return parts
-        .map((part) => String(part?.text || ''))
-        .join('')
-        .trim();
-}
-
-async function callGoogleSummary(apiConfig, messages, args) {
-    const { contents, systemInstruction } = toGoogleContents(messages);
-    const baseUrl = String(apiConfig.url || '').trim();
-    const provider = String(apiConfig.provider || 'google').toLowerCase();
-    const isVertex = provider.includes('vertex') || /vertex/i.test(baseUrl);
-    const httpOptions = baseUrl
-        ? {
-            baseUrl,
-            apiVersion: '',
-        }
-        : undefined;
-
-    const ai = new GoogleGenAI({
-        apiKey: apiConfig.key || undefined,
-        vertexai: isVertex,
-        httpOptions,
-    });
-
-    const config = {};
-    if (systemInstruction) {
-        config.systemInstruction = systemInstruction;
-    }
-    applyGenerationParams(config, args);
-
-    const response = await ai.models.generateContent({
-        model: String(apiConfig.model || '').trim(),
-        contents,
-        config,
-    });
-
-    return extractGoogleText(response);
-}
-
-async function callSummaryApi(apiConfig, messages, args) {
-    const normalizedProvider = normalizeProvider(apiConfig.provider);
-    if (normalizedProvider === 'anthropic') {
-        return await callAnthropicSummary(apiConfig, messages, args);
-    }
-    if (normalizedProvider === 'google') {
-        return await callGoogleSummary(apiConfig, messages, args);
-    }
-    if (normalizedProvider === 'st') {
-        throw new Error('Replay runner does not support provider "st"; please provide a direct summary API config.');
-    }
-    return await callOpenAiCompatibleSummary(apiConfig, messages, args);
-}
-
 function createStreamingGenerationShim(summaryApiConfig) {
     const sessions = new Map();
+    let lastResponseDiagnostic = null;
+
+    const analyzeOutput = (text, responseMeta = {}) => {
+        const output = String(text || '').trim();
+        const start = output.indexOf('{');
+        const end = output.lastIndexOf('}');
+        let fullJson = false;
+        let boundedJson = false;
+        try {
+            JSON.parse(output);
+            fullJson = true;
+        } catch {}
+        if (start >= 0 && end > start) {
+            try {
+                JSON.parse(output.slice(start, end + 1));
+                boundedJson = true;
+            } catch {}
+        }
+        return {
+            ...responseMeta,
+            outputChars: output.length,
+            startsWithFence: /^```/.test(output),
+            endsWithBrace: output.endsWith('}'),
+            hasObjectBounds: start >= 0 && end > start,
+            fullJson,
+            boundedJson,
+        };
+    };
 
     const getSession = (sessionId) => sessions.get(sessionId) || { isStreaming: false, text: '', error: null };
 
     const runRequest = async (args) => {
-        const messages = buildChatMessagesFromArgs(args);
-        return await callSummaryApi(summaryApiConfig, messages, args);
+        const messages = buildChatMessagesFromArgs(args, summaryApiConfig.prefillMode);
+        let responseMeta = {};
+        const text = await callSummaryApi(summaryApiConfig, messages, {
+            ...args,
+            ...(summaryApiConfig.maxTokens ? { max_tokens: summaryApiConfig.maxTokens } : {}),
+            ...(summaryApiConfig.reasoningEffort
+                ? { reasoning_effort: summaryApiConfig.reasoningEffort }
+                : {}),
+            onResponse(payload) {
+                const message = payload?.choices?.[0]?.message || {};
+                responseMeta = {
+                    finishReason: payload?.choices?.[0]?.finish_reason ?? null,
+                    contentChars: typeof message.content === 'string' ? message.content.length : null,
+                    reasoningChars: typeof message.reasoning_content === 'string'
+                        ? message.reasoning_content.length
+                        : null,
+                    completionTokens: payload?.usage?.completion_tokens ?? null,
+                    reasoningTokens: payload?.usage?.completion_tokens_details?.reasoning_tokens ?? null,
+                };
+            },
+        });
+        lastResponseDiagnostic = analyzeOutput(text, responseMeta);
+        return text;
     };
 
     return {
@@ -363,6 +225,9 @@ function createStreamingGenerationShim(summaryApiConfig) {
         cancel(sessionId) {
             const snapshot = getSession(String(sessionId || ''));
             sessions.set(String(sessionId || ''), { ...snapshot, isStreaming: false });
+        },
+        getLastResponseDiagnostic() {
+            return lastResponseDiagnostic ? { ...lastResponseDiagnostic } : null;
         },
     };
 }
@@ -496,6 +361,7 @@ async function loadSampleChat(samplePath, config) {
 }
 
 function buildReplayPanelConfig(config) {
+    const naturalCapture = normalizeReplayMode(config?.mode) === 'natural-capture';
     return {
         api: {
             provider: config?.summaryApi?.provider || 'custom',
@@ -503,6 +369,9 @@ function buildReplayPanelConfig(config) {
             key: config?.summaryApi?.key || '',
             model: config?.summaryApi?.model || '',
             modelCache: [],
+            maxTokens: config?.summaryApi?.maxTokens ?? null,
+            reasoningEffort: config?.summaryApi?.reasoningEffort ?? '',
+            prefillMode: config?.summaryApi?.prefillMode ?? 'assistant',
         },
         gen: {
             temperature: config?.summaryApi?.temperature ?? null,
@@ -512,9 +381,9 @@ function buildReplayPanelConfig(config) {
             frequency_penalty: config?.summaryApi?.frequency_penalty ?? null,
         },
         trigger: {
-            enabled: false,
-            interval: 20,
-            timing: 'manual',
+            enabled: naturalCapture,
+            interval: Math.max(1, Math.trunc(Number(config?.summaryTriggerInterval) || 20)),
+            timing: naturalCapture ? 'before_user' : 'manual',
             role: 'system',
             useStream: config?.summaryApi?.useStream !== false,
             maxPerRun: Math.max(1, Math.trunc(Number(config?.summaryApi?.maxPerRun) || 100)),
@@ -663,7 +532,10 @@ async function resetReplayStores(modules, chatId) {
     modules.initStateIntegration?.();
 }
 
-async function createReplaySnapshot(modules, chatId, sample, samplePath, config, snapshotPath) {
+async function createReplaySnapshot(modules, chatId, sample, samplePath, config, snapshotPath, options = {}) {
+    const snapshotMessages = options.messages || sample.messages;
+    const snapshotKind = options.kind || null;
+    const boundary = options.boundary || null;
     const [meta, chunks, chunkVectors, eventVectors, stateVectors, storageStats, stateVectorsCount] = await Promise.all([
         modules.getMeta(chatId),
         modules.getAllChunks(chatId),
@@ -675,19 +547,22 @@ async function createReplaySnapshot(modules, chatId, sample, samplePath, config,
     ]);
 
     return {
-        version: 1,
+        version: snapshotKind ? 2 : 1,
+        ...(snapshotKind ? { kind: snapshotKind } : {}),
         generatedAt: new Date().toISOString(),
         snapshotPath: toPosixPath(snapshotPath),
         dataFingerprint: buildReplayDataFingerprint(samplePath, config),
         sample: {
             samplePath: toPosixPath(samplePath),
-            messageCount: sample.messages.length,
+            messageCount: snapshotMessages.length,
             totalSampleMessages: sample.totalSampleMessages,
             names: sample.names,
         },
         replay: {
             chatId,
         },
+        ...(boundary ? { boundary: cloneJsonSafe(boundary) } : {}),
+        ...(options.recovery ? { recovery: cloneJsonSafe(options.recovery) } : {}),
         summary: {
             store: cloneJsonSafe(modules.getSummaryStore()),
             chatMetadata: cloneJsonSafe(chat_metadata),
@@ -703,6 +578,72 @@ async function createReplaySnapshot(modules, chatId, sample, samplePath, config,
             stateVectorsCount,
         },
     };
+}
+
+async function writeNaturalBoundarySnapshot(
+    modules,
+    chatId,
+    sample,
+    samplePath,
+    config,
+    snapshotPath,
+    visibleMessages,
+    goldCase,
+) {
+    const snapshot = await createReplaySnapshot(
+        modules,
+        chatId,
+        sample,
+        samplePath,
+        config,
+        snapshotPath,
+        {
+            messages: visibleMessages,
+            kind: 'natural-query-boundary',
+            boundary: {
+                queryFloor: goldCase.atFloor,
+                historyThroughFloor: goldCase.historyThroughFloor,
+            },
+        },
+    );
+    await fs.writeFile(snapshotPath, JSON.stringify(snapshot, null, 2), 'utf8');
+    return snapshot;
+}
+
+async function writeNaturalRecoverySnapshot(
+    modules,
+    chatId,
+    sample,
+    samplePath,
+    config,
+    snapshotPath,
+    visibleMessages,
+    resumeFloor,
+    preparation,
+) {
+    const snapshot = await createReplaySnapshot(
+        modules,
+        chatId,
+        sample,
+        samplePath,
+        config,
+        snapshotPath,
+        {
+            messages: visibleMessages,
+            kind: 'natural-operational-recovery',
+            boundary: {
+                resumeFloor,
+                historyThroughFloor: resumeFloor,
+            },
+            recovery: {
+                preparation: cloneJsonSafe(preparation),
+            },
+        },
+    );
+    const tempPath = `${snapshotPath}.${process.pid}.${Date.now()}.tmp`;
+    await fs.writeFile(tempPath, JSON.stringify(snapshot, null, 2), 'utf8');
+    await fs.rename(tempPath, snapshotPath);
+    return snapshot;
 }
 
 async function writeReplaySnapshot(modules, chatId, sample, samplePath, config, snapshotPath) {
@@ -787,7 +728,9 @@ async function runSummaryBatches(modules, targetMesId, summaryConfig) {
         const elapsedMs = Math.round(performance.now() - startedAt);
 
         if (!result?.success) {
-            throw new Error(`summary_generation_failed:${result?.error?.message || result?.error || 'unknown'}`);
+            const diagnostic = globalThis.window?.xiaobaixStreamingGeneration?.getLastResponseDiagnostic?.();
+            const suffix = diagnostic ? `:diagnostic=${JSON.stringify(diagnostic)}` : '';
+            throw new Error(`summary_generation_failed:${result?.error?.message || result?.error || 'unknown'}${suffix}`);
         }
 
         const storeAfter = modules.getSummaryStore();
@@ -842,63 +785,252 @@ async function vectorizeEventSummaries(modules, chatId, vectorConfig, events) {
     return { built };
 }
 
-async function runRecallCases(modules, vectorConfig, summaryConfig) {
+async function summarizeNaturalHistoryBeforeUser({
+    modules,
+    chatId,
+    panelConfig,
+    floor,
+    historyThroughFloor,
+    visibleMessages,
+    nextCaseId,
+}) {
+    const store = modules.getSummaryStore();
+    const lastSummarized = Number(store?.lastSummarizedMesId ?? -1);
+    const pending = visibleMessages.length - lastSummarized - 1;
+    const interval = Math.max(1, Number(panelConfig?.trigger?.interval) || 20);
+    if (pending < interval || historyThroughFloor < 0) {
+        return {
+            floor,
+            externalCalls: 0,
+            externalRequests: 0,
+            transportTrace: [],
+            result: { triggered: false, pending, interval },
+        };
+    }
+
+    const summaryAttempts = [];
+    let countedSummary = null;
+    let summaryResult = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        let countedAttempt;
+        try {
+            countedAttempt = await withExternalCallTrace(() => modules.runSummaryGeneration(
+                historyThroughFloor,
+                panelConfig,
+                {},
+                { targetChatId: chatId },
+            ));
+        } catch (error) {
+            const attemptTrace = error.externalTrace || [];
+            summaryAttempts.push({
+                calls: Number(error.externalCalls || attemptTrace.length),
+                requestCount: Number(error.externalRequests || attemptTrace.length),
+                trace: attemptTrace,
+            });
+            if (attempt >= 3) {
+                const countedAll = mergeCountedExternal(...summaryAttempts);
+                error.externalTrace = countedAll.transportTrace;
+                error.externalCalls = countedAll.externalCalls;
+                error.externalRequests = countedAll.externalRequests;
+                error.goldFailure = error.goldFailure || {
+                    stage: 'summary',
+                    kind: 'request',
+                    status: null,
+                    caseId: nextCaseId || null,
+                    message: String(error?.message || error),
+                };
+                throw error;
+            }
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            continue;
+        }
+        summaryAttempts.push(countedAttempt);
+        summaryResult = countedAttempt.value;
+        if (summaryResult?.success && !summaryResult?.cancelled && !summaryResult?.stale) {
+            countedSummary = mergeCountedExternal(...summaryAttempts);
+            break;
+        }
+        if (summaryResult?.cancelled || summaryResult?.stale || attempt >= 3) {
+            const countedAll = mergeCountedExternal(...summaryAttempts);
+            throwNaturalStageFailure(
+                'summary',
+                nextCaseId,
+                `natural summary 失败: floor=${floor} ${summaryResult?.error?.message || summaryResult?.error || (summaryResult?.stale ? 'stale' : 'unknown')}`,
+                {
+                    calls: countedAll.externalCalls,
+                    requestCount: countedAll.externalRequests,
+                    trace: countedAll.transportTrace,
+                },
+            );
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    if (!countedSummary || !summaryResult?.success) {
+        throwNaturalStageFailure('summary', nextCaseId, `natural summary 重试状态异常: floor=${floor}`);
+    }
+
+    const updatedStore = modules.getSummaryStore();
+    const newEventIds = Array.isArray(summaryResult.newEventIds) ? summaryResult.newEventIds : [];
+    const newEventIdSet = new Set(newEventIds);
+    const newEvents = (updatedStore?.json?.events || []).filter(event => newEventIdSet.has(event?.id));
+    if (summaryResult.aliasChanged) {
+        modules.invalidateLexicalIndex();
+    } else if (newEvents.length) {
+        modules.addEventDocuments(newEvents);
+    }
+
+    let countedEvents = { calls: 0, requestCount: 0, trace: [], value: { built: 0 } };
+    if (newEvents.length) {
+        try {
+            countedEvents = await withExternalCallTrace(() => vectorizeEventSummaries(
+                modules,
+                chatId,
+                panelConfig.vector,
+                newEvents,
+            ));
+        } catch (error) {
+            error.goldFailure = error.goldFailure || {
+                stage: 'event-embedding',
+                kind: 'request',
+                status: null,
+                caseId: nextCaseId || null,
+                message: String(error?.message || error),
+            };
+            throw error;
+        }
+    }
+
+    return {
+        floor,
+        externalCalls: countedSummary.externalCalls + Number(countedEvents.calls || 0),
+        externalRequests: countedSummary.externalRequests + Number(countedEvents.requestCount || 0),
+        transportTrace: [...countedSummary.transportTrace, ...(countedEvents.trace || [])],
+        result: {
+            triggered: true,
+            pending,
+            interval,
+            endMesId: summaryResult.endMesId,
+            newEvents: newEvents.length,
+            eventVectors: countedEvents.value?.built || 0,
+        },
+    };
+}
+
+function serializePromptRecallInput(normalizedRecall) {
+    const { l1ByFloor, ...rest } = normalizedRecall || {};
+    return {
+        ...cloneJsonSafe(rest),
+        l1ByFloorEntries: l1ByFloor instanceof Map
+            ? [...l1ByFloor.entries()].map(([floor, value]) => [floor, cloneJsonSafe(value)])
+            : Object.entries(l1ByFloor || {}).map(([floor, value]) => [Number(floor), cloneJsonSafe(value)]),
+    };
+}
+
+function deserializePromptRecallInput(value = {}) {
+    const { l1ByFloorEntries, ...rest } = value;
+    return {
+        ...cloneJsonSafe(rest),
+        l1ByFloor: new Map((l1ByFloorEntries || []).map(([floor, item]) => [Number(floor), cloneJsonSafe(item)])),
+    };
+}
+
+async function executeRecallCase(
+    modules,
+    vectorConfig,
+    summaryConfig,
+    recallCase,
+    stageObserver = null,
+    transportCassette = null,
+) {
     const store = modules.getSummaryStore();
     const allEvents = store?.json?.events || [];
-    const recallCases = Array.isArray(summaryConfig.recallCases) && summaryConfig.recallCases.length
-        ? summaryConfig.recallCases
-        : [{ label: 'latest-context', excludeLastAi: false }];
+    const label = String(recallCase?.label || 'recall-case');
+    const querySource = String(recallCase?.querySource || 'chat-tail');
+    const excludeLastAi = !!recallCase?.excludeLastAi;
+    const recallStartedAt = performance.now();
+    const meta = await modules.getMeta(modules.getContext().chatId);
+    const countedExecution = await withExternalCallTrace(
+        async () => {
+            let recallResult = null;
+            try {
+                recallResult = await modules.recallMemory(allEvents, vectorConfig, {
+                    excludeLastAi,
+                    stageObserver,
+                    deferRuntimeRelease: true,
+                });
 
-    const results = [];
-    for (const recallCase of recallCases) {
-        const label = String(recallCase?.label || `case-${results.length + 1}`);
-        const pendingUserMessage = recallCase?.pendingUserMessage ? String(recallCase.pendingUserMessage) : null;
-        const excludeLastAi = !!recallCase?.excludeLastAi;
-        const recallResult = await modules.recallMemory(allEvents, vectorConfig, {
-            pendingUserMessage,
-            excludeLastAi,
-        });
+                const normalizedRecall = {
+                    ...recallResult,
+                    events: recallResult?.events || [],
+                    l0Selected: recallResult?.l0Selected || [],
+                    l1ByFloor: recallResult?.l1ByFloor || new Map(),
+                    causalChain: recallResult?.causalChain || [],
+                    focusTerms: recallResult?.focusTerms || recallResult?.focusEntities || [],
+                    focusCharacters: recallResult?.focusCharacters || [],
+                    metrics: recallResult?.metrics || null,
+                };
 
-        const normalizedRecall = {
-            ...recallResult,
-            events: recallResult?.events || [],
-            l0Selected: recallResult?.l0Selected || [],
-            l1ByFloor: recallResult?.l1ByFloor || new Map(),
-            causalChain: recallResult?.causalChain || [],
-            focusTerms: recallResult?.focusTerms || recallResult?.focusEntities || [],
-            focusCharacters: recallResult?.focusCharacters || [],
-            metrics: recallResult?.metrics || null,
-        };
+                const causalById = new Map(
+                    (normalizedRecall.causalChain || [])
+                        .map((item) => [item?.event?.id, item])
+                        .filter((item) => item[0])
+                );
 
-        const meta = await modules.getMeta(modules.getContext().chatId);
-        const causalById = new Map(
-            (normalizedRecall.causalChain || [])
-                .map((item) => [item?.event?.id, item])
-                .filter((item) => item[0])
-        );
+                const builtPrompt = await modules.buildVectorPromptForReplay(
+                    store,
+                    normalizedRecall,
+                    causalById,
+                    normalizedRecall.focusCharacters || [],
+                    meta,
+                    normalizedRecall.metrics || null
+                );
 
-        const builtPrompt = await modules.buildVectorPromptForReplay(
-            store,
-            normalizedRecall,
-            causalById,
-            normalizedRecall.focusCharacters || [],
-            meta,
-            normalizedRecall.metrics || null
-        );
+                return { normalizedRecall, builtPrompt };
+            } finally {
+                if (recallResult?.directEvidenceContext) {
+                    await modules.releaseDirectEvidenceContext(
+                        recallResult.directEvidenceContext,
+                        recallResult.metrics,
+                    );
+                    recallResult.directEvidenceContext = null;
+                }
+            }
+        },
+        { cassette: transportCassette },
+    );
+    const recallMs = Math.round(performance.now() - recallStartedAt);
+    const { normalizedRecall, builtPrompt } = countedExecution.value;
 
-        let promptText = String(builtPrompt?.promptText || '');
-        if (summaryConfig?.trigger?.wrapperHead) {
-            promptText = `${summaryConfig.trigger.wrapperHead}\n${promptText}`;
-        }
-        if (summaryConfig?.trigger?.wrapperTail) {
-            promptText = `${promptText}\n${summaryConfig.trigger.wrapperTail}`;
-        }
+    let promptText = String(builtPrompt?.promptText || '');
+    if (summaryConfig?.trigger?.wrapperHead) {
+        promptText = `${summaryConfig.trigger.wrapperHead}\n${promptText}`;
+    }
+    if (summaryConfig?.trigger?.wrapperTail) {
+        promptText = `${promptText}\n${summaryConfig.trigger.wrapperTail}`;
+    }
 
-        results.push({
+    return {
+        normalizedRecall,
+        promptText,
+        promptInput: {
+            schemaVersion: 1,
+            recallResult: serializePromptRecallInput(normalizedRecall),
+            meta: cloneJsonSafe(meta),
+            wrapperHead: String(summaryConfig?.trigger?.wrapperHead || ''),
+            wrapperTail: String(summaryConfig?.trigger?.wrapperTail || ''),
+        },
+        evidenceTrace: builtPrompt?.evidenceTrace || { final: [], prompt: [] },
+        recallMs,
+        externalCalls: countedExecution.calls,
+        externalRequests: countedExecution.requestCount ?? countedExecution.calls,
+        transportTrace: countedExecution.trace,
+        reportCase: {
             label,
             excludeLastAi,
-            pendingUserMessagePreview: previewText(pendingUserMessage, 100),
+            querySource,
             promptChars: promptText.length,
+            externalCalls: countedExecution.calls,
+            externalRequests: countedExecution.requestCount ?? countedExecution.calls,
             promptPreview: previewText(promptText, 300),
             metrics: cloneJsonSafe(builtPrompt?.metrics || normalizedRecall.metrics || null),
             injectionStats: cloneJsonSafe(builtPrompt?.injectionStats || null),
@@ -912,7 +1044,22 @@ async function runRecallCases(modules, vectorConfig, summaryConfig) {
             logText: modules.formatMetricsLog(
                 builtPrompt?.metrics || normalizedRecall.metrics || modules.createMetrics()
             ),
+        },
+    };
+}
+
+async function runRecallCases(modules, vectorConfig, summaryConfig) {
+    const recallCases = Array.isArray(summaryConfig.recallCases) && summaryConfig.recallCases.length
+        ? summaryConfig.recallCases
+        : [{ label: 'latest-context', excludeLastAi: false }];
+
+    const results = [];
+    for (const recallCase of recallCases) {
+        const execution = await executeRecallCase(modules, vectorConfig, summaryConfig, {
+            ...recallCase,
+            label: recallCase?.label || `case-${results.length + 1}`,
         });
+        results.push(execution.reportCase);
     }
 
     return results;
@@ -1023,15 +1170,27 @@ function renderMarkdownReport(report) {
         lines.push(`- diffusion_breakdown: graph ${recallCase.metrics?.diffusion?.buildTime ?? 0}ms, ppr ${recallCase.metrics?.diffusion?.pprTime ?? 0}ms, post ${recallCase.metrics?.diffusion?.postVerifyTime ?? 0}ms, vector_map ${recallCase.metrics?.diffusion?.vectorMapTime ?? 0}ms, yield ${recallCase.metrics?.diffusion?.yieldCount ?? 0}/${recallCase.metrics?.diffusion?.yieldTime ?? 0}ms`);
         lines.push(`- l1_attach_rate: ${recallCase.metrics?.quality?.l1AttachRate ?? 0}%`);
         lines.push(`- rerank_retention_rate: ${recallCase.metrics?.quality?.rerankRetentionRate ?? 0}%`);
-        if (recallCase.pendingUserMessagePreview) {
-            lines.push(`- pendingUserMessage: ${recallCase.pendingUserMessagePreview}`);
-        }
+        lines.push(`- querySource: ${recallCase.querySource || 'chat-tail'}`);
         const potentialIssues = recallCase.metrics?.quality?.potentialIssues || [];
         if (potentialIssues.length) {
             lines.push('- issues:');
             for (const issue of potentialIssues) {
                 lines.push(`  - ${issue}`);
             }
+        }
+        lines.push('');
+    }
+
+    if (report.eventRerankGate) {
+        lines.push('## Event Rerank Gate');
+        lines.push('');
+        lines.push(`- status: ${report.eventRerankGate.status}`);
+        lines.push(`- source: ${report.eventRerankGate.sourceRunId}`);
+        lines.push(`- cases: ${report.eventRerankGate.totals?.cases ?? 0}`);
+        lines.push(`- externalCalls: ${report.eventRerankGate.totals?.externalCalls ?? 0}`);
+        lines.push(`- targetsInPrompt: ${report.eventRerankGate.totals?.targetsInPrompt ?? 0}/${report.eventRerankGate.totals?.targets ?? 0}`);
+        for (const item of (report.eventRerankGate.cases || [])) {
+            lines.push(`- ${item.caseId}: batches=${item.rerankBatches}, calls=${item.externalCalls}, targets=${item.targets.map(target => `${target.eventId} ${target.beforeRank}->${target.rerankRank} prompt=${target.inPrompt}`).join('; ')}`);
         }
         lines.push('');
     }
@@ -1062,6 +1221,479 @@ function renderMarkdownReport(report) {
     return lines.join('\n');
 }
 
+export async function runStorySummaryCancellationCheck() {
+    ensureNodeReplayGlobals();
+    const { generateSummary, isSummaryGenerationCancelledError } = await import(
+        '../../modules/story-summary/generate/llm.js'
+    );
+    const previousStreamingModule = globalThis.window.xiaobaixStreamingGeneration;
+    const cancelledSessions = [];
+    globalThis.window.xiaobaixStreamingGeneration = {
+        async xbgenrawCommand() {
+            return 'summary-cancel-check';
+        },
+        getStatus(sessionId) {
+            return { sessionId, isStreaming: true, text: '' };
+        },
+        cancel(sessionId) {
+            cancelledSessions.push(sessionId);
+        },
+    };
+
+    const controller = new AbortController();
+    try {
+        const pending = generateSummary({
+            existingSummary: '',
+            existingFacts: [],
+            newHistoryText: '#1 【用户】\n测试取消',
+            historyRange: '1-1楼',
+            nextEventId: 1,
+            existingEventCount: 0,
+            llmApi: { provider: 'st' },
+            useStream: true,
+            signal: controller.signal,
+        });
+        setTimeout(() => controller.abort(), 0);
+        await pending;
+        return { cancelled: false, cancelledSessions };
+    } catch (error) {
+        return {
+            cancelled: isSummaryGenerationCancelledError(error),
+            cancelledSessions,
+        };
+    } finally {
+        globalThis.window.xiaobaixStreamingGeneration = previousStreamingModule;
+    }
+}
+
+export async function runStorySummaryPromptAssemblyCheck() {
+    ensureNodeReplayGlobals();
+    globalThis.localStorage.clear();
+    globalThis.sessionStorage.clear();
+    globalThis.localStorage.setItem('summary_panel_config', JSON.stringify({
+        prompts: { memoryTemplate: '{$剧情记忆}' },
+        trigger: { wrapperHead: '', wrapperTail: '' },
+        ui: { keepVisibleCount: 0 },
+        vector: { enabled: true, summarizedEvidenceBudget: 3000 },
+    }));
+
+    const [{ EXT_ID }, { buildVectorPromptForReplay }, { createMetrics }] = await Promise.all([
+        import('../../core/constants.js'),
+        import('../../modules/story-summary/generate/prompt.js'),
+        import('../../modules/story-summary/vector/retrieval/metrics.js'),
+    ]);
+
+    const store = {
+        lastSummarizedMesId: -1,
+        json: {
+            keywords: [],
+            events: [],
+            characters: { main: [] },
+            arcs: [],
+            facts: [],
+            characterAliases: [],
+        },
+    };
+    __setExtensionSettings({ [EXT_ID]: { storySummary: { enabled: true } } });
+    __setChatMetadata({ extensions: { [EXT_ID]: { storySummary: store } } });
+    __setReplayContext({
+        chatId: 'story-summary-prompt-assembly-check',
+        chat: [],
+        name1: '用户',
+        name2: '角色',
+        groupId: null,
+        characterId: 'story-summary-prompt-assembly-check',
+        saveMetadata: async () => {},
+    });
+
+    const temporalFloors = [0, 10, 20, 30, 40, 50, 60];
+    const temporalEvents = temporalFloors.map((floor, index) => ({
+        event: {
+            id: `temporal-event-${index + 1}`,
+            title: `TEMPORAL_EVENT_${index + 1}`,
+            summary: `时间事件 ${index + 1} (#${floor + 1})`,
+            participants: ['角色'],
+        },
+        _recallType: 'DIRECT',
+        similarity: 1 - index / 100,
+    }));
+    const evidenceOwner = {
+        event: {
+            id: 'evidence-owner',
+            title: 'EVIDENCE_OWNER',
+            summary: '证据归属事件 (#101-110)',
+            participants: ['角色'],
+        },
+        _recallType: 'DIRECT',
+        _evidenceEligible: true,
+        similarity: 0.5,
+    };
+    const events = [
+        ...temporalEvents.slice(0, 5),
+        evidenceOwner,
+        ...temporalEvents.slice(5),
+    ];
+
+    const evidenceMarkers = {
+        protected: 'PROTECTED_EVIDENCE',
+        ordinaryHigh: 'ORDINARY_HIGH_EVIDENCE',
+        temporalOverflow: 'TEMPORAL_OVERFLOW_EVIDENCE',
+        ordinaryLow: 'ORDINARY_LOW_EVIDENCE',
+    };
+    const directEvidenceL1 = [
+        {
+            chunkId: 'protected-evidence',
+            floor: 109,
+            isUser: false,
+            speaker: '角色',
+            text: `${evidenceMarkers.protected} ${'P'.repeat(4000)}`,
+            _directEvidenceTemporalCarrier: true,
+            _directEvidencePassedMinScore: true,
+        },
+        {
+            chunkId: 'ordinary-high-evidence',
+            floor: 105,
+            isUser: false,
+            speaker: '角色',
+            text: `${evidenceMarkers.ordinaryHigh} ${'H'.repeat(3000)}`,
+            _directEvidencePassedMinScore: true,
+        },
+        {
+            chunkId: 'temporal-overflow-evidence',
+            floor: 101,
+            isUser: false,
+            speaker: '角色',
+            text: `${evidenceMarkers.temporalOverflow} ${'O'.repeat(3000)}`,
+            _directEvidenceTemporalCarrier: true,
+            _directEvidencePassedMinScore: true,
+        },
+        {
+            chunkId: 'ordinary-low-evidence',
+            floor: 103,
+            isUser: false,
+            speaker: '角色',
+            text: `${evidenceMarkers.ordinaryLow} ${'L'.repeat(3000)}`,
+            _directEvidencePassedMinScore: true,
+        },
+    ];
+
+    const externalCalls = [];
+    const previousFetch = globalThis.fetch;
+    const previousStreamingModule = globalThis.window.xiaobaixStreamingGeneration;
+    globalThis.fetch = async () => {
+        externalCalls.push('fetch');
+        throw new Error('Prompt assembly check forbids network access');
+    };
+    globalThis.window.xiaobaixStreamingGeneration = {
+        async xbgenrawCommand() {
+            externalCalls.push('streaming-generation');
+            throw new Error('Prompt assembly check forbids generation');
+        },
+    };
+
+    try {
+        const metrics = createMetrics();
+        const built = await buildVectorPromptForReplay(
+            store,
+            {
+                events,
+                eventTemporalFloors: temporalFloors,
+                l0Selected: [],
+                l1ByFloor: new Map(),
+                directEvidenceStatus: 'applied',
+                directEvidenceL1,
+                directEvidenceContext: null,
+            },
+            new Map(),
+            [],
+            { lastChunkFloor: -1 },
+            metrics,
+        );
+        const promptText = String(built?.promptText || '');
+        const renderedEvidenceFloors = [...promptText.matchAll(/^\s*[┌›]\s+#(\d+)\s+\[[^\]]+\]/gm)]
+            .map(match => Number(match[1]));
+
+        return {
+            externalCalls,
+            event: {
+                temporalWinners: metrics.event.temporalWinners,
+                temporalProtectionCap: metrics.event.temporalProtectionCap,
+                temporalProtected: metrics.event.temporalProtected,
+                temporalOverflow: metrics.event.temporalOverflow,
+                overflowRendered: temporalEvents.slice(5).map(item => promptText.includes(item.event.title)),
+            },
+            evidence: {
+                summarizedBudgetMax: metrics.evidence.summarizedBudgetMax,
+                temporalProtectionBudgetMax: metrics.evidence.directEvidenceTemporalProtectionBudgetMax,
+                temporalProtectedItems: metrics.evidence.directEvidenceTemporalProtectedItems,
+                temporalProtectedTokens: metrics.evidence.directEvidenceTemporalProtectedTokens,
+                enumerated: metrics.evidence.directEvidenceEnumerated,
+                admitted: metrics.evidence.directEvidenceAdmitted,
+                skippedByBudget: metrics.evidence.directEvidenceSkippedByBudget,
+                renderedEvidenceFloors,
+                markerRendered: Object.fromEntries(
+                    Object.entries(evidenceMarkers).map(([name, marker]) => [name, promptText.includes(marker)]),
+                ),
+            },
+        };
+    } finally {
+        if (previousFetch === undefined) delete globalThis.fetch;
+        else globalThis.fetch = previousFetch;
+        globalThis.window.xiaobaixStreamingGeneration = previousStreamingModule;
+    }
+}
+
+export async function runStorySummaryPostCommitCancellationCheck() {
+    ensureNodeReplayGlobals();
+    const [{ EXT_ID }, { runSummaryGeneration }] = await Promise.all([
+        import('../../core/constants.js'),
+        import('../../modules/story-summary/generate/generator.js'),
+    ]);
+    const chatId = 'summary-post-commit-cancel-check';
+    __setExtensionSettings({ [EXT_ID]: { storySummary: { enabled: true } } });
+    __setChatMetadata({});
+    __resetMetadataSaveCount();
+    __setReplayContext({
+        chatId,
+        chat: [{ is_user: true, name: '用户', mes: '测试提交后的取消' }],
+        name1: '用户',
+        name2: '角色',
+    });
+
+    const previousStreamingModule = globalThis.window.xiaobaixStreamingGeneration;
+    globalThis.window.xiaobaixStreamingGeneration = {
+        async xbgenrawCommand() {
+            return JSON.stringify({
+                mindful_prelude: {},
+                keywords: [],
+                events: [],
+                newCharacters: [],
+                arcUpdates: [],
+                factUpdates: [],
+            });
+        },
+        cancel() {},
+    };
+
+    const controller = new AbortController();
+    let onCompleteCalled = false;
+    try {
+        const result = await runSummaryGeneration(0, {
+            api: { provider: 'st' },
+            gen: {},
+            trigger: { useStream: false, maxPerRun: 100 },
+        }, {
+            onComplete: async () => {
+                onCompleteCalled = true;
+                controller.abort();
+            },
+        }, {
+            signal: controller.signal,
+            targetChatId: chatId,
+        });
+        return {
+            result,
+            onCompleteCalled,
+            immediateMetadataSaveCalls: __immediateMetadataSaveCallCount,
+            debouncedMetadataSaveCalls: __debouncedMetadataSaveCallCount,
+        };
+    } finally {
+        globalThis.window.xiaobaixStreamingGeneration = previousStreamingModule;
+    }
+}
+
+export async function runStorySummaryOwnershipCheck() {
+    ensureNodeReplayGlobals();
+    const [{ EXT_ID }, { runSummaryGeneration }] = await Promise.all([
+        import('../../core/constants.js'),
+        import('../../modules/story-summary/generate/generator.js'),
+    ]);
+    const ownerChatId = 'summary-owner-a';
+    const chat = [{ is_user: true, name: '用户', mes: '测试聊天所有权' }];
+    __setExtensionSettings({ [EXT_ID]: { storySummary: { enabled: true } } });
+    __setChatMetadata({});
+    __resetMetadataSaveCount();
+    __setReplayContext({ chatId: ownerChatId, chat, name1: '用户', name2: '角色' });
+
+    const previousStreamingModule = globalThis.window.xiaobaixStreamingGeneration;
+    globalThis.window.xiaobaixStreamingGeneration = {
+        async xbgenrawCommand() {
+            __setReplayContext({ chatId: 'summary-owner-b' });
+            return JSON.stringify({
+                mindful_prelude: {},
+                keywords: [],
+                events: [],
+                newCharacters: [],
+                arcUpdates: [],
+                factUpdates: [],
+            });
+        },
+        cancel() {},
+    };
+
+    try {
+        const result = await runSummaryGeneration(0, {
+            api: { provider: 'st' },
+            gen: {},
+            trigger: { useStream: false, maxPerRun: 100 },
+        }, {}, { targetChatId: ownerChatId });
+        return {
+            result,
+            metadataSaveCalls: __saveMetadataCallCount,
+            lastSummarizedMesId: chat_metadata?.extensions?.[EXT_ID]?.storySummary?.lastSummarizedMesId,
+        };
+    } finally {
+        globalThis.window.xiaobaixStreamingGeneration = previousStreamingModule;
+    }
+}
+
+export async function runStorySummarySourceMutationCheck() {
+    ensureNodeReplayGlobals();
+    const [{ EXT_ID }, { runSummaryGeneration }] = await Promise.all([
+        import('../../core/constants.js'),
+        import('../../modules/story-summary/generate/generator.js'),
+    ]);
+    const chatId = 'summary-source-mutation-check';
+    const chat = [{ is_user: true, name: '用户', mes: '原始内容' }];
+    __setExtensionSettings({ [EXT_ID]: { storySummary: { enabled: true } } });
+    __setChatMetadata({});
+    __resetMetadataSaveCount();
+    __setReplayContext({ chatId, chat, name1: '用户', name2: '角色' });
+
+    const previousStreamingModule = globalThis.window.xiaobaixStreamingGeneration;
+    globalThis.window.xiaobaixStreamingGeneration = {
+        async xbgenrawCommand() {
+            chat[0].mes = '生成期间已修改';
+            return JSON.stringify({
+                mindful_prelude: {},
+                keywords: [],
+                events: [],
+                newCharacters: [],
+                arcUpdates: [],
+                factUpdates: [],
+            });
+        },
+        cancel() {},
+    };
+
+    try {
+        const result = await runSummaryGeneration(0, {
+            api: { provider: 'st' },
+            gen: {},
+            trigger: { useStream: false, maxPerRun: 100 },
+        }, {}, { targetChatId: chatId });
+        return {
+            result,
+            metadataSaveCalls: __saveMetadataCallCount,
+            lastSummarizedMesId: chat_metadata?.extensions?.[EXT_ID]?.storySummary?.lastSummarizedMesId,
+        };
+    } finally {
+        globalThis.window.xiaobaixStreamingGeneration = previousStreamingModule;
+    }
+}
+
+export async function runStorySummaryRollbackIntegrityCheck() {
+    ensureNodeReplayGlobals();
+    const [{ EXT_ID }, { buildSummaryUndo }, storeModule] = await Promise.all([
+        import('../../core/constants.js'),
+        import('../../modules/story-summary/data/summary-undo.js'),
+        import('../../modules/story-summary/data/store.js'),
+    ]);
+    const {
+        executeRollback,
+        isSummaryConsumable,
+        rollbackSummaryIfNeeded,
+    } = storeModule;
+    __setExtensionSettings({ [EXT_ID]: { storySummary: { enabled: true } } });
+
+    const empty = {
+        keywords: [],
+        events: [],
+        characters: { main: [] },
+        arcs: [],
+        facts: [],
+        characterAliases: [],
+    };
+    const generated = structuredClone(empty);
+    generated.events.push({ id: 'evt-ai', summary: '首批生成事件', participants: [], _addedAt: 10 });
+    const current = structuredClone(generated);
+    current.events.push({ id: 'evt-manual', summary: '人工新增事件', participants: [], _addedAt: 11 });
+    const firstStore = {
+        lastSummarizedMesId: 10,
+        json: current,
+        summaryHistory: [{
+            format: 1,
+            previousEndMesId: -1,
+            endMesId: 10,
+            undo: buildSummaryUndo(empty, generated),
+        }],
+    };
+    const firstMetadata = { extensions: { [EXT_ID]: { storySummary: firstStore } } };
+    __setChatMetadata(firstMetadata);
+    __setReplayContext({
+        chatId: 'summary-first-rollback-check',
+        chat: [],
+        name1: '用户',
+        name2: '角色',
+    });
+    const firstResult = await executeRollback('summary-first-rollback-check', firstStore, -1);
+
+    const touchedJson = structuredClone(generated);
+    touchedJson.events[0].summary = '人工改写生成事件';
+    const touchedStore = {
+        lastSummarizedMesId: 10,
+        json: touchedJson,
+        summaryHistory: [{
+            format: 1,
+            previousEndMesId: -1,
+            endMesId: 10,
+            undo: buildSummaryUndo(empty, generated),
+        }],
+    };
+    __setChatMetadata({ extensions: { [EXT_ID]: { storySummary: touchedStore } } });
+    __setReplayContext({ chatId: 'summary-first-rollback-touched-check', chat: [] });
+    const touchedResult = await executeRollback('summary-first-rollback-touched-check', touchedStore, -1);
+
+    const invalidStore = {
+        lastSummarizedMesId: 10,
+        json: structuredClone(generated),
+        summaryHistory: [{ format: 1, endMesId: 10 }],
+    };
+    const invalidMetadata = {
+        ena_cached_story_summary: '旧的 Ena 派生缓存',
+        extensions: { [EXT_ID]: { storySummary: invalidStore } },
+    };
+    const shortenedChat = Array.from({ length: 5 }, (_, index) => ({
+        is_user: index % 2 === 0,
+        mes: `消息 ${index + 1}`,
+    }));
+    __setChatMetadata(invalidMetadata);
+    __setReplayContext({
+        chatId: 'summary-invalid-rollback-check',
+        chat: shortenedChat,
+        name1: '用户',
+        name2: '角色',
+    });
+    const invalidResult = await rollbackSummaryIfNeeded();
+    shortenedChat.push(...Array.from({ length: 7 }, (_, index) => ({
+        is_user: index % 2 === 0,
+        mes: `重新增长 ${index + 1}`,
+    })));
+
+    return {
+        firstResult,
+        firstEventIds: (firstStore.json?.events || []).map(event => event.id),
+        firstBoundary: firstStore.lastSummarizedMesId,
+        firstPendingBoundary: firstStore.pendingImportBoundary === true,
+        touchedResult,
+        touchedSummary: touchedStore.json?.events?.[0]?.summary || '',
+        invalidResult,
+        summaryInvalid: invalidStore.summaryInvalid === true,
+        consumableAfterRegrowth: isSummaryConsumable(invalidStore, shortenedChat.length),
+        legacyEnaCacheRemoved: !Object.hasOwn(invalidMetadata, 'ena_cached_story_summary'),
+    };
+}
+
 export async function runStorySummaryReplay({ rootDir, config, configPath }) {
     ensureNodeReplayGlobals();
     globalThis.localStorage.clear();
@@ -1081,8 +1713,12 @@ export async function runStorySummaryReplay({ rootDir, config, configPath }) {
     const anomalies = [];
 
     const sampleStartedAt = performance.now();
-    const sample = await loadSampleChat(samplePath, config);
+    const sample = await loadSampleChat(
+        samplePath,
+        mode === 'event-rerank-gate' ? { ...config, maxFloors: undefined } : config,
+    );
     withTiming(stageTimings, 'sample_load', performance.now() - sampleStartedAt);
+    let replayMessages = sample.messages;
 
     const { chatId, replayKey } = buildReplayIdentity(samplePath, config);
 
@@ -1093,7 +1729,7 @@ export async function runStorySummaryReplay({ rootDir, config, configPath }) {
     __setChatMetadata({});
     __setReplayContext({
         chatId,
-        chat: sample.messages,
+        chat: replayMessages,
         name1: sample.names.name1,
         name2: sample.names.name2,
         groupId: null,
@@ -1106,7 +1742,7 @@ export async function runStorySummaryReplay({ rootDir, config, configPath }) {
     globalThis.window.xiaobaixStreamingGeneration = createStreamingGenerationShim(panelConfig.api);
 
     const modules = await (async () => {
-        const [{ EXT_ID }, configModule, storeModule, generatorModule, promptModule, chunkStoreModule, chunkBuilderModule, stateStoreModule, stateIntegrationModule, recallModule, metricsModule, embedderModule] = await Promise.all([
+        const [{ EXT_ID }, configModule, storeModule, generatorModule, promptModule, chunkStoreModule, chunkBuilderModule, stateStoreModule, stateIntegrationModule, recallModule, eventRerankModule, metricsModule, embedderModule, lexicalIndexModule] = await Promise.all([
             import('../../core/constants.js'),
             import('../../modules/story-summary/data/config.js'),
             import('../../modules/story-summary/data/store.js'),
@@ -1117,8 +1753,10 @@ export async function runStorySummaryReplay({ rootDir, config, configPath }) {
             import('../../modules/story-summary/vector/storage/state-store.js'),
             import('../../modules/story-summary/vector/pipeline/state-integration.js'),
             import('../../modules/story-summary/vector/retrieval/recall.js'),
+            import('../../modules/story-summary/vector/retrieval/event-rerank.js'),
             import('../../modules/story-summary/vector/retrieval/metrics.js'),
             import('../../modules/story-summary/vector/utils/embedder.js'),
+            import('../../modules/story-summary/vector/retrieval/lexical-index.js'),
         ]);
 
         extSettings[EXT_ID] = { storySummary: { enabled: true } };
@@ -1133,11 +1771,13 @@ export async function runStorySummaryReplay({ rootDir, config, configPath }) {
             ...stateStoreModule,
             ...stateIntegrationModule,
             ...recallModule,
+            ...eventRerankModule,
             ...metricsModule,
             ...embedderModule,
+            ...lexicalIndexModule,
             getContext: () => ({
                 chatId,
-                chat: sample.messages,
+                chat: replayMessages,
                 name1: sample.names.name1,
                 name2: sample.names.name2,
             }),
@@ -1150,7 +1790,55 @@ export async function runStorySummaryReplay({ rootDir, config, configPath }) {
     }
 
     const shouldBootstrap = mode === 'full' || mode === 'bootstrap';
-    const shouldRunRecall = mode === 'full' || mode === 'recall-only';
+    const shouldRunRecall = mode === 'full' || mode === 'recall-only' || mode === 'recall-cassette';
+    const shouldRunPromptOnly = mode === 'prompt-only';
+    const shouldRunNaturalCapture = mode === 'natural-capture';
+    const shouldRunNaturalResume = mode === 'natural-resume';
+    const shouldRunNaturalRecall = mode === 'natural-recall';
+    const shouldRunEventRerankGate = mode === 'event-rerank-gate';
+    const goldPlan = shouldRunPromptOnly
+        || shouldRunNaturalCapture
+        || shouldRunNaturalResume
+        || shouldRunNaturalRecall
+        || shouldRunEventRerankGate
+        ? null
+        : await prepareGoldEvalPlan({ rootDir, config, boundaryFloor: targetMesId });
+    const naturalPlan = shouldRunNaturalCapture
+        ? await prepareNaturalCapturePlan({ rootDir, config, sample })
+        : null;
+    const naturalRecallPlan = shouldRunNaturalRecall
+        ? await prepareNaturalRecallPlan({ rootDir, config, sample, samplePath })
+        : null;
+    const naturalResumePlan = shouldRunNaturalResume
+        ? await prepareNaturalResumePlan({ rootDir, config, sample, samplePath })
+        : null;
+    const eventRerankGatePlan = shouldRunEventRerankGate
+        ? await prepareEventRerankGate({ rootDir, config, samplePath })
+        : null;
+    if (goldPlan && !shouldRunRecall) {
+        throw new Error('Gold Eval 需要 full 或 recall-only 模式');
+    }
+    if (goldPlan && !panelConfig.vector?.enabled) {
+        throw new Error('Gold Eval 需要启用 vectorConfig.enabled');
+    }
+    if (naturalPlan && !panelConfig.vector?.enabled) {
+        throw new Error('natural-capture 需要启用 vectorConfig.enabled');
+    }
+    if (naturalRecallPlan && !panelConfig.vector?.enabled) {
+        throw new Error('natural-recall 需要启用 vectorConfig.enabled');
+    }
+    if (naturalResumePlan && !panelConfig.vector?.enabled) {
+        throw new Error('natural-resume 需要启用 vectorConfig.enabled');
+    }
+    if (eventRerankGatePlan && panelConfig.vector?.eventRerankEnabled !== true) {
+        throw new Error('event-rerank-gate 需要 --event-rerank=true');
+    }
+    if (shouldRunPromptOnly && !config?.goldEval?.captureRunDir) {
+        throw new Error('prompt-only 需要 goldEval.captureRunDir');
+    }
+    if (mode === 'recall-cassette' && !config?.goldEval?.captureRunDir) {
+        throw new Error('recall-cassette 需要 goldEval.captureRunDir');
+    }
 
     let snapshot = null;
     let snapshotUsed = false;
@@ -1166,12 +1854,258 @@ export async function runStorySummaryReplay({ rootDir, config, configPath }) {
         stateAtomsCount: 0,
         stateVectorsCount: 0,
         storageStats: null,
-        source: shouldBootstrap ? 'bootstrap' : 'snapshot',
+        source: shouldRunNaturalCapture
+            ? 'natural-incremental'
+            : (shouldRunNaturalResume
+                ? 'natural-boundary-resume'
+                : (shouldRunNaturalRecall
+                    ? 'natural-boundary-replay'
+                    : (shouldRunEventRerankGate
+                        ? 'frozen-event-rerank-gate'
+                        : (shouldBootstrap ? 'bootstrap' : 'snapshot')))),
     };
 
     let recallCases = [];
+    let goldEvalResult = null;
+    let eventRerankGateResult = null;
 
-    if (shouldBootstrap) {
+    if (shouldRunNaturalCapture) {
+        await resetReplayStores(modules, chatId);
+        replayMessages = [];
+        __setReplayContext({ chat: replayMessages });
+        const naturalStartedAt = performance.now();
+        goldEvalResult = await runNaturalCaptureCases({
+            modules,
+            plan: naturalPlan,
+            sample,
+            samplePath,
+            config,
+            setVisibleHistory: async (messages) => {
+                replayMessages = messages;
+                __setReplayContext({ chat: replayMessages });
+            },
+            summarizeBeforeUser: args => summarizeNaturalHistoryBeforeUser({
+                modules,
+                chatId,
+                panelConfig,
+                ...args,
+            }),
+            maintainAfterAi: args => maintainNaturalHistoryAfterAi({
+                modules,
+                chatId,
+                panelConfig,
+                ...args,
+            }),
+            assertHistoryHealthy: args => assertNaturalHistoryHealthy({
+                modules,
+                chatId,
+                ...args,
+            }),
+            writeBoundarySnapshot: ({ snapshotPath: destination, goldCase, visibleMessages }) => (
+                writeNaturalBoundarySnapshot(
+                    modules,
+                    chatId,
+                    sample,
+                    samplePath,
+                    config,
+                    destination,
+                    visibleMessages,
+                    goldCase,
+                )
+            ),
+            writeRecoverySnapshot: ({ snapshotPath: destination, visibleMessages, resumeFloor, preparation }) => (
+                writeNaturalRecoverySnapshot(
+                    modules,
+                    chatId,
+                    sample,
+                    samplePath,
+                    config,
+                    destination,
+                    visibleMessages,
+                    resumeFloor,
+                    preparation,
+                )
+            ),
+            executeRecallCase: (recallCase, stageObserver, transportCassette) => executeRecallCase(
+                modules,
+                panelConfig.vector,
+                panelConfig,
+                recallCase,
+                stageObserver,
+                transportCassette,
+            ),
+        });
+        withTiming(stageTimings, 'natural_capture', performance.now() - naturalStartedAt);
+        recallCases = goldEvalResult.replayCases;
+        summaryStoreSnapshot = buildStoreSummary(modules.getSummaryStore());
+        summaryBatches = recallCases
+            .flatMap(item => item.preparation || [])
+            .filter(item => item.stage?.startsWith('summary-before-user:') && item.result?.triggered);
+    } else if (shouldRunNaturalResume) {
+        replayMessages = [];
+        __setReplayContext({ chat: replayMessages });
+        const naturalResumeStartedAt = performance.now();
+        goldEvalResult = await runNaturalResumeCases({
+            modules,
+            plan: naturalResumePlan,
+            sample,
+            samplePath,
+            config,
+            restoreResumeBoundary: async ({ snapshot, visibleMessages }) => {
+                replayMessages = visibleMessages;
+                __setReplayContext({ chat: replayMessages });
+                await restoreReplaySnapshot(modules, chatId, snapshot);
+            },
+            setVisibleHistory: async (messages) => {
+                replayMessages = messages;
+                __setReplayContext({ chat: replayMessages });
+            },
+            summarizeBeforeUser: args => summarizeNaturalHistoryBeforeUser({
+                modules,
+                chatId,
+                panelConfig,
+                ...args,
+            }),
+            maintainAfterAi: args => maintainNaturalHistoryAfterAi({
+                modules,
+                chatId,
+                panelConfig,
+                ...args,
+            }),
+            assertHistoryHealthy: args => assertNaturalHistoryHealthy({
+                modules,
+                chatId,
+                ...args,
+            }),
+            writeBoundarySnapshot: ({ snapshotPath: destination, goldCase, visibleMessages }) => (
+                writeNaturalBoundarySnapshot(
+                    modules,
+                    chatId,
+                    sample,
+                    samplePath,
+                    config,
+                    destination,
+                    visibleMessages,
+                    goldCase,
+                )
+            ),
+            writeRecoverySnapshot: ({ snapshotPath: destination, visibleMessages, resumeFloor, preparation }) => (
+                writeNaturalRecoverySnapshot(
+                    modules,
+                    chatId,
+                    sample,
+                    samplePath,
+                    config,
+                    destination,
+                    visibleMessages,
+                    resumeFloor,
+                    preparation,
+                )
+            ),
+            executeRecallCase: (recallCase, stageObserver, transportCassette) => executeRecallCase(
+                modules,
+                panelConfig.vector,
+                panelConfig,
+                recallCase,
+                stageObserver,
+                transportCassette,
+            ),
+        });
+        withTiming(stageTimings, 'natural_resume', performance.now() - naturalResumeStartedAt);
+        recallCases = goldEvalResult.replayCases;
+        summaryStoreSnapshot = buildStoreSummary(modules.getSummaryStore());
+        summaryBatches = recallCases
+            .flatMap(item => item.preparation || [])
+            .filter(item => item.stage?.startsWith('summary-before-user:') && item.result?.triggered);
+    } else if (shouldRunNaturalRecall) {
+        replayMessages = [];
+        __setReplayContext({ chat: replayMessages });
+        const naturalRecallStartedAt = performance.now();
+        goldEvalResult = await runNaturalRecallCases({
+            modules,
+            plan: naturalRecallPlan,
+            sample,
+            samplePath,
+            config,
+            restoreBoundarySnapshot: async ({ snapshot, visibleMessages }) => {
+                replayMessages = visibleMessages;
+                __setReplayContext({ chat: replayMessages });
+                await restoreReplaySnapshot(modules, chatId, snapshot);
+            },
+            executeRecallCase: (recallCase, stageObserver, transportCassette) => executeRecallCase(
+                modules,
+                panelConfig.vector,
+                panelConfig,
+                recallCase,
+                stageObserver,
+                transportCassette,
+            ),
+        });
+        withTiming(stageTimings, 'natural_recall', performance.now() - naturalRecallStartedAt);
+        recallCases = goldEvalResult.replayCases;
+        summaryStoreSnapshot = buildStoreSummary(modules.getSummaryStore());
+    } else if (shouldRunEventRerankGate) {
+        replayMessages = [];
+        __setReplayContext({ chat: replayMessages });
+        const gateStartedAt = performance.now();
+        eventRerankGateResult = await runEventRerankGate({
+            plan: eventRerankGatePlan,
+            executeCase: async ({ goldCase, promptInput, semanticQuery, snapshot }) => {
+                replayMessages = sample.messages.slice(0, goldCase.atFloor);
+                __setReplayContext({ chat: replayMessages });
+                await restoreReplaySnapshot(modules, chatId, snapshot);
+
+                const recallResult = deserializePromptRecallInput(promptInput?.production?.recallResult || {});
+                const beforeEvents = recallResult.events || [];
+                const counted = await withProductRecallTurn({
+                    modules,
+                    historyMessages: replayMessages,
+                    focusMessage: sample.messages[goldCase.atFloor],
+                    label: goldCase.id,
+                    execute: () => withExternalCallTrace(() => modules.rerankRecalledEvents(
+                        beforeEvents,
+                        {
+                            ...semanticQuery,
+                            chat: replayMessages,
+                        },
+                    )),
+                });
+                const rerank = counted.value;
+                const afterEvents = rerank?.events || beforeEvents;
+                const rerankedRecall = { ...recallResult, events: afterEvents };
+                const causalById = new Map(
+                    (rerankedRecall.causalChain || [])
+                        .map(item => [item?.event?.id, item])
+                        .filter(item => item[0]),
+                );
+                const built = await modules.buildVectorPromptForReplay(
+                    modules.getSummaryStore(),
+                    rerankedRecall,
+                    causalById,
+                    rerankedRecall.focusCharacters || [],
+                    cloneJsonSafe(promptInput?.production?.meta || {}),
+                    cloneJsonSafe(rerankedRecall.metrics || null),
+                );
+                let promptText = String(built?.promptText || '');
+                if (promptInput?.production?.wrapperHead) {
+                    promptText = `${promptInput.production.wrapperHead}\n${promptText}`;
+                }
+                if (promptInput?.production?.wrapperTail) {
+                    promptText = `${promptText}\n${promptInput.production.wrapperTail}`;
+                }
+                return {
+                    beforeEvents,
+                    afterEvents,
+                    rerank,
+                    promptText,
+                    evidenceTrace: built?.evidenceTrace || { final: [], prompt: [] },
+                    transportTrace: counted.trace || [],
+                };
+            },
+        });
+        withTiming(stageTimings, 'event_rerank_gate', performance.now() - gateStartedAt);
+        summaryStoreSnapshot = buildStoreSummary(modules.getSummaryStore());
+    } else if (shouldBootstrap) {
         await resetReplayStores(modules, chatId);
 
         const summaryStartedAt = performance.now();
@@ -1197,23 +2131,52 @@ export async function runStorySummaryReplay({ rootDir, config, configPath }) {
         summaryStoreSnapshot = buildStoreSummary(modules.getSummaryStore());
     }
 
-    if (panelConfig.vector?.enabled && shouldBootstrap) {
+    if (panelConfig.vector?.enabled && (shouldRunNaturalCapture || shouldRunNaturalResume || shouldRunNaturalRecall)) {
+        const stats = await modules.getStorageStats(chatId);
+        vectorReport = {
+            enabled: true,
+            l0: { built: modules.getStateAtomsCount() },
+            l1: { built: stats?.chunks || 0 },
+            l2: { built: stats?.eventVectors || 0 },
+            stateAtomsCount: modules.getStateAtomsCount(),
+            stateVectorsCount: await modules.getStateVectorsCount(chatId),
+            storageStats: stats,
+            source: shouldRunNaturalCapture
+                ? 'natural-incremental'
+                : (shouldRunNaturalResume ? 'natural-boundary-resume' : 'natural-boundary-replay'),
+        };
+    } else if (panelConfig.vector?.enabled && shouldBootstrap) {
         const summaryStore = modules.getSummaryStore();
         const vectorStartedAt = performance.now();
         await modules.getMeta(chatId);
         const l0Result = await modules.incrementalExtractAtoms(chatId, sample.messages, null, { maxFloors: Infinity });
+        const l0Stats = await modules.getAnchorStats();
         const l1Result = await modules.buildAllChunks({ vectorConfig: panelConfig.vector });
         const l2Result = await vectorizeEventSummaries(modules, chatId, panelConfig.vector, summaryStore?.json?.events || []);
         withTiming(stageTimings, 'vector_pipeline', performance.now() - vectorStartedAt);
 
         const stats = await modules.getStorageStats(chatId);
+        const stateAtomsCount = modules.getStateAtomsCount();
+        const stateVectorsCount = await modules.getStateVectorsCount(chatId);
+        const bootstrapHealth = assertBootstrapHealthy({
+            targetFloor: targetMesId,
+            summaryStore,
+            l0Result,
+            l0Stats,
+            l1Result,
+            l2Result,
+            stateAtomsCount,
+            stateVectorsCount,
+            storageStats: stats,
+        });
         vectorReport = {
             enabled: true,
             l0: l0Result,
+            health: bootstrapHealth,
             l1: l1Result,
             l2: l2Result,
-            stateAtomsCount: modules.getStateAtomsCount(),
-            stateVectorsCount: await modules.getStateVectorsCount(chatId),
+            stateAtomsCount,
+            stateVectorsCount,
             storageStats: stats,
         };
 
@@ -1244,11 +2207,72 @@ export async function runStorySummaryReplay({ rootDir, config, configPath }) {
 
     if (panelConfig.vector?.enabled && shouldRunRecall) {
         const recallStartedAt = performance.now();
-        recallCases = await runRecallCases(modules, panelConfig.vector, {
-            ...panelConfig,
-            recallCases: config?.recallCases,
-        });
+        if (goldPlan) {
+            goldEvalResult = await runGoldEvalCases({
+                modules,
+                goldPlan,
+                sample,
+                samplePath,
+                snapshotPath,
+                config,
+                executeRecallCase: (recallCase, stageObserver, transportCassette) => executeRecallCase(
+                    modules,
+                    panelConfig.vector,
+                    panelConfig,
+                    recallCase,
+                    stageObserver,
+                    transportCassette,
+                ),
+            });
+            recallCases = goldEvalResult.replayCases;
+        } else {
+            recallCases = await runRecallCases(modules, panelConfig.vector, {
+                ...panelConfig,
+                recallCases: config?.recallCases,
+            });
+        }
         withTiming(stageTimings, 'recall_and_prompt', performance.now() - recallStartedAt);
+    }
+
+    if (shouldRunPromptOnly) {
+        const promptStartedAt = performance.now();
+        const captureRunDir = resolveFromRoot(rootDir, config.goldEval.captureRunDir);
+        const runsRoot = resolveFromRoot(rootDir, config.goldEval.runsRoot);
+        if (!runsRoot) throw new Error('prompt-only 需要 goldEval.runsRoot');
+        goldEvalResult = await runGoldPromptOnly({
+            captureRunDir,
+            runsRoot,
+            runName: String(config.goldEval.runName || 'gold-prompt-only'),
+            config,
+            samplePath,
+            snapshotPath,
+            buildPrompt: async (productionInput) => {
+                const recallResult = deserializePromptRecallInput(productionInput?.recallResult || {});
+                const causalById = new Map(
+                    (recallResult.causalChain || [])
+                        .map(item => [item?.event?.id, item])
+                        .filter(item => item[0]),
+                );
+                const counted = await withExternalCallTrace(() => modules.buildVectorPromptForReplay(
+                    modules.getSummaryStore(),
+                    recallResult,
+                    causalById,
+                    recallResult.focusCharacters || [],
+                    cloneJsonSafe(productionInput?.meta || {}),
+                    cloneJsonSafe(recallResult.metrics || null),
+                ));
+                const built = counted.value || {};
+                let promptText = String(built.promptText || '');
+                if (productionInput?.wrapperHead) promptText = `${productionInput.wrapperHead}\n${promptText}`;
+                if (productionInput?.wrapperTail) promptText = `${promptText}\n${productionInput.wrapperTail}`;
+                return {
+                    promptText,
+                    evidenceTrace: built.evidenceTrace || { final: [], prompt: [] },
+                    externalCalls: counted.calls,
+                };
+            },
+        });
+        withTiming(stageTimings, 'prompt_only', performance.now() - promptStartedAt);
     }
 
     const rollbackReport = {
@@ -1280,7 +2304,9 @@ export async function runStorySummaryReplay({ rootDir, config, configPath }) {
             chatId,
             replayKey,
             outputPath: toPosixPath(path.relative(rootDir, outputDir)),
-            snapshotPath: toPosixPath(path.relative(rootDir, snapshotPath)),
+            snapshotPath: shouldRunNaturalCapture || shouldRunNaturalResume || shouldRunNaturalRecall || shouldRunEventRerankGate
+                ? null
+                : toPosixPath(path.relative(rootDir, snapshotPath)),
             snapshotUsed,
             snapshotWritten,
             metadataSaveCalls: __saveMetadataCallCount,
@@ -1301,6 +2327,14 @@ export async function runStorySummaryReplay({ rootDir, config, configPath }) {
         recall: {
             cases: recallCases,
         },
+        goldEval: goldEvalResult
+            ? {
+                runId: goldEvalResult.manifest.runId,
+                runDir: goldEvalResult.artifacts.runDir,
+                metrics: goldEvalResult.aggregated,
+            }
+            : null,
+        eventRerankGate: eventRerankGateResult,
         timings: stageTimings,
         anomalies,
     };
@@ -1309,7 +2343,8 @@ export async function runStorySummaryReplay({ rootDir, config, configPath }) {
     const baselinePath = config?.baselinePath
         ? resolveFromRoot(rootDir, config.baselinePath)
         : path.join(outputDir, 'story-summary-replay-baseline.json');
-    if (config?.compareWithBaseline !== false && recallCases.length > 0) {
+    const hasNaturalPlan = !!(naturalPlan || naturalResumePlan || naturalRecallPlan || eventRerankGatePlan);
+    if (!goldPlan && !hasNaturalPlan && config?.compareWithBaseline !== false && recallCases.length > 0) {
         try {
             const baselineRaw = await fs.readFile(baselinePath, 'utf8');
             baselineReport = JSON.parse(baselineRaw);
@@ -1322,7 +2357,7 @@ export async function runStorySummaryReplay({ rootDir, config, configPath }) {
     await fs.writeFile(reportJsonPath, JSON.stringify(report, null, 2), 'utf8');
     await fs.writeFile(reportMdPath, renderMarkdownReport(report), 'utf8');
 
-    if (!baselineReport && config?.writeBaselineOnMissing && recallCases.length > 0) {
+    if (!goldPlan && !hasNaturalPlan && !baselineReport && config?.writeBaselineOnMissing && recallCases.length > 0) {
         await fs.writeFile(baselinePath, JSON.stringify(report, null, 2), 'utf8');
     }
 
@@ -1330,8 +2365,11 @@ export async function runStorySummaryReplay({ rootDir, config, configPath }) {
         report,
         reportJsonPath,
         reportMdPath,
-        snapshotPath,
+        snapshotPath: shouldRunNaturalCapture || shouldRunNaturalResume || shouldRunNaturalRecall || shouldRunEventRerankGate
+            ? null
+            : snapshotPath,
         baselinePath,
-        baselineWritten: !baselineReport && !!config?.writeBaselineOnMissing && recallCases.length > 0,
+        baselineWritten: !goldPlan && !hasNaturalPlan && !baselineReport && !!config?.writeBaselineOnMissing && recallCases.length > 0,
+        goldEval: goldEvalResult,
     };
 }

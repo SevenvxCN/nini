@@ -5,7 +5,8 @@ import { extensionFolderPath } from "../../core/constants.js";
 import { createFirstPartyIframeOverlay, loadFirstPartyIframeCacheKey } from "../../core/first-party-iframe-app.js";
 import { isTrustedMessage, postToIframe } from "../../core/iframe-messaging.js";
 import { replaceXbGetVarInString } from "../variables/var-commands.js";
-import { buildTavernFrameConfig, saveTavernAgentConfig } from "./host/agent-config.js";
+import { buildTavernFrameConfig, loadTavernAgentConfigPayload, saveTavernAgentConfig } from "./host/agent-config.js";
+import { subscribeSharedAgentSettingsChanged } from "../agent-core/settings-repository.js";
 import {
   getTavernChatPresetBundle,
   listTavernChatPresetBundles,
@@ -51,21 +52,22 @@ let frameBootReady = false;
 let pendingMessages = [];
 let initialConfigPromise = null;
 let messageHandlerInstalled = false;
+let unsubscribeSharedAgentSettingsChanged = null;
 let overlayResizeHandler = null;
 let overlayResizeFrame = 0;
 let overlayKeyboardSettleHandler = null;
 let overlayKeyboardSettleTimers = [];
 let cachedTavernMobileTopOffset = null;
 const pendingDrawRequests = /* @__PURE__ */ new Map();
+const pendingInlineImageRequests = /* @__PURE__ */ new Map();
+const pendingVoiceRequests = /* @__PURE__ */ new Map();
+let activeVoiceRequestId = "";
 let latestStartupProgress = { percent: 5, action: "createOverlay" };
 async function getDrawGalleryCacheModule() {
   return await import("../draw/shared/gallery-cache.js");
 }
 async function getDrawCommonModule() {
   return await import("../draw/shared/draw-common.js");
-}
-async function getFourthWallImageModule() {
-  return await import("../fourth-wall/fw-image.js");
 }
 function cloneFramePayload(value) {
   const seen = /* @__PURE__ */ new WeakSet();
@@ -283,6 +285,9 @@ async function sendInitialConfigToFrame() {
 async function sendConfigToFrame(options = {}) {
   postToFrame("xb-tavern:config", await buildFrameConfigPayload(options));
 }
+async function sendAgentConfigToFrame() {
+  postToFrame("xb-tavern:agent-config", await loadTavernAgentConfigPayload());
+}
 async function refreshContext(options = {}) {
   postToFrame("xb-tavern:context", await buildTavernContext(options));
 }
@@ -321,6 +326,7 @@ async function saveConfigFromFrame(payload = {}) {
     requestId,
     ok: result.ok,
     config: result.config,
+    conflict: result.conflict === true,
     error: result.error || ""
   });
   if (result.ok) {
@@ -490,6 +496,10 @@ async function handleDrawGenerate(payload = {}) {
 }
 async function handleInlineImageGenerate(payload = {}) {
   const requestId = String(payload.requestId || "");
+  const controller = new AbortController();
+  if (requestId) {
+    pendingInlineImageRequests.set(requestId, controller);
+  }
   const source = payload.payload && typeof payload.payload === "object" ? payload.payload : payload;
   const tags = String(source.tags || "").trim();
   try {
@@ -500,22 +510,118 @@ async function handleInlineImageGenerate(payload = {}) {
     if (!status.enabled || !status.ready) {
       throw new Error("\u8BF7\u5F00\u542F\u5C0F\u767DX\u753B\u56FE\u6A21\u5757");
     }
-    const { generateImage } = await getFourthWallImageModule();
-    const base64 = await generateImage(tags, (state, position, delay) => {
-      postToFrame("xb-tavern:inline-image-progress", {
-        requestId,
-        tags,
-        status: state,
-        position,
-        delay: delay ? Math.round(delay / 1e3) : void 0
-      });
+    const generateSharedImage = window.xiaobaixDraw?.generateSharedImage;
+    if (typeof generateSharedImage !== "function") {
+      throw new Error("\u753B\u56FE\u5171\u4EAB\u8FD0\u884C\u65F6\u672A\u521D\u59CB\u5316");
+    }
+    const base64 = await generateSharedImage({
+      prompt: tags,
+      cacheNamespace: "tavern",
+      signal: controller.signal,
+      onProgress: (state, ahead, delay) => {
+        postToFrame("xb-tavern:inline-image-progress", {
+          requestId,
+          tags,
+          status: state,
+          ahead,
+          delay: delay ? Math.round(delay / 1e3) : void 0
+        });
+      }
     });
     replyHostResult(requestId, {
       ok: true,
       result: { base64 }
     });
   } catch (error) {
-    replyHostResult(requestId, hostErrorPayload(error, "inline_image_failed"));
+    if (!controller.signal.aborted) {
+      replyHostResult(requestId, hostErrorPayload(error, "inline_image_failed"));
+    }
+  } finally {
+    if (requestId) {
+      pendingInlineImageRequests.delete(requestId);
+    }
+  }
+}
+function settleVoiceRequest(requestId, payload) {
+  if (!pendingVoiceRequests.has(requestId)) {
+    return;
+  }
+  pendingVoiceRequests.delete(requestId);
+  if (activeVoiceRequestId === requestId) {
+    activeVoiceRequestId = "";
+  }
+  replyHostResult(requestId, payload);
+}
+function stopVoiceRequest(requestId, notify = true) {
+  const request = pendingVoiceRequests.get(requestId);
+  if (!request) {
+    return;
+  }
+  pendingVoiceRequests.delete(requestId);
+  if (activeVoiceRequestId === requestId) {
+    activeVoiceRequestId = "";
+  }
+  request.stop();
+  if (notify) {
+    replyHostResult(requestId, { ok: true, state: "stopped" });
+  }
+}
+async function handleVoicePlay(payload = {}) {
+  const requestId = String(payload.requestId || "").trim();
+  const text = String(payload.text || "").trim();
+  const emotion = String(payload.emotion || "").trim();
+  try {
+    if (!requestId) {
+      throw new Error("\u8BED\u97F3\u8BF7\u6C42\u7F3A\u5C11\u6807\u8BC6");
+    }
+    if (!text) {
+      throw new Error("\u8BED\u97F3\u5185\u5BB9\u4E3A\u7A7A");
+    }
+    if (activeVoiceRequestId) {
+      stopVoiceRequest(activeVoiceRequestId);
+    }
+    activeVoiceRequestId = requestId;
+    pendingVoiceRequests.set(requestId, { stop: () => {
+    } });
+    const playTransient = window.xiaobaixTts?.playTransient;
+    if (typeof playTransient !== "function") {
+      throw new Error("\u8BF7\u5148\u542F\u7528 TTS \u6A21\u5757");
+    }
+    if (!pendingVoiceRequests.has(requestId)) {
+      return;
+    }
+    const handle = playTransient(text, emotion, {
+      requestId,
+      onState: (state, info = {}) => {
+        postToFrame("xb-tavern:voice-progress", {
+          requestId,
+          status: state,
+          duration: info.duration,
+          message: info.message
+        });
+        if (state === "ended") {
+          settleVoiceRequest(requestId, { ok: true, state });
+        } else if (state === "stopped") {
+          settleVoiceRequest(requestId, { ok: true, state });
+        } else if (state === "error") {
+          settleVoiceRequest(requestId, {
+            ok: false,
+            error: info.message || "\u8BED\u97F3\u64AD\u653E\u5931\u8D25"
+          });
+        }
+      }
+    });
+    if (pendingVoiceRequests.has(requestId)) {
+      pendingVoiceRequests.set(requestId, handle);
+    }
+  } catch (error) {
+    if (requestId) {
+      pendingVoiceRequests.delete(requestId);
+      if (activeVoiceRequestId === requestId) {
+        activeVoiceRequestId = "";
+      }
+      replyHostResult(requestId, hostErrorPayload(error, "voice_play_failed"));
+    }
   }
 }
 function previewToTransferableUrl(preview = {}) {
@@ -580,8 +686,7 @@ function buildDeletedDrawPlaceholder(slotId, preview = {}, fallback = {}) {
     errorType: TAVERN_DRAW_DELETED_ERROR_TYPE,
     errorMessage: TAVERN_DRAW_DELETED_ERROR_MESSAGE,
     characterPrompts: cloneFramePayload(getDrawPreviewCharacterPrompts(source)),
-    negativePrompt: String(source.negativePrompt || ""),
-    anchor: String(source.anchor || "")
+    negativePrompt: String(source.negativePrompt || "")
   };
 }
 function buildRefreshFailedDrawPlaceholder(slotId, preview = {}, failedInfo = {}, error) {
@@ -602,8 +707,7 @@ function buildRefreshFailedDrawPlaceholder(slotId, preview = {}, failedInfo = {}
     errorType: "\u751F\u6210\u5931\u8D25",
     errorMessage,
     characterPrompts: cloneFramePayload(getDrawPreviewCharacterPrompts(source)),
-    negativePrompt: String(source.negativePrompt || ""),
-    anchor: String(source.anchor || "")
+    negativePrompt: String(source.negativePrompt || "")
   };
 }
 function transferDrawPreview(preview = {}, index = 0, total = 1) {
@@ -842,7 +946,6 @@ async function handleDrawImageRefresh(payload = {}) {
       positive: String(promptData.positive || tags),
       characterPrompts,
       negativePrompt: String(promptData.negativePrompt || negativePrompt || ""),
-      anchor: preview.anchor || "",
       source: "tavern"
     });
     await setSlotSelection(slotId, imgId);
@@ -933,6 +1036,8 @@ function handleCancelRequest(payload = {}) {
     return;
   }
   pendingDrawRequests.get(requestId)?.abort();
+  pendingInlineImageRequests.get(requestId)?.abort();
+  stopVoiceRequest(requestId, false);
   cancelTavernNativeChatPrompt(requestId);
 }
 async function handleChatPresetRequest(type, payload = {}) {
@@ -1171,7 +1276,16 @@ async function openTavern() {
   await createOverlay();
   prepareInitialConfig();
 }
+function cancelTavernMediaRequests() {
+  pendingDrawRequests.forEach((controller) => controller.abort());
+  pendingDrawRequests.clear();
+  pendingInlineImageRequests.forEach((controller) => controller.abort());
+  pendingInlineImageRequests.clear();
+  Array.from(pendingVoiceRequests.keys()).forEach((requestId) => stopVoiceRequest(requestId, false));
+  activeVoiceRequestId = "";
+}
 function closeTavern() {
+  cancelTavernMediaRequests();
   removeOverlayResizeHandler();
   const overlay = document.getElementById(OVERLAY_ID);
   if (overlay) {
@@ -1219,6 +1333,9 @@ function handleFrameMessage(event) {
     case "xb-tavern:save-config":
       void saveConfigFromFrame(data.payload || {});
       break;
+    case "xb-tavern:reload-config":
+      void sendAgentConfigToFrame();
+      break;
     case "xb-tavern:get-host-request-headers":
       handleHostRequestHeaders(data.payload || {});
       break;
@@ -1239,6 +1356,9 @@ function handleFrameMessage(event) {
       break;
     case "xb-tavern:inline-image-generate":
       void handleInlineImageGenerate(data.payload || {});
+      break;
+    case "xb-tavern:voice-play":
+      void handleVoicePlay(data.payload || {});
       break;
     case "xb-tavern:draw-image":
       void handleDrawImage(data.payload || {});
@@ -1321,6 +1441,16 @@ function installMessageHandler() {
 }
 async function initTavern() {
   installMessageHandler();
+  unsubscribeSharedAgentSettingsChanged?.();
+  unsubscribeSharedAgentSettingsChanged = subscribeSharedAgentSettingsChanged((detail) => {
+    if (String(detail?.source || "") === "tavern") {
+      return;
+    }
+    if (!frameReady) {
+      return;
+    }
+    void sendAgentConfigToFrame();
+  });
   window.xiaobaixTavern = {
     open: openTavern,
     close: closeTavern,
@@ -1330,6 +1460,8 @@ async function initTavern() {
   };
 }
 function cleanupTavern() {
+  unsubscribeSharedAgentSettingsChanged?.();
+  unsubscribeSharedAgentSettingsChanged = null;
   closeTavern();
 }
 export {

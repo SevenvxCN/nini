@@ -42,7 +42,7 @@ Incremental_Summary_Requirements:
     - Causal_Chain: 为每个新事件标注直接前因事件ID（causedBy）。仅在因果关系明确（直接导致/明确动机/承接后果）时填写；不明确时填[]完全正常。0-2个，只填 evt-数字，指向已存在或本次新输出事件。
   - Character_Dynamics: 识别新角色，追踪关系趋势（破裂/厌恶/反感/陌生/投缘/亲密/交融）
   - Arc_Tracking: 更新角色弧光轨迹与成长进度(0.0-1.0)
-  - Fact_Tracking: 维护 SPO 三元组知识图谱。追踪生死、物品归属、位置、关系等硬性事实。采用 KV 覆盖模型（s+p 为键）。
+  - Fact_Tracking: 维护 SPO 三元组知识图谱。追踪生死、物品归属、位置、关系、稳定辨识性身体特征等硬性事实。采用 KV 覆盖模型（s+p 为键）。
 </task_settings>
 ---
 Story Analyst:
@@ -109,6 +109,8 @@ Acknowledged. Now reviewing the incremental summarization specifications:
 [Event Summary Style]
 - summary 不是剧情概括，而是高召回的回忆卡片
 - 必须优先保留原词：正式人名、原文称呼/昵称/别称、地点、关键物件、动作、情绪态度、关系变化、约定/承诺/交换条件、秘密或羞辱/暧昧/冲突钩子
+- 信息无法全部容纳时，严格按此顺序压缩或删除：气氛描写 → 次要反应 → 心理描写 → 动作过程；必须先删完前一类，才可压缩后一类
+- 与本事件直接相关的具名实体（人名、地点、具名物件）、辨识性特征和15字以内的关键原话属于最后保留层；仅在上述四类都已不足以继续压缩时才考虑舍弃；无关名词不要强行塞入
 - 不要写“两人发生冲突”“关系恶化”“有暧昧互动”“揭示了一个秘密”这种空话，必须写清是谁在什么地方拿着什么、对谁做了什么、结果怎样
 - 优先写成 1 句；信息确实过多且确有必要时可写 2 句，但不要拆成空泛铺垫 + 具体补充
 - 允许 summary 略密实，但必须让未来一句口语提法也能认出这段
@@ -138,7 +140,8 @@ Core rules:
 2) Only output facts that are NEW or CHANGED in the new dialogue. Do NOT repeat unchanged facts.
 3) isState meaning:
    - isState: true  -> core constraints that must stay stable and should NEVER be auto-deleted
-                    (identity, location, life/death, ownership, relationship status, binding rules)
+                    (identity, location, life/death, ownership, relationship status,
+                      stable distinctive physical traits, binding rules)
    - isState: false -> non-core facts / soft memories that may be pruned by capacity limits later
 4) Relationship facts:
    - Use predicate format: "对X的看法" (X is the target person)
@@ -190,12 +193,15 @@ Before generating, observe the USER and analyze carefully:
 - What NEW characters appeared for the first time?
 - What relationship CHANGES happened?
 - What arc PROGRESS was made?
-- What facts changed? (status/position/ownership/relationships)
+- What facts changed? (status/position/ownership/relationships/stable distinctive physical traits)
 
 ## factUpdates 规则
 - 目的: 纠错 & 世界一致性约束，只记录硬性事实
 - s+p 为键，相同键会覆盖旧值
-- isState: true=核心约束(位置/身份/生死/关系)，false=有容量上限会被清理
+- isState: true=核心约束(位置/身份/生死/关系/稳定辨识性身体特征)，false=有容量上限会被清理
+- 外貌类统一使用谓词 p="身体特征"；只记录稳定、有辨识度的特征，不记录临时衣着、姿势、表情和普通伤势
+- "身体特征" 的 o 必须写当前完整值。由于相同 s+p 会覆盖旧值，新增特征时必须把已有特征一并写全，不能只写新增部分
+- 例：已有 {"s":"鹿椿若","p":"身体特征","o":"头顶白色分叉鹿角","isState":true}，后续发现鹿耳时应输出 {"s":"鹿椿若","p":"身体特征","o":"头顶白色分叉鹿角，鹿耳","isState":true}，不能只写"鹿耳"
 - 关系类: p="对X的看法"，trend 必填（破裂|厌恶|反感|陌生|投缘|亲密|交融）
 - 删除: {s, p, retracted: true}，不需要 o 字段
 - 更新: {s, p, o, isState, trend?}
@@ -303,6 +309,9 @@ const DEFAULT_OPENROUTER_URL = "https://openrouter.ai/api/v1";
 const DEFAULT_L0_MODEL = "Qwen/Qwen3-8B";
 const DEFAULT_EMBEDDING_MODEL = "BAAI/bge-m3";
 const DEFAULT_RERANK_MODEL = "BAAI/bge-reranker-v2-m3";
+const DEFAULT_SUMMARIZED_EVIDENCE_BUDGET = 4000;
+const MIN_SUMMARIZED_EVIDENCE_BUDGET = 3000;
+const MAX_SUMMARIZED_EVIDENCE_BUDGET = 5000;
 
 function getVectorProviderDefaultUrl(provider) {
     return provider === "openrouter" ? DEFAULT_OPENROUTER_URL : DEFAULT_L0_URL;
@@ -376,11 +385,25 @@ function normalizeVectorConfig(rawVector = null) {
     const sharedProvider = String(legacyOnline.provider || DEFAULT_VECTOR_PROVIDER).toLowerCase();
     const sharedUrl = String(legacyOnline.url || (sharedProvider === "openrouter" ? DEFAULT_OPENROUTER_URL : DEFAULT_L0_URL)).trim();
     const sharedKey = String(legacyOnline.key || "").trim();
+    const eventRerankEnabled = rawVector?.eventRerankEnabled !== false;
+    const summarizedEvidenceBudgetValue = rawVector?.summarizedEvidenceBudget;
+    const summarizedEvidenceBudgetRaw = summarizedEvidenceBudgetValue == null
+        || summarizedEvidenceBudgetValue === ""
+        ? Number.NaN
+        : Number(summarizedEvidenceBudgetValue);
+    const summarizedEvidenceBudget = Number.isFinite(summarizedEvidenceBudgetRaw)
+        ? Math.max(
+            MIN_SUMMARIZED_EVIDENCE_BUDGET,
+            Math.min(MAX_SUMMARIZED_EVIDENCE_BUDGET, Math.round(summarizedEvidenceBudgetRaw)),
+        )
+        : DEFAULT_SUMMARIZED_EVIDENCE_BUDGET;
 
     return {
         enabled: !!rawVector?.enabled,
         engine: "online",
         l0Concurrency: Math.max(1, Math.min(50, Number(rawVector?.l0Concurrency) || 10)),
+        eventRerankEnabled,
+        summarizedEvidenceBudget,
         l0Api: normalizeOpenAiCompatApiConfig(rawVector?.l0Api, {
             provider: sharedProvider,
             url: sharedUrl,
@@ -543,7 +566,9 @@ export function getSummaryPanelConfig() {
 export function saveSummaryPanelConfig(config) {
     try {
         const normalized = setSummaryPanelConfigCache(config);
-        CommonSettingStorage.set(SUMMARY_CONFIG_KEY, normalized);
+        CommonSettingStorage.set(SUMMARY_CONFIG_KEY, normalized).catch((e) => {
+            xbLog.error(MODULE_ID, "保存面板配置失败", e);
+        });
         return normalized;
     } catch (e) {
         xbLog.error(MODULE_ID, "保存面板配置失败", e);
@@ -568,7 +593,9 @@ export function saveVectorConfig(vectorCfg) {
         const parsed = ensureSummaryPanelConfigCache();
         parsed.vector = normalizeVectorConfig(vectorCfg || null);
         setSummaryPanelConfigCache(parsed);
-        CommonSettingStorage.set(SUMMARY_CONFIG_KEY, parsed);
+        CommonSettingStorage.set(SUMMARY_CONFIG_KEY, parsed).catch((e) => {
+            xbLog.error(MODULE_ID, "保存向量配置失败", e);
+        });
         return cloneConfig(parsed.vector);
     } catch (e) {
         xbLog.error(MODULE_ID, "保存向量配置失败", e);
@@ -580,23 +607,32 @@ export async function saveSummaryPanelConfigVerified(config) {
     const normalized = normalizeSummaryPanelConfig(config);
     await CommonSettingStorage.setAndSave(SUMMARY_CONFIG_KEY, normalized, { silent: false });
     CommonSettingStorage.clearCache();
-    const savedConfig = await CommonSettingStorage.get(SUMMARY_CONFIG_KEY, null);
+    const savedConfig = await CommonSettingStorage.getStrict(SUMMARY_CONFIG_KEY, null);
     const savedNormalized = normalizeSummaryPanelConfig(savedConfig);
     assertSummaryConfigPersisted(normalized, savedNormalized);
     setSummaryPanelConfigCache(savedNormalized);
     return cloneConfig(savedNormalized);
 }
 
-export async function loadConfigFromServer() {
+export async function readSummaryPanelConfigFromServer() {
     try {
         const savedConfig = await CommonSettingStorage.get(SUMMARY_CONFIG_KEY, null);
         if (savedConfig) {
-            const normalized = setSummaryPanelConfigCache(savedConfig);
-            xbLog.info(MODULE_ID, "已从服务端加载面板配置");
-            return cloneConfig(normalized);
+            return cloneConfig(normalizeSummaryPanelConfig(savedConfig));
         }
     } catch (e) {
         xbLog.warn(MODULE_ID, "加载面板配置失败", e);
     }
     return getSummaryPanelConfig();
+}
+
+export function applySummaryPanelConfigSnapshot(config) {
+    return cloneConfig(setSummaryPanelConfigCache(config));
+}
+
+export async function loadConfigFromServer() {
+    const loaded = await readSummaryPanelConfigFromServer();
+    const applied = applySummaryPanelConfigSnapshot(loaded);
+    xbLog.info(MODULE_ID, "已从服务端加载面板配置");
+    return applied;
 }
